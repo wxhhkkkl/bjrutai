@@ -1,0 +1,68 @@
+<app-header title="我的" />
+
+<view class="profile-screen tab-screen">
+    <view class="profile-hero">
+        <image class="profile-hero__visual" src="/assets/images/profile-hero-visual.png" mode="aspectFill"
+            aria-role="img" aria-label="个人资料视觉" />
+        <image class="profile-hero__avatar" src="{{session.avatar || '/assets/images/profile-avatar.png'}}" mode="aspectFill" aria-role="img"
+            aria-label="用户头像" />
+
+        <view class="profile-hero__identity">
+            <text class="profile-hero__name">
+                {{session.name || '张小明'}}
+            </text>
+            <text class="profile-hero__role">北京鲁泰{{identityLabel}}</text>
+            <view class="profile-hero__approved">
+                <van-icon name="passed" size="17px" color="#18a63d" />
+                <text>资质审核通过</text>
+            </view>
+        </view>
+
+        <view class="profile-hero__edit tap-target" data-id="profile" bindtap="action" hover-class="tap-feedback"
+            hover-start-time="0" hover-stay-time="80" aria-role="button" aria-label="编辑资料">
+            <van-icon name="edit" size="18px" color="#111318" />
+            <text>编辑资料</text>
+        </view>
+
+        <view class="profile-metrics">
+            <view wx:for="{{metrics}}" wx:key="label" class="profile-metric">
+                <text class="profile-metric__label">{{item.label}}</text>
+                <text class="profile-metric__value">{{item.value}}</text>
+            </view>
+        </view>
+    </view>
+
+    <page-state state="{{state}}" bind:retry="retry" />
+
+    <block wx:if="{{state === 'success'}}">
+        <text class="profile-section-title">我的服务</text>
+        <view class="profile-service-grid">
+            <view wx:for="{{serviceItems}}" wx:key="id" class="profile-service-item tap-target" data-id="{{item.id}}"
+                bindtap="action" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+                <image class="profile-service-icon" src="{{item.icon}}" mode="aspectFill" />
+                <view class="profile-service-copy">
+                    <text class="profile-service-name">{{item.title}}</text>
+                    <text class="profile-service-description">{{item.description}}</text>
+                </view>
+                <van-icon name="arrow" size="21px" color="#8a8f98" />
+            </view>
+        </view>
+        <text class="profile-section-title"> 账户与服务</text>
+        <view class="profile-account-card">
+            <view wx:for="{{accountItems}}" wx:key="id" class="profile-account-row tap-target" data-id="{{item.id}}"
+                bindtap="action" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+                <image class="profile-account-icon" src="{{item.icon}}" mode="aspectFill" />
+                <text class="profile-account-name">{{item.title}}</text>
+                <text wx:if="{{item.badge}}" class="profile-account-badge">
+                    {{item.badge}}
+                </text>
+                <van-icon name="arrow" size="21px" color="#8a8f98" />
+            </view>
+        </view>
+
+        <view class="profile-logout tap-target" bindtap="logout" hover-class="tap-feedback" hover-start-time="0"
+            hover-stay-time="80" aria-role="button" aria-label="退出登录">
+            退出登录
+        </view>
+    </block>
+</view>

@@ -1,0 +1,6 @@
+{
+  "usingComponents": {
+    "page-state": "/components/page-state/index",
+    "van-icon": "@vant/weapp/icon/index"
+  }
+}

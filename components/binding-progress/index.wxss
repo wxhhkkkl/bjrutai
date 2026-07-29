@@ -1,0 +1,108 @@
+.binding-progress {
+  display: flex;
+  align-items: center;
+  gap: 28rpx;
+}
+
+.binding-progress__summary {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  flex: none;
+  color: #111318;
+  font-size: 27rpx;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.binding-progress__count {
+  color: #1677ff;
+  font-weight: 700;
+}
+
+.binding-progress__bars {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9rpx;
+  flex: 1;
+}
+
+.binding-progress__bar {
+  height: 10rpx;
+  flex: 1;
+  background: #e2e7ef;
+  border-radius: 999rpx;
+}
+
+.binding-progress__bar--active {
+  background: #1677ff;
+}
+
+.binding-progress__complete {
+  min-width: 0;
+  flex: 1;
+}
+
+.binding-progress__track {
+  height: 34rpx;
+  display: flex;
+  align-items: center;
+}
+
+.binding-progress__edge {
+  width: 31rpx;
+  height: 7rpx;
+  background: #1677ff;
+  border-radius: 999rpx;
+}
+
+.binding-progress__node {
+  width: 28rpx;
+  height: 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: #ffffff;
+  background: #1677ff;
+  border-radius: 50%;
+}
+
+.binding-progress__line {
+  min-width: 20rpx;
+  height: 7rpx;
+  flex: 1;
+  background: #1677ff;
+  border-radius: 999rpx;
+}
+
+.binding-progress__line--last {
+  max-width: 31rpx;
+}
+
+.binding-progress__labels {
+  margin-top: 5rpx;
+  display: flex;
+  justify-content: space-around;
+  color: #252a31;
+  font-size: 21rpx;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+@media (max-width: 350px) {
+  .binding-progress {
+    gap: 18rpx;
+  }
+
+  .binding-progress__summary {
+    gap: 10rpx;
+    font-size: 24rpx;
+  }
+
+  .binding-progress__labels {
+    font-size: 18rpx;
+  }
+}

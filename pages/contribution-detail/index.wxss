@@ -1,0 +1,332 @@
+page {
+  background: #ffffff;
+}
+
+.contribution-detail-page {
+  min-height: 100vh;
+  padding: 27rpx 34rpx calc(31rpx + constant(safe-area-inset-bottom));
+  padding: 27rpx 34rpx calc(31rpx + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 68%, #ffffff 100%);
+}
+
+.contribution-summary {
+  position: relative;
+  height: 340rpx;
+  overflow: hidden;
+  padding: 36rpx 34rpx 27rpx;
+  background: linear-gradient(112deg, #f7fbff 0%, #ffffff 56%, #f2f7ff 100%);
+  border: 1rpx solid #c7dfff;
+  border-radius: 27rpx;
+}
+
+.contribution-summary__month {
+  min-height: 49rpx;
+  display: inline-flex;
+  align-items: center;
+  gap: 11rpx;
+  color: #050505;
+  font-size: 28rpx;
+  font-weight: 500;
+  border-radius: 13rpx;
+}
+
+.contribution-summary__label {
+  display: block;
+  margin-top: 26rpx;
+  color: #626a75;
+  font-size: 26rpx;
+  line-height: 1;
+}
+
+.contribution-summary__amount {
+  height: 91rpx;
+  margin-top: 12rpx;
+  display: flex;
+  align-items: flex-end;
+}
+
+.contribution-summary__amount > text:first-child {
+  color: #050505;
+  font-size: 70rpx;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.contribution-summary__amount > text:last-child {
+  margin: 0 0 8rpx 10rpx;
+  color: #565d67;
+  font-size: 23rpx;
+}
+
+.contribution-summary__meta {
+  margin-top: 31rpx;
+  display: flex;
+  align-items: center;
+  gap: 30rpx;
+  color: #30353d;
+  font-size: 23rpx;
+}
+
+.contribution-summary__meta > view:not(.contribution-summary__divider) {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.contribution-summary__divider {
+  width: 1rpx;
+  height: 34rpx;
+  background: #d6dce5;
+}
+
+.contribution-summary__visual {
+  position: absolute;
+  top: 77rpx;
+  right: 38rpx;
+  width: 210rpx;
+  height: 210rpx;
+}
+
+.contribution-status-row {
+  height: 108rpx;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.contribution-status {
+  height: 67rpx;
+  padding: 0 31rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: #5a616b;
+  font-size: 25rpx;
+  line-height: 1;
+  white-space: nowrap;
+  background: #ffffff;
+  border: 1rpx solid #dfe3e9;
+  border-radius: 999rpx;
+}
+
+.contribution-status--active {
+  color: #ffffff;
+  background: #1677ff;
+  border-color: #1677ff;
+  box-shadow: 0 7rpx 17rpx rgba(22, 119, 255, 0.2);
+}
+
+.contribution-filter-button {
+  width: 68rpx;
+  height: 67rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  background: #ffffff;
+  border: 1rpx solid #dfe3e9;
+  border-radius: 18rpx;
+}
+
+.contribution-filter-button--active {
+  background: #f1f7ff;
+  border-color: #9cc8ff;
+}
+
+.contribution-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 25rpx;
+}
+
+.contribution-group__date {
+  display: block;
+  margin: 0 6rpx 14rpx;
+  color: #050505;
+  font-size: 31rpx;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.contribution-group__list {
+  padding: 0 19rpx;
+  background: #ffffff;
+  border: 1rpx solid #edf0f4;
+  border-radius: 25rpx;
+  box-shadow: 0 8rpx 22rpx rgba(27, 49, 83, 0.05);
+}
+
+.contribution-record {
+  min-height: 132rpx;
+  padding: 20rpx 0;
+  display: flex;
+  align-items: center;
+  gap: 22rpx;
+  border-bottom: 1rpx solid #e4e8ee;
+  border-radius: 14rpx;
+}
+
+.contribution-record:last-child {
+  border-bottom: 0;
+}
+
+.contribution-record__icon {
+  position: relative;
+  width: 92rpx;
+  height: 92rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 18rpx;
+}
+
+.contribution-record__icon--green {
+  background: linear-gradient(145deg, #e5f8ee, #f3fbf6);
+}
+
+.contribution-record__icon--orange {
+  background: linear-gradient(145deg, #fff0d9, #fff8ec);
+}
+
+.contribution-record__icon--blue {
+  background: linear-gradient(145deg, #e8f3ff, #f5f9ff);
+}
+
+.contribution-record__link {
+  position: absolute;
+  right: 12rpx;
+  bottom: 14rpx;
+}
+
+.contribution-record__copy {
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.contribution-record__title {
+  overflow: hidden;
+  color: #101419;
+  font-size: 27rpx;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.contribution-record__meta {
+  overflow: hidden;
+  color: #68707b;
+  font-size: 21rpx;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.contribution-record__value {
+  min-width: 104rpx;
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 13rpx;
+  flex: none;
+}
+
+.contribution-record__value > view {
+  display: flex;
+  align-items: baseline;
+  color: #1677ff;
+  white-space: nowrap;
+}
+
+.contribution-record__value > view > text:first-child {
+  font-size: 31rpx;
+  font-weight: 600;
+}
+
+.contribution-record__value > view > text:last-child {
+  margin-left: 5rpx;
+  font-size: 20rpx;
+}
+
+.contribution-record__status {
+  font-size: 21rpx;
+}
+
+.contribution-record__status--settled {
+  color: #087d58;
+}
+
+.contribution-record__status--pending {
+  color: #e98b00;
+}
+
+.contribution-empty {
+  min-height: 380rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 20rpx;
+  color: #8a909a;
+  font-size: 24rpx;
+}
+
+.contribution-detail-notice {
+  min-height: 63rpx;
+  margin-top: 27rpx;
+  padding: 12rpx 25rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  color: #1677ff;
+  font-size: 21rpx;
+  background: linear-gradient(90deg, #f4f8ff, #edf5ff);
+  border-radius: 18rpx;
+}
+
+.contribution-detail-limit {
+  display: block;
+  margin-top: 18rpx;
+  color: #9aa0a9;
+  font-size: 20rpx;
+  text-align: center;
+}
+
+@media (max-width: 350px) {
+  .contribution-detail-page {
+    padding-right: 26rpx;
+    padding-left: 26rpx;
+  }
+
+  .contribution-summary__visual {
+    right: 26rpx;
+    width: 190rpx;
+    height: 190rpx;
+  }
+
+  .contribution-summary__amount > text:first-child {
+    font-size: 62rpx;
+  }
+
+  .contribution-status-row {
+    gap: 11rpx;
+  }
+
+  .contribution-status {
+    padding: 0 19rpx;
+    font-size: 23rpx;
+  }
+
+  .contribution-record {
+    gap: 14rpx;
+  }
+
+  .contribution-record__icon {
+    width: 82rpx;
+    height: 82rpx;
+  }
+}

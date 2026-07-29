@@ -1,0 +1,66 @@
+<app-header title="客户" />
+
+<view class="customer-screen tab-screen">
+    <view class="overview-visual">
+        <image class="overview-image" src="/assets/images/customer-overview-card.png" mode="widthFix" aria-role="img"
+            aria-label="客户概览：已绑定36，待匹配3，待跟进8" />
+        <view class="overview-analysis-hotspot tap-target" bindtap="openAnalysis" hover-class="tap-feedback"
+            hover-start-time="0" hover-stay-time="80" aria-role="button" aria-label="查看客户分析"></view>
+    </view>
+
+    <page-state state="{{state}}" bind:retry="retry" />
+
+    <block wx:if="{{state === 'success'}}">
+        <view class="customer-search">
+            <van-icon name="search" size="22px" color="#747b88" />
+            <input class="customer-search__input" value="{{keyword}}" placeholder="搜索姓名、手机号或身份证号"
+                placeholder-class="customer-search__placeholder" confirm-type="search" bindinput="onSearch" />
+        </view>
+
+        <view class="filter-bar">
+            <view class="filter-pills">
+                <view wx:for="{{filters}}" wx:key="id"
+                    class="filter-pill tap-target {{selectedFilter === item.id ? 'filter-pill--active' : ''}}"
+                    data-id="{{item.id}}" bindtap="selectFilter" hover-class="tap-feedback" hover-start-time="0"
+                    hover-stay-time="80">
+                    {{item.label}} {{item.count}}
+                </view>
+            </view>
+            <view class="filter-button tap-target" bindtap="openSort" hover-class="tap-feedback" hover-start-time="0"
+                hover-stay-time="80" aria-role="button" aria-label="客户排序">
+                <van-icon name="bars" />
+            </view>
+        </view>
+
+        <view class="customer-list-header">
+            <text class="customer-list-title">客户列表</text>
+            <view class="bind-customer tap-target" bindtap="bindCustomer" hover-class="tap-feedback"
+                hover-start-time="0" hover-stay-time="80" aria-role="button" aria-label="绑定客户">
+                <view class="bind-customer__icon">
+                    <van-icon name="plus" size="20px" color="#ffffff" />
+                </view>
+                <text>绑定客户</text>
+            </view>
+        </view>
+
+        <view class="customer-list">
+            <view wx:for="{{visibleList}}" wx:key="id" class="customer-card tap-target" data-id="{{item.id}}"
+                bindtap="openCustomer" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+                <image class="customer-avatar" src="{{item.avatar}}" mode="aspectFill" />
+                <view class="customer-main">
+                    <text class="customer-name">{{item.name}}</text>
+                    <text class="customer-meta">{{item.phone}}</text>
+                    <text class="customer-note">{{item.note}}</text>
+                </view>
+                <view class="customer-status customer-status--{{item.tone}}">
+                    {{item.status}}
+                </view>
+                <van-icon class="customer-arrow" name="arrow" size="22px" color="#8a8f98" />
+            </view>
+        </view>
+
+        <view wx:if="{{!visibleList.length}}" class="customer-empty">
+            没有找到符合条件的客户
+        </view>
+    </block>
+</view>

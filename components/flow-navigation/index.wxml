@@ -1,0 +1,22 @@
+<view
+  class="flow-navigation"
+  style="padding-top: {{navigation.menuTop}}px; padding-bottom: {{navigation.bottomGap}}px;"
+>
+  <view
+    class="flow-navigation__row"
+    style="height: {{navigation.menuHeight}}px;"
+  >
+    <view
+      class="flow-navigation__back tap-target"
+      bindtap="goBack"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="button"
+      aria-label="返回"
+    >
+      <van-icon name="arrow-left" size="27px" color="#050505" />
+    </view>
+    <text class="flow-navigation__title">{{title}}</text>
+  </view>
+</view>

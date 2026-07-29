@@ -1,0 +1,82 @@
+<app-header title="鲁泰协作" showLogo="{{true}}" />
+
+<view class="login-page">
+  <view class="login-welcome">
+    <text class="login-welcome__title">欢迎使用鲁泰协作</text>
+    <text class="login-welcome__description">推广协作，贡献可见</text>
+  </view>
+
+  <image
+    class="login-hero"
+    src="/assets/images/login-security-hero.png"
+    mode="aspectFill"
+    aria-role="img"
+    aria-label="身份安全认证"
+  />
+
+  <view class="login-auth-card">
+    <text class="login-auth-card__title">登录并完成身份识别</text>
+    <text class="login-auth-card__description">首次使用需授权手机号，用于账户与业务联系</text>
+
+    <button
+      class="login-wechat-button tap-target"
+      bindtap="login"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      loading="{{loggingIn}}"
+      disabled="{{loggingIn}}"
+    >
+      <van-icon wx:if="{{!loggingIn}}" name="wechat" size="31px" color="#ffffff" />
+      <text>{{loggingIn ? '正在登录' : '微信一键登录'}}</text>
+    </button>
+
+    <button
+      class="login-phone-button tap-target {{phoneAuthorized ? 'login-phone-button--authorized' : ''}}"
+      open-type="getPhoneNumber"
+      bindgetphonenumber="authorizePhone"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      <van-icon name="phone-o" size="31px" color="{{phoneAuthorized ? '#18a63d' : '#050505'}}" />
+      <text>{{phoneLabel}}</text>
+      <van-icon wx:if="{{phoneAuthorized}}" name="passed" size="22px" color="#18a63d" />
+      <van-icon wx:else name="arrow" size="22px" color="#7d8490" />
+    </button>
+  </view>
+
+  <view class="login-agreement">
+    <view
+      class="login-checkbox tap-target {{agreed ? 'login-checkbox--checked' : ''}}"
+      bindtap="toggleAgreement"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="checkbox"
+      aria-checked="{{agreed}}"
+      aria-label="同意用户协议和隐私政策"
+    >
+      <van-icon wx:if="{{agreed}}" name="success" size="17px" color="#ffffff" />
+    </view>
+    <text>我已阅读并同意</text>
+    <text
+      class="login-agreement__link tap-target"
+      data-type="agreement"
+      bindtap="openDocument"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >用户协议</text>
+    <text>和</text>
+    <text
+      class="login-agreement__link tap-target"
+      data-type="privacy"
+      bindtap="openDocument"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >隐私政策</text>
+  </view>
+  <text class="login-role-hint">登录后将自动识别您的业务角色</text>
+</view>

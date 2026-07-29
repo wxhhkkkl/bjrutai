@@ -1,0 +1,8 @@
+{
+    "private": true,
+    "name": "lutai-page",
+    "version": "0.1.0",
+    "dependencies": {
+        "@vant/weapp": "^1.11.7"
+    }
+}

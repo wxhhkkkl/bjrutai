@@ -1,0 +1,186 @@
+<flow-navigation title="隐私与授权" bind:back="handleBack" />
+
+<view class="privacy-page">
+  <text class="privacy-title">管理隐私与授权</text>
+  <text class="privacy-description">您可以随时查看和调整授权设置</text>
+
+  <view class="privacy-hero">
+    <view class="privacy-hero__icon">
+      <van-icon name="shield-o" size="55px" color="#1677ff" />
+      <view class="privacy-hero__lock">
+        <van-icon name="lock" size="20px" color="#ffffff" />
+      </view>
+    </view>
+    <view class="privacy-hero__copy">
+      <text class="privacy-hero__title">您的数据受到保护</text>
+      <text class="privacy-hero__description">我们仅在提供服务所需范围内使用数据</text>
+      <view class="privacy-hero__badge">
+        <van-icon name="shield-o" size="17px" color="currentColor" />
+        <text>安全保护中</text>
+      </view>
+    </view>
+  </view>
+
+  <text class="privacy-section-title">授权管理</text>
+  <view class="privacy-authorization-card">
+    <view class="privacy-authorization-row">
+      <view class="privacy-authorization-row__icon">
+        <van-icon name="wechat" size="25px" color="#1677ff" />
+      </view>
+      <text class="privacy-authorization-row__title">微信账号</text>
+      <view class="privacy-authorization-row__status privacy-authorization-row__status--green">
+        <van-icon name="passed" size="19px" color="currentColor" />
+        <text>{{authorization.wechatLabel}}</text>
+      </view>
+    </view>
+
+    <view
+      class="privacy-authorization-row tap-target"
+      bindtap="openPhoneAuthorization"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="button"
+      aria-label="管理授权手机号"
+    >
+      <view class="privacy-authorization-row__icon">
+        <van-icon name="phone-o" size="25px" color="#1677ff" />
+      </view>
+      <text class="privacy-authorization-row__title">授权手机号</text>
+      <text class="privacy-authorization-row__phone">{{authorization.phone}}</text>
+      <text class="privacy-authorization-row__status privacy-authorization-row__status--green">{{authorization.phoneLabel}}</text>
+    </view>
+
+    <view
+      class="privacy-authorization-row tap-target"
+      bindtap="openSystemAuthorization"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="button"
+      aria-label="管理相机与相册授权"
+    >
+      <view class="privacy-authorization-row__icon">
+        <van-icon name="photograph" size="25px" color="#1677ff" />
+      </view>
+      <view class="privacy-authorization-row__copy">
+        <text class="privacy-authorization-row__title">相机与相册</text>
+        <text class="privacy-authorization-row__description">上传资料与反馈截图</text>
+      </view>
+      <text class="privacy-authorization-row__status privacy-authorization-row__status--{{authorization.mediaAuthorized ? 'blue' : 'orange'}}">{{authorization.mediaLabel}}</text>
+      <van-icon name="arrow" size="21px" color="#858c98" />
+    </view>
+
+    <view
+      class="privacy-authorization-row tap-target"
+      bindtap="openSystemAuthorization"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="button"
+      aria-label="管理客服消息授权"
+    >
+      <view class="privacy-authorization-row__icon">
+        <van-icon name="chat-o" size="25px" color="#1677ff" />
+      </view>
+      <view class="privacy-authorization-row__copy">
+        <text class="privacy-authorization-row__title">客服消息</text>
+        <text class="privacy-authorization-row__description">接收处理进度通知</text>
+      </view>
+      <text class="privacy-authorization-row__status privacy-authorization-row__status--{{authorization.customerMessageAuthorized ? 'blue' : 'orange'}}">{{authorization.customerMessageLabel}}</text>
+      <van-icon name="arrow" size="21px" color="#858c98" />
+    </view>
+  </view>
+
+  <text class="privacy-section-title privacy-section-title--settings">隐私设置</text>
+  <view class="privacy-settings-card">
+    <view class="privacy-setting-row">
+      <view class="privacy-setting-row__icon">
+        <van-icon name="shield-o" size="27px" color="#1677ff" />
+        <van-icon class="privacy-setting-row__user" name="user-o" size="13px" color="#1677ff" />
+      </view>
+      <view class="privacy-setting-row__copy">
+        <text class="privacy-setting-row__title">敏感信息脱敏展示</text>
+        <text class="privacy-setting-row__description">手机号、证件号默认脱敏</text>
+      </view>
+      <switch
+        class="privacy-switch"
+        checked="{{settings.maskSensitive}}"
+        color="#1677ff"
+        data-field="maskSensitive"
+        bindchange="togglePrivacySetting"
+      />
+    </view>
+    <view class="privacy-setting-row">
+      <view class="privacy-setting-row__icon">
+        <van-icon name="user-o" size="28px" color="#1677ff" />
+        <van-icon class="privacy-setting-row__user" name="setting-o" size="13px" color="#1677ff" />
+      </view>
+      <view class="privacy-setting-row__copy">
+        <text class="privacy-setting-row__title">个性化服务</text>
+        <text class="privacy-setting-row__description">用于优化客户与贡献服务</text>
+      </view>
+      <switch
+        class="privacy-switch"
+        checked="{{settings.personalized}}"
+        color="#1677ff"
+        data-field="personalized"
+        bindchange="togglePrivacySetting"
+      />
+    </view>
+  </view>
+
+  <text class="privacy-section-title privacy-section-title--documents">协议与政策</text>
+  <view class="privacy-document-card">
+    <view
+      wx:for="{{documents}}"
+      wx:key="id"
+      class="privacy-document-row tap-target"
+      data-id="{{item.id}}"
+      bindtap="openDocument"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="button"
+      aria-label="{{item.title}}"
+    >
+      <view class="privacy-document-row__icon">
+        <van-icon name="description-o" size="22px" color="#1677ff" />
+      </view>
+      <text class="privacy-document-row__title">{{item.title}}</text>
+      <van-icon name="arrow" size="21px" color="#858c98" />
+    </view>
+  </view>
+
+  <view
+    class="privacy-revoke tap-target"
+    bindtap="revokeNonEssentialAuthorization"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+    aria-role="button"
+    aria-label="撤回非必要授权"
+  >
+    <view class="privacy-revoke__icon">
+      <van-icon name="info" size="21px" color="#ffffff" />
+    </view>
+    <text>您可以随时撤回非必要授权</text>
+  </view>
+</view>
+
+<view class="privacy-save-bar">
+  <view
+    class="privacy-save-button tap-target {{saving ? 'privacy-save-button--disabled' : ''}}"
+    bindtap="saveSettings"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+    aria-role="button"
+    aria-label="保存设置"
+  >
+    <van-icon wx:if="{{!saving}}" name="checked" size="29px" color="#ffffff" />
+    <van-icon wx:else name="replay" size="27px" color="#ffffff" />
+    <text>{{saving ? '正在保存' : '保存设置'}}</text>
+  </view>
+  <text class="privacy-save-bar__hint">设置变更将立即生效</text>
+</view>

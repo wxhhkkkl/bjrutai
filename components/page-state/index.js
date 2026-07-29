@@ -1,0 +1,1 @@
+Component({ properties: { state: { type: String, value: 'success' }, message: { type: String, value: '' } }, methods: { retry() { this.triggerEvent('retry') }, goBack() { wx.navigateBack({ delta: 1 }) } } })

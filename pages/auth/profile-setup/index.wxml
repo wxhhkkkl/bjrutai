@@ -1,0 +1,102 @@
+<flow-navigation title="完善资料" bind:back="handleBack" />
+
+<view class="profile-setup-page">
+  <view class="profile-progress">
+    <view class="profile-progress__heading">
+      <text>账号初始化</text>
+      <text>1/2</text>
+    </view>
+    <view class="profile-progress__track">
+      <view class="profile-progress__value"></view>
+    </view>
+  </view>
+
+  <text class="profile-setup-title">补充基础信息</text>
+  <text class="profile-setup-description">用于完成账户识别与业务联系</text>
+
+  <view class="profile-identity-card">
+    <view class="profile-identity-card__avatar">
+      <van-icon name="user-o" size="46px" color="#1677ff" />
+    </view>
+    <view class="profile-identity-card__copy">
+      <text class="profile-identity-card__name">微信用户</text>
+      <view class="profile-identity-card__phone">
+        <text>{{session.phoneAuthorized || session.userId ? '手机号已授权' : '手机号未授权'}}</text>
+        <van-icon name="passed" size="20px" color="#18a63d" />
+      </view>
+    </view>
+  </view>
+
+  <text class="profile-section-title">基本信息</text>
+  <view class="profile-form-card">
+    <view class="profile-field {{invalidField === 'name' ? 'profile-field--invalid' : ''}}">
+      <text class="profile-field__label">真实姓名</text>
+      <input
+        class="profile-field__input"
+        value="{{form.name}}"
+        data-field="name"
+        bindinput="onFieldInput"
+        maxlength="20"
+        placeholder="请输入真实姓名"
+        placeholder-class="profile-field__placeholder"
+      />
+      <van-icon name="edit" size="22px" color="#858c98" />
+    </view>
+    <view class="profile-field {{invalidField === 'organization' ? 'profile-field--invalid' : ''}}">
+      <text class="profile-field__label">所属机构</text>
+      <input
+        class="profile-field__input"
+        value="{{form.organization}}"
+        data-field="organization"
+        bindinput="onFieldInput"
+        maxlength="40"
+        placeholder="请输入所属机构"
+        placeholder-class="profile-field__placeholder"
+      />
+      <van-icon name="edit" size="22px" color="#858c98" />
+    </view>
+  </view>
+
+  <view class="profile-role-card">
+    <view class="profile-role-card__icon">
+      <van-icon name="description-o" size="42px" color="#ffffff" />
+      <van-icon class="profile-role-card__shield" name="shield-o" size="20px" color="#ffffff" />
+    </view>
+    <view class="profile-role-card__copy">
+      <text class="profile-role-card__title">角色由系统识别</text>
+      <text class="profile-role-card__description">提交资料后，系统将识别您的专业身份，推广与贡献能力保持一致</text>
+    </view>
+  </view>
+
+  <view
+    class="profile-confirmation tap-target"
+    bindtap="toggleConfirmation"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+    aria-role="checkbox"
+    aria-checked="{{confirmed}}"
+  >
+    <view class="profile-confirmation__box {{confirmed ? 'profile-confirmation__box--checked' : ''}}">
+      <van-icon wx:if="{{confirmed}}" name="success" size="17px" color="#ffffff" />
+    </view>
+    <text>我确认以上信息真实有效</text>
+  </view>
+</view>
+
+<view class="profile-submit-bar">
+  <button
+    class="profile-submit-button tap-target"
+    bindtap="submitProfile"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+    loading="{{saving}}"
+    disabled="{{saving}}"
+  >
+    <van-icon wx:if="{{!saving}}" name="checked" size="29px" color="#ffffff" />
+    <text>{{saving ? '正在提交' : '提交并继续'}}</text>
+  </button>
+  <text class="profile-submit-bar__hint">资料仅用于账户管理与业务协作</text>
+  <view class="profile-submit-bar__safe"></view>
+</view>

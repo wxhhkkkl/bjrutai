@@ -1,0 +1,174 @@
+page {
+  background: #ffffff;
+}
+
+.login-page {
+  min-height: 100vh;
+  padding: 103rpx 35rpx calc(32rpx + constant(safe-area-inset-bottom));
+  padding: 103rpx 35rpx calc(32rpx + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 64%, #f8fbff 100%);
+}
+
+.login-welcome {
+  padding-left: 17rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+.login-welcome__title {
+  color: #050505;
+  font-size: 56rpx;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.login-welcome__description {
+  margin-top: 23rpx;
+  color: #686f79;
+  font-size: 31rpx;
+  line-height: 1;
+}
+
+.login-hero {
+  width: 680rpx;
+  height: 467rpx;
+  margin-top: 43rpx;
+  display: block;
+  border-radius: 36rpx;
+}
+
+.login-auth-card {
+  min-height: 449rpx;
+  margin: 48rpx 4rpx 0;
+  padding: 48rpx 47rpx;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1rpx solid #edf0f4;
+  border-radius: 37rpx;
+  box-shadow: 0 13rpx 34rpx rgba(30, 61, 105, 0.08);
+}
+
+.login-auth-card__title {
+  color: #050505;
+  font-size: 35rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.login-auth-card__description {
+  margin-top: 25rpx;
+  color: #646b75;
+  font-size: 23rpx;
+  line-height: 1.35;
+}
+
+.login-wechat-button,
+.login-phone-button {
+  width: 100%;
+  height: 99rpx;
+  margin: 0;
+  padding: 0 34rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24rpx;
+  font-size: 31rpx;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 25rpx;
+}
+
+.login-wechat-button {
+  margin-top: 37rpx;
+  color: #ffffff;
+  background: #050505;
+}
+
+.login-phone-button {
+  margin-top: 28rpx;
+  color: #080b10;
+  background: #ffffff;
+  border: 1rpx solid #cfd4dc;
+}
+
+.login-phone-button > text {
+  flex: 1;
+  text-align: left;
+}
+
+.login-phone-button--authorized {
+  color: #168f35;
+  background: #f7fff9;
+  border-color: #70c584;
+}
+
+.login-wechat-button[disabled] {
+  opacity: 0.7;
+}
+
+.login-agreement {
+  min-height: 48rpx;
+  margin-top: 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  color: #5d646e;
+  font-size: 22rpx;
+  white-space: nowrap;
+}
+
+.login-checkbox {
+  width: 31rpx;
+  height: 31rpx;
+  margin-right: 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  background: #ffffff;
+  border: 2rpx solid #969da8;
+  border-radius: 5rpx;
+}
+
+.login-checkbox--checked {
+  background: #1677ff;
+  border-color: #1677ff;
+}
+
+.login-agreement__link {
+  color: #1677ff;
+  text-decoration: underline;
+  text-underline-offset: 6rpx;
+}
+
+.login-role-hint {
+  display: block;
+  margin-top: 22rpx;
+  color: #7d8490;
+  font-size: 22rpx;
+  text-align: center;
+}
+
+@media (max-width: 350px) {
+  .login-page {
+    padding-right: 28rpx;
+    padding-left: 28rpx;
+  }
+
+  .login-hero {
+    width: 694rpx;
+    height: 477rpx;
+  }
+
+  .login-auth-card {
+    padding-right: 35rpx;
+    padding-left: 35rpx;
+  }
+
+  .login-agreement {
+    gap: 7rpx;
+    font-size: 20rpx;
+  }
+}

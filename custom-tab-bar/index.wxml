@@ -1,0 +1,18 @@
+<view class="tabbar">
+    <view class="tabbar-content">
+        <view wx:for="{{tabs}}" wx:key="id" class="tab tap-target {{selected === item.id ? 'selected' : ''}}"
+            data-item="{{item}}" bindtap="switchTab" hover-class="tap-feedback" hover-start-time="0"
+            hover-stay-time="80">
+            <view wx:if="{{item.id === 'contribution'}}" class="tab-icon contribution-tab-icon">
+                <view class="contribution-tab-icon__shape">
+                    <van-icon class="contribution-tab-icon__plus" name="plus" size="17px"
+                        color="{{selected === item.id ? '#ffffff' : '#8490A8'}}" />
+                </view>
+            </view>
+            <van-icon wx:else class="tab-icon" name="{{item.icon}}" size="28px"
+                color="{{selected === item.id ? '#1677FF' : '#8490A8'}}" />
+            <text>{{item.label}}</text>
+        </view>
+    </view>
+    <view class="tabbar-safe-area"></view>
+</view>

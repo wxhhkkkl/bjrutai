@@ -1,0 +1,28 @@
+<view
+  class="app-header"
+  style="padding-top: {{navigation.menuTop}}px; padding-right: {{navigation.rightInset}}px; padding-bottom: {{navigation.bottomGap}}px;"
+>
+  <view class="app-header__row" style="height: {{navigation.menuHeight}}px;">
+    <view wx:if="{{!spacerOnly}}" class="app-header__brand">
+      <image
+        wx:if="{{showLogo}}"
+        class="app-header__logo"
+        src="/assets/images/brand-mark.png"
+        mode="aspectFit"
+      />
+      <text class="app-header__title">{{title}}</text>
+    </view>
+    <view
+      wx:if="{{!spacerOnly && showScan}}"
+      class="app-header__action tap-target"
+      bindtap="scanCode"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="button"
+      aria-label="扫一扫"
+    >
+      <van-icon name="scan" size="24px" color="#050505" />
+    </view>
+  </view>
+</view>

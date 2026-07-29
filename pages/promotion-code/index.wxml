@@ -1,0 +1,83 @@
+<flow-navigation title="我的推广码" bind:back="handleBack" />
+
+<view class="promotion-page">
+  <view class="promotion-profile">
+    <view class="promotion-profile__avatar" aria-role="img" aria-label="推广人头像">
+      <van-icon name="contact-o" size="39px" color="#1677ff" />
+      <view class="promotion-profile__link">
+        <van-icon name="link-o" size="16px" color="#1677ff" />
+      </view>
+    </view>
+    <view class="promotion-profile__copy">
+      <text class="promotion-profile__name">{{profile.name}}</text>
+      <text class="promotion-profile__role">{{profile.roleLabel}}</text>
+    </view>
+    <view class="promotion-profile__status">
+      <van-icon name="passed" size="16px" color="#18a63d" />
+      <text>{{profile.statusLabel}}</text>
+    </view>
+  </view>
+
+  <view class="promotion-card">
+    <text class="promotion-card__title">专属推广二维码</text>
+    <image
+      class="promotion-card__qr"
+      src="{{profile.qrImage}}"
+      mode="aspectFit"
+      show-menu-by-longpress
+      aria-role="img"
+      aria-label="专属推广二维码"
+    />
+    <text class="promotion-card__hint">邀请客户扫码进入儒泰小程序</text>
+    <text class="promotion-card__source">来源将标记为{{profile.sourceCity}}</text>
+  </view>
+
+  <view class="promotion-actions">
+    <button
+      class="promotion-action promotion-action--save tap-target"
+      bindtap="savePromotionCode"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      loading="{{saving}}"
+      disabled="{{saving}}"
+    >
+      <van-icon wx:if="{{!saving}}" name="down" size="23px" color="#ffffff" />
+      <text>{{saving ? '保存中' : '保存图片'}}</text>
+    </button>
+    <button
+      class="promotion-action promotion-action--share tap-target"
+      open-type="share"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      <van-icon name="share-o" size="23px" color="#111318" />
+      <text>分享推广码</text>
+    </button>
+  </view>
+
+  <text class="promotion-section-title">使用说明</text>
+  <view class="promotion-steps">
+    <view wx:for="{{steps}}" wx:key="id" class="promotion-step">
+      <view class="promotion-step__icon">
+        <van-icon name="{{item.icon}}" size="31px" color="#1677ff" />
+        <van-icon
+          wx:if="{{item.id === 'confirm'}}"
+          class="promotion-step__link"
+          name="link-o"
+          size="15px"
+          color="#1677ff"
+        />
+      </view>
+      <view class="promotion-step__number">{{index + 1}}</view>
+      <text class="promotion-step__label">{{item.label}}</text>
+    </view>
+  </view>
+
+  <view class="promotion-notice">
+    <van-icon name="info-o" size="22px" color="#f06a00" />
+    <text>客户扫码仅标记来源，需由医生完成绑定</text>
+  </view>
+  <text class="promotion-limit">推广码仅限本人业务推广使用</text>
+</view>

@@ -1,0 +1,295 @@
+<flow-navigation title="客户详情" bind:back="handleBack" />
+
+<view class="detail-page">
+  <view class="customer-hero">
+    <view class="customer-hero__arc customer-hero__arc--outer"></view>
+    <view class="customer-hero__arc customer-hero__arc--inner"></view>
+    <image
+      class="customer-hero__avatar"
+      src="{{heroAvatar}}"
+      mode="aspectFill"
+      aria-role="img"
+      aria-label="{{customer.name}}"
+    />
+    <view class="customer-hero__identity">
+      <text class="customer-hero__name">{{customer.name}}</text>
+      <text class="customer-hero__phone">{{customer.phone}}</text>
+      <view class="customer-hero__status">
+        <van-icon name="passed" size="15px" color="#1677ff" />
+        <text>已绑定</text>
+      </view>
+      <text class="customer-hero__date">绑定时间：{{customer.boundAt}}</text>
+    </view>
+    <view
+      class="customer-hero__edit tap-target"
+      bindtap="editCustomer"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      <van-icon name="edit" size="22px" color="#111318" />
+      <text>编辑资料</text>
+    </view>
+    <view class="customer-hero__metrics">
+      <view class="customer-metric">
+        <text class="customer-metric__label">累计贡献</text>
+        <view class="customer-metric__value">
+          <text>{{customer.totalContribution}}</text>
+          <text class="customer-metric__unit">分</text>
+        </view>
+      </view>
+      <view class="customer-metric">
+        <text class="customer-metric__label">服务记录</text>
+        <text class="customer-metric__value">{{customer.serviceCount}}</text>
+      </view>
+      <view class="customer-metric">
+        <text class="customer-metric__label">待跟进</text>
+        <text class="customer-metric__value">{{customer.followupCount}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="detail-tabs">
+    <view
+      wx:for="{{tabs}}"
+      wx:key="id"
+      class="detail-tab tap-target {{currentTab === item.id ? 'detail-tab--active' : ''}}"
+      data-id="{{item.id}}"
+      bindtap="selectTab"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      {{item.label}}
+    </view>
+  </view>
+
+  <block wx:if="{{currentTab === 'info'}}">
+    <text class="detail-section-title">绑定信息</text>
+    <view class="detail-card binding-info-card">
+      <view
+        class="binding-info-row tap-target"
+        bindtap="openBindingRecords"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+      >
+        <view class="detail-icon detail-icon--blue">
+          <van-icon name="link-o" size="25px" color="#1677ff" />
+        </view>
+        <text class="binding-info-row__label">北京侧关联</text>
+        <view class="binding-info-row__status binding-info-row__status--blue">
+          <van-icon name="passed" size="16px" color="#1677ff" />
+          <text>已记录</text>
+        </view>
+        <van-icon name="arrow" size="20px" color="#7d838d" />
+      </view>
+      <view
+        class="binding-info-row tap-target"
+        bindtap="openBindingRecords"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+      >
+        <view class="detail-icon detail-icon--green">
+          <van-icon name="shield-o" size="25px" color="#12a147" />
+        </view>
+        <text class="binding-info-row__label">儒泰用户匹配</text>
+        <view class="binding-info-row__status binding-info-row__status--green">
+          <van-icon name="passed" size="16px" color="#12a147" />
+          <text>已匹配</text>
+        </view>
+        <van-icon name="arrow" size="20px" color="#7d838d" />
+      </view>
+      <view class="binding-info-row binding-info-row--last">
+        <view class="detail-icon detail-icon--blue">
+          <van-icon name="manager-o" size="25px" color="#1677ff" />
+        </view>
+        <view class="binding-owner">
+          <text class="binding-info-row__label">归属推广人</text>
+          <text class="binding-owner__id">儒泰用户ID：{{customer.userId}}</text>
+        </view>
+        <text class="binding-info-row__owner">{{customer.owner}}</text>
+        <van-icon name="arrow" size="20px" color="#7d838d" />
+      </view>
+    </view>
+
+    <text class="detail-section-title">客户资料</text>
+    <view class="detail-card customer-profile-card">
+      <view class="profile-row">
+        <text>姓名</text>
+        <text>{{customer.name}}</text>
+      </view>
+      <view class="profile-row">
+        <text>手机号</text>
+        <text>{{customer.phone}}</text>
+      </view>
+      <view class="profile-row">
+        <text>身份证号</text>
+        <text>{{customer.idCard}}</text>
+      </view>
+      <view class="profile-row">
+        <text>医保账户</text>
+        <text>{{customer.medicalAccount}}</text>
+      </view>
+      <view class="profile-row">
+        <text>家属电话</text>
+        <text>{{customer.familyPhone}}</text>
+      </view>
+      <view class="profile-privacy">
+        <van-icon name="eye-o" size="18px" color="#1677ff" />
+        <text>敏感信息已脱敏展示</text>
+      </view>
+    </view>
+
+    <text class="detail-section-title">跟进提醒</text>
+    <view
+      class="followup-card tap-target"
+      bindtap="recordFollowup"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      <view class="followup-card__icon">
+        <van-icon name="calendar-o" size="40px" color="#139d35" />
+      </view>
+      <view class="followup-card__copy">
+        <text class="followup-card__title">健康随访待完成</text>
+        <text class="followup-card__time">计划时间：今天 16:00</text>
+      </view>
+      <view class="followup-card__status">待跟进</view>
+      <van-icon name="arrow" size="21px" color="#7d838d" />
+    </view>
+  </block>
+
+  <block wx:elif="{{currentTab === 'service'}}">
+    <text class="detail-section-title">服务概览</text>
+    <view class="service-overview">
+      <view class="service-overview__item">
+        <text>全部</text>
+        <text class="service-overview__value service-overview__value--blue">4</text>
+      </view>
+      <view class="service-overview__item">
+        <text>待跟进</text>
+        <text class="service-overview__value service-overview__value--green">1</text>
+      </view>
+      <view class="service-overview__item">
+        <text>已完成</text>
+        <text class="service-overview__value">3</text>
+      </view>
+    </view>
+
+    <view class="service-timeline">
+      <view
+        wx:for="{{services}}"
+        wx:key="id"
+        class="service-record tap-target"
+        data-id="{{item.id}}"
+        bindtap="openService"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+      >
+        <view class="service-record__node service-record__node--{{item.tone}}"></view>
+        <view class="detail-icon detail-icon--{{item.tone}} service-record__icon">
+          <van-icon name="{{item.icon}}" size="31px" color="{{item.tone === 'green' ? '#139d35' : '#1677ff'}}" />
+        </view>
+        <view class="service-record__copy">
+          <text class="service-record__title">{{item.title}}</text>
+          <text class="service-record__time">{{item.time}}</text>
+        </view>
+        <view class="service-record__status service-record__status--{{item.statusTone}}">
+          {{item.status}}
+        </view>
+      </view>
+    </view>
+
+    <view class="detail-notice">
+      <van-icon name="info-o" size="20px" color="#2e5e9f" />
+      <text>待跟进服务将在完成后自动归档</text>
+    </view>
+  </block>
+
+  <block wx:else>
+    <text class="detail-section-title">贡献概览</text>
+    <view class="contribution-overview">
+      <view class="contribution-overview__item">
+        <text>累计贡献</text>
+        <view class="contribution-overview__value">
+          <text>{{customer.totalContribution}}</text>
+          <text>分</text>
+        </view>
+      </view>
+      <view class="contribution-overview__item">
+        <text>本月贡献</text>
+        <view class="contribution-overview__value">
+          <text>{{customer.monthlyContribution}}</text>
+          <text>分</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="contribution-filters">
+      <view
+        wx:for="{{contributionFilters}}"
+        wx:key="id"
+        class="contribution-filter tap-target {{selectedContributionFilter === item.id ? 'contribution-filter--active' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="selectContributionFilter"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+      >
+        {{item.label}}
+      </view>
+    </view>
+
+    <view class="detail-card contribution-list">
+      <view
+        wx:for="{{contributions}}"
+        wx:key="id"
+        class="contribution-row"
+      >
+        <view class="detail-icon detail-icon--{{item.tone}} contribution-row__icon">
+          <van-icon name="{{item.icon}}" size="28px" color="{{item.tone === 'green' ? '#139d35' : item.tone === 'purple' ? '#8a50df' : '#1677ff'}}" />
+        </view>
+        <view class="contribution-row__copy">
+          <text class="contribution-row__title">{{item.title}}</text>
+          <text class="contribution-row__time">{{item.time}}</text>
+        </view>
+        <view class="contribution-row__points">
+          <text>{{item.points}}</text>
+          <text>分</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="detail-notice detail-notice--contribution">
+      <van-icon name="info-o" size="20px" color="#1677ff" />
+      <text>贡献数据由系统同步，以实际结算结果为准</text>
+    </view>
+  </block>
+</view>
+
+<view class="customer-action-bar">
+  <view
+    class="customer-action customer-action--contact tap-target"
+    bindtap="contactCustomer"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+  >
+    <van-icon name="phone-o" size="27px" color="#1677ff" />
+    <text>联系客户</text>
+  </view>
+  <view
+    class="customer-action customer-action--followup tap-target"
+    bindtap="recordFollowup"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+  >
+    <van-icon name="description-o" size="28px" color="#ffffff" />
+    <text>记录跟进</text>
+  </view>
+</view>

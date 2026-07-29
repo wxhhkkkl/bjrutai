@@ -1,0 +1,7 @@
+{
+  "usingComponents": {
+    "flow-navigation": "/components/flow-navigation/index",
+    "binding-progress": "/components/binding-progress/index",
+    "van-icon": "/miniprogram_npm/@vant/weapp/icon/index"
+  }
+}

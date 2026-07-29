@@ -1,0 +1,345 @@
+page {
+  background: #ffffff;
+}
+
+.followup-page {
+  min-height: 100vh;
+  padding: 30rpx 37rpx calc(151rpx + constant(safe-area-inset-bottom));
+  padding: 30rpx 37rpx calc(151rpx + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 65%, #ffffff 100%);
+}
+
+.followup-customer {
+  min-height: 154rpx;
+  padding: 25rpx 24rpx 24rpx 26rpx;
+  display: flex;
+  align-items: center;
+  gap: 29rpx;
+  background: linear-gradient(112deg, #eff7ff, #f8fbff 53%, #edf5ff);
+  border: 1rpx solid #edf3fa;
+  border-radius: 27rpx;
+}
+
+.followup-customer__avatar {
+  width: 111rpx;
+  height: 111rpx;
+  flex: none;
+  border-radius: 20rpx;
+}
+
+.followup-customer__copy {
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.followup-customer__name {
+  color: #050505;
+  font-size: 34rpx;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.followup-customer__phone,
+.followup-customer__latest {
+  color: #505761;
+  font-size: 23rpx;
+  line-height: 1.15;
+}
+
+.followup-customer__phone {
+  margin-top: 12rpx;
+}
+
+.followup-customer__latest {
+  margin-top: 14rpx;
+}
+
+.followup-customer__status {
+  min-width: 119rpx;
+  height: 44rpx;
+  padding: 0 14rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7rpx;
+  flex: none;
+  color: #1677ff;
+  font-size: 22rpx;
+  background: #ffffff;
+  border: 1rpx solid #1677ff;
+  border-radius: 17rpx;
+}
+
+.followup-section-title {
+  display: block;
+  margin: 44rpx 5rpx 22rpx;
+  color: #050505;
+  font-size: 33rpx;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.followup-methods {
+  display: flex;
+  gap: 23rpx;
+}
+
+.followup-method {
+  height: 156rpx;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18rpx;
+  color: #353a42;
+  font-size: 24rpx;
+  background: #ffffff;
+  border: 1rpx solid #e1e5eb;
+  border-radius: 23rpx;
+  box-shadow: 0 7rpx 17rpx rgba(27, 49, 83, 0.035);
+}
+
+.followup-method--active {
+  color: #1677ff;
+  border: 2rpx solid #1677ff;
+}
+
+.followup-method__icon {
+  width: 70rpx;
+  height: 70rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14rpx;
+}
+
+.followup-method__icon--active {
+  background: linear-gradient(145deg, #3e94ff, #066af5);
+}
+
+.followup-results {
+  display: flex;
+  gap: 24rpx;
+}
+
+.followup-result {
+  height: 87rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  flex: 1;
+  color: #626975;
+  font-size: 26rpx;
+  background: #ffffff;
+  border: 1rpx solid #e0e4ea;
+  border-radius: 21rpx;
+}
+
+.followup-result--active {
+  color: #1677ff;
+  border: 2rpx solid #1677ff;
+}
+
+.followup-content {
+  position: relative;
+  height: 214rpx;
+  padding: 25rpx 24rpx 50rpx;
+  background: #ffffff;
+  border: 1rpx solid #dfe3e9;
+  border-radius: 23rpx;
+}
+
+.followup-content__input {
+  width: 100%;
+  height: 100%;
+  color: #252a31;
+  font-size: 25rpx;
+  line-height: 1.6;
+}
+
+.followup-content__placeholder {
+  color: #8b919c;
+}
+
+.followup-content__count {
+  position: absolute;
+  right: 25rpx;
+  bottom: 19rpx;
+  color: #737a85;
+  font-size: 23rpx;
+}
+
+.reminder-heading {
+  min-height: 87rpx;
+  margin-top: 26rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.reminder-heading__title {
+  margin: 0 5rpx;
+}
+
+.reminder-switch {
+  position: relative;
+  width: 73rpx;
+  height: 42rpx;
+  padding: 3rpx;
+  background: #d8dde5;
+  border-radius: 999rpx;
+}
+
+.reminder-switch__thumb {
+  width: 36rpx;
+  height: 36rpx;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 2rpx 7rpx rgba(0, 0, 0, 0.2);
+  transition: transform 150ms ease;
+}
+
+.reminder-switch--active {
+  background: #1677ff;
+}
+
+.reminder-switch--active .reminder-switch__thumb {
+  transform: translateX(31rpx);
+}
+
+.reminder-card {
+  padding: 0 22rpx;
+  background: #ffffff;
+  border: 1rpx solid #e1e5eb;
+  border-radius: 24rpx;
+}
+
+.reminder-row {
+  display: block;
+  border-bottom: 1rpx solid #e4e8ee;
+}
+
+.reminder-row--last {
+  border-bottom: 0;
+}
+
+.reminder-row__content {
+  min-height: 89rpx;
+  display: flex;
+  align-items: center;
+  gap: 28rpx;
+  border-radius: 14rpx;
+}
+
+.reminder-row__icon {
+  width: 65rpx;
+  height: 65rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  background: linear-gradient(145deg, #e8f3ff, #f5f9ff);
+  border-radius: 14rpx;
+}
+
+.reminder-row__label {
+  color: #20242a;
+  font-size: 24rpx;
+}
+
+.reminder-row__value {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: #666d78;
+  font-size: 24rpx;
+  text-align: right;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.followup-notice {
+  min-height: 67rpx;
+  margin-top: 31rpx;
+  padding: 13rpx 30rpx;
+  display: flex;
+  align-items: center;
+  gap: 22rpx;
+  color: #3867a7;
+  font-size: 22rpx;
+  line-height: 1.35;
+  background: linear-gradient(90deg, #f4f8ff, #edf5ff);
+  border-radius: 22rpx;
+}
+
+.followup-action-bar {
+  position: fixed;
+  z-index: 30;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  min-height: 130rpx;
+  padding: 19rpx 29rpx calc(19rpx + constant(safe-area-inset-bottom));
+  padding: 19rpx 29rpx calc(19rpx + env(safe-area-inset-bottom));
+  display: flex;
+  gap: 29rpx;
+  background: rgba(255, 255, 255, 0.98);
+  border-top: 1rpx solid #e2e6ec;
+}
+
+.followup-action {
+  height: 78rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 17rpx;
+  flex: 1;
+  font-size: 28rpx;
+  line-height: 1;
+  border-radius: 999rpx;
+}
+
+.followup-action--draft {
+  color: #1677ff;
+  background: #ffffff;
+  border: 2rpx solid #1677ff;
+}
+
+.followup-action--save {
+  color: #ffffff;
+  background: #050505;
+  box-shadow: 0 9rpx 18rpx rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 350px) {
+  .followup-page {
+    padding-right: 27rpx;
+    padding-left: 27rpx;
+  }
+
+  .followup-methods {
+    gap: 13rpx;
+  }
+
+  .followup-results {
+    gap: 14rpx;
+  }
+
+  .followup-customer {
+    gap: 20rpx;
+  }
+
+  .followup-customer__status {
+    min-width: 105rpx;
+  }
+
+  .followup-action-bar {
+    gap: 19rpx;
+    padding-right: 24rpx;
+    padding-left: 24rpx;
+  }
+}

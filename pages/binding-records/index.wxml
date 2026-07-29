@@ -1,0 +1,159 @@
+<flow-navigation title="绑定记录" bind:back="handleBack" />
+
+<view class="records-page">
+  <view class="records-overview">
+    <text class="records-overview__title">绑定概览</text>
+    <text class="records-overview__subtitle">客户归属状态实时更新</text>
+
+    <view class="records-summary">
+      <view
+        wx:for="{{summary}}"
+        wx:key="id"
+        class="summary-item"
+      >
+        <view class="summary-icon summary-icon--{{item.tone}}">
+          <van-icon name="{{item.icon}}" size="38px" color="{{item.tone === 'green' ? '#079447' : item.tone === 'orange' ? '#ff6a00' : '#1677ff'}}" />
+          <van-icon
+            wx:if="{{item.id === 'bound'}}"
+            class="summary-icon__link"
+            name="link-o"
+            size="20px"
+            color="#079447"
+          />
+          <view wx:if="{{item.id === 'bound'}}" class="summary-icon__check">
+            <van-icon name="success" size="12px" color="#ffffff" />
+          </view>
+        </view>
+        <view class="summary-copy">
+          <text class="summary-label">{{item.label}}</text>
+          <text class="summary-value">{{item.count}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view
+      class="status-help tap-target"
+      bindtap="showStatusDescription"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="button"
+      aria-label="查看绑定状态说明"
+    >
+      <text>状态说明</text>
+      <van-icon name="arrow" size="18px" color="#1677ff" />
+    </view>
+  </view>
+
+  <view class="records-search">
+    <van-icon name="search" size="24px" color="#8a909b" />
+    <input
+      class="records-search__input"
+      value="{{keyword}}"
+      placeholder="搜索姓名、手机号或身份证号"
+      placeholder-class="records-search__placeholder"
+      confirm-type="search"
+      bindinput="onSearch"
+    />
+  </view>
+
+  <view class="records-filter">
+    <view
+      wx:for="{{filters}}"
+      wx:key="id"
+      class="records-filter__pill tap-target {{selectedFilter === item.id ? 'records-filter__pill--active' : ''}}"
+      data-id="{{item.id}}"
+      bindtap="selectFilter"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      {{item.label}} {{item.count}}
+    </view>
+    <view
+      class="records-filter__button tap-target"
+      bindtap="openSort"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="button"
+      aria-label="绑定记录排序"
+    >
+      <van-icon name="bars" size="24px" color="#111318" />
+    </view>
+  </view>
+
+  <view class="records-list-header">
+    <text class="records-list-title">绑定记录</text>
+    <text class="records-list-count">共{{selectedCount}}条</text>
+  </view>
+
+  <view class="records-list">
+    <view
+      wx:for="{{visibleRecords}}"
+      wx:key="id"
+      class="record-card tap-target"
+      data-id="{{item.id}}"
+      bindtap="openRecord"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      <view class="record-icon record-icon--{{item.tone}}">
+        <van-icon
+          name="{{item.status === 'bound' ? 'contact-o' : item.statusIcon}}"
+          size="{{item.status === 'bound' ? '35px' : '41px'}}"
+          color="{{item.tone === 'green' ? '#079447' : item.tone === 'orange' ? '#ff6a00' : '#1677ff'}}"
+        />
+        <van-icon
+          wx:if="{{item.status === 'bound'}}"
+          class="record-icon__link"
+          name="link-o"
+          size="18px"
+          color="#079447"
+        />
+        <view wx:if="{{item.status === 'bound'}}" class="record-icon__check">
+          <van-icon name="success" size="10px" color="#ffffff" />
+        </view>
+      </view>
+
+      <view class="record-copy">
+        <text class="record-name">{{item.name}}</text>
+        <text class="record-phone">{{item.phone}}</text>
+        <text class="record-note">{{item.note}}</text>
+        <text wx:if="{{item.detail}}" class="record-detail">{{item.detail}}</text>
+      </view>
+
+      <view class="record-status record-status--{{item.tone}}">
+        <van-icon name="{{item.statusIcon}}" size="18px" />
+        <text>{{item.statusLabel}}</text>
+      </view>
+      <van-icon class="record-arrow" name="arrow" size="21px" color="#8a8f98" />
+    </view>
+  </view>
+
+  <view wx:if="{{!visibleRecords.length}}" class="records-empty">
+    <van-icon name="records-o" size="42px" color="#a1a7b1" />
+    <text>没有找到符合条件的绑定记录</text>
+  </view>
+
+  <view class="records-sync-note">
+    <view class="records-sync-note__icon">
+      <van-icon name="shield-o" size="19px" color="#ffffff" />
+    </view>
+    <text>待匹配记录将在儒泰匹配成功后自动更新</text>
+  </view>
+
+  <view
+    class="records-primary tap-target"
+    bindtap="continueBinding"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+    aria-role="button"
+    aria-label="继续绑定客户"
+  >
+    <van-icon name="add-o" size="28px" color="#ffffff" />
+    <text>继续绑定客户</text>
+  </view>
+</view>

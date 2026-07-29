@@ -1,0 +1,409 @@
+page {
+  background: #ffffff;
+}
+
+.account-profile-page {
+  min-height: 100vh;
+  padding: 38rpx 44rpx calc(205rpx + constant(safe-area-inset-bottom));
+  padding: 38rpx 44rpx calc(205rpx + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 70%, #f8fbff 100%);
+}
+
+.account-profile-title {
+  display: block;
+  color: #050505;
+  font-size: 43rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.account-profile-description {
+  display: block;
+  margin-top: 24rpx;
+  color: #69717d;
+  font-size: 25rpx;
+  line-height: 1;
+}
+
+.account-identity-card {
+  min-height: 191rpx;
+  margin-top: 39rpx;
+  padding: 23rpx 28rpx 23rpx 23rpx;
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1rpx solid #e7ebf1;
+  border-radius: 27rpx;
+  box-shadow: 0 10rpx 27rpx rgba(31, 61, 105, 0.07);
+}
+
+.account-avatar-wrap {
+  position: relative;
+  width: 145rpx;
+  height: 145rpx;
+  flex: none;
+}
+
+.account-avatar {
+  width: 145rpx;
+  height: 145rpx;
+  background: #eef6ff;
+  border-radius: 21rpx;
+}
+
+.account-avatar__camera {
+  position: absolute;
+  right: -3rpx;
+  bottom: 8rpx;
+  width: 43rpx;
+  height: 43rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1677ff;
+  border: 4rpx solid #ffffff;
+  border-radius: 50%;
+}
+
+.account-identity-copy {
+  min-width: 0;
+  margin-left: 36rpx;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.account-identity-name {
+  color: #080b10;
+  font-size: 34rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.account-identity-role {
+  margin-top: 17rpx;
+  overflow: hidden;
+  color: #69717d;
+  font-size: 23rpx;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.account-qualification-badge {
+  width: fit-content;
+  min-height: 40rpx;
+  margin-top: 16rpx;
+  padding: 0 12rpx;
+  display: flex;
+  align-items: center;
+  gap: 7rpx;
+  font-size: 20rpx;
+  line-height: 1;
+  border: 2rpx solid currentColor;
+  border-radius: 999rpx;
+}
+
+.account-qualification-badge--green {
+  color: #0a9e30;
+}
+
+.account-qualification-badge--blue {
+  color: #1677ff;
+}
+
+.account-qualification-badge--red {
+  color: #e63625;
+}
+
+.account-qualification-badge--orange {
+  color: #ef7400;
+}
+
+.account-avatar-action {
+  min-width: 131rpx;
+  height: 60rpx;
+  margin-left: 17rpx;
+  padding: 0 17rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: #171a1f;
+  font-size: 23rpx;
+  white-space: nowrap;
+  background: #ffffff;
+  border: 1rpx solid #aeb6c2;
+  border-radius: 14rpx;
+}
+
+.account-section-title {
+  display: block;
+  margin-top: 47rpx;
+  color: #050505;
+  font-size: 31rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.account-form-card,
+.account-status-card {
+  margin-top: 23rpx;
+  padding: 0 29rpx;
+  background: #ffffff;
+  border: 1rpx solid #e7ebf1;
+  border-radius: 27rpx;
+  box-shadow: 0 9rpx 25rpx rgba(31, 61, 105, 0.06);
+}
+
+.account-field {
+  min-height: 87rpx;
+  display: flex;
+  align-items: center;
+  gap: 15rpx;
+  border-bottom: 1rpx solid #e2e6ec;
+}
+
+.account-field:last-child {
+  border-bottom: 0;
+}
+
+.account-field--invalid {
+  box-shadow: inset 0 -2rpx 0 #e63625;
+}
+
+.account-field__label {
+  width: 184rpx;
+  flex: none;
+  color: #626a76;
+  font-size: 23rpx;
+}
+
+.account-field__input,
+.account-field__value {
+  min-width: 0;
+  flex: 1;
+  color: #101419;
+  font-size: 24rpx;
+  font-weight: 500;
+}
+
+.account-field__input {
+  height: 76rpx;
+}
+
+.account-field__input--organization {
+  font-size: 22rpx;
+}
+
+.account-field__placeholder {
+  color: #9aa0aa;
+  font-weight: 400;
+}
+
+.account-phone-action {
+  width: auto;
+  min-width: 72rpx;
+  height: 62rpx;
+  margin: 0;
+  padding: 0 8rpx;
+  color: #1677ff;
+  font-size: 23rpx;
+  line-height: 62rpx;
+  background: transparent;
+  border-radius: 10rpx;
+}
+
+.account-form-hint {
+  display: block;
+  margin-top: 17rpx;
+  color: #747c87;
+  font-size: 20rpx;
+}
+
+.account-section-title--status {
+  margin-top: 40rpx;
+}
+
+.account-status-row {
+  min-height: 86rpx;
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  border-bottom: 1rpx solid #e2e6ec;
+  border-radius: 6rpx;
+}
+
+.account-status-row:last-child {
+  border-bottom: 0;
+}
+
+.account-status-row__label {
+  width: 185rpx;
+  flex: none;
+  color: #626a76;
+  font-size: 23rpx;
+}
+
+.account-status-row__value {
+  color: #101419;
+  font-size: 24rpx;
+  font-weight: 500;
+}
+
+.account-status-row__state {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 9rpx;
+  color: #101419;
+  font-size: 24rpx;
+  font-weight: 500;
+}
+
+.account-status-row__state--green {
+  color: #0a9e30;
+}
+
+.account-status-row__state--blue {
+  color: #1677ff;
+}
+
+.account-status-row__state--red {
+  color: #e63625;
+}
+
+.account-status-row__state--orange {
+  color: #ef7400;
+}
+
+.account-security-card {
+  min-height: 107rpx;
+  margin-top: 29rpx;
+  padding: 16rpx 27rpx;
+  display: flex;
+  align-items: center;
+  background: linear-gradient(105deg, #f1f7ff 0%, #ffffff 50%, #edf6ff 100%);
+  border: 1rpx solid #b7d6ff;
+  border-radius: 20rpx;
+}
+
+.account-security-card__icon {
+  position: relative;
+  width: 103rpx;
+  height: 76rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.account-security-card__document {
+  position: absolute;
+  right: 4rpx;
+  bottom: 4rpx;
+  padding: 4rpx;
+  background: #edf6ff;
+  border-radius: 7rpx;
+}
+
+.account-security-card__copy {
+  min-width: 0;
+  margin-left: 17rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.account-security-card__title {
+  color: #101419;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.account-security-card__description {
+  color: #68717d;
+  font-size: 21rpx;
+}
+
+.account-save-bar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
+  padding: 20rpx 44rpx calc(22rpx + constant(safe-area-inset-bottom));
+  padding: 20rpx 44rpx calc(22rpx + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.98);
+  border-top: 1rpx solid #edf0f4;
+}
+
+.account-save-button {
+  width: 100%;
+  height: 89rpx;
+  padding: 0 34rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 23rpx;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 600;
+  line-height: 1;
+  background: #050505;
+  border-radius: 999rpx;
+}
+
+.account-save-button--disabled {
+  opacity: 0.72;
+}
+
+.account-save-button > text {
+  display: block;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.account-save-bar__hint {
+  display: block;
+  margin-top: 20rpx;
+  color: #8c939e;
+  font-size: 20rpx;
+  line-height: 1;
+  text-align: center;
+}
+
+@media (max-width: 350px) {
+  .account-profile-page {
+    padding-right: 34rpx;
+    padding-left: 34rpx;
+  }
+
+  .account-identity-card {
+    padding-right: 20rpx;
+    padding-left: 20rpx;
+  }
+
+  .account-avatar-wrap,
+  .account-avatar {
+    width: 126rpx;
+    height: 126rpx;
+  }
+
+  .account-identity-copy {
+    margin-left: 24rpx;
+  }
+
+  .account-avatar-action {
+    min-width: 112rpx;
+    margin-left: 10rpx;
+    padding: 0 11rpx;
+    font-size: 21rpx;
+  }
+
+  .account-field__label,
+  .account-status-row__label {
+    width: 164rpx;
+  }
+}

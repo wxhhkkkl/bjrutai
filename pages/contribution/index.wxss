@@ -1,0 +1,366 @@
+page {
+  background: #ffffff;
+}
+
+.contribution-screen {
+  padding: 18rpx 22rpx calc(168rpx + constant(safe-area-inset-bottom));
+  padding: 18rpx 22rpx calc(168rpx + env(safe-area-inset-bottom));
+  background: #ffffff;
+}
+
+.contribution-banner {
+  position: relative;
+  width: 100%;
+  height: 320rpx;
+  overflow: hidden;
+  background: linear-gradient(105deg, #e8f4ff 0%, #e7f3ff 48%, #d7eaff 100%);
+  border-radius: 28rpx;
+  box-shadow: 0 12rpx 28rpx rgba(35, 79, 137, 0.08);
+}
+
+.contribution-banner__visual {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 59%;
+  height: 100%;
+}
+
+.contribution-banner__copy {
+  position: absolute;
+  top: 44rpx;
+  left: 46rpx;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.contribution-banner__label {
+  color: #050505;
+  font-size: 29rpx;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.contribution-banner__amount {
+  height: 100rpx;
+  display: flex;
+  align-items: flex-end;
+}
+
+.contribution-banner__number {
+  color: #050505;
+  font-size: 76rpx;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.contribution-banner__unit {
+  margin: 0 0 8rpx 10rpx;
+  color: #4d535c;
+  font-size: 24rpx;
+  line-height: 1;
+}
+
+.contribution-banner__growth {
+  min-height: 44rpx;
+  margin-top: 8rpx;
+  padding: 0 18rpx 0 12rpx;
+  display: flex;
+  align-items: center;
+  gap: 7rpx;
+  color: #1677ff;
+  font-size: 24rpx;
+  line-height: 1;
+  background: rgba(234, 245, 255, 0.96);
+  border: 1rpx solid rgba(22, 119, 255, 0.2);
+  border-radius: 999rpx;
+}
+
+.contribution-banner__description {
+  margin-top: 18rpx;
+  color: #3f4751;
+  font-size: 26rpx;
+  line-height: 1.2;
+}
+
+.period-tabs {
+  height: 76rpx;
+  margin: 20rpx 20rpx 22rpx;
+  padding: 6rpx;
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1rpx solid #e1e4e9;
+  border-radius: 999rpx;
+  box-shadow: 0 7rpx 18rpx rgba(29, 52, 85, 0.04);
+}
+
+.period-tab {
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: #686c74;
+  font-size: 29rpx;
+  line-height: 1;
+  border-radius: 999rpx;
+}
+
+.period-tab--active {
+  color: #ffffff;
+  background: #1677ff;
+  box-shadow: 0 8rpx 18rpx rgba(22, 119, 255, 0.22);
+}
+
+.trend-card,
+.composition-card,
+.detail-card {
+  background: #ffffff;
+  border: 1rpx solid #edf0f4;
+  border-radius: 27rpx;
+  box-shadow: 0 10rpx 28rpx rgba(27, 49, 83, 0.055);
+}
+
+.trend-card {
+  height: 400rpx;
+  padding: 25rpx 20rpx 18rpx;
+}
+
+.contribution-title {
+  color: #050505;
+  font-size: 33rpx;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.trend-card__header {
+  height: 48rpx;
+  padding: 0 3rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.trend-card__total {
+  display: flex;
+  align-items: baseline;
+  gap: 10rpx;
+  color: #72767d;
+  font-size: 24rpx;
+}
+
+.trend-card__total-number {
+  color: #1677ff;
+  font-size: 35rpx;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.trend-chart {
+  width: 100%;
+  height: 310rpx;
+}
+
+.trend-chart ec-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.composition-card {
+  min-height: 238rpx;
+  margin-top: 22rpx;
+  padding: 27rpx 25rpx 24rpx;
+}
+
+.composition-content {
+  min-height: 154rpx;
+  margin-top: 18rpx;
+  display: flex;
+  align-items: center;
+}
+
+.composition-item {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  flex: 1;
+}
+
+.composition-item--service {
+  padding-left: 40rpx;
+}
+
+.composition-icon {
+  width: 112rpx;
+  height: 118rpx;
+  flex: none;
+  border-radius: 22rpx;
+}
+
+.composition-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 13rpx;
+}
+
+.composition-label {
+  color: #111318;
+  font-size: 28rpx;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.composition-value {
+  display: flex;
+  align-items: baseline;
+  color: #050505;
+  font-size: 45rpx;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.composition-unit {
+  margin-left: 8rpx;
+  color: #5e6269;
+  font-size: 22rpx;
+  font-weight: 400;
+}
+
+.composition-divider {
+  width: 1rpx;
+  height: 136rpx;
+  margin-left: 24rpx;
+  background: #e4e7eb;
+  flex: none;
+}
+
+.detail-card {
+  margin-top: 22rpx;
+  padding: 24rpx 16rpx 18rpx;
+}
+
+.detail-card__header {
+  height: 48rpx;
+  padding: 0 10rpx 0 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.detail-card__all {
+  min-width: 152rpx;
+  min-height: 64rpx;
+  padding-left: 14rpx;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8rpx;
+  color: #1677ff;
+  font-size: 26rpx;
+  border-radius: 16rpx;
+}
+
+.detail-list {
+  margin-top: 17rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.detail-row {
+  min-height: 104rpx;
+  padding: 14rpx 15rpx;
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  background: #ffffff;
+  border: 1rpx solid #eef1f5;
+  border-radius: 22rpx;
+  box-shadow: 0 6rpx 16rpx rgba(27, 49, 83, 0.035);
+}
+
+.detail-icon {
+  width: 76rpx;
+  height: 76rpx;
+  flex: none;
+  border-radius: 16rpx;
+}
+
+.detail-copy {
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.detail-title {
+  overflow: hidden;
+  color: #101216;
+  font-size: 27rpx;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.detail-meta {
+  overflow: hidden;
+  color: #767b84;
+  font-size: 23rpx;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.detail-value {
+  display: flex;
+  align-items: baseline;
+  color: #1677ff;
+  font-size: 35rpx;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.detail-unit {
+  margin-left: 7rpx;
+  color: #6d727a;
+  font-size: 21rpx;
+  font-weight: 400;
+}
+
+@media (max-width: 350px) {
+  .contribution-banner__copy {
+    left: 36rpx;
+  }
+
+  .contribution-banner__number {
+    font-size: 68rpx;
+  }
+
+  .composition-item {
+    gap: 15rpx;
+  }
+
+  .composition-item--service {
+    padding-left: 24rpx;
+  }
+
+  .composition-icon {
+    width: 96rpx;
+    height: 102rpx;
+  }
+
+  .composition-value {
+    font-size: 40rpx;
+  }
+}

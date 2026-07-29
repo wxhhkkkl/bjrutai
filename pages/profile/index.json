@@ -1,0 +1,5 @@
+{
+  "usingComponents": {
+    "page-state": "/components/page-state/index"
+  }
+}

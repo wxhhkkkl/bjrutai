@@ -1,0 +1,6 @@
+{
+  "usingComponents": {
+    "app-header": "/components/app-header/index",
+    "van-icon": "/miniprogram_npm/@vant/weapp/icon/index"
+  }
+}

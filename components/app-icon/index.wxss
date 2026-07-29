@@ -1,0 +1,2 @@
+.icon { width: 88rpx; height: 88rpx; border-radius: 22rpx; display:flex; align-items:center; justify-content:center; font-size:48rpx; font-weight:600; }
+.blue { color:#1677ff; background:#e8f3ff; }.green { color:#079449; background:#e9f8ef; }.purple { color:#5332c9; background:#f0edff; }.orange { color:#ed7800; background:#fff1df; }.gray { color:#788397; background:#f0f2f6; }

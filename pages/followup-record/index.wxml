@@ -1,0 +1,156 @@
+<flow-navigation title="记录跟进" bind:back="handleBack" />
+
+<view class="followup-page">
+  <view class="followup-customer">
+    <image
+      class="followup-customer__avatar"
+      src="{{customer.contributionAvatar}}"
+      mode="aspectFill"
+      aria-role="img"
+      aria-label="{{customer.name}}"
+    />
+    <view class="followup-customer__copy">
+      <text class="followup-customer__name">{{customer.name}}</text>
+      <text class="followup-customer__phone">{{customer.phone}}</text>
+      <text class="followup-customer__latest">最近跟进：暂无记录</text>
+    </view>
+    <view class="followup-customer__status">
+      <van-icon name="passed" size="15px" color="#1677ff" />
+      <text>已绑定</text>
+    </view>
+  </view>
+
+  <text class="followup-section-title">跟进方式</text>
+  <view class="followup-methods">
+    <view
+      wx:for="{{methods}}"
+      wx:key="id"
+      class="followup-method tap-target {{form.method === item.id ? 'followup-method--active' : ''}}"
+      data-id="{{item.id}}"
+      bindtap="selectMethod"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      <view class="followup-method__icon {{form.method === item.id ? 'followup-method__icon--active' : ''}}">
+        <van-icon
+          name="{{item.icon}}"
+          size="34px"
+          color="{{form.method === item.id ? '#ffffff' : '#24282e'}}"
+        />
+      </view>
+      <text>{{item.label}}</text>
+    </view>
+  </view>
+
+  <text class="followup-section-title">跟进结果</text>
+  <view class="followup-results">
+    <view
+      wx:for="{{results}}"
+      wx:key="id"
+      class="followup-result tap-target {{form.result === item.id ? 'followup-result--active' : ''}}"
+      data-id="{{item.id}}"
+      bindtap="selectResult"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      <van-icon
+        wx:if="{{form.result === item.id}}"
+        name="success"
+        size="18px"
+        color="#1677ff"
+      />
+      <text>{{item.label}}</text>
+    </view>
+  </view>
+
+  <text class="followup-section-title">跟进内容</text>
+  <view class="followup-content">
+    <textarea
+      class="followup-content__input"
+      value="{{form.content}}"
+      maxlength="500"
+      placeholder="请填写本次沟通重点、客户需求及后续安排"
+      placeholder-class="followup-content__placeholder"
+      bindinput="onContentInput"
+    ></textarea>
+    <text class="followup-content__count">{{contentLength}}/500</text>
+  </view>
+
+  <view class="reminder-heading">
+    <text class="followup-section-title reminder-heading__title">下次跟进</text>
+    <view
+      class="reminder-switch tap-target {{form.reminderEnabled ? 'reminder-switch--active' : ''}}"
+      bindtap="toggleReminder"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="switch"
+      aria-label="下次跟进提醒"
+    >
+      <view class="reminder-switch__thumb"></view>
+    </view>
+  </view>
+
+  <view wx:if="{{form.reminderEnabled}}" class="reminder-card">
+    <picker
+      class="reminder-row"
+      mode="date"
+      value="{{form.reminderDate}}"
+      bindchange="onReminderDateChange"
+    >
+      <view class="reminder-row__content tap-target" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+        <view class="reminder-row__icon">
+          <van-icon name="calendar-o" size="27px" color="#1677ff" />
+        </view>
+        <text class="reminder-row__label">提醒日期</text>
+        <text class="reminder-row__value">{{reminderDateText}}</text>
+        <van-icon name="arrow" size="20px" color="#7c838e" />
+      </view>
+    </picker>
+    <picker
+      class="reminder-row reminder-row--last"
+      mode="time"
+      value="{{form.reminderTime}}"
+      bindchange="onReminderTimeChange"
+    >
+      <view class="reminder-row__content tap-target" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+        <view class="reminder-row__icon">
+          <van-icon name="clock-o" size="28px" color="#1677ff" />
+        </view>
+        <text class="reminder-row__label">提醒时间</text>
+        <text class="reminder-row__value">{{form.reminderTime}}</text>
+        <van-icon name="arrow" size="20px" color="#7c838e" />
+      </view>
+    </picker>
+  </view>
+
+  <view class="followup-notice">
+    <van-icon name="shield-o" size="25px" color="#1677ff" />
+    <text>请勿记录诊断、处方等敏感医疗信息</text>
+  </view>
+</view>
+
+<view class="followup-action-bar">
+  <view
+    class="followup-action followup-action--draft tap-target"
+    bindtap="saveDraft"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+  >
+    <van-icon name="description-o" size="27px" color="#1677ff" />
+    <text>保存草稿</text>
+  </view>
+  <view
+    class="followup-action followup-action--save tap-target"
+    bindtap="saveFollowup"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+  >
+    <van-icon name="passed" size="28px" color="#ffffff" />
+    <text>保存跟进</text>
+  </view>
+</view>

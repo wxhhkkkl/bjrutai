@@ -1,0 +1,492 @@
+page {
+  background: #ffffff;
+}
+
+.analysis-page {
+  min-height: 100vh;
+  padding: 24rpx 31rpx calc(34rpx + constant(safe-area-inset-bottom));
+  padding: 24rpx 31rpx calc(34rpx + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 65%, #ffffff 100%);
+}
+
+.analysis-period-row {
+  height: 66rpx;
+  display: flex;
+  align-items: center;
+  gap: 114rpx;
+}
+
+.analysis-periods {
+  height: 66rpx;
+  padding: 2rpx;
+  display: flex;
+  flex: 1;
+  background: #ffffff;
+  border: 1rpx solid #dfe3e9;
+  border-radius: 999rpx;
+}
+
+.analysis-period {
+  height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: #5f6670;
+  font-size: 26rpx;
+  line-height: 1;
+  border-radius: 999rpx;
+}
+
+.analysis-period + .analysis-period {
+  position: relative;
+}
+
+.analysis-period + .analysis-period::before {
+  content: "";
+  position: absolute;
+  top: 15rpx;
+  bottom: 15rpx;
+  left: 0;
+  width: 1rpx;
+  background: #e1e5eb;
+}
+
+.analysis-period--active {
+  color: #ffffff;
+  background: #1677ff;
+  box-shadow: 0 7rpx 16rpx rgba(22, 119, 255, 0.2);
+}
+
+.analysis-period--active::before,
+.analysis-period--active + .analysis-period::before {
+  display: none;
+}
+
+.analysis-calendar {
+  width: 68rpx;
+  height: 66rpx;
+  flex: none;
+}
+
+.analysis-calendar__button {
+  width: 68rpx;
+  height: 66rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 1rpx solid #e1e5eb;
+  border-radius: 16rpx;
+  box-shadow: 0 6rpx 14rpx rgba(27, 49, 83, 0.04);
+}
+
+.analysis-card {
+  background: #ffffff;
+  border: 1rpx solid #edf0f4;
+  border-radius: 24rpx;
+  box-shadow: 0 8rpx 23rpx rgba(27, 49, 83, 0.05);
+}
+
+.analysis-title {
+  color: #050505;
+  font-size: 32rpx;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.overview-card {
+  min-height: 284rpx;
+  margin-top: 25rpx;
+  padding: 24rpx 25rpx 25rpx;
+}
+
+.overview-metrics {
+  margin-top: 24rpx;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.overview-metric {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  flex-direction: column;
+}
+
+.overview-metric__icon {
+  position: relative;
+  width: 89rpx;
+  height: 89rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 17rpx;
+}
+
+.overview-metric__icon--blue,
+.followup-metric__icon--blue {
+  background: linear-gradient(145deg, #e8f3ff, #f5f9ff);
+}
+
+.overview-metric__icon--green,
+.followup-metric__icon--green,
+.attention-row__icon--green {
+  background: linear-gradient(145deg, #e5f8ee, #f2fbf6);
+}
+
+.overview-metric__icon--purple {
+  background: linear-gradient(145deg, #eee7ff, #f8f5ff);
+}
+
+.overview-metric__icon--orange,
+.followup-metric__icon--orange,
+.attention-row__icon--orange {
+  background: linear-gradient(145deg, #fff0dc, #fff8ec);
+}
+
+.overview-metric__link {
+  position: absolute;
+  right: 12rpx;
+  bottom: 14rpx;
+}
+
+.overview-metric__label {
+  margin-top: 18rpx;
+  color: #252a31;
+  font-size: 23rpx;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.overview-metric__value {
+  margin-top: 12rpx;
+  color: #050505;
+  font-size: 39rpx;
+  line-height: 1;
+}
+
+.trend-card {
+  height: 358rpx;
+  margin-top: 20rpx;
+  padding: 24rpx 19rpx 13rpx;
+}
+
+.analysis-card__header {
+  min-height: 42rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.analysis-card__summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10rpx;
+  color: #6d737c;
+  font-size: 23rpx;
+}
+
+.analysis-card__summary > text:last-child {
+  color: #1677ff;
+  font-size: 33rpx;
+  font-weight: 700;
+}
+
+.analysis-trend-chart {
+  width: 100%;
+  height: 285rpx;
+}
+
+.analysis-trend-chart ec-canvas,
+.status-chart ec-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.analysis-split {
+  margin-top: 20rpx;
+  display: flex;
+  gap: 15rpx;
+}
+
+.status-card,
+.source-card {
+  width: calc(50% - 8rpx);
+  height: 266rpx;
+  padding: 24rpx 20rpx;
+}
+
+.status-card__content {
+  height: 185rpx;
+  display: flex;
+  align-items: center;
+}
+
+.status-chart {
+  width: 153rpx;
+  height: 153rpx;
+  flex: none;
+}
+
+.status-legend {
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.status-legend__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 11rpx;
+}
+
+.status-legend__dot {
+  width: 16rpx;
+  height: 16rpx;
+  margin-top: 4rpx;
+  flex: none;
+  border-radius: 4rpx;
+}
+
+.status-legend__dot--0 {
+  background: #14b86a;
+}
+
+.status-legend__dot--1 {
+  background: #ffb44b;
+}
+
+.status-legend__copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  color: #252a31;
+  font-size: 21rpx;
+  white-space: nowrap;
+}
+
+.status-legend__value > text:first-child {
+  color: #050505;
+  font-size: 26rpx;
+}
+
+.status-legend__value > text:last-child {
+  color: #737a84;
+  font-size: 19rpx;
+}
+
+.source-total {
+  display: flex;
+  align-items: baseline;
+  gap: 8rpx;
+  color: #6d737c;
+  font-size: 20rpx;
+}
+
+.source-total > text:last-child {
+  color: #1677ff;
+  font-size: 30rpx;
+}
+
+.source-list {
+  margin-top: 28rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 31rpx;
+}
+
+.source-item__header {
+  display: flex;
+  justify-content: space-between;
+  color: #242930;
+  font-size: 20rpx;
+}
+
+.source-item__header view > text:last-child {
+  color: #737a84;
+  font-size: 18rpx;
+}
+
+.source-item__track {
+  height: 11rpx;
+  margin-top: 13rpx;
+  overflow: hidden;
+  background: #e7e9ed;
+  border-radius: 999rpx;
+}
+
+.source-item__bar {
+  height: 100%;
+  background: #1677ff;
+  border-radius: 999rpx;
+}
+
+.followup-card {
+  min-height: 168rpx;
+  margin-top: 20rpx;
+  padding: 25rpx 28rpx 22rpx;
+}
+
+.followup-metrics {
+  min-height: 96rpx;
+  margin-top: 17rpx;
+  display: flex;
+}
+
+.followup-metric {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 17rpx;
+  flex: 1;
+}
+
+.followup-metric + .followup-metric::before {
+  content: "";
+  position: absolute;
+  top: 17rpx;
+  bottom: 17rpx;
+  left: 0;
+  width: 1rpx;
+  background: #dfe4eb;
+}
+
+.followup-metric:not(:first-child) {
+  padding-left: 31rpx;
+}
+
+.followup-metric__icon {
+  width: 72rpx;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 15rpx;
+}
+
+.followup-metric__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 7rpx;
+  color: #22272e;
+  font-size: 20rpx;
+  white-space: nowrap;
+}
+
+.followup-metric__copy > text:last-child {
+  color: #050505;
+  font-size: 34rpx;
+}
+
+.attention-card {
+  margin-top: 20rpx;
+  padding: 23rpx 17rpx 11rpx;
+}
+
+.attention-card > .analysis-title {
+  margin-left: 8rpx;
+}
+
+.attention-row {
+  min-height: 65rpx;
+  margin-top: 10rpx;
+  padding: 8rpx 12rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  background: #ffffff;
+  border: 1rpx solid #edf0f4;
+  border-radius: 17rpx;
+  box-shadow: 0 5rpx 13rpx rgba(27, 49, 83, 0.03);
+}
+
+.attention-row--last {
+  margin-top: 7rpx;
+}
+
+.attention-row__icon {
+  width: 49rpx;
+  height: 49rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 11rpx;
+}
+
+.attention-row__copy {
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  color: #4e5560;
+  font-size: 21rpx;
+}
+
+.attention-row__copy > text:first-child {
+  color: #050505;
+  font-size: 27rpx;
+  font-weight: 600;
+}
+
+.attention-row__link {
+  color: #1677ff;
+  font-size: 22rpx;
+}
+
+.analysis-update {
+  min-height: 52rpx;
+  margin-top: 14rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  color: #78808c;
+  font-size: 20rpx;
+  background: linear-gradient(90deg, #f4f8ff, #edf5ff);
+  border-radius: 17rpx;
+}
+
+@media (max-width: 350px) {
+  .analysis-page {
+    padding-right: 24rpx;
+    padding-left: 24rpx;
+  }
+
+  .analysis-period-row {
+    gap: 70rpx;
+  }
+
+  .overview-metric__icon {
+    width: 79rpx;
+    height: 79rpx;
+  }
+
+  .analysis-split {
+    flex-direction: column;
+  }
+
+  .status-card,
+  .source-card {
+    width: 100%;
+  }
+
+  .followup-metric {
+    gap: 10rpx;
+  }
+
+  .followup-metric:not(:first-child) {
+    padding-left: 19rpx;
+  }
+
+  .followup-metric__icon {
+    width: 62rpx;
+    height: 62rpx;
+  }
+}

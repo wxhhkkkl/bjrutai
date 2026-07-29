@@ -1,0 +1,146 @@
+<flow-navigation title="账号信息" bind:back="handleBack" />
+
+<view class="account-profile-page">
+  <text class="account-profile-title">编辑账号资料</text>
+  <text class="account-profile-description">用于账户识别与业务联系</text>
+
+  <view class="account-identity-card">
+    <view class="account-avatar-wrap">
+      <image
+        class="account-avatar"
+        src="{{form.avatar}}"
+        mode="aspectFill"
+        aria-role="img"
+        aria-label="用户头像"
+      />
+      <view class="account-avatar__camera">
+        <van-icon name="photograph" size="18px" color="#ffffff" />
+      </view>
+    </view>
+    <view class="account-identity-copy">
+      <text class="account-identity-name">{{form.name || '张小明'}}</text>
+      <text class="account-identity-role">{{view.identityDisplay}}</text>
+      <view class="account-qualification-badge account-qualification-badge--{{view.qualificationTone}}">
+        <van-icon name="{{view.qualificationIcon}}" size="17px" color="currentColor" />
+        <text>资质{{view.qualificationLabel}}</text>
+      </view>
+    </view>
+    <view
+      class="account-avatar-action tap-target"
+      bindtap="chooseAvatar"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="button"
+      aria-label="更换头像"
+    >更换头像</view>
+  </view>
+
+  <text class="account-section-title">基本信息</text>
+  <view class="account-form-card">
+    <view class="account-field {{invalidField === 'name' ? 'account-field--invalid' : ''}}">
+      <text class="account-field__label">真实姓名</text>
+      <input
+        class="account-field__input"
+        value="{{form.name}}"
+        data-field="name"
+        bindinput="onFieldInput"
+        maxlength="20"
+        placeholder="请输入真实姓名"
+        placeholder-class="account-field__placeholder"
+      />
+      <van-icon name="edit" size="21px" color="#858c98" />
+    </view>
+    <view class="account-field {{invalidField === 'organization' ? 'account-field--invalid' : ''}}">
+      <text class="account-field__label">所属机构</text>
+      <input
+        class="account-field__input account-field__input--organization"
+        value="{{form.organization}}"
+        data-field="organization"
+        bindinput="onFieldInput"
+        maxlength="40"
+        placeholder="请输入所属机构"
+        placeholder-class="account-field__placeholder"
+      />
+      <van-icon name="edit" size="21px" color="#858c98" />
+    </view>
+    <view class="account-field">
+      <text class="account-field__label">身份类型</text>
+      <text class="account-field__value">{{view.identityLabel}}</text>
+      <van-icon name="lock" size="21px" color="#858c98" />
+    </view>
+    <view class="account-field">
+      <text class="account-field__label">授权手机号</text>
+      <text class="account-field__value">{{phone}}</text>
+      <button
+        class="account-phone-action tap-target"
+        open-type="getPhoneNumber"
+        bindgetphonenumber="authorizePhone"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+      >更换</button>
+      <van-icon name="arrow" size="21px" color="#858c98" />
+    </view>
+  </view>
+  <text class="account-form-hint">身份类型由系统识别，无法手动修改</text>
+
+  <text class="account-section-title account-section-title--status">账号状态</text>
+  <view class="account-status-card">
+    <view class="account-status-row">
+      <text class="account-status-row__label">账号 ID</text>
+      <text class="account-status-row__value">{{view.accountId}}</text>
+    </view>
+    <view class="account-status-row">
+      <text class="account-status-row__label">微信绑定</text>
+      <view class="account-status-row__state account-status-row__state--green">
+        <van-icon name="passed" size="20px" color="currentColor" />
+        <text>{{view.wechatBound}}</text>
+      </view>
+    </view>
+    <view
+      class="account-status-row tap-target"
+      bindtap="openQualification"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="button"
+      aria-label="查看资质状态"
+    >
+      <text class="account-status-row__label">资质状态</text>
+      <view class="account-status-row__state account-status-row__state--{{view.qualificationTone}}">
+        <van-icon name="{{view.qualificationIcon}}" size="20px" color="currentColor" />
+        <text>{{view.qualificationLabel}}</text>
+      </view>
+      <van-icon name="arrow" size="21px" color="#858c98" />
+    </view>
+  </view>
+
+  <view class="account-security-card">
+    <view class="account-security-card__icon">
+      <van-icon name="shield-o" size="41px" color="#1677ff" />
+      <van-icon class="account-security-card__document" name="description" size="16px" color="#1677ff" />
+    </view>
+    <view class="account-security-card__copy">
+      <text class="account-security-card__title">资料安全保护</text>
+      <text class="account-security-card__description">个人资料仅用于账户管理与业务协作</text>
+    </view>
+  </view>
+</view>
+
+<view class="account-save-bar">
+  <view
+    class="account-save-button tap-target {{saving ? 'account-save-button--disabled' : ''}}"
+    bindtap="saveProfile"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+    aria-role="button"
+    aria-label="保存修改"
+  >
+    <van-icon wx:if="{{!saving}}" name="checked" size="29px" color="#ffffff" />
+    <van-icon wx:else name="replay" size="27px" color="#ffffff" />
+    <text>{{saving ? '正在保存' : '保存修改'}}</text>
+  </view>
+  <text class="account-save-bar__hint">保存后将同步更新个人资料</text>
+</view>

@@ -1,0 +1,7 @@
+{
+  "usingComponents": {
+    "flow-navigation": "/components/flow-navigation/index",
+    "ec-canvas": "/ec-canvas/ec-canvas",
+    "van-icon": "/miniprogram_npm/@vant/weapp/icon/index"
+  }
+}

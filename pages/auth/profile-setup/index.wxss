@@ -1,0 +1,301 @@
+page {
+  background: #ffffff;
+}
+
+.profile-setup-page {
+  min-height: 100vh;
+  padding: 43rpx 44rpx calc(210rpx + constant(safe-area-inset-bottom));
+  padding: 43rpx 44rpx calc(210rpx + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 72%, #f8fbff 100%);
+}
+
+.profile-progress__heading {
+  display: flex;
+  align-items: center;
+  gap: 28rpx;
+  color: #5f6671;
+  font-size: 26rpx;
+}
+
+.profile-progress__heading > text:last-child {
+  color: #1677ff;
+}
+
+.profile-progress__track {
+  height: 8rpx;
+  margin-top: 24rpx;
+  overflow: hidden;
+  background: #e2e6ed;
+  border-radius: 999rpx;
+}
+
+.profile-progress__value {
+  width: 50%;
+  height: 100%;
+  background: #1677ff;
+  border-radius: inherit;
+}
+
+.profile-setup-title {
+  display: block;
+  margin-top: 51rpx;
+  color: #050505;
+  font-size: 45rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.profile-setup-description {
+  display: block;
+  margin-top: 25rpx;
+  color: #666d77;
+  font-size: 26rpx;
+  line-height: 1;
+}
+
+.profile-identity-card {
+  min-height: 179rpx;
+  margin-top: 45rpx;
+  padding: 27rpx 30rpx;
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1rpx solid #e9edf2;
+  border-radius: 28rpx;
+  box-shadow: 0 11rpx 29rpx rgba(31, 61, 105, 0.08);
+}
+
+.profile-identity-card__avatar {
+  width: 117rpx;
+  height: 117rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  background: linear-gradient(145deg, #e8f3ff, #f5f9ff);
+  border-radius: 20rpx;
+}
+
+.profile-identity-card__copy {
+  margin-left: 31rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 19rpx;
+}
+
+.profile-identity-card__name {
+  color: #080b10;
+  font-size: 31rpx;
+  font-weight: 600;
+}
+
+.profile-identity-card__phone {
+  display: flex;
+  align-items: center;
+  gap: 13rpx;
+  color: #626a75;
+  font-size: 24rpx;
+}
+
+.profile-section-title {
+  display: block;
+  margin-top: 50rpx;
+  color: #050505;
+  font-size: 31rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.profile-form-card {
+  margin-top: 24rpx;
+  padding: 0 29rpx;
+  background: #ffffff;
+  border: 1rpx solid #e8ecf2;
+  border-radius: 28rpx;
+  box-shadow: 0 9rpx 25rpx rgba(31, 61, 105, 0.06);
+}
+
+.profile-field {
+  min-height: 121rpx;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  border-bottom: 1rpx solid #e2e6ec;
+}
+
+.profile-field:last-child {
+  border-bottom: 0;
+}
+
+.profile-field--invalid {
+  box-shadow: inset 0 -2rpx 0 #e63625;
+}
+
+.profile-field__label {
+  width: 145rpx;
+  flex: none;
+  color: #434a54;
+  font-size: 26rpx;
+}
+
+.profile-field__input {
+  min-width: 0;
+  height: 90rpx;
+  flex: 1;
+  color: #101419;
+  font-size: 27rpx;
+  font-weight: 500;
+}
+
+.profile-field__placeholder {
+  color: #9aa0aa;
+  font-weight: 400;
+}
+
+.profile-role-card {
+  min-height: 190rpx;
+  margin-top: 42rpx;
+  padding: 32rpx 31rpx;
+  display: flex;
+  align-items: center;
+  background: linear-gradient(105deg, #f2f8ff 0%, #ffffff 52%, #edf6ff 100%);
+  border: 1rpx solid #acd0ff;
+  border-radius: 26rpx;
+}
+
+.profile-role-card__icon {
+  position: relative;
+  width: 116rpx;
+  height: 123rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  background: #1677ff;
+  border-radius: 20rpx;
+  box-shadow: 0 10rpx 22rpx rgba(22, 119, 255, 0.2);
+}
+
+.profile-role-card__shield {
+  position: absolute;
+  right: 17rpx;
+  bottom: 18rpx;
+}
+
+.profile-role-card__copy {
+  min-width: 0;
+  margin-left: 29rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.profile-role-card__title {
+  color: #101419;
+  font-size: 29rpx;
+  font-weight: 600;
+}
+
+.profile-role-card__description {
+  color: #5f6772;
+  font-size: 22rpx;
+  line-height: 1.6;
+}
+
+.profile-confirmation {
+  min-height: 74rpx;
+  margin-top: 31rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  color: #4f5661;
+  font-size: 23rpx;
+  border-radius: 12rpx;
+}
+
+.profile-confirmation__box {
+  width: 31rpx;
+  height: 31rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  background: #ffffff;
+  border: 2rpx solid #969da8;
+  border-radius: 5rpx;
+}
+
+.profile-confirmation__box--checked {
+  background: #1677ff;
+  border-color: #1677ff;
+}
+
+.profile-submit-bar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
+  padding: 25rpx 44rpx 0;
+  background: rgba(255, 255, 255, 0.98);
+  border-top: 1rpx solid #edf0f4;
+}
+
+.profile-submit-button {
+  width: 100%;
+  height: 89rpx;
+  margin: 0;
+  padding: 0 34rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 23rpx;
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 600;
+  line-height: 1;
+  background: #050505;
+  border-radius: 999rpx;
+}
+
+.profile-submit-button[disabled] {
+  opacity: 0.72;
+}
+
+.profile-submit-bar__hint {
+  display: block;
+  margin-top: 22rpx;
+  color: #969ca6;
+  font-size: 21rpx;
+  line-height: 1;
+  text-align: center;
+}
+
+.profile-submit-bar__safe {
+  height: calc(25rpx + constant(safe-area-inset-bottom));
+  height: calc(25rpx + env(safe-area-inset-bottom));
+}
+
+@media (max-width: 350px) {
+  .profile-setup-page {
+    padding-right: 34rpx;
+    padding-left: 34rpx;
+  }
+
+  .profile-field {
+    gap: 12rpx;
+  }
+
+  .profile-field__label {
+    width: 125rpx;
+    font-size: 24rpx;
+  }
+
+  .profile-field__input {
+    font-size: 24rpx;
+  }
+
+  .profile-role-card__copy {
+    margin-left: 22rpx;
+  }
+}

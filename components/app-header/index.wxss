@@ -1,0 +1,49 @@
+@import "../../styles/interactions.wxss";
+
+.app-header {
+  width: 100%;
+  padding-left: 40rpx;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.app-header__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+  min-width: 0;
+}
+
+.app-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  min-width: 0;
+}
+
+.app-header__logo {
+  width: 65rpx;
+  height: 65rpx;
+  flex: none;
+}
+
+.app-header__title {
+  overflow: hidden;
+  color: #050505;
+  font-size: 54rpx;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.app-header__action {
+  width: 88rpx;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 50%;
+}

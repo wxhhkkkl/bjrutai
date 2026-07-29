@@ -1,0 +1,26 @@
+.tap-target {
+  transform-origin: center;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    background-color 120ms ease;
+}
+
+.tap-feedback {
+  opacity: 0.72;
+  transform: scale(0.98);
+  background-color: rgba(22, 119, 255, 0.08);
+}
+
+button {
+  transform-origin: center;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    background-color 120ms ease;
+}
+
+button:active {
+  opacity: 0.72;
+  transform: scale(0.98);
+}

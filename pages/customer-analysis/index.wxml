@@ -1,0 +1,211 @@
+<flow-navigation title="客户分析" bind:back="handleBack" />
+
+<view class="analysis-page">
+  <view class="analysis-period-row">
+    <view class="analysis-periods">
+      <view
+        wx:for="{{periods}}"
+        wx:key="id"
+        class="analysis-period tap-target {{selectedPeriod === item.id ? 'analysis-period--active' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="selectPeriod"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+      >
+        {{item.label}}
+      </view>
+    </view>
+    <picker
+      class="analysis-calendar"
+      mode="date"
+      value="{{selectedDate}}"
+      bindchange="onDateChange"
+    >
+      <view class="analysis-calendar__button tap-target" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+        <van-icon name="calendar-o" size="28px" color="#1677ff" />
+      </view>
+    </picker>
+  </view>
+
+  <view class="analysis-card overview-card">
+    <text class="analysis-title">客户概览</text>
+    <view class="overview-metrics">
+      <view class="overview-metric">
+        <view class="overview-metric__icon overview-metric__icon--blue">
+          <van-icon name="contact-o" size="34px" color="#1677ff" />
+        </view>
+        <text class="overview-metric__label">累计客户</text>
+        <text class="overview-metric__value">{{period.overview.total}}</text>
+      </view>
+      <view class="overview-metric">
+        <view class="overview-metric__icon overview-metric__icon--green">
+          <van-icon name="friends-o" size="34px" color="#087d58" />
+          <van-icon class="overview-metric__link" name="link-o" size="17px" color="#087d58" />
+        </view>
+        <text class="overview-metric__label">已绑定</text>
+        <text class="overview-metric__value">{{period.overview.bound}}</text>
+      </view>
+      <view class="overview-metric">
+        <view class="overview-metric__icon overview-metric__icon--purple">
+          <van-icon name="clock-o" size="36px" color="#3c20a8" />
+        </view>
+        <text class="overview-metric__label">待匹配</text>
+        <text class="overview-metric__value">{{period.overview.matching}}</text>
+      </view>
+      <view class="overview-metric">
+        <view class="overview-metric__icon overview-metric__icon--orange">
+          <van-icon name="like-o" size="36px" color="#ef7b00" />
+        </view>
+        <text class="overview-metric__label">待跟进</text>
+        <text class="overview-metric__value">{{period.overview.followup}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="analysis-card trend-card">
+    <view class="analysis-card__header">
+      <text class="analysis-title">客户增长趋势</text>
+      <view class="analysis-card__summary">
+        <text>{{period.addedLabel}}</text>
+        <text>{{period.added}}</text>
+      </view>
+    </view>
+    <view class="analysis-trend-chart">
+      <ec-canvas
+        id="customer-trend-chart"
+        canvas-id="customer-trend-chart"
+        ec="{{ec}}"
+      ></ec-canvas>
+    </view>
+  </view>
+
+  <view class="analysis-split">
+    <view class="analysis-card status-card">
+      <text class="analysis-title">绑定状态</text>
+      <view class="status-card__content">
+        <view class="status-chart">
+          <ec-canvas
+            id="binding-status-chart"
+            canvas-id="binding-status-chart"
+            ec="{{ec}}"
+          ></ec-canvas>
+        </view>
+        <view class="status-legend">
+          <view wx:for="{{distribution}}" wx:key="name" class="status-legend__item">
+            <view class="status-legend__dot status-legend__dot--{{index}}"></view>
+            <view class="status-legend__copy">
+              <text>{{item.name}}</text>
+              <view class="status-legend__value">
+                <text>{{item.value}}</text>
+                <text>（{{item.percent}}%）</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="analysis-card source-card">
+      <view class="analysis-card__header">
+        <text class="analysis-title">客户来源</text>
+        <view class="source-total">
+          <text>总计</text>
+          <text>{{period.overview.total}}</text>
+        </view>
+      </view>
+      <view class="source-list">
+        <view wx:for="{{period.sources}}" wx:key="id" class="source-item">
+          <view class="source-item__header">
+            <text>{{item.label}}</text>
+            <view>
+              <text>{{item.value}}</text>
+              <text>（{{item.percent}}%）</text>
+            </view>
+          </view>
+          <view class="source-item__track">
+            <view class="source-item__bar" style="width: {{item.percent}}%;"></view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="analysis-card followup-card">
+    <text class="analysis-title">跟进情况</text>
+    <view class="followup-metrics">
+      <view class="followup-metric">
+        <view class="followup-metric__icon followup-metric__icon--green">
+          <van-icon name="passed" size="28px" color="#07814e" />
+        </view>
+        <view class="followup-metric__copy">
+          <text>已完成</text>
+          <text>{{period.followup.completed}}</text>
+        </view>
+      </view>
+      <view class="followup-metric">
+        <view class="followup-metric__icon followup-metric__icon--orange">
+          <van-icon name="clock-o" size="29px" color="#ef8a00" />
+        </view>
+        <view class="followup-metric__copy">
+          <text>待跟进</text>
+          <text>{{period.followup.pending}}</text>
+        </view>
+      </view>
+      <view class="followup-metric followup-metric--last">
+        <view class="followup-metric__icon followup-metric__icon--blue">
+          <van-icon name="contact-o" size="29px" color="#1677ff" />
+        </view>
+        <view class="followup-metric__copy">
+          <text>近7天无服务</text>
+          <text>{{period.followup.idle}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="analysis-card attention-card">
+    <text class="analysis-title">需要关注</text>
+    <view
+      class="attention-row tap-target"
+      data-type="matching"
+      bindtap="openAttention"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      <view class="attention-row__icon attention-row__icon--orange">
+        <van-icon name="clock-o" size="25px" color="#ef8a00" />
+      </view>
+      <view class="attention-row__copy">
+        <text>{{period.overview.matching}}</text>
+        <text> 位客户仍在等待匹配</text>
+      </view>
+      <text class="attention-row__link">查看</text>
+      <van-icon name="arrow" size="20px" color="#7d838d" />
+    </view>
+    <view
+      class="attention-row attention-row--last tap-target"
+      data-type="followup"
+      bindtap="openAttention"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      <view class="attention-row__icon attention-row__icon--green">
+        <van-icon name="calendar-o" size="24px" color="#087d58" />
+      </view>
+      <view class="attention-row__copy">
+        <text>{{period.overview.followup}}</text>
+        <text> 位客户存在待跟进事项</text>
+      </view>
+      <text class="attention-row__link">查看</text>
+      <van-icon name="arrow" size="20px" color="#7d838d" />
+    </view>
+  </view>
+
+  <view class="analysis-update">
+    <van-icon name="replay" size="18px" color="#1677ff" />
+    <text>统计数据更新于今天 09:30</text>
+  </view>
+</view>

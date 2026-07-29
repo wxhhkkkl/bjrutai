@@ -1,0 +1,238 @@
+<flow-navigation title="编辑客户资料" bind:back="handleBack" />
+
+<view class="edit-page">
+  <view class="edit-customer-summary">
+    <image
+      class="edit-customer-summary__avatar"
+      src="{{customer.contributionAvatar}}"
+      mode="aspectFill"
+      aria-role="img"
+      aria-label="{{form.name}}"
+    />
+    <view class="edit-customer-summary__copy">
+      <text class="edit-customer-summary__name">{{form.name}}</text>
+      <text class="edit-customer-summary__phone">{{form.phone}}</text>
+      <text class="edit-customer-summary__hint">资料更新不会改变客户归属关系</text>
+    </view>
+    <view class="edit-customer-summary__status">
+      <van-icon name="passed" size="15px" color="#1677ff" />
+      <text>已绑定</text>
+    </view>
+  </view>
+
+  <text class="edit-section-title">基本资料</text>
+  <view class="edit-card basic-info-card">
+    <view class="edit-field">
+      <view class="edit-field__icon">
+        <van-icon name="contact-o" size="25px" color="#1677ff" />
+      </view>
+      <view class="edit-field__label">
+        <text>姓名</text>
+        <text class="edit-field__required">*</text>
+      </view>
+      <text class="edit-field__value">{{form.name}}</text>
+      <view
+        class="edit-field__action edit-field__action--icon tap-target"
+        data-field="name"
+        bindtap="openEditor"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+        aria-role="button"
+        aria-label="修改姓名"
+      >
+        <van-icon name="edit" size="22px" color="#5f6670" />
+      </view>
+    </view>
+
+    <view class="edit-field">
+      <view class="edit-field__icon">
+        <van-icon name="phone-o" size="25px" color="#1677ff" />
+      </view>
+      <view class="edit-field__label">
+        <text>手机号</text>
+        <text class="edit-field__required">*</text>
+      </view>
+      <text class="edit-field__value">{{form.phone}}</text>
+      <view
+        class="edit-field__action tap-target"
+        data-field="phone"
+        bindtap="openEditor"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+      >
+        修改
+      </view>
+    </view>
+
+    <view class="edit-field">
+      <view class="edit-field__icon">
+        <van-icon name="idcard" size="25px" color="#1677ff" />
+      </view>
+      <text class="edit-field__label">身份证号</text>
+      <text class="edit-field__value">{{form.idCard}}</text>
+      <van-icon name="lock" size="20px" color="#656c77" />
+      <view
+        class="edit-field__action tap-target"
+        data-field="idCard"
+        bindtap="openEditor"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+      >
+        修改
+      </view>
+    </view>
+
+    <view class="edit-field">
+      <view class="edit-field__icon">
+        <van-icon name="card" size="25px" color="#1677ff" />
+      </view>
+      <text class="edit-field__label">医保账户</text>
+      <text class="edit-field__value">{{form.medicalAccount}}</text>
+      <van-icon name="lock" size="20px" color="#656c77" />
+      <view
+        class="edit-field__action tap-target"
+        data-field="medicalAccount"
+        bindtap="openEditor"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+      >
+        修改
+      </view>
+    </view>
+
+    <view class="edit-field edit-field--last">
+      <view class="edit-field__icon">
+        <van-icon name="friends-o" size="25px" color="#1677ff" />
+      </view>
+      <text class="edit-field__label">家属手机号</text>
+      <text class="edit-field__value">{{form.familyPhone}}</text>
+      <view
+        class="edit-field__action tap-target"
+        data-field="familyPhone"
+        bindtap="openEditor"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+      >
+        修改
+      </view>
+    </view>
+  </view>
+
+  <text class="edit-section-title">补充信息</text>
+  <view class="edit-note">
+    <text class="edit-note__label">客户备注</text>
+    <textarea
+      class="edit-note__input"
+      value="{{form.note}}"
+      maxlength="200"
+      placeholder="填写客户沟通偏好或服务注意事项"
+      placeholder-class="edit-note__placeholder"
+      bindinput="onNoteInput"
+    ></textarea>
+    <text class="edit-note__count">{{noteLength}}/200</text>
+  </view>
+
+  <text class="edit-section-title">归属信息</text>
+  <view class="edit-card attribution-card">
+    <view class="attribution-row">
+      <view class="attribution-row__icon attribution-row__icon--blue">
+        <van-icon name="link-o" size="23px" color="#1677ff" />
+      </view>
+      <text>北京侧关联</text>
+      <view class="attribution-row__status attribution-row__status--blue">
+        <van-icon name="passed" size="15px" color="#1677ff" />
+        <text>已记录</text>
+      </view>
+    </view>
+    <view class="attribution-row">
+      <view class="attribution-row__icon attribution-row__icon--green">
+        <van-icon name="shield-o" size="23px" color="#12a147" />
+      </view>
+      <text>儒泰用户匹配</text>
+      <view class="attribution-row__status attribution-row__status--green">
+        <van-icon name="passed" size="15px" color="#12a147" />
+        <text>已匹配</text>
+      </view>
+    </view>
+    <view class="attribution-row attribution-row--last">
+      <view class="attribution-row__icon attribution-row__icon--blue">
+        <van-icon name="manager-o" size="23px" color="#1677ff" />
+      </view>
+      <text>归属拓展人</text>
+      <text class="attribution-row__owner">{{customer.owner}}</text>
+    </view>
+  </view>
+
+  <view class="edit-notice edit-notice--warning">
+    <van-icon name="warning-o" size="25px" color="#ff6a00" />
+    <text>客户归属、解绑或转移仅可由后台管理员操作</text>
+  </view>
+  <view class="edit-notice edit-notice--authorization">
+    <van-icon name="lock" size="24px" color="#1677ff" />
+    <text>修改敏感信息需重新确认客户授权</text>
+  </view>
+</view>
+
+<view class="edit-action-bar">
+  <view
+    class="edit-action edit-action--cancel tap-target"
+    bindtap="cancelEdit"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+  >
+    <van-icon name="cross" size="26px" color="#1677ff" />
+    <text>取消</text>
+  </view>
+  <view
+    class="edit-action edit-action--save tap-target"
+    bindtap="saveChanges"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+  >
+    <van-icon name="passed" size="28px" color="#ffffff" />
+    <text>保存修改</text>
+  </view>
+</view>
+
+<view wx:if="{{editorVisible}}" class="field-editor-mask">
+  <view class="field-editor">
+    <text class="field-editor__title">{{editorTitle}}</text>
+    <text wx:if="{{editorSensitive}}" class="field-editor__hint">
+      修改后需要重新确认客户授权
+    </text>
+    <input
+      class="field-editor__input"
+      value="{{editorValue}}"
+      type="{{editorType}}"
+      maxlength="{{editorMaxlength}}"
+      bindinput="onEditorInput"
+    />
+    <view class="field-editor__actions">
+      <view
+        class="field-editor__button field-editor__button--cancel tap-target"
+        bindtap="closeEditor"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+      >
+        取消
+      </view>
+      <view
+        class="field-editor__button field-editor__button--confirm tap-target"
+        bindtap="confirmEditor"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+      >
+        确认修改
+      </view>
+    </view>
+  </view>
+</view>

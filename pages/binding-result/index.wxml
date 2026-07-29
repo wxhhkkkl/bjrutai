@@ -1,0 +1,296 @@
+<flow-navigation title="绑定结果" bind:back="handleBack" />
+
+<view class="result-page result-page--{{state}}">
+  <binding-progress step="{{3}}" />
+
+  <view class="result-hero result-hero--{{state}}">
+    <image
+      class="result-hero__image result-hero__image--{{state}}"
+      src="{{viewModel.heroImage}}"
+      mode="aspectFit"
+      aria-role="img"
+      aria-label="{{viewModel.heroTitle}}"
+    />
+    <text class="result-hero__title">{{viewModel.heroTitle}}</text>
+    <view wx:if="{{state === 'matching'}}" class="result-hero__status">
+      <van-icon name="clock-o" size="18px" color="#1677ff" />
+      <text>待匹配</text>
+    </view>
+    <text class="result-hero__description">{{viewModel.heroDescription}}</text>
+    <text wx:if="{{viewModel.heroMeta}}" class="result-hero__meta">{{viewModel.heroMeta}}</text>
+  </view>
+
+  <block wx:if="{{state === 'matching'}}">
+    <text class="result-section-title">当前状态</text>
+    <view class="result-card status-list-card">
+      <view class="status-row">
+        <view class="result-tile result-tile--blue-soft">
+          <van-icon name="passed" size="24px" color="#1677ff" />
+        </view>
+        <text class="status-row__label">北京侧关联</text>
+        <view class="status-row__value status-row__value--blue">
+          <van-icon name="success" size="17px" color="#1677ff" />
+          <text>已记录</text>
+        </view>
+      </view>
+      <view class="status-row">
+        <view class="result-tile result-tile--blue-soft">
+          <van-icon name="clock-o" size="25px" color="#1677ff" />
+        </view>
+        <text class="status-row__label">儒泰用户匹配</text>
+        <view class="status-row__value status-row__value--blue">
+          <van-icon name="clock-o" size="18px" color="#1677ff" />
+          <text>等待匹配</text>
+        </view>
+      </view>
+      <view class="status-row status-row--last">
+        <view class="result-tile result-tile--green-soft">
+          <van-icon name="replay" size="25px" color="#12a147" />
+        </view>
+        <text class="status-row__label">自动更新</text>
+        <view class="status-row__value status-row__value--green">
+          <van-icon name="passed" size="17px" color="#12a147" />
+          <text>匹配成功后更新</text>
+        </view>
+      </view>
+    </view>
+
+    <text class="result-section-title">客户信息</text>
+    <view class="result-card customer-info-card">
+      <view class="info-row">
+        <text>客户</text>
+        <text class="info-row__value">{{record.name}}</text>
+      </view>
+      <view class="info-row">
+        <text>手机号</text>
+        <text class="info-row__value">{{record.phone}}</text>
+      </view>
+      <view class="info-row">
+        <text>归属拓展人</text>
+        <text class="info-row__value">张小明</text>
+      </view>
+      <view class="info-row">
+        <text>提交时间</text>
+        <text class="info-row__value">{{record.submittedAt}}</text>
+      </view>
+      <view class="customer-info-card__privacy">
+        <van-icon name="shield-o" size="15px" color="#1677ff" />
+        <text>敏感信息已脱敏展示</text>
+      </view>
+    </view>
+
+    <text class="result-section-title">后续处理</text>
+    <view class="result-timeline">
+      <view class="timeline-item">
+        <view class="timeline-node timeline-node--blue">
+          <van-icon name="success" size="16px" color="#ffffff" />
+        </view>
+        <view class="timeline-copy">
+          <text class="timeline-title">关联信息已记录</text>
+          <text class="timeline-description">北京侧已保存本次客户归属</text>
+        </view>
+      </view>
+      <view class="timeline-item">
+        <view class="timeline-node timeline-node--blue">
+          <van-icon name="clock-o" size="18px" color="#ffffff" />
+        </view>
+        <view class="timeline-copy">
+          <text class="timeline-title">儒泰持续匹配</text>
+          <text class="timeline-description">获取用户ID后进入下一状态</text>
+        </view>
+      </view>
+      <view class="timeline-item timeline-item--last">
+        <view class="timeline-node timeline-node--green">
+          <van-icon name="replay" size="18px" color="#12a147" />
+        </view>
+        <view class="timeline-copy">
+          <text class="timeline-title">自动更新绑定状态</text>
+          <text class="timeline-description">无需再次录入客户信息</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="result-notice result-notice--blue">
+      <view class="result-notice__icon result-notice__icon--blue">
+        <van-icon name="bell" size="22px" color="#ffffff" />
+      </view>
+      <text>无需重复提交；匹配结果将在绑定记录中自动更新</text>
+    </view>
+
+    <view
+      class="result-primary tap-target"
+      bindtap="returnToRecords"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      <van-icon name="records" size="27px" color="#ffffff" />
+      <text>查看绑定记录</text>
+    </view>
+    <view
+      class="result-secondary tap-target"
+      bindtap="continueBinding"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      继续绑定其他客户
+    </view>
+  </block>
+
+  <block wx:elif="{{state === 'bound'}}">
+    <view class="result-card explanation-card">
+      <text class="result-card-title">处理说明</text>
+      <view class="explanation-row">
+        <view class="result-tile result-tile--orange-soft">
+          <van-icon name="link-o" size="23px" color="#ff6a00" />
+        </view>
+        <text class="explanation-row__label">绑定状态</text>
+        <view class="explanation-row__value explanation-row__value--orange">
+          <text>已绑定</text>
+          <van-icon name="success" size="19px" color="#ff6a00" />
+        </view>
+      </view>
+      <view class="explanation-row">
+        <view class="result-tile result-tile--blue-soft">
+          <van-icon name="minus" size="24px" color="#1677ff" />
+        </view>
+        <text class="explanation-row__label">当前操作</text>
+        <view class="explanation-row__value">
+          <text>无法重复建立归属</text>
+          <van-icon name="warning" size="20px" color="#1677ff" />
+        </view>
+      </view>
+      <view class="explanation-row explanation-row--last">
+        <view class="result-tile result-tile--blue-soft">
+          <van-icon name="service-o" size="24px" color="#1677ff" />
+        </view>
+        <text class="explanation-row__label">后续处理</text>
+        <view class="explanation-row__value">
+          <text>如有异议请联系管理员</text>
+          <van-icon name="arrow" size="20px" color="#1677ff" />
+        </view>
+      </view>
+    </view>
+
+    <view class="result-notice result-notice--outlined">
+      <view class="result-notice__square">
+        <van-icon name="shield-o" size="36px" color="#ffffff" />
+      </view>
+      <text>为保护客户归属信息，前端不展示原绑定拓展人</text>
+    </view>
+
+    <view class="result-card continue-card">
+      <text class="result-card-title">可以继续</text>
+      <view
+        class="continue-row tap-target"
+        bindtap="modifyCustomer"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+      >
+        <view class="continue-row__icon continue-row__icon--blue">
+          <van-icon name="edit" size="27px" color="#ffffff" />
+        </view>
+        <text>返回修改客户信息</text>
+        <van-icon name="arrow" size="22px" color="#747b86" />
+      </view>
+      <view
+        class="continue-row tap-target"
+        bindtap="continueBinding"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+      >
+        <view class="continue-row__icon continue-row__icon--green">
+          <van-icon name="friends-o" size="27px" color="#ffffff" />
+        </view>
+        <text>继续绑定其他客户</text>
+        <van-icon name="arrow" size="22px" color="#747b86" />
+      </view>
+    </view>
+
+    <view
+      class="result-primary tap-target"
+      bindtap="returnToRecords"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      <text>返回绑定记录</text>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="result-card reasons-card">
+      <text class="result-card-title">可能原因</text>
+      <view class="reason-row">
+        <view class="result-tile result-tile--orange-soft">
+          <van-icon name="manager" size="22px" color="#ff7130" />
+        </view>
+        <text>姓名或手机号填写有误</text>
+      </view>
+      <view class="reason-row">
+        <view class="result-tile result-tile--yellow-soft">
+          <van-icon name="lock" size="22px" color="#f4b000" />
+        </view>
+        <text>客户尚未完成儒泰登录</text>
+      </view>
+      <view class="reason-row reason-row--last">
+        <view class="result-tile result-tile--blue-soft">
+          <van-icon name="aim" size="23px" color="#1677ff" />
+        </view>
+        <text>当前信息不足以唯一匹配</text>
+      </view>
+    </view>
+
+    <view class="result-advice">
+      <view class="result-advice__icon">
+        <van-icon name="description" size="40px" color="#ffffff" />
+      </view>
+      <view class="result-advice__copy">
+        <text class="result-advice__title">建议处理方式</text>
+        <text class="result-advice__description">
+          请核对客户姓名、手机号等信息；如客户未登录儒泰，可在登录后再次提交
+        </text>
+      </view>
+    </view>
+
+    <view
+      class="result-help tap-target"
+      bindtap="contactAdmin"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      <view class="result-help__icon">
+        <van-icon name="service-o" size="38px" color="#ffffff" />
+      </view>
+      <view class="result-help__copy">
+        <text class="result-help__title">需要协助？</text>
+        <text class="result-help__description">联系管理员处理匹配异常</text>
+      </view>
+      <van-icon name="arrow" size="23px" color="#747b86" />
+    </view>
+
+    <view
+      class="result-primary tap-target"
+      bindtap="modifyCustomer"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      <van-icon name="edit" size="27px" color="#ffffff" />
+      <text>返回修改信息</text>
+    </view>
+    <view
+      class="result-secondary result-secondary--dark tap-target"
+      bindtap="continueBinding"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      继续绑定其他客户
+    </view>
+  </block>
+</view>

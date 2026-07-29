@@ -1,0 +1,142 @@
+<flow-navigation title="帮助与反馈" bind:back="handleBack" />
+
+<view class="help-feedback-page">
+  <text class="help-title">需要什么帮助？</text>
+  <text class="help-description">查看常见问题或向我们提交反馈</text>
+
+  <text class="help-section-title">常见问题</text>
+  <view class="help-faq-card">
+    <view
+      wx:for="{{faqs}}"
+      wx:key="id"
+      class="help-faq-row tap-target"
+      data-id="{{item.id}}"
+      bindtap="openFaq"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="button"
+      aria-label="{{item.title}}"
+    >
+      <view class="help-faq-row__icon">
+        <van-icon name="{{item.icon}}" size="27px" color="#1677ff" />
+      </view>
+      <text class="help-faq-row__title">{{item.title}}</text>
+      <van-icon name="arrow" size="21px" color="#858c98" />
+    </view>
+  </view>
+
+  <text class="help-section-title help-section-title--feedback">问题反馈</text>
+
+  <text class="help-field-label">反馈类型</text>
+  <view class="help-type-list {{invalidField === 'type' ? 'help-type-list--invalid' : ''}}">
+    <view
+      wx:for="{{feedbackTypes}}"
+      wx:key="id"
+      class="help-type-option tap-target {{selectedType === item.id ? 'help-type-option--active' : ''}}"
+      data-id="{{item.id}}"
+      bindtap="selectFeedbackType"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="radio"
+      aria-checked="{{selectedType === item.id}}"
+    >{{item.label}}</view>
+  </view>
+
+  <text class="help-field-label help-field-label--description">问题描述</text>
+  <view class="help-textarea-wrap {{invalidField === 'content' ? 'help-textarea-wrap--invalid' : ''}}">
+    <textarea
+      class="help-textarea"
+      value="{{content}}"
+      bindinput="onContentInput"
+      maxlength="{{maxContentLength}}"
+      placeholder="请详细描述您遇到的问题或建议"
+      placeholder-class="help-textarea__placeholder"
+      auto-height="{{false}}"
+    />
+    <text class="help-textarea__counter">{{contentLength}}/{{maxContentLength}}</text>
+  </view>
+
+  <view class="help-upload-heading">
+    <text class="help-field-label">上传截图</text>
+    <text class="help-upload-heading__limit">最多 {{maxScreenshots}} 张</text>
+  </view>
+  <view class="help-upload-area {{invalidField === 'images' ? 'help-upload-area--invalid' : ''}}">
+    <view
+      wx:for="{{images}}"
+      wx:key="*this"
+      class="help-screenshot tap-target"
+      data-src="{{item}}"
+      bindtap="previewScreenshot"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="button"
+      aria-label="预览反馈截图"
+    >
+      <image class="help-screenshot__image" src="{{item}}" mode="aspectFill" />
+      <view
+        class="help-screenshot__remove tap-target"
+        data-index="{{index}}"
+        catchtap="removeScreenshot"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+        aria-role="button"
+        aria-label="删除反馈截图"
+      >
+        <van-icon name="cross" size="14px" color="#ffffff" />
+      </view>
+    </view>
+    <view
+      wx:if="{{images.length < maxScreenshots}}"
+      class="help-upload-button tap-target"
+      bindtap="chooseScreenshots"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="button"
+      aria-label="添加图片"
+    >
+      <van-icon name="photograph" size="31px" color="#1677ff" />
+      <text>添加图片</text>
+    </view>
+    <text class="help-upload-hint">支持 JPG、PNG</text>
+  </view>
+
+  <view class="help-support-card">
+    <view class="help-support-card__icon">
+      <van-icon name="service-o" size="39px" color="#1677ff" />
+    </view>
+    <view class="help-support-card__copy">
+      <text class="help-support-card__title">仍未解决？</text>
+      <text class="help-support-card__time">工作日 9:00-18:00</text>
+    </view>
+    <button
+      class="help-support-card__action tap-target"
+      open-type="contact"
+      bindcontact="handleContact"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >联系客服</button>
+  </view>
+</view>
+
+<view class="help-submit-bar">
+  <view
+    class="help-submit-button tap-target {{submitting ? 'help-submit-button--disabled' : ''}}"
+    bindtap="submitFeedback"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+    aria-role="button"
+    aria-label="提交反馈"
+  >
+    <van-icon wx:if="{{!submitting}}" name="guide-o" size="29px" color="#ffffff" />
+    <van-icon wx:else name="replay" size="27px" color="#ffffff" />
+    <text>{{submitting ? '正在提交' : '提交反馈'}}</text>
+  </view>
+  <text class="help-submit-bar__hint">我们会尽快处理并通过消息通知您</text>
+</view>

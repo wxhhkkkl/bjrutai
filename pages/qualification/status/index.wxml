@@ -1,0 +1,78 @@
+<flow-navigation title="资质状态" bind:back="handleBack" />
+
+<view class="qualification-page qualification-page--{{status.tone}}">
+    <view class="qualification-hero">
+        <image class="qualification-hero__banner" src="{{status.banner}}" mode="aspectFill" aria-role="img"
+            aria-label="{{status.title}}状态 Banner" />
+        <!-- <text class="qualification-hero__title">{{status.title}}</text>
+    <text class="qualification-hero__description">{{status.description}}</text>
+    <text class="qualification-hero__badge">{{status.badge}}</text> -->
+    </view>
+
+    <text class="qualification-section-title">资质信息</text>
+    <view class="qualification-information">
+        <view wx:for="{{status.information}}" wx:key="label" class="qualification-information__row">
+            <text class="qualification-information__label">{{item.label}}</text>
+            <text
+                class="qualification-information__value {{item.warning ? 'qualification-information__value--warning' : ''}}">
+                {{item.value}}
+            </text>
+        </view>
+    </view>
+
+    <view class="qualification-file tap-target" bindtap="viewFile" hover-class="tap-feedback" hover-start-time="0"
+        hover-stay-time="80" aria-role="button" aria-label="查看营业执照文件">
+        <view class="qualification-file__icon">
+            <van-icon name="description-o" size="38px" color="#1677ff" />
+            <text>PDF</text>
+        </view>
+        <view class="qualification-file__copy">
+            <text class="qualification-file__name">{{status.file.name}}</text>
+            <text class="qualification-file__meta">{{status.file.meta}}</text>
+        </view>
+        <text class="qualification-file__action">查看</text>
+        <van-icon name="arrow" size="22px" color="#1677ff" />
+    </view>
+
+    <block wx:if="{{status.reason}}">
+        <text class="qualification-subsection-title">驳回原因</text>
+        <view class="qualification-reason">
+            <van-icon name="warning-o" size="31px" color="#e5361d" />
+            <text>{{status.reason}}</text>
+        </view>
+    </block>
+
+    <text class="qualification-subsection-title">审核记录</text>
+    <view class="qualification-record">
+        <view class="qualification-record__timeline">
+            <view class="qualification-record__dot"></view>
+            <view class="qualification-record__line"></view>
+        </view>
+        <view class="qualification-record__copy">
+            <view class="qualification-record__heading">
+                <text>{{status.recordDate}}</text>
+                <text>{{status.recordTitle}}</text>
+            </view>
+            <text class="qualification-record__description">{{status.recordDescription}}</text>
+        </view>
+    </view>
+
+    <view class="qualification-notice">
+        <view class="qualification-notice__icon">
+            <van-icon name="{{status.noticeIcon}}" size="24px"
+                color="{{status.tone === 'orange' ? '#ef7400' : '#1677ff'}}" />
+        </view>
+        <text>{{status.noticePrefix}}</text>
+        <text wx:if="{{status.noticeHighlight}}"
+            class="qualification-notice__highlight">{{status.noticeHighlight}}</text>
+        <text>{{status.noticeSuffix}}</text>
+    </view>
+</view>
+
+<view class="qualification-action-bar">
+    <view class="qualification-primary-action tap-target" bindtap="handlePrimaryAction" hover-class="tap-feedback"
+        hover-start-time="0" hover-stay-time="80" aria-role="button" aria-label="{{status.actionLabel}}">
+        <van-icon name="{{status.actionIcon}}" size="28px" color="#ffffff" />
+        <text>{{status.actionLabel}}</text>
+    </view>
+</view>

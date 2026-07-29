@@ -1,0 +1,31 @@
+<view class="binding-progress">
+  <view class="binding-progress__summary">
+    <text>绑定流程</text>
+    <text class="binding-progress__count">{{step}}/3</text>
+  </view>
+
+  <view wx:if="{{step !== 3}}" class="binding-progress__bars">
+    <view
+      wx:for="{{steps}}"
+      wx:key="*this"
+      class="binding-progress__bar {{step >= item ? 'binding-progress__bar--active' : ''}}"
+    ></view>
+  </view>
+
+  <view wx:else class="binding-progress__complete">
+    <view class="binding-progress__track">
+      <view class="binding-progress__edge"></view>
+      <block wx:for="{{steps}}" wx:key="*this">
+        <view class="binding-progress__node">
+          <van-icon name="success" size="12px" color="#ffffff" />
+        </view>
+        <view
+          class="binding-progress__line {{index === steps.length - 1 ? 'binding-progress__line--last' : ''}}"
+        ></view>
+      </block>
+    </view>
+    <view class="binding-progress__labels">
+      <text wx:for="{{labels}}" wx:key="*this">{{item}}</text>
+    </view>
+  </view>
+</view>

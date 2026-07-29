@@ -1,0 +1,128 @@
+<flow-navigation title="贡献明细" bind:back="handleBack" />
+
+<view class="contribution-detail-page">
+  <view class="contribution-summary">
+    <picker
+      class="contribution-summary__picker"
+      mode="date"
+      fields="month"
+      value="{{monthValue}}"
+      bindchange="onMonthChange"
+    >
+      <view class="contribution-summary__month tap-target" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+        <text>{{month.label}}</text>
+        <van-icon name="arrow-down" size="18px" color="#050505" />
+      </view>
+    </picker>
+    <text class="contribution-summary__label">本月贡献</text>
+    <view class="contribution-summary__amount">
+      <text>{{month.total}}</text>
+      <text>分</text>
+    </view>
+    <view class="contribution-summary__meta">
+      <view>
+        <van-icon name="description-o" size="19px" color="#1677ff" />
+        <text>共 {{month.totalCount}} 笔</text>
+      </view>
+      <view class="contribution-summary__divider"></view>
+      <view>
+        <van-icon name="passed" size="19px" color="#1677ff" />
+        <text>已结算 {{month.settledCount}} 笔</text>
+      </view>
+    </view>
+    <image
+      class="contribution-summary__visual"
+      src="/assets/images/contribution-detail-hero.png"
+      mode="aspectFit"
+      aria-role="img"
+      aria-label="贡献趋势"
+    />
+  </view>
+
+  <view class="contribution-status-row">
+    <view
+      wx:for="{{filters}}"
+      wx:key="id"
+      class="contribution-status tap-target {{selectedStatus === item.id ? 'contribution-status--active' : ''}}"
+      data-id="{{item.id}}"
+      bindtap="selectStatus"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+    >
+      {{item.label}} {{item.count}}
+    </view>
+    <view
+      class="contribution-filter-button tap-target {{selectedCategory !== 'all' ? 'contribution-filter-button--active' : ''}}"
+      bindtap="openCategoryFilter"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="button"
+      aria-label="筛选贡献来源"
+    >
+      <van-icon name="filter-o" size="26px" color="{{selectedCategory !== 'all' ? '#1677ff' : '#111318'}}" />
+    </view>
+  </view>
+
+  <view class="contribution-groups">
+    <view wx:for="{{groups}}" wx:key="date" class="contribution-group">
+      <text class="contribution-group__date">{{item.date}}</text>
+      <view class="contribution-group__list">
+        <view
+          wx:for="{{item.items}}"
+          wx:for-item="record"
+          wx:key="id"
+          class="contribution-record tap-target"
+          data-id="{{record.id}}"
+          bindtap="openContribution"
+          hover-class="tap-feedback"
+          hover-start-time="0"
+          hover-stay-time="80"
+        >
+          <view class="contribution-record__icon contribution-record__icon--{{record.tone}}">
+            <van-icon
+              name="{{record.icon}}"
+              size="31px"
+              color="{{record.tone === 'orange' ? '#df8a00' : record.tone === 'blue' ? '#1677ff' : '#087d58'}}"
+            />
+            <van-icon
+              wx:if="{{record.category === 'binding'}}"
+              class="contribution-record__link"
+              name="link-o"
+              size="16px"
+              color="#087d58"
+            />
+          </view>
+          <view class="contribution-record__copy">
+            <text class="contribution-record__title">{{record.title}}</text>
+            <text class="contribution-record__meta">
+              {{record.customer}} · {{record.phone}}　{{record.time}}
+            </text>
+          </view>
+          <view class="contribution-record__value">
+            <view>
+              <text>{{record.points}}</text>
+              <text>分</text>
+            </view>
+            <text class="contribution-record__status contribution-record__status--{{record.status}}">
+              {{record.statusLabel}}
+            </text>
+          </view>
+          <van-icon name="arrow" size="20px" color="#8a8f98" />
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{!groups.length}}" class="contribution-empty">
+    <van-icon name="description-o" size="43px" color="#a2a8b1" />
+    <text>当前筛选条件下暂无贡献记录</text>
+  </view>
+
+  <view class="contribution-detail-notice">
+    <van-icon name="info-o" size="20px" color="#1677ff" />
+    <text>贡献数据由系统同步，以实际结算结果为准</text>
+  </view>
+  <text class="contribution-detail-limit">仅展示近 12 个月贡献记录</text>
+</view>

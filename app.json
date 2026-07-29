@@ -1,0 +1,62 @@
+{
+    "pages": [
+        "pages/home/index",
+        "pages/customers/index",
+        "pages/customer-detail/index",
+        "pages/customer-edit/index",
+        "pages/followup-record/index",
+        "pages/customer-analysis/index",
+        "pages/contribution/index",
+        "pages/contribution-detail/index",
+        "pages/profile/index",
+        "pages/account-profile/index",
+        "pages/help-feedback/index",
+        "pages/privacy-authorization/index",
+        "pages/promotion-code/index",
+        "pages/customer-binding/index",
+        "pages/binding-records/index",
+        "pages/binding-result/index",
+        "pages/auth/login/index",
+        "pages/auth/profile-setup/index",
+        "pages/qualification/status/index",
+        "pages/qualification/update/index",
+        "pages/common/feature-placeholder/index",
+        "pages/index/index"
+    ],
+    "window": {
+        "navigationBarTextStyle": "black",
+        "navigationStyle": "custom"
+    },
+    "renderer": "webview",
+    "componentFramework": "glass-easel",
+    "sitemapLocation": "sitemap.json",
+    "lazyCodeLoading": "requiredComponents",
+    "usingComponents": {
+        "van-icon": "@vant/weapp/icon/index",
+        "app-header": "/components/app-header/index"
+    },
+    "tabBar": {
+        "custom": true,
+        "color": "#8490A8",
+        "selectedColor": "#1677FF",
+        "backgroundColor": "#FFFFFF",
+        "list": [
+            {
+                "pagePath": "pages/home/index",
+                "text": "首页"
+            },
+            {
+                "pagePath": "pages/customers/index",
+                "text": "客户"
+            },
+            {
+                "pagePath": "pages/contribution/index",
+                "text": "贡献"
+            },
+            {
+                "pagePath": "pages/profile/index",
+                "text": "我的"
+            }
+        ]
+    }
+}

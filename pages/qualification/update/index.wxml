@@ -1,0 +1,151 @@
+<flow-navigation title="更新资质" bind:back="handleBack" />
+
+<view class="qualification-update-page">
+  <view class="update-progress">
+    <view class="update-progress__heading">
+      <text>资质更新</text>
+      <text>1/1</text>
+    </view>
+    <view class="update-progress__track">
+      <view class="update-progress__value"></view>
+    </view>
+  </view>
+
+  <text class="update-title">更新资质信息</text>
+  <text class="update-description">请核对并更新有效的企业资质资料</text>
+
+  <view class="update-warning">
+    <van-icon name="warning-o" size="24px" color="#ec3b1f" />
+    <text>{{rejectionReason || '如资料发生变更，请上传最新有效文件'}}</text>
+  </view>
+
+  <text class="update-section-title">资质信息</text>
+  <view class="update-form-card">
+    <view class="update-field {{invalidField === 'legalEntity' ? 'update-field--invalid' : ''}}">
+      <text class="update-field__label">法人主体</text>
+      <input
+        class="update-field__input"
+        value="{{form.legalEntity}}"
+        data-field="legalEntity"
+        bindinput="onFieldInput"
+        maxlength="50"
+        placeholder="请输入法人主体"
+        placeholder-class="update-field__placeholder"
+      />
+      <van-icon name="edit" size="21px" color="#858c98" />
+    </view>
+
+    <picker
+      mode="selector"
+      range="{{qualificationTypes}}"
+      value="{{qualificationTypeIndex}}"
+      bindchange="onQualificationTypeChange"
+    >
+      <view class="update-field tap-target {{invalidField === 'qualificationType' ? 'update-field--invalid' : ''}}" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+        <text class="update-field__label">资质类型</text>
+        <text class="update-field__value">{{form.qualificationType}}</text>
+        <van-icon name="arrow" size="21px" color="#858c98" />
+      </view>
+    </picker>
+
+    <view class="update-field {{invalidField === 'creditCode' ? 'update-field--invalid' : ''}}">
+      <text class="update-field__label">统一社会信用代码</text>
+      <input
+        class="update-field__input update-field__input--code"
+        value="{{form.creditCode}}"
+        data-field="creditCode"
+        bindinput="onFieldInput"
+        maxlength="18"
+        placeholder="请输入统一社会信用代码"
+        placeholder-class="update-field__placeholder"
+      />
+      <van-icon name="edit" size="21px" color="#858c98" />
+    </view>
+
+    <picker
+      mode="date"
+      value="{{form.expiresAt}}"
+      start="{{today}}"
+      end="2099-12-31"
+      bindchange="onExpiryChange"
+    >
+      <view class="update-field tap-target {{invalidField === 'expiresAt' ? 'update-field--invalid' : ''}}" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+        <text class="update-field__label">有效期至</text>
+        <text class="update-field__value">{{expiryLabel}}</text>
+        <van-icon name="calendar-o" size="22px" color="#858c98" />
+      </view>
+    </picker>
+  </view>
+
+  <text class="update-section-title update-section-title--file">资质文件</text>
+  <view class="update-file-card {{invalidField === 'file' ? 'update-file-card--invalid' : ''}}">
+    <view class="update-file-card__icon">
+      <van-icon name="description-o" size="38px" color="#1677ff" />
+      <text>PDF</text>
+    </view>
+    <view class="update-file-card__copy">
+      <text class="update-file-card__name">{{file.name}}</text>
+      <text class="update-file-card__meta">已上传 · {{file.sizeLabel}}</text>
+    </view>
+    <view
+      class="update-file-card__preview tap-target"
+      bindtap="previewFile"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="button"
+    >预览</view>
+    <view
+      class="update-file-card__replace tap-target"
+      bindtap="chooseQualificationFile"
+      hover-class="tap-feedback"
+      hover-start-time="0"
+      hover-stay-time="80"
+      aria-role="button"
+    >重新上传</view>
+  </view>
+  <text class="update-file-hint">支持 PDF、JPG、PNG，文件大小不超过 10 MB</text>
+
+  <view class="update-security-card">
+    <view class="update-security-card__icon">
+      <van-icon name="shield-o" size="40px" color="#1677ff" />
+      <van-icon class="update-security-card__document" name="description-o" size="18px" color="#1677ff" />
+    </view>
+    <view class="update-security-card__copy">
+      <text class="update-security-card__title">资料仅用于资质审核</text>
+      <text class="update-security-card__description">审核结果将同步影响推广与贡献能力</text>
+    </view>
+  </view>
+
+  <view
+    class="update-confirmation tap-target {{invalidField === 'confirmation' ? 'update-confirmation--invalid' : ''}}"
+    bindtap="toggleConfirmation"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+    aria-role="checkbox"
+    aria-checked="{{confirmed}}"
+  >
+    <view class="update-confirmation__box {{confirmed ? 'update-confirmation__box--checked' : ''}}">
+      <van-icon wx:if="{{confirmed}}" name="success" size="17px" color="#ffffff" />
+    </view>
+    <text>我确认以上资料真实、完整且在有效期内</text>
+  </view>
+</view>
+
+<view class="update-submit-bar">
+  <button
+    class="update-submit-button tap-target"
+    bindtap="submitQualification"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+    loading="{{submitting}}"
+    disabled="{{submitting}}"
+  >
+    <van-icon wx:if="{{!submitting}}" name="checked" size="29px" color="#ffffff" />
+    <text>{{submitting ? '正在提交' : '提交审核'}}</text>
+  </button>
+  <text class="update-submit-bar__hint">提交后将进入资质审核流程</text>
+  <view class="update-submit-bar__safe"></view>
+</view>
