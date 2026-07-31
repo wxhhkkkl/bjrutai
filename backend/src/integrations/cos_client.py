@@ -19,14 +19,16 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
-# Allowed content types for qualification file uploads
+# Allowed content types for file uploads
 ALLOWED_CONTENT_TYPES = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
     "application/pdf": ".pdf",
 }
 
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".pdf"}
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf"}
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 UPLOAD_TOKEN_TTL_MINUTES = 10
@@ -51,6 +53,7 @@ class COSClient:
         file_name: str,
         content_type: str,
         file_size: int,
+        key_prefix: str = "qualifications/",
     ) -> dict:
         """Validate and generate a pre-signed upload URL + file key.
 
@@ -88,7 +91,7 @@ class COSClient:
         date_prefix = now.strftime("%Y/%m")
         unique_id = uuid.uuid4().hex[:16]
         safe_name = self._sanitize_filename(file_name, unique_id)
-        object_key = f"qualifications/{user_id}/{date_prefix}/{safe_name}"
+        object_key = f"{key_prefix}{user_id}/{date_prefix}/{safe_name}"
 
         # --- generate pre-signed URL ---
         expires_at_dt = now + timedelta(minutes=UPLOAD_TOKEN_TTL_MINUTES)

@@ -65,7 +65,7 @@ The system consists of three independently deployable tiers:
 | Tier | Location | Technology | Role |
 |------|----------|------------|------|
 | Backend API | `backend/` | Python | Business logic, data access, external integration |
-| Admin Frontend | `admin/` | Vue 3 + Vite | Management console for administrators |
+| Admin Frontend | `manageSystem/` | Vue 3 + Vite | Management console for administrators |
 | Mini-Program Frontend | `miniProgram/` | WeChat Mini-Program | End-user and promoter mobile experience |
 
 - Each tier MUST be independently buildable and testable

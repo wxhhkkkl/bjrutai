@@ -24,7 +24,7 @@ from ...core.database import get_db
 from ...core.error_handler import _build_response
 from ...core.exceptions import BadRequestException, ConflictException, NotFoundException
 from ...core.security import get_password_hash
-from ...api.deps import get_admin_user
+from ...api.deps import get_admin_user, require_permission
 from ...models.role import Role
 from ...models.user import AdminAccount, AdminStatus, admin_account_roles
 
@@ -69,6 +69,7 @@ async def list_admin_accounts(
     pageSize: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     _current_admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("accounts.read")),
 ) -> dict:
     """List all admin accounts with their assigned roles."""
     query = select(AdminAccount)
@@ -127,6 +128,7 @@ async def create_admin_account(
     body: AdminAccountCreate,
     db: AsyncSession = Depends(get_db),
     _current_admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("accounts.write")),
 ) -> dict:
     """Create a new admin account with role assignments."""
     # Check uniqueness
@@ -172,6 +174,7 @@ async def update_admin_account(
     body: AdminAccountUpdate,
     db: AsyncSession = Depends(get_db),
     _current_admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("accounts.write")),
 ) -> dict:
     """Update an admin account's username, password, or role assignments."""
     result = await db.execute(select(AdminAccount).where(AdminAccount.id == account_id))
@@ -224,12 +227,19 @@ async def disable_admin_account(
     account_id: int,
     db: AsyncSession = Depends(get_db),
     _current_admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("accounts.write")),
 ) -> dict:
     """Disable an admin account."""
     result = await db.execute(select(AdminAccount).where(AdminAccount.id == account_id))
     account = result.scalars().first()
     if account is None:
         raise NotFoundException(message="Admin account not found")
+
+    # T011: Default admin cannot be disabled
+    if account.username == "admin":
+        raise BadRequestException(
+            message="默认管理员账户不可禁用", code=40303
+        )
 
     account.status = AdminStatus.DISABLED
     db.add(account)
@@ -246,6 +256,7 @@ async def enable_admin_account(
     account_id: int,
     db: AsyncSession = Depends(get_db),
     _current_admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("accounts.write")),
 ) -> dict:
     """Re-enable a disabled admin account."""
     result = await db.execute(select(AdminAccount).where(AdminAccount.id == account_id))
@@ -272,6 +283,7 @@ async def enable_admin_account(
 async def list_roles(
     db: AsyncSession = Depends(get_db),
     _current_admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("roles.read")),
 ) -> dict:
     """List all roles with their permissions."""
     result = await db.execute(select(Role).order_by(Role.id))
@@ -283,6 +295,7 @@ async def list_roles(
             "id": str(r.id),
             "name": r.name,
             "permissions": r.permissions,
+            "is_system": r.is_system,
             "createdAt": r.created_at.isoformat() if r.created_at else None,
         })
 
@@ -294,6 +307,7 @@ async def create_role(
     body: RoleCreate,
     db: AsyncSession = Depends(get_db),
     _current_admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("roles.write")),
 ) -> dict:
     """Create a new role with permissions."""
     # Check uniqueness
@@ -320,6 +334,7 @@ async def update_role(
     body: RoleUpdate,
     db: AsyncSession = Depends(get_db),
     _current_admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("roles.write")),
 ) -> dict:
     """Update a role's name or permissions."""
     result = await db.execute(select(Role).where(Role.id == role_id))
@@ -328,6 +343,11 @@ async def update_role(
         raise NotFoundException(message="Role not found")
 
     if body.name is not None:
+        # T009: System role name cannot be changed
+        if role.is_system:
+            raise BadRequestException(
+                message="系统管理员角色名称不可修改", code=40302
+            )
         # Check uniqueness if name changed
         if body.name != role.name:
             existing = await db.execute(select(Role).where(Role.name == body.name))
@@ -354,12 +374,19 @@ async def delete_role(
     role_id: int,
     db: AsyncSession = Depends(get_db),
     _current_admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("roles.write")),
 ) -> dict:
     """Delete a role that is not assigned to any account."""
     result = await db.execute(select(Role).where(Role.id == role_id))
     role = result.scalars().first()
     if role is None:
         raise NotFoundException(message="Role not found")
+
+    # T006: System roles cannot be deleted
+    if role.is_system:
+        raise BadRequestException(
+            message="系统管理员角色不可删除", code=40301
+        )
 
     # Check if role is in use
     usage_result = await db.execute(

@@ -8,7 +8,6 @@ import os
 import uuid
 from datetime import datetime, timezone
 
-import psutil
 from fastapi import APIRouter
 from sqlalchemy import text
 
@@ -65,15 +64,14 @@ async def health_check() -> dict:
         rutai_message = str(exc)[:200]
         logger.error("Health check Rutai API error: %s", exc)
 
-    # Memory usage
+    # Memory usage (cross-platform)
     try:
-        process = psutil.Process(os.getpid())
-        mem_info = process.memory_info()
-        memory_mb = round(mem_info.rss / (1024 * 1024), 1)
-        memory_pct = round(process.memory_percent(), 1)
+        import resource
+        usage = resource.getrusage(resource.RUSAGE_SELF)
+        memory_mb = round(usage.ru_maxrss / 1024, 1)
     except Exception:
         memory_mb = 0
-        memory_pct = 0
+    memory_pct = 0
 
     overall = "ok" if db_status == "ok" else "degraded"
 

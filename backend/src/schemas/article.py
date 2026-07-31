@@ -20,6 +20,7 @@ class ArticleCreate(BaseModel):
         None, max_length=2048, alias="coverImageUrl", description="Cover image URL"
     )
     category: Optional[str] = Field(None, max_length=50, description="Category")
+    category_id: Optional[int] = Field(None, description="Category ID")
     tags: Optional[list[str]] = Field(
         None, max_length=20, description="Tags (max 20 items, each max 30 chars)"
     )
@@ -40,6 +41,7 @@ class ArticleUpdate(BaseModel):
         None, max_length=2048, alias="coverImageUrl", description="Cover image URL"
     )
     category: Optional[str] = Field(None, max_length=50, description="Category")
+    category_id: Optional[int] = Field(None, description="Category ID")
     tags: Optional[list[str]] = Field(
         None, max_length=20, description="Tags (max 20 items, each max 30 chars)"
     )

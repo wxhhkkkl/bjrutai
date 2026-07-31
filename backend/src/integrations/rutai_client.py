@@ -52,26 +52,31 @@ def _sign_request(
 # API call logging helper
 # ---------------------------------------------------------------------------
 async def _log_api_call(
-    db_session,
     interface_name: str,
     request_params: Optional[dict],
     response_status: int,
     duration_ms: int,
     error_message: Optional[str] = None,
 ) -> None:
-    """Persist an ApiCallLog row.  This is a best-effort fire-and-forget log."""
+    """Persist an ApiCallLog row using a short-lived independent session.
+
+    Uses its own session to avoid interfering with the caller's transaction
+    state (the caller's session may be rolled back after an API failure).
+    """
     try:
+        from ..core.database import async_session
         from ..models.audit import ApiCallLog
 
-        log = ApiCallLog(
-            interface_name=interface_name,
-            request_params=request_params,
-            response_status=response_status,
-            duration_ms=duration_ms,
-            error_message=error_message,
-        )
-        db_session.add(log)
-        await db_session.flush()
+        async with async_session() as db:
+            log = ApiCallLog(
+                interface_name=interface_name,
+                request_params=request_params,
+                response_status=response_status,
+                duration_ms=duration_ms,
+                error_message=error_message,
+            )
+            db.add(log)
+            await db.commit()
     except Exception:
         pass  # logging must never break the main flow
 
@@ -150,13 +155,6 @@ class RutaiClient:
                 )
                 duration_ms = int((time.monotonic() - start) * 1000)
 
-                if db_session is not None:
-                    await _log_api_call(
-                        db_session, f"rutai:{path}",
-                        {"params": params, "body": body},
-                        response.status_code, duration_ms,
-                    )
-
                 if response.status_code < 500:
                     _consecutive_failures = 0
                     data = response.json()
@@ -169,12 +167,11 @@ class RutaiClient:
                 duration_ms = int((time.monotonic() - start) * 1000)
                 last_error = str(exc)
                 _consecutive_failures += 1
-                if db_session is not None:
-                    await _log_api_call(
-                        db_session, f"rutai:{path}",
-                        {"params": params, "body": body},
-                        0, duration_ms, last_error,
-                    )
+                await _log_api_call(
+                    f"rutai:{path}",
+                    {"params": params, "body": body},
+                    0, duration_ms, last_error,
+                )
 
         if _consecutive_failures >= CIRCUIT_THRESHOLD:
             _circuit_open = True

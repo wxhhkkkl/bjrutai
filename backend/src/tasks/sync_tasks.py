@@ -12,11 +12,25 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..core.config import get_settings
 from ..core.database import async_session
 from ..models.binding import Customer
 from ..services.sync_service import _get_state, _update_state, get_sync_service
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
+
+
+def _is_rutai_configured() -> bool:
+    """Check whether the Rutai API is configured with real credentials."""
+    base_url = settings.rutai_api_base_url
+    api_key = settings.rutai_api_key
+    return bool(
+        base_url
+        and "example.com" not in base_url
+        and api_key
+        and api_key not in ("your_api_key", "")
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -28,6 +42,8 @@ async def sync_bind_users_job():
     Runs every 60 seconds. Uses coalesce=True to skip if previous
     invocation is still running.
     """
+    if not _is_rutai_configured():
+        return
     svc = get_sync_service()
 
     async with async_session() as db:
@@ -54,6 +70,8 @@ async def sync_user_bills_job():
     Processes the bill fetch queue: queries all customers with
     rutai_user_id set and fetches their bills.
     """
+    if not _is_rutai_configured():
+        return
     svc = get_sync_service()
 
     async with async_session() as db:

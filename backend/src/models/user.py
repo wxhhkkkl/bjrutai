@@ -89,7 +89,7 @@ class User(Base):
     # relationships
     promoter: Mapped[Optional["Promoter"]] = relationship("Promoter", back_populates="user", uselist=False)
     notifications: Mapped[list["Notification"]] = relationship("Notification", back_populates="user")
-    tokens: Mapped[list["UserToken"]] = relationship("UserToken", back_populates="user")
+    # tokens relationship — FK removed; user_id is polymorphic
 
 
 class AdminAccount(Base):

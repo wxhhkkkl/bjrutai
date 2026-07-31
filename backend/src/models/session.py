@@ -17,7 +17,7 @@ class UserToken(Base):
     __tablename__ = "user_tokens"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     token_type: Mapped[TokenType] = mapped_column(
         SAEnum(TokenType, name="token_type_enum"), nullable=False
     )
@@ -27,4 +27,4 @@ class UserToken(Base):
     is_revoked: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
-    user: Mapped["User"] = relationship("User", back_populates="tokens")
+    # user relationship removed — user_id is polymorphic (users or admin_accounts)

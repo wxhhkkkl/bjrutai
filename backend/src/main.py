@@ -1,3 +1,4 @@
+import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -10,6 +11,7 @@ from .core.config import get_settings
 from .core.error_handler import register_error_handlers
 from .core.logging_middleware import LoggingMiddleware
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
@@ -79,7 +81,38 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
 # ---------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Startup — auto-create tables on first run (dev convenience)
+    from .core.database import engine, Base
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    # Seed default admin account if none exists
+    from .core.database import async_session
+    from .core.security import get_password_hash
+    from .models.user import AdminAccount, AdminStatus
+    from sqlalchemy import select
+
+    async with async_session() as seed_db:
+        result = await seed_db.execute(select(AdminAccount).limit(1))
+        if result.scalars().first() is None:
+            admin = AdminAccount(
+                username=settings.admin_default_username,
+                password_hash=get_password_hash(settings.admin_default_password),
+                status=AdminStatus.ACTIVE,
+            )
+            seed_db.add(admin)
+            await seed_db.commit()
+            logger.info(
+                "Default admin account created: username=%s",
+                settings.admin_default_username,
+            )
+
+        # T019: Seed system admin role and assign to default admin (idempotent)
+        from .services.seed_service import seed_default_category, seed_system_admin_role
+        await seed_system_admin_role(seed_db)
+        await seed_default_category(seed_db)
+        await seed_db.commit()
+
     try:
         from apscheduler.schedulers.asyncio import AsyncIOScheduler
         from apscheduler.triggers.cron import CronTrigger
@@ -211,7 +244,9 @@ register_error_handlers(app)
 # ---------------------------------------------------------------------------
 from .api.v1.admin import admin_bindings_router, router as admin_router
 from .api.v1.admin_accounts import admin_accounts_router, admin_roles_router
+from .api.v1.admin_categories import router as admin_categories_router
 from .api.v1.admin_articles import router as admin_articles_router
+from .api.v1.cos_upload import router as cos_upload_router
 from .api.v1.admin_qualifications import router as admin_qualifications_router
 from .api.v1.admin_sync import router as admin_sync_router
 from .api.v1.articles import router as articles_router
@@ -237,7 +272,9 @@ from .api.v1.workbench import router as workbench_router
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(app_router, prefix="/api/v1")
 app.include_router(articles_router, prefix="/api/v1")
+app.include_router(admin_categories_router, prefix="/api/v1")
 app.include_router(admin_articles_router, prefix="/api/v1")
+app.include_router(cos_upload_router, prefix="/api/v1")
 app.include_router(admin_qualifications_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
 app.include_router(admin_bindings_router, prefix="/api/v1")

@@ -12,6 +12,7 @@ from .promotion import PromotionCode  # noqa: F401
 from .bill import Bill  # noqa: F401
 from .contribution import ContributionRecord, SettlementLog  # noqa: F401
 from .sharing import ContributionCoefficient, SharingRule, sharing_rule_change_logs  # noqa: F401
+from .category import ArticleCategory  # noqa: F401
 from .article import Article  # noqa: F401
 from .followup import FollowupRecord  # noqa: F401
 from .consent import Agreement, ConsentRecord  # noqa: F401

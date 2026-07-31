@@ -87,3 +87,30 @@ async def get_admin_user(
 ) -> dict:
     """Dependency that ensures the caller is an admin."""
     return payload
+
+
+# ---------------------------------------------------------------------------
+# RBAC: require specific permission
+# ---------------------------------------------------------------------------
+def require_permission(permission_key: str) -> Callable:
+    """FastAPI dependency factory: enforce the caller has a specific permission.
+
+    Permissions are embedded in the JWT access token at login time.
+    The system admin (with full permissions) always passes.
+
+    Usage::
+
+        @router.get("/admin/accounts")
+        async def list_accounts(user=Depends(require_permission("accounts.read"))):
+            ...
+    """
+
+    async def _dependency(
+        payload: dict = Depends(get_current_user),
+    ) -> dict:
+        permissions: list[str] = payload.get("permissions", [])
+        if permission_key not in permissions:
+            raise ForbiddenException(message=f"缺少权限: {permission_key}")
+        return payload
+
+    return _dependency

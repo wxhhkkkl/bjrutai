@@ -19,7 +19,9 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Override sqlalchemy.url from application settings
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Use config.attributes dict to avoid ConfigParser %-interpolation issues with
+# URL-encoded characters in the database URL (e.g. %40 for @ in passwords).
+config.attributes["sqlalchemy.url"] = settings.database_url
 
 # Metadata for autogenerate
 target_metadata = Base.metadata
@@ -31,7 +33,7 @@ def run_migrations_offline() -> None:
     Configures the context with just a URL and not an Engine.  Calls to
     context.execute() here emit the given string to the script output.
     """
-    url = config.get_main_option("sqlalchemy.url")
+    url = config.attributes.get("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -51,11 +53,10 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_async_migrations() -> None:
     """Run migrations in 'online' mode using an async engine."""
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    url = config.attributes.get("sqlalchemy.url")
+    connectable = create_async_engine(url, poolclass=pool.NullPool)
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

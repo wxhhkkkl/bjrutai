@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from typing import Any, Optional
 
-from sqlalchemy import DateTime, Enum as SAEnum, Integer, String, Text
+from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.mysql import JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -25,6 +25,9 @@ class Article(Base):
     cover_url: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)
     category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     category_label: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    category_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("article_categories.id", ondelete="SET NULL"), nullable=True
+    )
     tags: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
     status: Mapped[ArticleStatus] = mapped_column(
         SAEnum(ArticleStatus, name="article_status_enum"), default=ArticleStatus.DRAFT

@@ -247,8 +247,10 @@ class AuthService:
             elif isinstance(perms, list):
                 permissions.extend(perms)
 
-        # Issue token pair
-        token_pair = _issue_token_pair(admin.id, "admin", username=admin.username)
+        # Issue token pair — embed permissions for server-side enforcement
+        token_pair = _issue_token_pair(
+            admin.id, "admin", username=admin.username, permissions=permissions
+        )
 
         # Persist refresh token
         token_record = UserToken(
@@ -406,8 +408,26 @@ class AuthService:
         # Determine user_type for new tokens
         user_type = payload.get("user_type", "promoter")
 
+        # Re-fetch permissions for admin users so the new JWT contains them
+        extra: dict = {}
+        if user_type == "admin":
+            roles_result = await db.execute(
+                select(Role).join(
+                    admin_account_roles, admin_account_roles.c.role_id == Role.id
+                ).where(admin_account_roles.c.admin_account_id == user_id)
+            )
+            roles = roles_result.scalars().all()
+            perms: list[str] = []
+            for role in roles:
+                rp = role.permissions
+                if isinstance(rp, dict) and "permissions" in rp:
+                    perms.extend(rp["permissions"])
+                elif isinstance(rp, list):
+                    perms.extend(rp)
+            extra["permissions"] = perms
+
         # Issue new token pair with same family
-        new_pair = _issue_token_pair(user_id, user_type, family=family)
+        new_pair = _issue_token_pair(user_id, user_type, family=family, **extra)
 
         # Persist new refresh token
         new_token_record = UserToken(
@@ -479,6 +499,7 @@ class AuthService:
 
             user_data = {
                 "userId": str(admin.id),
+                "account": admin.username,
                 "openId": None,
                 "unionId": None,
                 "nickname": None,
