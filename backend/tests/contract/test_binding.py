@@ -37,13 +37,13 @@ async def _create_promoter(db, *, user_id=None, name="测试推广员", org_name
             phone_masked="139****0000",
         )
     node_id = await seed_hierarchy_node(db, name=org_name, node_type="promoter", level=2)
-    promoter_id = await seed_promoter(
+    distributor_id = await seed_promoter(
         db,
         user_id=user_id,
         node_id=node_id,
         qualification_status="approved" if approved else "draft",
     )
-    return {"promoter_id": promoter_id, "user_id": user_id, "node_id": node_id}
+    return {"distributor_id": distributor_id, "user_id": user_id, "node_id": node_id}
 
 
 async def _create_doctor(db, *, openid="doctor_test", name="测试医生"):
@@ -261,7 +261,7 @@ class TestSubmitBindingRequest:
 
         # Create an existing bound customer for this promoter
         cust = Customer(
-            promoter_id=prom["promoter_id"],
+            distributor_id=prom["distributor_id"],
             name="已绑定患者",
             phone="13800138002",
             binding_status=BindingStatus.BOUND,

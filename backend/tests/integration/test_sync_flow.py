@@ -17,7 +17,9 @@ from sqlalchemy import select
 from src.models.bill import Bill, TransactionStatus
 from src.models.binding import Customer
 from src.models.contribution import ContributionRecord, ContributionStatus, ContributionCategory
-from src.models.hierarchy import HierarchyNode, NodeType, Promoter
+from src.models.distributor import Distributor
+from src.models.organization import Organization
+from src.models.hierarchy import NodeType
 from src.models.user import User, UserType, ActivationStatus
 from tests.conftest import (
     seed_hierarchy_node,
@@ -44,7 +46,7 @@ class TestBindUserPolling:
         user_id = await seed_user(
             db_session, openid="wx_promoter_001", user_type="promoter", name="推销员A"
         )
-        promoter_id = await seed_promoter(
+        distributor_id = await seed_promoter(
             db_session, user_id=user_id, node_id=node_id
         )
 
@@ -135,12 +137,12 @@ class TestBindUserPolling:
             db_session, name="L1", node_type="headquarters", level=1
         )
         user_id = await seed_user(db_session, openid="wx_promo2", user_type="promoter")
-        promoter_id = await seed_promoter(db_session, user_id=user_id, node_id=node_id)
+        distributor_id = await seed_promoter(db_session, user_id=user_id, node_id=node_id)
 
         # Pre-create a customer
         from src.models.binding import BindingStatus, Customer
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_existing",
             binding_status=BindingStatus.BOUND,
             bound_at=datetime.now(timezone.utc),
@@ -194,11 +196,11 @@ class TestUserBillSync:
             db_session, name="L1", node_type="headquarters", level=1
         )
         user_id = await seed_user(db_session, openid="wx_bill_test", user_type="promoter")
-        promoter_id = await seed_promoter(db_session, user_id=user_id, node_id=node_id)
+        distributor_id = await seed_promoter(db_session, user_id=user_id, node_id=node_id)
 
         from src.models.binding import BindingStatus, Customer
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_bill_001",
             binding_status=BindingStatus.BOUND,
             bound_at=datetime.now(timezone.utc),
@@ -254,11 +256,11 @@ class TestUserBillSync:
             db_session, name="L1", node_type="headquarters", level=1
         )
         user_id = await seed_user(db_session, openid="wx_contrib_test", user_type="promoter")
-        promoter_id = await seed_promoter(db_session, user_id=user_id, node_id=node_id)
+        distributor_id = await seed_promoter(db_session, user_id=user_id, node_id=node_id)
 
         from src.models.binding import BindingStatus, Customer
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_contrib_001",
             binding_status=BindingStatus.BOUND,
             bound_at=datetime.now(timezone.utc),
@@ -302,7 +304,7 @@ class TestUserBillSync:
         contribs = exec_result.scalars().all()
         assert len(contribs) == 1
         assert contribs[0].points == "700.00"  # 70000 fen = 700 yuan = 700 points
-        assert contribs[0].promoter_id == promoter_id
+        assert contribs[0].distributor_id == distributor_id
         assert contribs[0].category == ContributionCategory.BILL
         assert contribs[0].source_id == "txn_contrib_001"
 
@@ -316,11 +318,11 @@ class TestUserBillSync:
             db_session, name="L1", node_type="headquarters", level=1
         )
         user_id = await seed_user(db_session, openid="wx_refund_test", user_type="promoter")
-        promoter_id = await seed_promoter(db_session, user_id=user_id, node_id=node_id)
+        distributor_id = await seed_promoter(db_session, user_id=user_id, node_id=node_id)
 
         from src.models.binding import BindingStatus, Customer
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_refund_001",
             binding_status=BindingStatus.BOUND,
             bound_at=datetime.now(timezone.utc),

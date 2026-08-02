@@ -20,7 +20,8 @@ from ..models.contribution import (
     SettlementLog,
     SettlementStatus,
 )
-from ..models.hierarchy import HierarchyNode, Promoter
+from ..models.distributor import Distributor
+from ..models.organization import Organization
 from ..models.sharing import ContributionCoefficient
 
 
@@ -77,7 +78,7 @@ class ContributionService:
     ) -> Optional[ContributionRecord]:
         """Create a ContributionRecord from a Bill.
 
-        Looks up the customer to find the promoter_id, calculates points,
+        Looks up the customer to find the distributor_id, calculates points,
         and inserts a new ContributionRecord. Skips if the bill already
         has a contribution record (idempotency).
 
@@ -109,7 +110,7 @@ class ContributionService:
         points = self._calc_points(bill.paid_amount_cent, coefficient)
 
         record = ContributionRecord(
-            promoter_id=customer.promoter_id,
+            distributor_id=customer.distributor_id,
             customer_id=bill.customer_id,
             bill_id=bill.id,
             points=points,
@@ -132,13 +133,13 @@ class ContributionService:
     async def _get_ancestor_chain(
         self,
         db: AsyncSession,
-        promoter_id: int,
+        distributor_id: int,
     ) -> list[dict]:
         """Walk up the hierarchy from a promoter to root, returning ancestor
-        info for each level. Each entry has promoter_id, node_id, level."""
+        info for each level. Each entry has distributor_id, node_id, level."""
         # Find the promoter's node
         result = await db.execute(
-            select(Promoter).where(Promoter.id == promoter_id)
+            select(Distributor).where(Distributor.id == distributor_id)
         )
         promoter = result.scalars().first()
         if promoter is None:
@@ -146,7 +147,7 @@ class ContributionService:
 
         # Get the node
         result = await db.execute(
-            select(HierarchyNode).where(HierarchyNode.id == promoter.node_id)
+            select(Organization).where(Organization.id == promoter.org_id)
         )
         current_node = result.scalars().first()
         if current_node is None:
@@ -155,7 +156,7 @@ class ContributionService:
         # Walk up
         chain = []
         chain.append({
-            "promoter_id": promoter.id,
+            "distributor_id": promoter.id,
             "node_id": current_node.id,
             "level": current_node.level,
         })
@@ -163,8 +164,8 @@ class ContributionService:
         visited = {current_node.id}
         while current_node.parent_id is not None:
             parent_result = await db.execute(
-                select(HierarchyNode).where(
-                    HierarchyNode.id == current_node.parent_id
+                select(Organization).where(
+                    Organization.id == current_node.parent_id
                 )
             )
             parent_node = parent_result.scalars().first()
@@ -176,12 +177,12 @@ class ContributionService:
 
             # Find promoter for this node
             promoter_result = await db.execute(
-                select(Promoter).where(Promoter.node_id == parent_node.id)
+                select(Distributor).where(Distributor.org_id == parent_node.id)
             )
             parent_promoter = promoter_result.scalars().first()
 
             chain.append({
-                "promoter_id": parent_promoter.id if parent_promoter else None,
+                "distributor_id": parent_promoter.id if parent_promoter else None,
                 "node_id": parent_node.id,
                 "level": parent_node.level,
             })
@@ -207,7 +208,7 @@ class ContributionService:
         # Check if already exists
         result = await db.execute(
             select(ContributionRecord).where(
-                ContributionRecord.promoter_id == ancestor_promoter_id,
+                ContributionRecord.distributor_id == ancestor_promoter_id,
                 ContributionRecord.source_type == "team_aggregation",
                 ContributionRecord.source_id == source_id,
             )
@@ -217,7 +218,7 @@ class ContributionService:
             return
 
         record = ContributionRecord(
-            promoter_id=ancestor_promoter_id,
+            distributor_id=ancestor_promoter_id,
             customer_id=0,  # team aggregation, not tied to specific customer
             bill_id=None,
             points="0.00",  # placeholder, actual aggregation via recalculation
@@ -234,7 +235,7 @@ class ContributionService:
     async def aggregate_up_tree(
         self,
         db: AsyncSession,
-        promoter_id: int,
+        distributor_id: int,
         month: str,
     ) -> dict:
         """Walk up the hierarchy tree and create team contribution records
@@ -242,25 +243,25 @@ class ContributionService:
 
         Args:
             db: Database session.
-            promoter_id: The leaf promoter whose contribution to aggregate.
+            distributor_id: The leaf promoter whose contribution to aggregate.
             month: Settlement month string (e.g. "2026-07").
 
         Returns:
             Dict with aggregated count and levels.
         """
-        chain = await self._get_ancestor_chain(db, promoter_id)
+        chain = await self._get_ancestor_chain(db, distributor_id)
         if len(chain) <= 1:
             return {"aggregated": 0, "message": "No ancestors to aggregate"}
 
         # Skip the first entry (self), aggregate to all ancestors
         aggregated = 0
         for entry in chain[1:]:
-            if entry["promoter_id"] is None:
+            if entry["distributor_id"] is None:
                 continue  # skip nodes without an assigned promoter
             await self._upsert_team_contribution(
                 db,
-                ancestor_promoter_id=entry["promoter_id"],
-                source_promoter_id=promoter_id,
+                ancestor_promoter_id=entry["distributor_id"],
+                source_promoter_id=distributor_id,
                 month=month,
                 level=entry["level"],
             )
@@ -268,7 +269,7 @@ class ContributionService:
 
         return {
             "aggregated": aggregated,
-            "levels": [e["level"] for e in chain[1:] if e["promoter_id"] is not None],
+            "levels": [e["level"] for e in chain[1:] if e["distributor_id"] is not None],
         }
 
     # ------------------------------------------------------------------
@@ -311,7 +312,7 @@ class ContributionService:
         reversal_points = self._calc_points(-abs(refund_amount_cent), coefficient)
 
         reversal = ContributionRecord(
-            promoter_id=original.promoter_id,
+            distributor_id=original.distributor_id,
             customer_id=original.customer_id,
             bill_id=original.bill_id,
             points=reversal_points,
@@ -372,7 +373,7 @@ class ContributionService:
         delta_str = str(delta.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
         adjustment = ContributionRecord(
-            promoter_id=original.promoter_id,
+            distributor_id=original.distributor_id,
             customer_id=original.customer_id,
             bill_id=original.bill_id,
             points=delta_str,

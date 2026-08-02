@@ -56,7 +56,7 @@ class Customer(Base):
     __tablename__ = "customers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    promoter_id: Mapped[int] = mapped_column(Integer, ForeignKey("promoters.id"), nullable=False, index=True)
+    distributor_id: Mapped[int] = mapped_column(Integer, ForeignKey("distributors.id"), nullable=False, index=True)
     name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     phone_masked: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
@@ -74,7 +74,7 @@ class Customer(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    promoter: Mapped["Promoter"] = relationship("Promoter", back_populates="customers")
+    distributor: Mapped["Distributor"] = relationship("Distributor", back_populates="customers")
     bills: Mapped[list["Bill"]] = relationship("Bill", back_populates="customer")
     followup_records: Mapped[list["FollowupRecord"]] = relationship(
         "FollowupRecord", back_populates="customer"
@@ -91,7 +91,7 @@ class BindingRequest(Base):
     customer_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("customers.id"), nullable=True, index=True
     )
-    promoter_id: Mapped[int] = mapped_column(Integer, ForeignKey("promoters.id"), nullable=False, index=True)
+    distributor_id: Mapped[int] = mapped_column(Integer, ForeignKey("distributors.id"), nullable=False, index=True)
     submitted_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     rutai_user_id_masked: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     customer_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -120,7 +120,7 @@ class BindingRequest(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    promoter: Mapped["Promoter"] = relationship("Promoter", back_populates="binding_requests")
+    distributor: Mapped["Distributor"] = relationship("Distributor", back_populates="binding_requests")
     change_logs: Mapped[list["BindingChangeLog"]] = relationship(
         "BindingChangeLog", back_populates="binding_request"
     )
@@ -137,10 +137,10 @@ class BindingChangeLog(Base):
         SAEnum(OperationType, name="operation_type_enum"), nullable=False
     )
     previous_promoter_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("promoters.id"), nullable=True
+        Integer, ForeignKey("_deprecated_promoters.id"), nullable=True
     )
     new_promoter_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("promoters.id"), nullable=True
+        Integer, ForeignKey("_deprecated_promoters.id"), nullable=True
     )
     operator_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

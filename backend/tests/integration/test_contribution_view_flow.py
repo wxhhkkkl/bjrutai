@@ -20,7 +20,8 @@ from src.models.contribution import (
     ContributionRecord,
     ContributionStatus,
 )
-from src.models.hierarchy import HierarchyNode, NodeType
+from src.models.organization import Organization
+from src.models.hierarchy import NodeType
 from tests.conftest import (
     seed_hierarchy_node,
     seed_promoter,
@@ -35,7 +36,7 @@ def _auth_headers(user_id: int, user_type: str = "promoter") -> dict:
 
 async def seed_contribution(
     db: AsyncSession,
-    promoter_id: int,
+    distributor_id: int,
     customer_id: int,
     points: str,
     status: str = "settled",
@@ -44,7 +45,7 @@ async def seed_contribution(
     occurred_at: datetime | None = None,
 ) -> int:
     record = ContributionRecord(
-        promoter_id=promoter_id,
+        distributor_id=distributor_id,
         customer_id=customer_id,
         points=points,
         status=ContributionStatus(status),
@@ -77,10 +78,10 @@ class TestContributionViewFullFlow:
             db_session, name="FlowNode", node_type="promoter", level=1, parent_id=None
         )
         user_id = await seed_user(db_session, openid="wx_flow", user_type="promoter", name="流量测试")
-        promoter_id = await seed_promoter(db_session, user_id=user_id, node_id=node)
+        distributor_id = await seed_promoter(db_session, user_id=user_id, node_id=node)
 
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_flow",
             binding_status=BindingStatus.BOUND,
             bound_at=datetime.now(timezone.utc),
@@ -90,23 +91,23 @@ class TestContributionViewFullFlow:
 
         # ---- Seed contributions across categories ----
         await seed_contribution(
-            db_session, promoter_id, customer.id, "300.00",
+            db_session, distributor_id, customer.id, "300.00",
             category="bill", source_id="txn_flow_1",
             occurred_at=datetime(2026, 7, 5, tzinfo=timezone.utc),
         )
         await seed_contribution(
-            db_session, promoter_id, customer.id, "150.00",
+            db_session, distributor_id, customer.id, "150.00",
             category="binding", source_id="txn_flow_2",
             occurred_at=datetime(2026, 7, 10, tzinfo=timezone.utc),
         )
         await seed_contribution(
-            db_session, promoter_id, customer.id, "50.00",
+            db_session, distributor_id, customer.id, "50.00",
             category="followup", source_id="txn_flow_3",
             occurred_at=datetime(2026, 7, 15, tzinfo=timezone.utc),
         )
         # Also seed in June for trend verification
         await seed_contribution(
-            db_session, promoter_id, customer.id, "200.00",
+            db_session, distributor_id, customer.id, "200.00",
             category="bill", source_id="txn_flow_jun",
             occurred_at=datetime(2026, 6, 20, tzinfo=timezone.utc),
         )
@@ -174,7 +175,7 @@ class TestContributionViewFullFlow:
         promoter_l3 = await seed_promoter(db_session, user_id=user_l3, node_id=node_l3)
 
         customer = Customer(
-            promoter_id=promoter_l3,
+            distributor_id=promoter_l3,
             rutai_user_id="hrb_tm",
             binding_status=BindingStatus.BOUND,
         )
@@ -227,7 +228,7 @@ class TestContributionViewFullFlow:
             db_session, name="Team L4", node_type="promoter", level=4, parent_id=node_l3
         )
         node_l5 = await seed_hierarchy_node(
-            db_session, name="Promoter L5", node_type="promoter", level=5, parent_id=node_l4
+            db_session, name="Distributor L5", node_type="promoter", level=5, parent_id=node_l4
         )
 
         user_l3 = await seed_user(db_session, openid="wx_dd_l3", user_type="promoter", name="分部经理")
@@ -238,7 +239,7 @@ class TestContributionViewFullFlow:
         promoter_l5 = await seed_promoter(db_session, user_id=user_l5, node_id=node_l5)
 
         customer = Customer(
-            promoter_id=promoter_l5,
+            distributor_id=promoter_l5,
             rutai_user_id="hrb_dd",
             binding_status=BindingStatus.BOUND,
         )

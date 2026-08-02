@@ -22,7 +22,9 @@ from src.models.contribution import (
     ContributionRecord,
     ContributionStatus,
 )
-from src.models.hierarchy import HierarchyNode, NodeType, Promoter
+from src.models.distributor import Distributor
+from src.models.organization import Organization
+from src.models.hierarchy import NodeType
 from src.models.user import User, UserType, ActivationStatus
 from tests.conftest import (
     assert_response_envelope,
@@ -55,7 +57,7 @@ def _admin_headers(user_id: int = 99) -> dict:
 async def seed_contribution_record(
     db: AsyncSession,
     *,
-    promoter_id: int,
+    distributor_id: int,
     customer_id: int,
     bill_id: int | None = None,
     points: str = "100.00",
@@ -70,7 +72,7 @@ async def seed_contribution_record(
 ) -> int:
     """Insert a ContributionRecord row and return its id."""
     record = ContributionRecord(
-        promoter_id=promoter_id,
+        distributor_id=distributor_id,
         customer_id=customer_id,
         bill_id=bill_id,
         points=points,
@@ -98,13 +100,13 @@ async def setup_promoter_with_hierarchy(
     level: int = 5,
     parent_id: int | None = None,
 ) -> tuple[int, int, int]:
-    """Create user + node + promoter and return (user_id, node_id, promoter_id)."""
+    """Create user + node + promoter and return (user_id, node_id, distributor_id)."""
     node_id = await seed_hierarchy_node(
         db, name=node_name, node_type="promoter", level=level, parent_id=parent_id
     )
     user_id = await seed_user(db, openid=openid, user_type="promoter", name=name)
-    promoter_id = await seed_promoter(db, user_id=user_id, node_id=node_id)
-    return user_id, node_id, promoter_id
+    distributor_id = await seed_promoter(db, user_id=user_id, node_id=node_id)
+    return user_id, node_id, distributor_id
 
 
 # ============================================================================
@@ -117,9 +119,9 @@ class TestContributionOverview:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Overview returns properly enveloped response."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_overview",
             binding_status=BindingStatus.BOUND,
         )
@@ -129,7 +131,7 @@ class TestContributionOverview:
         # Seed a contribution for July 2026
         await seed_contribution_record(
             db_session,
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             customer_id=customer.id,
             points="250.00",
             status="settled",
@@ -156,9 +158,9 @@ class TestContributionOverview:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Overview monthlyPoints matches sum of contributions for the month."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_mp",
             binding_status=BindingStatus.BOUND,
         )
@@ -169,7 +171,7 @@ class TestContributionOverview:
         for i in range(3):
             await seed_contribution_record(
                 db_session,
-                promoter_id=promoter_id,
+                distributor_id=distributor_id,
                 customer_id=customer.id,
                 points="100.00",
                 status="settled",
@@ -192,7 +194,7 @@ class TestContributionOverview:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Overview returns zero for a month with no contributions."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
 
         resp = await client.get(
             "/api/v1/contributions/overview?month=2026-08",
@@ -207,9 +209,9 @@ class TestContributionOverview:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Overview breaks down counts by contribution status."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_sc",
             binding_status=BindingStatus.BOUND,
         )
@@ -217,12 +219,12 @@ class TestContributionOverview:
         await db_session.flush()
 
         await seed_contribution_record(
-            db_session, promoter_id=promoter_id, customer_id=customer.id,
+            db_session, distributor_id=distributor_id, customer_id=customer.id,
             points="100.00", status="settled", source_id="txn_sc_1",
             occurred_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
         )
         await seed_contribution_record(
-            db_session, promoter_id=promoter_id, customer_id=customer.id,
+            db_session, distributor_id=distributor_id, customer_id=customer.id,
             points="50.00", status="pending", source_id="txn_sc_2",
             occurred_at=datetime(2026, 7, 2, tzinfo=timezone.utc),
         )
@@ -256,9 +258,9 @@ class TestContributionTrend:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Trend returns properly enveloped response with categories and values."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_trend",
             binding_status=BindingStatus.BOUND,
         )
@@ -266,7 +268,7 @@ class TestContributionTrend:
         await db_session.flush()
 
         await seed_contribution_record(
-            db_session, promoter_id=promoter_id, customer_id=customer.id,
+            db_session, distributor_id=distributor_id, customer_id=customer.id,
             points="200.00", status="settled", source_id="txn_trend_1",
             occurred_at=datetime(2026, 5, 10, tzinfo=timezone.utc),
         )
@@ -291,9 +293,9 @@ class TestContributionTrend:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Trend returns monthly points for the last 6 months."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_trend2",
             binding_status=BindingStatus.BOUND,
         )
@@ -302,12 +304,12 @@ class TestContributionTrend:
 
         # Seed contributions in March and June 2026
         await seed_contribution_record(
-            db_session, promoter_id=promoter_id, customer_id=customer.id,
+            db_session, distributor_id=distributor_id, customer_id=customer.id,
             points="150.00", status="settled", source_id="txn_trend_mar",
             occurred_at=datetime(2026, 3, 10, tzinfo=timezone.utc),
         )
         await seed_contribution_record(
-            db_session, promoter_id=promoter_id, customer_id=customer.id,
+            db_session, distributor_id=distributor_id, customer_id=customer.id,
             points="300.00", status="settled", source_id="txn_trend_jun",
             occurred_at=datetime(2026, 6, 20, tzinfo=timezone.utc),
         )
@@ -329,7 +331,7 @@ class TestContributionTrend:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Trend defaults to 6 months if period is not specified."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
 
         resp = await client.get(
             "/api/v1/contributions/trend",
@@ -344,7 +346,7 @@ class TestContributionTrend:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Trend supports 3m and 12m periods."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
 
         resp = await client.get(
             "/api/v1/contributions/trend?period=12m",
@@ -373,9 +375,9 @@ class TestContributionComposition:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Composition returns properly enveloped response with categories."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_comp",
             binding_status=BindingStatus.BOUND,
         )
@@ -383,7 +385,7 @@ class TestContributionComposition:
         await db_session.flush()
 
         await seed_contribution_record(
-            db_session, promoter_id=promoter_id, customer_id=customer.id,
+            db_session, distributor_id=distributor_id, customer_id=customer.id,
             points="300.00", status="settled", category="bill",
             source_id="txn_comp_1",
             occurred_at=datetime(2026, 7, 15, tzinfo=timezone.utc),
@@ -410,9 +412,9 @@ class TestContributionComposition:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Composition category percentages sum to 100."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_comp2",
             binding_status=BindingStatus.BOUND,
         )
@@ -420,19 +422,19 @@ class TestContributionComposition:
         await db_session.flush()
 
         await seed_contribution_record(
-            db_session, promoter_id=promoter_id, customer_id=customer.id,
+            db_session, distributor_id=distributor_id, customer_id=customer.id,
             points="200.00", status="settled", category="bill",
             source_id="txn_comp_bill",
             occurred_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
         )
         await seed_contribution_record(
-            db_session, promoter_id=promoter_id, customer_id=customer.id,
+            db_session, distributor_id=distributor_id, customer_id=customer.id,
             points="50.00", status="settled", category="binding",
             source_id="txn_comp_bind",
             occurred_at=datetime(2026, 7, 2, tzinfo=timezone.utc),
         )
         await seed_contribution_record(
-            db_session, promoter_id=promoter_id, customer_id=customer.id,
+            db_session, distributor_id=distributor_id, customer_id=customer.id,
             points="50.00", status="settled", category="followup",
             source_id="txn_comp_fu",
             occurred_at=datetime(2026, 7, 3, tzinfo=timezone.utc),
@@ -452,7 +454,7 @@ class TestContributionComposition:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Composition returns empty categories for month with no data."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
 
         resp = await client.get(
             "/api/v1/contributions/composition?month=2026-07",
@@ -481,9 +483,9 @@ class TestContributionList:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """List returns properly enveloped response with cursor pagination."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_list",
             binding_status=BindingStatus.BOUND,
         )
@@ -491,7 +493,7 @@ class TestContributionList:
         await db_session.flush()
 
         await seed_contribution_record(
-            db_session, promoter_id=promoter_id, customer_id=customer.id,
+            db_session, distributor_id=distributor_id, customer_id=customer.id,
             points="100.00", source_id="txn_list_1",
             occurred_at=datetime(2026, 7, 15, tzinfo=timezone.utc),
         )
@@ -515,9 +517,9 @@ class TestContributionList:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """List filters by contribution status."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_list_s",
             binding_status=BindingStatus.BOUND,
         )
@@ -525,12 +527,12 @@ class TestContributionList:
         await db_session.flush()
 
         await seed_contribution_record(
-            db_session, promoter_id=promoter_id, customer_id=customer.id,
+            db_session, distributor_id=distributor_id, customer_id=customer.id,
             points="100.00", status="settled", source_id="txn_list_s1",
             occurred_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
         )
         await seed_contribution_record(
-            db_session, promoter_id=promoter_id, customer_id=customer.id,
+            db_session, distributor_id=distributor_id, customer_id=customer.id,
             points="50.00", status="pending", source_id="txn_list_s2",
             occurred_at=datetime(2026, 7, 2, tzinfo=timezone.utc),
         )
@@ -549,9 +551,9 @@ class TestContributionList:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """List filters by contribution category."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_list_c",
             binding_status=BindingStatus.BOUND,
         )
@@ -559,12 +561,12 @@ class TestContributionList:
         await db_session.flush()
 
         await seed_contribution_record(
-            db_session, promoter_id=promoter_id, customer_id=customer.id,
+            db_session, distributor_id=distributor_id, customer_id=customer.id,
             points="100.00", category="bill", source_id="txn_list_c1",
             occurred_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
         )
         await seed_contribution_record(
-            db_session, promoter_id=promoter_id, customer_id=customer.id,
+            db_session, distributor_id=distributor_id, customer_id=customer.id,
             points="50.00", category="binding", source_id="txn_list_c2",
             occurred_at=datetime(2026, 7, 2, tzinfo=timezone.utc),
         )
@@ -583,9 +585,9 @@ class TestContributionList:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """List supports cursor-based pagination with nextCursor."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_list_pag",
             binding_status=BindingStatus.BOUND,
         )
@@ -594,7 +596,7 @@ class TestContributionList:
 
         for i in range(25):
             await seed_contribution_record(
-                db_session, promoter_id=promoter_id, customer_id=customer.id,
+                db_session, distributor_id=distributor_id, customer_id=customer.id,
                 points=f"{i * 10}.00", source_id=f"txn_pag_{i}",
                 occurred_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
             )
@@ -614,7 +616,7 @@ class TestContributionList:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """List returns empty items for a month with no contributions."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
 
         resp = await client.get(
             "/api/v1/contributions?month=2026-07",
@@ -644,9 +646,9 @@ class TestContributionDetail:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Detail returns properly enveloped response with full info."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_detail",
             binding_status=BindingStatus.BOUND,
         )
@@ -666,7 +668,7 @@ class TestContributionDetail:
         await db_session.flush()
 
         record_id = await seed_contribution_record(
-            db_session, promoter_id=promoter_id, customer_id=customer.id,
+            db_session, distributor_id=distributor_id, customer_id=customer.id,
             bill_id=bill.id, points="500.00", rule_version="1.0",
             source_id="txn_detail_001",
             adjustment_reason="初始计算",
@@ -694,9 +696,9 @@ class TestContributionDetail:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Detail response includes calculation base, coefficient, and description."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_detail2",
             binding_status=BindingStatus.BOUND,
         )
@@ -716,7 +718,7 @@ class TestContributionDetail:
         await db_session.flush()
 
         record_id = await seed_contribution_record(
-            db_session, promoter_id=promoter_id, customer_id=customer.id,
+            db_session, distributor_id=distributor_id, customer_id=customer.id,
             bill_id=bill.id, points="800.00", rule_version="1.0",
             source_id="txn_detail_002",
             occurred_at=datetime(2026, 7, 15, tzinfo=timezone.utc),
@@ -738,7 +740,7 @@ class TestContributionDetail:
         self, client: AsyncClient, db_session: AsyncSession
     ):
         """Non-existent contribution returns 404."""
-        user_id, node_id, promoter_id = await setup_promoter_with_hierarchy(db_session)
+        user_id, node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
 
         resp = await client.get(
             "/api/v1/contributions/99999",
@@ -779,7 +781,7 @@ class TestTeamContributions:
         promoter_l5 = await seed_promoter(db_session, user_id=user_l5, node_id=node_l5)
 
         customer = Customer(
-            promoter_id=promoter_l5,
+            distributor_id=promoter_l5,
             rutai_user_id="hrb_team",
             binding_status=BindingStatus.BOUND,
         )
@@ -787,7 +789,7 @@ class TestTeamContributions:
         await db_session.flush()
 
         await seed_contribution_record(
-            db_session, promoter_id=promoter_l5, customer_id=customer.id,
+            db_session, distributor_id=promoter_l5, customer_id=customer.id,
             points="200.00", status="settled", source_id="txn_team_1",
             occurred_at=datetime(2026, 7, 15, tzinfo=timezone.utc),
         )
@@ -823,7 +825,7 @@ class TestTeamContributions:
         promoter_l5 = await seed_promoter(db_session, user_id=user_l5, node_id=node_l5)
 
         customer = Customer(
-            promoter_id=promoter_l5,
+            distributor_id=promoter_l5,
             rutai_user_id="hrb_noamount",
             binding_status=BindingStatus.BOUND,
         )
@@ -831,7 +833,7 @@ class TestTeamContributions:
         await db_session.flush()
 
         await seed_contribution_record(
-            db_session, promoter_id=promoter_l5, customer_id=customer.id,
+            db_session, distributor_id=promoter_l5, customer_id=customer.id,
             points="300.00", status="settled", source_id="txn_noamount",
             occurred_at=datetime(2026, 7, 15, tzinfo=timezone.utc),
         )
@@ -869,18 +871,18 @@ class TestTeamContributions:
         promoter_l5a = await seed_promoter(db_session, user_id=user_l5a, node_id=node_l5a)
         promoter_l5b = await seed_promoter(db_session, user_id=user_l5b, node_id=node_l5b)
 
-        cust_a = Customer(promoter_id=promoter_l5a, rutai_user_id="hrb_agg_a", binding_status=BindingStatus.BOUND)
-        cust_b = Customer(promoter_id=promoter_l5b, rutai_user_id="hrb_agg_b", binding_status=BindingStatus.BOUND)
+        cust_a = Customer(distributor_id=promoter_l5a, rutai_user_id="hrb_agg_a", binding_status=BindingStatus.BOUND)
+        cust_b = Customer(distributor_id=promoter_l5b, rutai_user_id="hrb_agg_b", binding_status=BindingStatus.BOUND)
         db_session.add_all([cust_a, cust_b])
         await db_session.flush()
 
         await seed_contribution_record(
-            db_session, promoter_id=promoter_l5a, customer_id=cust_a.id,
+            db_session, distributor_id=promoter_l5a, customer_id=cust_a.id,
             points="150.00", status="settled", source_id="txn_agg_a",
             occurred_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
         )
         await seed_contribution_record(
-            db_session, promoter_id=promoter_l5b, customer_id=cust_b.id,
+            db_session, distributor_id=promoter_l5b, customer_id=cust_b.id,
             points="250.00", status="settled", source_id="txn_agg_b",
             occurred_at=datetime(2026, 7, 2, tzinfo=timezone.utc),
         )
@@ -931,7 +933,7 @@ class TestTeamDrillDown:
         promoter_l6 = await seed_promoter(db_session, user_id=user_l6, node_id=node_l6)
 
         customer = Customer(
-            promoter_id=promoter_l6,
+            distributor_id=promoter_l6,
             rutai_user_id="hrb_drill",
             binding_status=BindingStatus.BOUND,
         )
@@ -939,7 +941,7 @@ class TestTeamDrillDown:
         await db_session.flush()
 
         await seed_contribution_record(
-            db_session, promoter_id=promoter_l6, customer_id=customer.id,
+            db_session, distributor_id=promoter_l6, customer_id=customer.id,
             points="100.00", status="settled", source_id="txn_drill",
             occurred_at=datetime(2026, 7, 15, tzinfo=timezone.utc),
         )

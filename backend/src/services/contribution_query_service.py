@@ -18,7 +18,7 @@ from ..models.contribution import (
     ContributionRecord,
     ContributionStatus,
 )
-from ..models.hierarchy import Promoter
+from ..models.distributor import Distributor
 from ..models.user import User
 
 
@@ -51,14 +51,14 @@ class ContributionQueryService:
         return str(total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
     @staticmethod
-    async def _get_promoter(db: AsyncSession, user_id: int) -> Promoter:
+    async def _get_promoter(db: AsyncSession, user_id: int) -> Distributor:
         """Get promoter by user_id, raising 404 if not found."""
         result = await db.execute(
-            select(Promoter).where(Promoter.user_id == user_id)
+            select(Distributor).where(Distributor.user_id == user_id)
         )
         promoter = result.scalars().first()
         if promoter is None:
-            raise NotFoundException(message="Promoter not found")
+            raise NotFoundException(message="Distributor not found")
         return promoter
 
     # ------------------------------------------------------------------
@@ -79,7 +79,7 @@ class ContributionQueryService:
         # Monthly contributions
         result = await db.execute(
             select(ContributionRecord).where(
-                ContributionRecord.promoter_id == promoter.id,
+                ContributionRecord.distributor_id == promoter.id,
                 func.strftime("%Y-%m", ContributionRecord.occurred_at) == month,
             )
         )
@@ -91,7 +91,7 @@ class ContributionQueryService:
         # Total contributions (all time)
         result = await db.execute(
             select(ContributionRecord).where(
-                ContributionRecord.promoter_id == promoter.id,
+                ContributionRecord.distributor_id == promoter.id,
             )
         )
         all_records = result.scalars().all()
@@ -101,7 +101,7 @@ class ContributionQueryService:
         prev_month = _previous_month(month)
         result = await db.execute(
             select(ContributionRecord).where(
-                ContributionRecord.promoter_id == promoter.id,
+                ContributionRecord.distributor_id == promoter.id,
                 func.strftime("%Y-%m", ContributionRecord.occurred_at) == prev_month,
             )
         )
@@ -153,7 +153,7 @@ class ContributionQueryService:
         # Query all records for the promoter
         result = await db.execute(
             select(ContributionRecord).where(
-                ContributionRecord.promoter_id == promoter.id,
+                ContributionRecord.distributor_id == promoter.id,
             )
         )
         all_records = result.scalars().all()
@@ -195,7 +195,7 @@ class ContributionQueryService:
 
         result = await db.execute(
             select(ContributionRecord).where(
-                ContributionRecord.promoter_id == promoter.id,
+                ContributionRecord.distributor_id == promoter.id,
                 func.strftime("%Y-%m", ContributionRecord.occurred_at) == month,
             )
         )
@@ -239,7 +239,7 @@ class ContributionQueryService:
         """List contribution records with cursor pagination and filters."""
         promoter = await self._get_promoter(db, user_id)
 
-        conditions = [ContributionRecord.promoter_id == promoter.id]
+        conditions = [ContributionRecord.distributor_id == promoter.id]
 
         if month:
             conditions.append(func.strftime("%Y-%m", ContributionRecord.occurred_at) == month)

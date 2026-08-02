@@ -49,9 +49,9 @@ async def get_team_summary(
 # ──────────────────────────────────────────────────────────────────
 # GET /team/contributions/{promoterId}
 # ──────────────────────────────────────────────────────────────────
-@router.get("/contributions/{promoter_id}")
+@router.get("/contributions/{distributor_id}")
 async def drill_down_team(
-    promoter_id: int,
+    distributor_id: int,
     month: Optional[str] = Query(None, description="Month in YYYY-MM format"),
     db: AsyncSession = Depends(get_db),
     payload: dict = Depends(get_current_user),
@@ -63,5 +63,5 @@ async def drill_down_team(
     """
     user_id = int(payload["sub"])
     svc = TeamService()
-    result = await svc.drill_down(db, user_id, promoter_id, month)
+    result = await svc.drill_down(db, user_id, distributor_id, month)
     return _ok(result)

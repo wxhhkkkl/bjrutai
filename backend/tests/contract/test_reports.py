@@ -169,7 +169,7 @@ class TestGenerateReport:
     async def test_requires_admin_or_finance_role(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        """Promoter cannot generate reports (returns 403)."""
+        """Distributor cannot generate reports (returns 403)."""
         resp = await client.post(
             "/api/v1/reports/generate",
             json={
@@ -383,7 +383,7 @@ class TestReportDetail:
     async def test_detail_requires_admin_or_finance(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        """Promoter cannot access report detail (returns 403)."""
+        """Distributor cannot access report detail (returns 403)."""
         resp = await client.get("/api/v1/reports/1", headers=_promoter_headers())
         assert resp.status_code == 403
 
@@ -461,7 +461,7 @@ class TestExportReport:
     async def test_export_requires_admin_or_finance(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        """Promoter cannot export reports (returns 403)."""
+        """Distributor cannot export reports (returns 403)."""
         resp = await client.get("/api/v1/reports/1/export", headers=_promoter_headers())
         assert resp.status_code == 403
 

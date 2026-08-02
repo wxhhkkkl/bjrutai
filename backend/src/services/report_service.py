@@ -19,7 +19,8 @@ from ..core.exceptions import BadRequestException, NotFoundException
 from ..models.bill import Bill, TransactionStatus
 from ..models.binding import BindingStatus, Customer
 from ..models.contribution import ContributionRecord, ContributionStatus
-from ..models.hierarchy import HierarchyNode, Promoter
+from ..models.distributor import Distributor
+from ..models.organization import Organization
 from ..models.report import Report
 from ..models.user import User
 
@@ -278,14 +279,14 @@ class ReportService:
         # Group by promoter
         by_promoter = {}
         for c in bindings:
-            pid = c.promoter_id
+            pid = c.distributor_id
             by_promoter[pid] = by_promoter.get(pid, 0) + 1
 
         details = []
         for pid, count in sorted(by_promoter.items(), key=lambda x: -x[1]):
-            prom_result = await db.execute(select(Promoter).where(Promoter.id == pid))
+            prom_result = await db.execute(select(Distributor).where(Distributor.id == pid))
             promoter = prom_result.scalars().first()
-            prom_name = f"Promoter {pid}"
+            prom_name = f"Distributor {pid}"
             if promoter:
                 user_result = await db.execute(select(User).where(User.id == promoter.user_id))
                 user = user_result.scalars().first()
@@ -399,7 +400,7 @@ class ReportService:
         # Group by promoter
         by_promoter = {}
         for r in records:
-            pid = r.promoter_id
+            pid = r.distributor_id
             if pid not in by_promoter:
                 by_promoter[pid] = {"totalPoints": 0.0, "count": 0}
             try:
@@ -411,9 +412,9 @@ class ReportService:
         # Get promoter hierarchy levels
         details = []
         for pid, data in sorted(by_promoter.items(), key=lambda x: -x[1]["totalPoints"]):
-            prom_result = await db.execute(select(Promoter).where(Promoter.id == pid))
+            prom_result = await db.execute(select(Distributor).where(Distributor.id == pid))
             promoter = prom_result.scalars().first()
-            prom_name = f"Promoter {pid}"
+            prom_name = f"Distributor {pid}"
             level = "N/A"
             if promoter:
                 user_result = await db.execute(select(User).where(User.id == promoter.user_id))
@@ -421,7 +422,7 @@ class ReportService:
                 if user:
                     prom_name = user.name or prom_name
                 node_result = await db.execute(
-                    select(HierarchyNode).where(HierarchyNode.id == promoter.node_id)
+                    select(Organization).where(Organization.id == promoter.org_id)
                 )
                 node = node_result.scalars().first()
                 if node:

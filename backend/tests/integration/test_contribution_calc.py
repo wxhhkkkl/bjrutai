@@ -24,7 +24,9 @@ from src.models.contribution import (
     SettlementLog,
     SettlementStatus,
 )
-from src.models.hierarchy import HierarchyNode, NodeType, Promoter
+from src.models.distributor import Distributor
+from src.models.organization import Organization
+from src.models.hierarchy import NodeType
 from src.models.user import User, UserType, ActivationStatus
 from tests.conftest import (
     seed_hierarchy_node,
@@ -58,7 +60,7 @@ class TestContributionAggregation:
             db_session, name="Team Alpha", node_type="promoter", level=4, parent_id=node_l3
         )
         node_l5 = await seed_hierarchy_node(
-            db_session, name="Promoter Zhang", node_type="promoter", level=5, parent_id=node_l4
+            db_session, name="Distributor Zhang", node_type="promoter", level=5, parent_id=node_l4
         )
 
         # Create promoter at L5
@@ -71,7 +73,7 @@ class TestContributionAggregation:
 
         # Create customer bound to this promoter
         customer = Customer(
-            promoter_id=promoter_l5,
+            distributor_id=promoter_l5,
             rutai_user_id="hrb_l5_001",
             binding_status=BindingStatus.BOUND,
             bound_at=datetime.now(timezone.utc),
@@ -97,7 +99,7 @@ class TestContributionAggregation:
         record = await svc.create_from_bill(db_session, bill)
 
         assert record is not None
-        assert record.promoter_id == promoter_l5
+        assert record.distributor_id == promoter_l5
         assert record.points == "500.00"  # 500 yuan * 1.0 coefficient
         assert record.category == ContributionCategory.BILL
         assert record.status == ContributionStatus.PENDING
@@ -140,7 +142,7 @@ class TestContributionAggregation:
 
         # Create customer at L5
         customer = Customer(
-            promoter_id=promoter_l5,
+            distributor_id=promoter_l5,
             rutai_user_id="hrb_chain_001",
             binding_status=BindingStatus.BOUND,
             bound_at=datetime.now(timezone.utc),
@@ -167,12 +169,12 @@ class TestContributionAggregation:
         await db_session.flush()
 
         # Aggregate up-tree
-        await svc.aggregate_up_tree(db_session, promoter_id=promoter_l5, month="2026-07")
+        await svc.aggregate_up_tree(db_session, distributor_id=promoter_l5, month="2026-07")
         await db_session.flush()
 
         # Verify: personal contribution for L5 exists
         q_personal = select(ContributionRecord).where(
-            ContributionRecord.promoter_id == promoter_l5,
+            ContributionRecord.distributor_id == promoter_l5,
             ContributionRecord.bill_id == bill.id,
         )
         result_personal = await db_session.execute(q_personal)
@@ -185,7 +187,7 @@ class TestContributionAggregation:
         # These would be created by aggregate_up_tree
         for pid in [promoter_l4, promoter_l3, promoter_l2, promoter_l1]:
             q_team = select(ContributionRecord).where(
-                ContributionRecord.promoter_id == pid,
+                ContributionRecord.distributor_id == pid,
                 ContributionRecord.source_type == "team_aggregation",
                 ContributionRecord.source_id == "month:2026-07:promoter:{}".format(promoter_l5),
             )
@@ -207,13 +209,13 @@ class TestRefundHandling:
 
         # Setup
         node = await seed_hierarchy_node(
-            db_session, name="Promoter Node", node_type="promoter", level=1, parent_id=None
+            db_session, name="Distributor Node", node_type="promoter", level=1, parent_id=None
         )
         user = await seed_user(db_session, openid="wx_refund_full", user_type="promoter")
         promoter = await seed_promoter(db_session, user_id=user, node_id=node)
 
         customer = Customer(
-            promoter_id=promoter,
+            distributor_id=promoter,
             rutai_user_id="hrb_rf_full",
             binding_status=BindingStatus.BOUND,
             bound_at=datetime.now(timezone.utc),
@@ -251,7 +253,7 @@ class TestRefundHandling:
 
         # Verify reversal record
         assert reversal is not None
-        assert reversal.promoter_id == promoter
+        assert reversal.distributor_id == promoter
         assert reversal.bill_id == bill.id
         assert reversal.reversed_record_id == record.id
         assert reversal.status == ContributionStatus.REVERSED
@@ -276,7 +278,7 @@ class TestRefundHandling:
         promoter = await seed_promoter(db_session, user_id=user, node_id=node)
 
         customer = Customer(
-            promoter_id=promoter,
+            distributor_id=promoter,
             rutai_user_id="hrb_partial",
             binding_status=BindingStatus.BOUND,
             bound_at=datetime.now(timezone.utc),
@@ -332,7 +334,7 @@ class TestMonthlySettlement:
         promoter = await seed_promoter(db_session, user_id=user, node_id=node)
 
         customer = Customer(
-            promoter_id=promoter,
+            distributor_id=promoter,
             rutai_user_id="hrb_settle",
             binding_status=BindingStatus.BOUND,
             bound_at=datetime.now(timezone.utc),
@@ -362,7 +364,7 @@ class TestMonthlySettlement:
         # Count pending before settlement
         q_pending = select(ContributionRecord).where(
             ContributionRecord.status == ContributionStatus.PENDING,
-            ContributionRecord.promoter_id == promoter,
+            ContributionRecord.distributor_id == promoter,
         )
         result_before = await db_session.execute(q_pending)
         pending_before = result_before.scalars().all()
@@ -378,7 +380,7 @@ class TestMonthlySettlement:
         # Verify all settled
         q_settled = select(ContributionRecord).where(
             ContributionRecord.status == ContributionStatus.SETTLED,
-            ContributionRecord.promoter_id == promoter,
+            ContributionRecord.distributor_id == promoter,
         )
         result_after = await db_session.execute(q_settled)
         settled = result_after.scalars().all()
@@ -404,7 +406,7 @@ class TestMonthlySettlement:
         promoter = await seed_promoter(db_session, user_id=user, node_id=node)
 
         customer = Customer(
-            promoter_id=promoter,
+            distributor_id=promoter,
             rutai_user_id="hrb_skip",
             binding_status=BindingStatus.BOUND,
             bound_at=datetime.now(timezone.utc),
@@ -432,7 +434,7 @@ class TestMonthlySettlement:
         # Manually set one as already settled
         from sqlalchemy import update
         q_all = select(ContributionRecord).where(
-            ContributionRecord.promoter_id == promoter,
+            ContributionRecord.distributor_id == promoter,
             ContributionRecord.status == ContributionStatus.PENDING,
         ).limit(1)
         result_all = await db_session.execute(q_all)
@@ -460,7 +462,7 @@ class TestMonthlySettlement:
         promoter = await seed_promoter(db_session, user_id=user, node_id=node)
 
         customer = Customer(
-            promoter_id=promoter,
+            distributor_id=promoter,
             rutai_user_id="hrb_idem",
             binding_status=BindingStatus.BOUND,
             bound_at=datetime.now(timezone.utc),

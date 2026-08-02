@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import get_settings
 from ..core.exceptions import BadRequestException, ForbiddenException, NotFoundException
-from ..models.hierarchy import Promoter
+from ..models.distributor import Distributor
 from ..models.promotion import PromotionCode, PromotionCodeStatus
 from ..models.qualification import QualStatus, Qualification
 
@@ -23,10 +23,10 @@ SOURCE_CODE = "BJTR"
 # ============================================================================
 # Helpers
 # ============================================================================
-async def _get_promoter(db: AsyncSession, user_id: int) -> Promoter:
-    """Look up the Promoter record for the given user. Raises Forbidden if not found."""
+async def _get_promoter(db: AsyncSession, user_id: int) -> Distributor:
+    """Look up the Distributor record for the given user. Raises Forbidden if not found."""
     result = await db.execute(
-        select(Promoter).where(Promoter.user_id == user_id)
+        select(Distributor).where(Distributor.user_id == user_id)
     )
     promoter = result.scalars().first()
     if promoter is None:
@@ -34,12 +34,12 @@ async def _get_promoter(db: AsyncSession, user_id: int) -> Promoter:
     return promoter
 
 
-async def _check_approved_qualification(db: AsyncSession, promoter_id: int) -> Qualification:
+async def _check_approved_qualification(db: AsyncSession, distributor_id: int) -> Qualification:
     """Verify the promoter has at least one approved qualification. Raises Forbidden if not."""
     result = await db.execute(
         select(Qualification)
         .where(
-            Qualification.promoter_id == promoter_id,
+            Qualification.distributor_id == distributor_id,
             Qualification.status == QualStatus.APPROVED,
         )
         .limit(1)
@@ -92,7 +92,7 @@ async def get_promotion_code(
     result = await db.execute(
         select(PromotionCode)
         .where(
-            PromotionCode.promoter_id == promoter.id,
+            PromotionCode.distributor_id == promoter.id,
             PromotionCode.status == PromotionCodeStatus.AVAILABLE,
         )
     )
@@ -106,7 +106,7 @@ async def get_promotion_code(
     now = datetime.now(timezone.utc)
 
     code = PromotionCode(
-        promoter_id=promoter.id,
+        distributor_id=promoter.id,
         ref_token=ref_token,
         source_code=SOURCE_CODE,
         status=PromotionCodeStatus.AVAILABLE,
@@ -129,7 +129,7 @@ async def refresh_code(
     """Refresh the promotion code by generating a new ref_token in-place.
 
     The promoter must have an approved qualification. Since the promotion_codes
-    table enforces unique promoter_id, we update the existing record instead of
+    table enforces unique distributor_id, we update the existing record instead of
     creating a new one.
     """
     promoter = await _get_promoter(db, user_id)
@@ -138,7 +138,7 @@ async def refresh_code(
     # Find the current code (any status - we'll reactivate it)
     result = await db.execute(
         select(PromotionCode)
-        .where(PromotionCode.promoter_id == promoter.id)
+        .where(PromotionCode.distributor_id == promoter.id)
     )
     code = result.scalars().first()
 
@@ -156,7 +156,7 @@ async def refresh_code(
     else:
         # No code exists yet; create one
         code = PromotionCode(
-            promoter_id=promoter.id,
+            distributor_id=promoter.id,
             ref_token=new_ref_token,
             source_code=SOURCE_CODE,
             status=PromotionCodeStatus.AVAILABLE,
@@ -200,7 +200,7 @@ async def get_statistics(
     # Get the current available code (or most recent)
     result = await db.execute(
         select(PromotionCode)
-        .where(PromotionCode.promoter_id == promoter.id)
+        .where(PromotionCode.distributor_id == promoter.id)
         .order_by(PromotionCode.updated_at.desc())
         .limit(1)
     )
@@ -246,7 +246,7 @@ async def get_poster(
     result = await db.execute(
         select(PromotionCode)
         .where(
-            PromotionCode.promoter_id == promoter.id,
+            PromotionCode.distributor_id == promoter.id,
             PromotionCode.status == PromotionCodeStatus.AVAILABLE,
         )
     )

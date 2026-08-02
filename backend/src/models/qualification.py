@@ -23,10 +23,11 @@ class QualStatus(str, enum.Enum):
 
 
 class Qualification(Base):
-    __tablename__ = "qualifications"
+    # 迁移 004 已将表重命名（数据保留），映射到废弃表
+    __tablename__ = "_deprecated_qualifications"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    promoter_id: Mapped[int] = mapped_column(Integer, ForeignKey("promoters.id"), nullable=False, index=True)
+    promoter_id: Mapped[int] = mapped_column(Integer, ForeignKey("_deprecated_promoters.id"), nullable=False, index=True)
     legal_entity: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     qualification_type: Mapped[QualificationType] = mapped_column(
         SAEnum(QualificationType, name="qualification_type_enum"), nullable=False

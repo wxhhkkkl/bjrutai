@@ -1,7 +1,7 @@
 """Binding Service — core business logic for customer binding management.
 
 Covers:
-- Promoter selection for doctors
+- Distributor selection for doctors
 - Binding request submission with Rutai API integration
 - Binding request listing/detail/summary
 - Retry, customer info correction
@@ -39,7 +39,9 @@ from ..models.binding import (
 )
 from ..models.consent import ConsentRecord, ConsentScene
 from ..models.contribution import ContributionRecord, ContributionStatus
-from ..models.hierarchy import Promoter
+from ..models.distributor import Distributor
+from ..models.org_qualification import OrgQualStatus, OrganizationQualification
+from . import distributor_service
 from ..models.user import User
 
 # ---------------------------------------------------------------------------
@@ -154,20 +156,23 @@ class BindingService:
         # Base query: active promoters with approved qualifications
         base_query = (
             select(
-                Promoter.id,
+                Distributor.id,
                 User.id.label("user_id"),
                 User.name,
                 User.phone_masked,
                 User.avatar_url,
                 func.count(Customer.id).label("binding_count"),
             )
-            .join(User, User.id == Promoter.user_id)
-            .outerjoin(Customer, Customer.promoter_id == Promoter.id)
-            .where(
-                User.activation_status == "active",
-                Promoter.qualification_status == "approved",
+            .join(User, User.id == Distributor.user_id)
+            .outerjoin(Customer, Customer.distributor_id == Distributor.id)
+            .join(
+                OrganizationQualification,
+                (OrganizationQualification.org_id == Distributor.org_id)
+                & (OrganizationQualification.status == OrgQualStatus.APPROVED)
+                & (OrganizationQualification.valid_until > datetime.now(timezone.utc)),
             )
-            .group_by(Promoter.id, User.id, User.name, User.phone_masked, User.avatar_url)
+            .where(User.activation_status == "active")
+            .group_by(Distributor.id, User.id, User.name, User.phone_masked, User.avatar_url)
         )
 
         if keyword:
@@ -248,23 +253,20 @@ class BindingService:
         except (ValueError, TypeError):
             raise BadRequestException(message="Invalid promoterId")
 
-        # Verify promoter exists and is active
+        # Verify distributor exists and its org is business-available
         promoter_result = await db.execute(
-            select(Promoter).where(
-                Promoter.user_id == promoter_user_id,
-                Promoter.qualification_status == "approved",
-            )
+            select(Distributor).where(Distributor.user_id == promoter_user_id)
         )
         promoter = promoter_result.scalars().first()
-        if promoter is None:
+        if promoter is None or not await distributor_service.is_distributor_selectable(db, promoter):
             raise AppException(
-                code=40020, message="Promoter not found or not selectable", status_code=400,
+                code=40020, message="Distributor not found or not selectable", status_code=400,
             )
 
         # Check if already bound to this promoter
         existing_bound = await db.execute(
             select(Customer).where(
-                Customer.promoter_id == promoter.id,
+                Customer.distributor_id == promoter.id,
                 Customer.binding_status == BindingStatus.BOUND,
             )
         )
@@ -276,7 +278,7 @@ class BindingService:
         # Check for pending request to same promoter
         existing_pending = await db.execute(
             select(BindingRequest).where(
-                BindingRequest.promoter_id == promoter.id,
+                BindingRequest.distributor_id == promoter.id,
                 BindingRequest.submitted_by == submitted_by,
                 BindingRequest.status.in_([
                     BindingRequestStatus.PENDING_MATCH,
@@ -325,7 +327,7 @@ class BindingService:
         # Create binding request
         ref_token = str(uuid.uuid4())
         binding_req = BindingRequest(
-            promoter_id=promoter.id,
+            distributor_id=promoter.id,
             submitted_by=submitted_by,
             customer_name=name or None,
             phone_masked=_mask_phone(phone) if phone else None,
@@ -411,7 +413,7 @@ class BindingService:
         # If matched, create/update Customer record
         if binding_req.status == BindingRequestStatus.BOUND and hrb_user_id:
             customer = Customer(
-                promoter_id=promoter.id,
+                distributor_id=promoter.id,
                 name=name or None,
                 phone=phone or None,
                 phone_masked=_mask_phone(phone) if phone else None,
@@ -468,7 +470,7 @@ class BindingService:
         page_size = max(1, min(page_size, 100))
 
         query = select(BindingRequest).options(
-            selectinload(BindingRequest.promoter).selectinload(Promoter.user),
+            selectinload(BindingRequest.promoter).selectinload(Distributor.user),
         )
 
         # Filter by status
@@ -594,7 +596,7 @@ class BindingService:
         result = await db.execute(
             select(BindingRequest)
             .options(
-                selectinload(BindingRequest.promoter).selectinload(Promoter.user),
+                selectinload(BindingRequest.promoter).selectinload(Distributor.user),
                 selectinload(BindingRequest.change_logs),
             )
             .where(BindingRequest.id == binding_request_id)
@@ -679,7 +681,7 @@ class BindingService:
         """
         result = await db.execute(
             select(BindingRequest)
-            .options(selectinload(BindingRequest.promoter).selectinload(Promoter.user))
+            .options(selectinload(BindingRequest.promoter).selectinload(Distributor.user))
             .where(BindingRequest.id == binding_request_id)
         )
         br = result.scalars().first()
@@ -944,7 +946,7 @@ class BindingService:
         result = await db.execute(
             select(BindingRequest)
             .options(
-                selectinload(BindingRequest.promoter).selectinload(Promoter.user),
+                selectinload(BindingRequest.promoter).selectinload(Distributor.user),
             )
             .where(BindingRequest.id == binding_request_id)
         )
@@ -998,7 +1000,7 @@ class BindingService:
         log = BindingChangeLog(
             binding_request_id=br.id,
             operation_type=OperationType.UNBIND,
-            previous_promoter_id=br.promoter_id,
+            previous_promoter_id=br.distributor_id,
             new_promoter_id=None,
             operator_id=operator_id,
             reason=reason,
@@ -1047,7 +1049,7 @@ class BindingService:
         result = await db.execute(
             select(BindingRequest)
             .options(
-                selectinload(BindingRequest.promoter).selectinload(Promoter.user),
+                selectinload(BindingRequest.promoter).selectinload(Distributor.user),
             )
             .where(BindingRequest.id == binding_request_id)
         )
@@ -1061,21 +1063,18 @@ class BindingService:
         if br.status == BindingRequestStatus.TRANSFERRED:
             raise BadRequestException(code=40027, message="Customer has already been transferred")
 
-        # Validate new promoter exists
+        # Validate new distributor exists and its org is business-available
         new_promoter_result = await db.execute(
-            select(Promoter).where(
-                Promoter.user_id == new_promoter_id,
-                Promoter.qualification_status == "approved",
-            )
+            select(Distributor).where(Distributor.user_id == new_promoter_id)
         )
         new_promoter = new_promoter_result.scalars().first()
-        if new_promoter is None:
+        if new_promoter is None or not await distributor_service.is_distributor_selectable(db, new_promoter):
             raise BadRequestException(
                 code=40020,
                 message="New promoter not found or not selectable",
             )
 
-        if new_promoter.id == br.promoter_id:
+        if new_promoter.id == br.distributor_id:
             raise BadRequestException(
                 code=40020,
                 message="Cannot transfer to the same promoter",
@@ -1095,10 +1094,10 @@ class BindingService:
             )
             unsettled_count = unsettled_result.scalar() or 0
 
-        previous_promoter_id = br.promoter_id
+        previous_promoter_id = br.distributor_id
         previous_status = br.status
 
-        br.promoter_id = new_promoter.id
+        br.distributor_id = new_promoter.id
         br.status = BindingRequestStatus.TRANSFERRED
         br.version += 1
         br.updated_at = datetime.utcnow()
@@ -1110,7 +1109,7 @@ class BindingService:
             )
             customer = cust_result.scalars().first()
             if customer:
-                customer.promoter_id = new_promoter.id
+                customer.distributor_id = new_promoter.id
                 customer.version += 1
                 customer.updated_at = datetime.utcnow()
 

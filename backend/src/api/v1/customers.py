@@ -35,7 +35,7 @@ from ...models.binding import (
 )
 from ...models.contribution import ContributionRecord
 from ...models.followup import FollowupMethod, FollowupRecord, FollowupResult, ReminderStatus
-from ...models.hierarchy import Promoter
+from ...models.distributor import Distributor
 from ...models.user import User, UserType
 
 router = APIRouter(prefix="/customers", tags=["customers"])
@@ -65,7 +65,7 @@ def _mask_phone(phone: Optional[str]) -> Optional[str]:
 
 
 def _get_promoter_id_from_payload(payload: dict) -> int:
-    """Extract promoter_id from JWT payload (looks up Promoter by user_id)."""
+    """Extract distributor_id from JWT payload (looks up Distributor by user_id)."""
     return int(payload["sub"])
 
 
@@ -77,13 +77,13 @@ async def _get_user(db: AsyncSession, user_id: int) -> User:
     return user
 
 
-async def _get_promoter(db: AsyncSession, user_id: int) -> Promoter:
+async def _get_promoter(db: AsyncSession, user_id: int) -> Distributor:
     result = await db.execute(
-        select(Promoter).where(Promoter.user_id == user_id)
+        select(Distributor).where(Distributor.user_id == user_id)
     )
     promoter = result.scalars().first()
     if promoter is None:
-        raise NotFoundException(message="Promoter not found")
+        raise NotFoundException(message="Distributor not found")
     return promoter
 
 
@@ -147,12 +147,12 @@ async def list_customers(
     user_type = payload.get("user_type", "promoter")
 
     # Build query
-    query = select(Customer).options(joinedload(Customer.promoter).joinedload(Promoter.user))
+    query = select(Customer).options(joinedload(Customer.promoter).joinedload(Distributor.user))
 
     # Admins see all, promoters see only their own
     if user_type != "admin":
         promoter = await _get_promoter(db, user_id)
-        query = query.where(Customer.promoter_id == promoter.id)
+        query = query.where(Customer.distributor_id == promoter.id)
 
     if status:
         try:
@@ -201,7 +201,7 @@ async def list_customers(
             "phoneMasked": c.phone_masked or _mask_phone(c.phone),
             "bindingStatus": c.binding_status.value if hasattr(c.binding_status, "value") else str(c.binding_status),
             "promoterName": promoter_name,
-            "promoterId": str(c.promoter_id) if c.promoter_id else None,
+            "promoterId": str(c.distributor_id) if c.distributor_id else None,
             "note": c.note,
             "updatedAt": c.updated_at.isoformat() if c.updated_at else None,
         })
@@ -226,7 +226,7 @@ async def get_customer_detail(
     result = await db.execute(
         select(Customer)
         .options(
-            joinedload(Customer.promoter).joinedload(Promoter.user),
+            joinedload(Customer.promoter).joinedload(Distributor.user),
             joinedload(Customer.bills),
             joinedload(Customer.followup_records),
             joinedload(Customer.consent_records),
@@ -242,7 +242,7 @@ async def get_customer_detail(
     if user_type != "admin":
         user_id = int(payload["sub"])
         promoter = await _get_promoter(db, user_id)
-        if customer.promoter_id != promoter.id:
+        if customer.distributor_id != promoter.id:
             raise ForbiddenException(message="Forbidden")
 
     # Counts
@@ -283,7 +283,7 @@ async def get_customer_detail(
         "phoneMasked": customer.phone_masked or _mask_phone(customer.phone),
         "idCardMasked": customer.id_card_masked,
         "bindingStatus": customer.binding_status.value if hasattr(customer.binding_status, "value") else str(customer.binding_status),
-        "promoterId": str(customer.promoter_id) if customer.promoter_id else None,
+        "promoterId": str(customer.distributor_id) if customer.distributor_id else None,
         "promoterName": promoter_name,
         "rutaiUserId": customer.rutai_user_id,
         "note": customer.note,
@@ -318,7 +318,7 @@ async def update_customer(
     if user_type != "admin":
         user_id = int(payload["sub"])
         promoter = await _get_promoter(db, user_id)
-        if customer.promoter_id != promoter.id:
+        if customer.distributor_id != promoter.id:
             raise ForbiddenException(message="Forbidden")
 
     review_required = False

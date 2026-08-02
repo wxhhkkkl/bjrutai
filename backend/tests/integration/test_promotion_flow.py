@@ -41,33 +41,33 @@ async def mock_client():
     app.dependency_overrides.clear()
 
 
-def _make_promoter_mock(promoter_id=1, user_id=1, qualification_status="approved"):
+def _make_promoter_mock(distributor_id=1, user_id=1, qualification_status="approved"):
     p = MagicMock()
-    p.id = promoter_id
+    p.id = distributor_id
     p.user_id = user_id
-    p.node_id = 1
+    p.org_id = 1
     p.qualification_status = qualification_status
     return p
 
 
-def _make_qualification_mock(qual_id=1, promoter_id=1, status="approved"):
+def _make_qualification_mock(qual_id=1, distributor_id=1, status="approved"):
     q = MagicMock()
     q.id = qual_id
-    q.promoter_id = promoter_id
+    q.distributor_id = distributor_id
     q.status = MagicMock()
     q.status.value = status
     return q
 
 
 def _make_promotion_code_mock(
-    code_id=1, promoter_id=1, ref_token="ref_tok_abc",
+    code_id=1, distributor_id=1, ref_token="ref_tok_abc",
     source_code="BJTR", status="available",
     scan_count=100, lead_count=50, bind_count=25,
     qr_image_url=None, share_title=None, share_path=None,
 ):
     c = MagicMock()
     c.id = code_id
-    c.promoter_id = promoter_id
+    c.distributor_id = distributor_id
     c.ref_token = ref_token
     c.source_code = source_code
     c.status = MagicMock()
@@ -91,18 +91,18 @@ class TestFullPromotionFlow:
         promoter_token = make_access_token(user_id=1, user_type="promoter")
         promoter_headers = {"Authorization": f"Bearer {promoter_token}"}
 
-        promoter = _make_promoter_mock(promoter_id=1, user_id=1, qualification_status="approved")
-        approved_qual = _make_qualification_mock(qual_id=1, promoter_id=1, status="approved")
+        promoter = _make_promoter_mock(distributor_id=1, user_id=1, qualification_status="approved")
+        approved_qual = _make_qualification_mock(qual_id=1, distributor_id=1, status="approved")
 
         # Phase 1: Get promotion code (first time - generates new)
         old_token = "old_ref_token_001"
         old_code = _make_promotion_code_mock(
-            code_id=1, promoter_id=1, ref_token=old_token,
+            code_id=1, distributor_id=1, ref_token=old_token,
             status="available", scan_count=0, lead_count=0, bind_count=0,
         )
         new_token = secrets.token_urlsafe(32)
         new_code = _make_promotion_code_mock(
-            code_id=1, promoter_id=1, ref_token=new_token,
+            code_id=1, distributor_id=1, ref_token=new_token,
             status="available", scan_count=0, lead_count=0, bind_count=0,
         )
 
@@ -144,7 +144,7 @@ class TestFullPromotionFlow:
 
         # Phase 3: Get statistics
         stats_code = _make_promotion_code_mock(
-            code_id=1, promoter_id=1, ref_token="stats_token",
+            code_id=1, distributor_id=1, ref_token="stats_token",
             status="available", scan_count=120, lead_count=60, bind_count=30,
         )
 
@@ -178,10 +178,10 @@ class TestPromotionPoster:
         promoter_token = make_access_token(user_id=1, user_type="promoter")
         promoter_headers = {"Authorization": f"Bearer {promoter_token}"}
 
-        promoter = _make_promoter_mock(promoter_id=1, user_id=1, qualification_status="approved")
-        approved_qual = _make_qualification_mock(qual_id=1, promoter_id=1, status="approved")
+        promoter = _make_promoter_mock(distributor_id=1, user_id=1, qualification_status="approved")
+        approved_qual = _make_qualification_mock(qual_id=1, distributor_id=1, status="approved")
         code = _make_promotion_code_mock(
-            code_id=1, promoter_id=1, ref_token="poster_token",
+            code_id=1, distributor_id=1, ref_token="poster_token",
             status="available", qr_image_url="https://cos.example.com/qr/poster_1.png",
             share_title="北京儒泰分销", share_path="/pages/index/index",
         )

@@ -13,6 +13,7 @@ from ..core.database import async_session
 from ..models.idempotency import IdempotencyKey
 from ..models.notification import Notification, NotificationCategory
 from ..models.qualification import QualStatus, Qualification
+from ..models.org_qualification import OrgQualStatus, OrganizationQualification
 
 logger = logging.getLogger(__name__)
 
@@ -58,11 +59,34 @@ async def qualification_expiry_check_job():
                 db.add(notification)
                 notifications_sent += 1
 
+            # ── Org qualification expiry (T043) ──────────────────────────
+            # Org qualifications have no direct user to notify; log warnings
+            # and rely on get_org_business_blocked_reasons() to pause the
+            # org's business once expired (FR-008).
+            org_expiring = 0
+            org_result = await db.execute(
+                select(OrganizationQualification).where(
+                    OrganizationQualification.status == OrgQualStatus.APPROVED,
+                    OrganizationQualification.valid_until.isnot(None),
+                    OrganizationQualification.valid_until <= cutoff,
+                    OrganizationQualification.valid_until > now,
+                )
+            )
+            for org_qual in org_result.scalars().all():
+                org_expiring += 1
+                logger.warning(
+                    "Org qualification %s for org %s expiring on %s",
+                    org_qual.id,
+                    org_qual.org_id,
+                    org_qual.valid_until.strftime("%Y-%m-%d"),
+                )
+
             await db.commit()
             logger.info(
-                "Qualification expiry check completed: expiring=%s notifications=%s",
+                "Qualification expiry check completed: expiring=%s notifications=%s org_expiring=%s",
                 len(expiring),
                 notifications_sent,
+                org_expiring,
             )
         except Exception as exc:
             await db.rollback()

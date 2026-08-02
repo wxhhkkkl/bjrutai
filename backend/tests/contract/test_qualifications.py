@@ -19,7 +19,7 @@ _setup_counter = 0
 
 
 async def _setup_promoter(db_session: AsyncSession, user_type: str = "promoter") -> tuple[int, int, str]:
-    """Create user + hierarchy_node + promoter and return (user_id, promoter_id, token)."""
+    """Create user + hierarchy_node + promoter and return (user_id, distributor_id, token)."""
     global _setup_counter
     _setup_counter += 1
     suffix = str(_setup_counter)
@@ -27,9 +27,9 @@ async def _setup_promoter(db_session: AsyncSession, user_type: str = "promoter")
         db_session, openid=f"qual_test_{suffix}", user_type=user_type, name=f"测试用户{suffix}"
     )
     node_id = await seed_hierarchy_node(db_session, name=f"节点_{suffix}", node_type="promoter", level=2)
-    promoter_id = await seed_promoter(db_session, user_id=user_id, node_id=node_id)
+    distributor_id = await seed_promoter(db_session, user_id=user_id, node_id=node_id)
     token = make_access_token(user_id=user_id, user_type=user_type)
-    return user_id, promoter_id, token
+    return user_id, distributor_id, token
 
 
 # ============================================================================
@@ -105,7 +105,7 @@ class TestSubmitQualification:
     async def test_submit_with_file_id_success(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        _, promoter_id, token = await _setup_promoter(db_session)
+        _, distributor_id, token = await _setup_promoter(db_session)
         payload = {
             "qualificationType": "enterprise",
             "fileId": "cos_file_key_001",
@@ -139,7 +139,7 @@ class TestSubmitQualification:
     async def test_duplicate_submit_while_reviewing_returns_conflict(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        _, promoter_id, token = await _setup_promoter(db_session)
+        _, distributor_id, token = await _setup_promoter(db_session)
         payload = {
             "qualificationType": "enterprise",
             "fileId": "cos_file_key_002",
@@ -189,10 +189,10 @@ class TestGetCurrentQualification:
     async def test_reviewing_qualification_returned(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        user_id, promoter_id, token = await _setup_promoter(db_session)
+        user_id, distributor_id, token = await _setup_promoter(db_session)
         qual_id = await seed_qualification(
             db_session,
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             qualification_type="enterprise",
             status="reviewing",
             file_id="cos_key_reviewing",
@@ -214,10 +214,10 @@ class TestGetCurrentQualification:
     async def test_approved_qualification_returned(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        user_id, promoter_id, token = await _setup_promoter(db_session)
+        user_id, distributor_id, token = await _setup_promoter(db_session)
         qual_id = await seed_qualification(
             db_session,
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             qualification_type="enterprise",
             status="approved",
             file_id="cos_key_approved",
@@ -239,10 +239,10 @@ class TestGetCurrentQualification:
     async def test_rejected_qualification_returned(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        user_id, promoter_id, token = await _setup_promoter(db_session)
+        user_id, distributor_id, token = await _setup_promoter(db_session)
         qual_id = await seed_qualification(
             db_session,
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             qualification_type="enterprise",
             status="rejected",
             file_id="cos_key_rejected",
@@ -273,10 +273,10 @@ class TestUpdateQualification:
     async def test_resubmit_after_reject_success(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        user_id, promoter_id, token = await _setup_promoter(db_session)
+        user_id, distributor_id, token = await _setup_promoter(db_session)
         qual_id = await seed_qualification(
             db_session,
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             qualification_type="enterprise",
             status="rejected",
             file_id="old_key",
@@ -307,10 +307,10 @@ class TestUpdateQualification:
     async def test_version_conflict_returns_409(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        user_id, promoter_id, token = await _setup_promoter(db_session)
+        user_id, distributor_id, token = await _setup_promoter(db_session)
         qual_id = await seed_qualification(
             db_session,
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             qualification_type="enterprise",
             status="rejected",
             file_id="old_key",
@@ -338,10 +338,10 @@ class TestUpdateQualification:
     async def test_cannot_update_approved_qualification(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        user_id, promoter_id, token = await _setup_promoter(db_session)
+        user_id, distributor_id, token = await _setup_promoter(db_session)
         qual_id = await seed_qualification(
             db_session,
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             qualification_type="enterprise",
             status="approved",
             file_id="approved_key",
@@ -362,9 +362,9 @@ class TestUpdateQualification:
         assert resp.status_code == 400
 
     async def test_requires_auth(self, client: AsyncClient, db_session: AsyncSession):
-        _, promoter_id, _ = await _setup_promoter(db_session)
+        _, distributor_id, _ = await _setup_promoter(db_session)
         qual_id = await seed_qualification(
-            db_session, promoter_id=promoter_id, status="rejected",
+            db_session, distributor_id=distributor_id, status="rejected",
             file_id="k", file_name="f.jpg", file_type="image/jpeg", file_size=1000,
             version=1, submitted_at=datetime.now(timezone.utc),
         )
@@ -395,9 +395,9 @@ class TestQualificationReviews:
     async def test_returns_empty_for_unreviewed(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        user_id, promoter_id, token = await _setup_promoter(db_session)
+        user_id, distributor_id, token = await _setup_promoter(db_session)
         qual_id = await seed_qualification(
-            db_session, promoter_id=promoter_id, status="reviewing",
+            db_session, distributor_id=distributor_id, status="reviewing",
             file_id="k", file_name="f.jpg", file_type="image/jpeg", file_size=1000,
             submitted_at=datetime.now(timezone.utc),
         )
@@ -409,9 +409,9 @@ class TestQualificationReviews:
         assert resp.json()["data"]["items"] == []
 
     async def test_requires_auth(self, client: AsyncClient, db_session: AsyncSession):
-        _, promoter_id, _ = await _setup_promoter(db_session)
+        _, distributor_id, _ = await _setup_promoter(db_session)
         qual_id = await seed_qualification(
-            db_session, promoter_id=promoter_id, status="reviewing",
+            db_session, distributor_id=distributor_id, status="reviewing",
             file_id="k", file_name="f.jpg", file_type="image/jpeg", file_size=1000,
             submitted_at=datetime.now(timezone.utc),
         )
@@ -426,9 +426,9 @@ class TestAdminReview:
     async def test_approve_qualification_success(
         self, client: AsyncClient, db_session: AsyncSession, admin_auth_headers: dict
     ):
-        user_id, promoter_id, _ = await _setup_promoter(db_session)
+        user_id, distributor_id, _ = await _setup_promoter(db_session)
         qual_id = await seed_qualification(
-            db_session, promoter_id=promoter_id, status="reviewing",
+            db_session, distributor_id=distributor_id, status="reviewing",
             file_id="k", file_name="f.jpg", file_type="image/jpeg", file_size=1000,
             submitted_at=datetime.now(timezone.utc),
         )
@@ -445,9 +445,9 @@ class TestAdminReview:
     async def test_reject_with_reason(
         self, client: AsyncClient, db_session: AsyncSession, admin_auth_headers: dict
     ):
-        user_id, promoter_id, _ = await _setup_promoter(db_session)
+        user_id, distributor_id, _ = await _setup_promoter(db_session)
         qual_id = await seed_qualification(
-            db_session, promoter_id=promoter_id, status="reviewing",
+            db_session, distributor_id=distributor_id, status="reviewing",
             file_id="k", file_name="f.jpg", file_type="image/jpeg", file_size=1000,
             submitted_at=datetime.now(timezone.utc),
         )
@@ -464,9 +464,9 @@ class TestAdminReview:
     async def test_already_reviewed_returns_error(
         self, client: AsyncClient, db_session: AsyncSession, admin_auth_headers: dict
     ):
-        user_id, promoter_id, _ = await _setup_promoter(db_session)
+        user_id, distributor_id, _ = await _setup_promoter(db_session)
         qual_id = await seed_qualification(
-            db_session, promoter_id=promoter_id, status="approved",
+            db_session, distributor_id=distributor_id, status="approved",
             file_id="k", file_name="f.jpg", file_type="image/jpeg", file_size=1000,
             submitted_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
             approved_at=datetime(2026, 7, 2, tzinfo=timezone.utc),
@@ -481,9 +481,9 @@ class TestAdminReview:
     async def test_missing_action_returns_error(
         self, client: AsyncClient, db_session: AsyncSession, admin_auth_headers: dict
     ):
-        user_id, promoter_id, _ = await _setup_promoter(db_session)
+        user_id, distributor_id, _ = await _setup_promoter(db_session)
         qual_id = await seed_qualification(
-            db_session, promoter_id=promoter_id, status="reviewing",
+            db_session, distributor_id=distributor_id, status="reviewing",
             file_id="k", file_name="f.jpg", file_type="image/jpeg", file_size=1000,
             submitted_at=datetime.now(timezone.utc),
         )
@@ -497,9 +497,9 @@ class TestAdminReview:
     async def test_requires_admin_auth(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        user_id, promoter_id, token = await _setup_promoter(db_session)
+        user_id, distributor_id, token = await _setup_promoter(db_session)
         qual_id = await seed_qualification(
-            db_session, promoter_id=promoter_id, status="reviewing",
+            db_session, distributor_id=distributor_id, status="reviewing",
             file_id="k", file_name="f.jpg", file_type="image/jpeg", file_size=1000,
             submitted_at=datetime.now(timezone.utc),
         )
@@ -528,7 +528,7 @@ class TestSaveDraft:
     async def test_save_draft_success(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        _, promoter_id, token = await _setup_promoter(db_session)
+        _, distributor_id, token = await _setup_promoter(db_session)
         payload = {
             "qualificationType": "enterprise",
             "fileId": "draft_file_key",
@@ -549,9 +549,9 @@ class TestSaveDraft:
     async def test_cannot_draft_while_reviewing(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        user_id, promoter_id, token = await _setup_promoter(db_session)
+        user_id, distributor_id, token = await _setup_promoter(db_session)
         await seed_qualification(
-            db_session, promoter_id=promoter_id, status="reviewing",
+            db_session, distributor_id=distributor_id, status="reviewing",
             qualification_type="enterprise",
             file_id="existing_key", file_name="existing.jpg",
             file_type="image/jpeg", file_size=1024000,
@@ -592,18 +592,18 @@ class TestAdminListQualifications:
         u2, p2, _ = await _setup_promoter(db_session)
 
         await seed_qualification(
-            db_session, promoter_id=p1, status="reviewing", qualification_type="enterprise",
+            db_session, distributor_id=p1, status="reviewing", qualification_type="enterprise",
             file_id="k1", file_name="f1.jpg", file_type="image/jpeg", file_size=1000,
             submitted_at=datetime.now(timezone.utc),
         )
         await seed_qualification(
-            db_session, promoter_id=p2, status="reviewing", qualification_type="individual",
+            db_session, distributor_id=p2, status="reviewing", qualification_type="individual",
             file_id="k2", file_name="f2.jpg", file_type="image/jpeg", file_size=1000,
             submitted_at=datetime.now(timezone.utc),
         )
         # Also create an approved one that should not appear in pending list
         await seed_qualification(
-            db_session, promoter_id=p1, status="approved", qualification_type="enterprise",
+            db_session, distributor_id=p1, status="approved", qualification_type="enterprise",
             file_id="k3", file_name="f3.pdf", file_type="application/pdf", file_size=2000,
             submitted_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
             approved_at=datetime(2026, 7, 2, tzinfo=timezone.utc),

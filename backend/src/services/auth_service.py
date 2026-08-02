@@ -181,6 +181,118 @@ class AuthService:
             "user": user_info,
         }
 
+    # ── Distributor Login (phone + password) ─────────────────────
+    async def distributor_login(
+        self,
+        db: AsyncSession,
+        phone: str,
+        password: str,
+    ) -> dict:
+        """Validate distributor credentials (phone+password) and issue tokens.
+
+        First login requires WeChat binding (FR-027) — surfaced via
+        ``requiresWechatBinding``.
+        """
+        from ..models.distributor import DistributorStatus
+        from ..services import distributor_service
+
+        result = await db.execute(select(User).where(User.phone == phone))
+        user = result.scalars().first()
+        if user is None or not user.password_hash or not verify_password(password, user.password_hash):
+            raise AppException(
+                code=40101, message="手机号或密码错误",
+                status_code=401, error_type="unauthorized",
+            )
+
+        dist = await distributor_service.get_distributor_by_user(db, user.id)
+        if dist is None:
+            raise AppException(
+                code=40101, message="该账号不是分销员",
+                status_code=401, error_type="unauthorized",
+            )
+        if dist.status == DistributorStatus.DISABLED:
+            raise AppException(
+                code=40102, message="账号已停用",
+                status_code=401, error_type="unauthorized",
+            )
+
+        token_pair = _issue_token_pair(user.id, "distributor", openid=user.openid or "")
+        token_record = UserToken(
+            user_id=user.id,
+            token_type=TokenType.REFRESH,
+            token_hash=token_pair["token_hash"],
+            family=token_pair["family"],
+            expires_at=datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days),
+        )
+        db.add(token_record)
+
+        from ..models.organization import Organization
+
+        org_res = await db.execute(select(Organization.name).where(Organization.id == dist.org_id))
+        org_name = org_res.scalars().first()
+
+        return {
+            "accessToken": token_pair["accessToken"],
+            "refreshToken": token_pair["refreshToken"],
+            "expiresIn": token_pair["expiresIn"],
+            "tokenType": token_pair["tokenType"],
+            "requiresWechatBinding": not bool(user.wechat_bound),
+            "distributor": {
+                "distributorId": str(dist.id),
+                "orgId": str(dist.org_id),
+                "orgName": org_name,
+                "orgRole": dist.org_role.value if hasattr(dist.org_role, "value") else str(dist.org_role),
+                "name": user.name,
+                "phone": user.phone_masked or user.phone,
+                "status": dist.status.value if hasattr(dist.status, "value") else str(dist.status),
+            },
+        }
+
+    # ── First-Login WeChat Binding ───────────────────────────────
+    async def bind_wechat(self, db: AsyncSession, user_id: int, code: str) -> dict:
+        """Bind a WeChat openid to the distributor account (FR-027)."""
+        wechat = get_wechat_client()
+        try:
+            wx_data = await wechat.jscode2session(code)
+        except Exception as exc:
+            msg = str(exc)
+            if "invalid code" in msg:
+                raise AppException(
+                    code=40001, message="Invalid WeChat code",
+                    status_code=400, error_type="bad_request",
+                )
+            raise AppException(
+                code=40002, message="WeChat service error, please retry",
+                status_code=400, error_type="bad_request",
+            )
+
+        openid = wx_data["openid"]
+
+        result = await db.execute(select(User).where(User.openid == openid))
+        existing = result.scalars().first()
+        if existing is not None and existing.id != user_id:
+            raise AppException(
+                code=40005, message="该微信已绑定其他分销员账户",
+                status_code=400, error_type="bad_request",
+            )
+
+        user = await db.get(User, user_id)
+        if user is None:
+            raise UnauthorizedException(message="User not found")
+
+        user.openid = openid
+        user.wechat_bound = True
+        db.add(user)
+        await db.flush()
+
+        token_pair = _issue_token_pair(user.id, "distributor", openid=openid)
+        return {
+            "bound": True,
+            "openId": openid,
+            "accessToken": token_pair["accessToken"],
+            "refreshToken": token_pair["refreshToken"],
+        }
+
     # ── Admin Login ──────────────────────────────────────────────
     async def admin_login(
         self,

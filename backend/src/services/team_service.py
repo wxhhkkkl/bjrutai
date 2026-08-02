@@ -12,7 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.exceptions import ForbiddenException, NotFoundException
 from ..models.contribution import ContributionRecord, ContributionStatus
-from ..models.hierarchy import HierarchyNode, Promoter
+from ..models.distributor import Distributor
+from ..models.organization import Organization
 from ..models.user import User
 
 
@@ -23,32 +24,32 @@ class TeamService:
     # Helpers
     # ------------------------------------------------------------------
     @staticmethod
-    async def _get_promoter_by_user(db: AsyncSession, user_id: int) -> Promoter:
+    async def _get_promoter_by_user(db: AsyncSession, user_id: int) -> Distributor:
         """Get promoter by user_id."""
         result = await db.execute(
-            select(Promoter).where(Promoter.user_id == user_id)
+            select(Distributor).where(Distributor.user_id == user_id)
         )
         promoter = result.scalars().first()
         if promoter is None:
-            raise NotFoundException(message="Promoter not found")
+            raise NotFoundException(message="Distributor not found")
         return promoter
 
     @staticmethod
-    async def _get_promoter_by_id(db: AsyncSession, promoter_id: int) -> Promoter:
+    async def _get_promoter_by_id(db: AsyncSession, distributor_id: int) -> Distributor:
         """Get promoter by its ID."""
         result = await db.execute(
-            select(Promoter).where(Promoter.id == promoter_id)
+            select(Distributor).where(Distributor.id == distributor_id)
         )
         promoter = result.scalars().first()
         if promoter is None:
-            raise NotFoundException(message="Promoter not found")
+            raise NotFoundException(message="Distributor not found")
         return promoter
 
     @staticmethod
-    async def _get_node(db: AsyncSession, node_id: int) -> Optional[HierarchyNode]:
+    async def _get_node(db: AsyncSession, node_id: int) -> Optional[Organization]:
         """Get a hierarchy node by ID."""
         result = await db.execute(
-            select(HierarchyNode).where(HierarchyNode.id == node_id)
+            select(Organization).where(Organization.id == node_id)
         )
         return result.scalars().first()
 
@@ -68,8 +69,8 @@ class TeamService:
     async def verify_branch_access(
         self,
         db: AsyncSession,
-        requester_promoter: Promoter,
-        target_promoter: Promoter,
+        requester_promoter: Distributor,
+        target_promoter: Distributor,
     ) -> bool:
         """Check if target_promoter is in the requester's subtree.
 
@@ -79,11 +80,11 @@ class TeamService:
         if requester_promoter.id == target_promoter.id:
             return True  # Viewing own team is always allowed
 
-        target_node = await self._get_node(db, target_promoter.node_id)
+        target_node = await self._get_node(db, target_promoter.org_id)
         if target_node is None:
             return False
 
-        requester_node_id = requester_promoter.node_id
+        requester_node_id = requester_promoter.org_id
 
         # Walk up from target
         current = target_node
@@ -115,13 +116,13 @@ class TeamService:
         Aggregates all direct children's contributions for the given month.
         """
         promoter = await self._get_promoter_by_user(db, user_id)
-        node = await self._get_node(db, promoter.node_id)
+        node = await self._get_node(db, promoter.org_id)
         if node is None:
             raise NotFoundException(message="Hierarchy node not found")
 
         # Find direct children nodes
         result = await db.execute(
-            select(HierarchyNode).where(HierarchyNode.parent_id == node.id)
+            select(Organization).where(Organization.parent_id == node.id)
         )
         child_nodes = result.scalars().all()
 
@@ -138,7 +139,7 @@ class TeamService:
         for child_node in child_nodes:
             # Find promoter for this child node
             result = await db.execute(
-                select(Promoter).where(Promoter.node_id == child_node.id)
+                select(Distributor).where(Distributor.org_id == child_node.id)
             )
             child_promoter = result.scalars().first()
             if child_promoter is None:
@@ -149,11 +150,11 @@ class TeamService:
                 select(User).where(User.id == child_promoter.user_id)
             )
             child_user = result.scalars().first()
-            child_name = child_user.name if child_user else f"Promoter {child_promoter.id}"
+            child_name = child_user.name if child_user else f"Distributor {child_promoter.id}"
 
             # Get contributions for this child in the given month or all time
             from sqlalchemy import func
-            conditions = [ContributionRecord.promoter_id == child_promoter.id]
+            conditions = [ContributionRecord.distributor_id == child_promoter.id]
             if month:
                 conditions.append(func.strftime("%Y-%m", ContributionRecord.occurred_at) == month)
 
@@ -209,13 +210,13 @@ class TeamService:
             raise ForbiddenException(message="Cannot access team outside your branch")
 
         # Now get team summary from target's perspective
-        target_node = await self._get_node(db, target.node_id)
+        target_node = await self._get_node(db, target.org_id)
         if target_node is None:
             raise NotFoundException(message="Hierarchy node not found")
 
         # Find direct children of target
         result = await db.execute(
-            select(HierarchyNode).where(HierarchyNode.parent_id == target_node.id)
+            select(Organization).where(Organization.parent_id == target_node.id)
         )
         child_nodes = result.scalars().all()
 
@@ -224,7 +225,7 @@ class TeamService:
 
         for child_node in child_nodes:
             result = await db.execute(
-                select(Promoter).where(Promoter.node_id == child_node.id)
+                select(Distributor).where(Distributor.org_id == child_node.id)
             )
             child_promoter = result.scalars().first()
             if child_promoter is None:
@@ -234,10 +235,10 @@ class TeamService:
                 select(User).where(User.id == child_promoter.user_id)
             )
             child_user = result.scalars().first()
-            child_name = child_user.name if child_user else f"Promoter {child_promoter.id}"
+            child_name = child_user.name if child_user else f"Distributor {child_promoter.id}"
 
             from sqlalchemy import func
-            conditions = [ContributionRecord.promoter_id == child_promoter.id]
+            conditions = [ContributionRecord.distributor_id == child_promoter.id]
             if month:
                 conditions.append(func.strftime("%Y-%m", ContributionRecord.occurred_at) == month)
 

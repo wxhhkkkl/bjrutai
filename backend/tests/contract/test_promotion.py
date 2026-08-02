@@ -21,22 +21,22 @@ _counter = 0
 async def _setup_approved_promoter(
     db_session: AsyncSession, user_type: str = "promoter"
 ) -> tuple[int, int, str]:
-    """Create user + hierarchy_node + promoter with an approved qualification. Returns (user_id, promoter_id, token)."""
+    """Create user + hierarchy_node + promoter with an approved qualification. Returns (user_id, distributor_id, token)."""
     global _counter
     _counter += 1
     s = str(_counter)
     user_id = await seed_user(db_session, openid=f"promo_test_{s}", user_type=user_type, name=f"推广测试{s}")
     node_id = await seed_hierarchy_node(db_session, name=f"推广节点_{s}", node_type="promoter", level=2)
-    promoter_id = await seed_promoter(db_session, user_id=user_id, node_id=node_id)
+    distributor_id = await seed_promoter(db_session, user_id=user_id, node_id=node_id)
     await seed_qualification(
-        db_session, promoter_id=promoter_id, qualification_type="enterprise",
+        db_session, distributor_id=distributor_id, qualification_type="enterprise",
         status="approved", file_id="approved_key", file_name="approved.jpg",
         file_type="image/jpeg", file_size=1024000, version=1,
         submitted_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
         approved_at=datetime(2026, 7, 2, tzinfo=timezone.utc),
     )
     token = make_access_token(user_id=user_id, user_type=user_type)
-    return user_id, promoter_id, token
+    return user_id, distributor_id, token
 
 
 async def _setup_unapproved_promoter(
@@ -48,9 +48,9 @@ async def _setup_unapproved_promoter(
     s = str(_counter)
     user_id = await seed_user(db_session, openid=f"unapproved_{s}", user_type=user_type, name=f"未审核测试{s}")
     node_id = await seed_hierarchy_node(db_session, name=f"未审核节点_{s}", node_type="promoter", level=2)
-    promoter_id = await seed_promoter(db_session, user_id=user_id, node_id=node_id)
+    distributor_id = await seed_promoter(db_session, user_id=user_id, node_id=node_id)
     token = make_access_token(user_id=user_id, user_type=user_type)
-    return user_id, promoter_id, token
+    return user_id, distributor_id, token
 
 
 # ============================================================================
@@ -60,7 +60,7 @@ class TestGetPromotionCode:
     async def test_approved_promoter_gets_code(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        user_id, promoter_id, token = await _setup_approved_promoter(db_session)
+        user_id, distributor_id, token = await _setup_approved_promoter(db_session)
         resp = await client.get(
             "/api/v1/promotion-code",
             headers={"Authorization": f"Bearer {token}"},
@@ -75,10 +75,10 @@ class TestGetPromotionCode:
     async def test_approved_promoter_returns_existing_code(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        user_id, promoter_id, token = await _setup_approved_promoter(db_session)
+        user_id, distributor_id, token = await _setup_approved_promoter(db_session)
         # Pre-seed an existing promotion code
         await seed_promotion_code(
-            db_session, promoter_id=promoter_id,
+            db_session, distributor_id=distributor_id,
             ref_token="existing_ref_token_xyz",
             status="available",
         )
@@ -93,7 +93,7 @@ class TestGetPromotionCode:
     async def test_unapproved_promoter_returns_forbidden(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        user_id, promoter_id, token = await _setup_unapproved_promoter(db_session)
+        user_id, distributor_id, token = await _setup_unapproved_promoter(db_session)
         resp = await client.get(
             "/api/v1/promotion-code",
             headers={"Authorization": f"Bearer {token}"},
@@ -124,10 +124,10 @@ class TestRefreshPromotionCode:
     async def test_refresh_success(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        user_id, promoter_id, token = await _setup_approved_promoter(db_session)
+        user_id, distributor_id, token = await _setup_approved_promoter(db_session)
         # Pre-seed an existing promotion code
         await seed_promotion_code(
-            db_session, promoter_id=promoter_id,
+            db_session, distributor_id=distributor_id,
             ref_token="old_token_abc", status="available",
         )
         resp = await client.post(
@@ -144,7 +144,7 @@ class TestRefreshPromotionCode:
     async def test_unapproved_promoter_cannot_refresh(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        user_id, promoter_id, token = await _setup_unapproved_promoter(db_session)
+        user_id, distributor_id, token = await _setup_unapproved_promoter(db_session)
         resp = await client.post(
             "/api/v1/promotion-code/refresh",
             headers={"Authorization": f"Bearer {token}"},
@@ -163,9 +163,9 @@ class TestPromotionStatistics:
     async def test_statistics_valid_period(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        user_id, promoter_id, token = await _setup_approved_promoter(db_session)
+        user_id, distributor_id, token = await _setup_approved_promoter(db_session)
         await seed_promotion_code(
-            db_session, promoter_id=promoter_id,
+            db_session, distributor_id=distributor_id,
             ref_token="stats_token_123", status="available",
             scan_count=100, lead_count=50, bind_count=25,
         )
@@ -186,9 +186,9 @@ class TestPromotionStatistics:
     async def test_statistics_empty_data(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        user_id, promoter_id, token = await _setup_approved_promoter(db_session)
+        user_id, distributor_id, token = await _setup_approved_promoter(db_session)
         await seed_promotion_code(
-            db_session, promoter_id=promoter_id,
+            db_session, distributor_id=distributor_id,
             ref_token="empty_stats_token", status="available",
             scan_count=0, lead_count=0, bind_count=0,
         )
@@ -212,7 +212,7 @@ class TestPromotionStatistics:
     async def test_unapproved_promoter_gets_forbidden(
         self, client: AsyncClient, db_session: AsyncSession
     ):
-        user_id, promoter_id, token = await _setup_unapproved_promoter(db_session)
+        user_id, distributor_id, token = await _setup_unapproved_promoter(db_session)
         resp = await client.get(
             "/api/v1/promotion-code/statistics",
             params={"period": "30d"},

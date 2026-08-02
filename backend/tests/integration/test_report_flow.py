@@ -103,10 +103,10 @@ class TestReportGenerationFlow:
             db_session, name="ReportNode", node_type="promoter", level=1, parent_id=None
         )
         user_id = await seed_user(db_session, openid="wx_report", user_type="promoter", name="报告测试")
-        promoter_id = await seed_promoter(db_session, user_id=user_id, node_id=node)
+        distributor_id = await seed_promoter(db_session, user_id=user_id, node_id=node)
 
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id="hrb_report",
             binding_status=BindingStatus.BOUND,
             bound_at=datetime.now(timezone.utc),

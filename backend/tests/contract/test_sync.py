@@ -103,7 +103,7 @@ class TestRetryBindUser:
         assert response.status_code == 401
 
     async def test_promoter_cannot_access(self, mock_client):
-        """Promoter token returns 403 Forbidden."""
+        """Distributor token returns 403 Forbidden."""
         promoter_token = create_access_token(
             data={"sub": "2", "user_type": "promoter"}
         )

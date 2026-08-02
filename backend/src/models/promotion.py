@@ -18,8 +18,8 @@ class PromotionCode(Base):
     __tablename__ = "promotion_codes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    promoter_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("promoters.id"), unique=True, nullable=False
+    distributor_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("distributors.id"), unique=True, nullable=False
     )
     ref_token: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     source_code: Mapped[str] = mapped_column(String(10), default="BJTR")
@@ -38,4 +38,4 @@ class PromotionCode(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    promoter: Mapped["Promoter"] = relationship("Promoter", back_populates="promotion_code")
+    distributor: Mapped["Distributor"] = relationship("Distributor", back_populates="promotion_code")

@@ -25,8 +25,18 @@ from ...schemas.auth import (
     WechatLoginResponse,
 )
 from ...services.auth_service import get_auth_service
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+class DistributorLoginRequest(BaseModel):
+    phone: str = Field(..., pattern=r"^\d{11}$")
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class BindWechatRequest(BaseModel):
+    code: str = Field(..., min_length=1, max_length=256)
 
 
 def _ok(data=None) -> dict:
@@ -50,6 +60,36 @@ async def wechat_login(
     """WeChat Mini-Program login via ``wx.login()`` code."""
     svc = get_auth_service()
     result = await svc.wechat_login(db, body.code)
+    return _ok(result)
+
+
+# ──────────────────────────────────────────────────────────────────
+# POST /auth/distributor-login
+# ──────────────────────────────────────────────────────────────────
+@router.post("/distributor-login")
+async def distributor_login(
+    body: DistributorLoginRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Distributor login via phone + password."""
+    svc = get_auth_service()
+    result = await svc.distributor_login(db, body.phone, body.password)
+    return _ok(result)
+
+
+# ──────────────────────────────────────────────────────────────────
+# POST /auth/bind-wechat
+# ──────────────────────────────────────────────────────────────────
+@router.post("/bind-wechat")
+async def bind_wechat(
+    body: BindWechatRequest,
+    db: AsyncSession = Depends(get_db),
+    payload: dict = Depends(get_current_user),
+) -> dict:
+    """First-login WeChat binding for a distributor."""
+    user_id = int(payload["sub"])
+    svc = get_auth_service()
+    result = await svc.bind_wechat(db, user_id, body.code)
     return _ok(result)
 
 

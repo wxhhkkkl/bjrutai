@@ -24,6 +24,7 @@ class UserType(str, enum.Enum):
     ADMIN = "admin"
     FINANCE = "finance"
     OPS = "ops"
+    DISTRIBUTOR = "distributor"
 
 
 class ActivationStatus(str, enum.Enum):
@@ -69,6 +70,7 @@ class User(Base):
     name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     phone_masked: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     id_card_encrypted: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     organization: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     avatar_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
@@ -88,6 +90,7 @@ class User(Base):
 
     # relationships
     promoter: Mapped[Optional["Promoter"]] = relationship("Promoter", back_populates="user", uselist=False)
+    distributor: Mapped[Optional["Distributor"]] = relationship("Distributor", back_populates="user", uselist=False)
     notifications: Mapped[list["Notification"]] = relationship("Notification", back_populates="user")
     # tokens relationship — FK removed; user_id is polymorphic
 

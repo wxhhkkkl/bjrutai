@@ -16,7 +16,8 @@ from ..core.config import get_settings
 from ..integrations.rutai_client import RutaiClient, get_rutai_client
 from ..models.bill import Bill, TransactionStatus
 from ..models.binding import BindingStatus, Customer
-from ..models.hierarchy import HierarchyNode, Promoter
+from ..models.distributor import Distributor
+from ..models.organization import Organization
 from ..models.notification import Notification, NotificationCategory
 from ..services.contribution_service import ContributionService
 
@@ -197,7 +198,7 @@ class SyncService:
 
         # Find promoter by ref_token
         ref_token = item.get("ref_token")
-        promoter_id = None
+        distributor_id = None
         if ref_token:
             from ..models.promotion import PromotionCode
             pc_result = await db.execute(
@@ -205,19 +206,19 @@ class SyncService:
             )
             promotion_code = pc_result.scalars().first()
             if promotion_code is not None:
-                promoter_id = promotion_code.promoter_id
+                distributor_id = promotion_code.distributor_id
 
-        if promoter_id is None:
+        if distributor_id is None:
             # Find the first available promoter or a default one
-            promoter_result = await db.execute(select(Promoter).limit(1))
+            promoter_result = await db.execute(select(Distributor).limit(1))
             default_promoter = promoter_result.scalars().first()
             if default_promoter is not None:
-                promoter_id = default_promoter.id
+                distributor_id = default_promoter.id
             else:
                 return False
 
         customer = Customer(
-            promoter_id=promoter_id,
+            distributor_id=distributor_id,
             rutai_user_id=hrb_user_id,
             phone_masked=item.get("phone_masked"),
             binding_status=BindingStatus.BOUND,
@@ -423,7 +424,7 @@ class SyncService:
             if customer:
                 await self._contrib_svc.aggregate_up_tree(
                     db,
-                    promoter_id=customer.promoter_id,
+                    distributor_id=customer.distributor_id,
                     month=tx_time.strftime("%Y-%m"),
                 )
 

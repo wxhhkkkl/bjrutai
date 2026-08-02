@@ -18,7 +18,7 @@ from sqlalchemy.orm import joinedload
 from ...api.deps import get_current_user, get_db
 from ...models.binding import BindingRequest, BindingRequestStatus, BindingStatus, Customer
 from ...models.contribution import ContributionRecord, ContributionStatus
-from ...models.hierarchy import Promoter
+from ...models.distributor import Distributor
 from ...models.notification import Notification, NotificationCategory
 from ...models.qualification import QualStatus, Qualification
 from ...models.user import User, UserType
@@ -36,8 +36,8 @@ def _ok(data=None) -> dict:
     }
 
 
-async def _get_promoter(db: AsyncSession, user_id: int) -> Optional[Promoter]:
-    result = await db.execute(select(Promoter).where(Promoter.user_id == user_id))
+async def _get_promoter(db: AsyncSession, user_id: int) -> Optional[Distributor]:
+    result = await db.execute(select(Distributor).where(Distributor.user_id == user_id))
     return result.scalars().first()
 
 
@@ -56,7 +56,7 @@ async def get_workbench(
     if user_type in ("admin", "finance", "ops"):
         # Admin view: system-level metrics
         total_promoters_result = await db.execute(
-            select(func.count(Promoter.id))
+            select(func.count(Distributor.id))
         )
         total_promoters = total_promoters_result.scalar() or 0
 
@@ -99,7 +99,7 @@ async def get_workbench(
             ],
         })
 
-    # Promoter / Doctor view
+    # Distributor / Doctor view
     promoter = await _get_promoter(db, user_id)
     if promoter is None:
         # Minimal workbench for users without promoter profile
@@ -124,7 +124,7 @@ async def get_workbench(
 
     # My customers count
     customer_count_result = await db.execute(
-        select(func.count(Customer.id)).where(Customer.promoter_id == prom_id)
+        select(func.count(Customer.id)).where(Customer.distributor_id == prom_id)
     )
     my_customers = customer_count_result.scalar() or 0
 
@@ -133,7 +133,7 @@ async def get_workbench(
     month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
     bindings_result = await db.execute(
         select(func.count(BindingRequest.id)).where(
-            BindingRequest.promoter_id == prom_id,
+            BindingRequest.distributor_id == prom_id,
             BindingRequest.created_at >= month_start,
         )
     )
@@ -142,7 +142,7 @@ async def get_workbench(
     # Monthly contribution
     contrib_result = await db.execute(
         select(func.sum(ContributionRecord.points)).where(
-            ContributionRecord.promoter_id == prom_id,
+            ContributionRecord.distributor_id == prom_id,
             ContributionRecord.occurred_at >= month_start,
             ContributionRecord.status != ContributionStatus.CANCELLED,
         )
@@ -153,7 +153,7 @@ async def get_workbench(
     from ...models.followup import FollowupRecord, ReminderStatus
     followup_result = await db.execute(
         select(func.count(FollowupRecord.id)).where(
-            FollowupRecord.customer.has(Customer.promoter_id == prom_id),
+            FollowupRecord.customer.has(Customer.distributor_id == prom_id),
             FollowupRecord.reminder_status == ReminderStatus.PENDING,
         )
     )
@@ -201,7 +201,7 @@ async def get_notices(
             # Qualification notices
             qual_result = await db.execute(
                 select(Qualification).where(
-                    Qualification.promoter_id == promoter.id,
+                    Qualification.distributor_id == promoter.id,
                 ).order_by(Qualification.updated_at.desc()).limit(3)
             )
             quals = qual_result.scalars().all()
@@ -224,7 +224,7 @@ async def get_notices(
             # Binding notices
             binding_result = await db.execute(
                 select(BindingRequest).where(
-                    BindingRequest.promoter_id == promoter.id,
+                    BindingRequest.distributor_id == promoter.id,
                 ).order_by(BindingRequest.updated_at.desc()).limit(3)
             )
             bindings = binding_result.scalars().all()
@@ -277,7 +277,7 @@ async def get_recent_bindings(
             return _ok({"items": []})
         query = (
             select(BindingRequest)
-            .where(BindingRequest.promoter_id == promoter.id)
+            .where(BindingRequest.distributor_id == promoter.id)
             .order_by(BindingRequest.created_at.desc())
             .limit(5)
         )
@@ -372,7 +372,7 @@ async def get_contribution_summary(
             "breakdown": breakdown,
         })
 
-    # Promoter view
+    # Distributor view
     promoter = await _get_promoter(db, user_id)
     if promoter is None:
         return _ok({
@@ -387,7 +387,7 @@ async def get_contribution_summary(
             func.sum(ContributionRecord.points),
             func.count(ContributionRecord.id),
         ).where(
-            ContributionRecord.promoter_id == promoter.id,
+            ContributionRecord.distributor_id == promoter.id,
             ContributionRecord.occurred_at >= target_month_start,
             ContributionRecord.occurred_at < target_month_end,
             ContributionRecord.status != ContributionStatus.CANCELLED,
@@ -403,7 +403,7 @@ async def get_contribution_summary(
             func.count(ContributionRecord.id),
             func.sum(ContributionRecord.points),
         ).where(
-            ContributionRecord.promoter_id == promoter.id,
+            ContributionRecord.distributor_id == promoter.id,
             ContributionRecord.occurred_at >= target_month_start,
             ContributionRecord.occurred_at < target_month_end,
             ContributionRecord.status != ContributionStatus.CANCELLED,

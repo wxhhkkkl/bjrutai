@@ -73,10 +73,10 @@ async def _setup_promoter(db):
     node_id = await seed_hierarchy_node(
         db, name="流程测试区", node_type="promoter", level=2
     )
-    promoter_id = await seed_promoter(
+    distributor_id = await seed_promoter(
         db, user_id=user_id, node_id=node_id, qualification_status="approved"
     )
-    return {"user_id": user_id, "promoter_id": promoter_id, "node_id": node_id}
+    return {"user_id": user_id, "distributor_id": distributor_id, "node_id": node_id}
 
 
 async def _setup_doctor(db):

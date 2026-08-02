@@ -5,6 +5,11 @@ from ..core.database import Base  # noqa: F401
 
 from .user import AdminAccount, User, admin_account_roles  # noqa: F401
 from .role import Role  # noqa: F401
+from .organization import Organization, OrgStatus  # noqa: F401
+from .distributor import Distributor, DistributorStatus, OrgRole  # noqa: F401
+from .org_qualification import OrganizationQualification, OrgQualStatus  # noqa: F401
+from .org_history import OrgHistory, OrgHistoryAction  # noqa: F401
+# 废弃模型（表已迁移重命名，映射 _deprecated_*）保留注册，兼容旧数据查询与测试
 from .hierarchy import HierarchyNode, Promoter, hierarchy_snapshots  # noqa: F401
 from .qualification import Qualification  # noqa: F401
 from .binding import BindingChangeLog, BindingRequest, Customer  # noqa: F401

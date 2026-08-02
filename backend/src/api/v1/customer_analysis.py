@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_current_user, get_db
 from ...models.binding import BindingRequest, BindingRequestStatus, BindingStatus, Customer, OperationType, SourceType
 from ...models.contribution import ContributionRecord, ContributionStatus
-from ...models.hierarchy import Promoter
+from ...models.distributor import Distributor
 
 router = APIRouter(prefix="/customer-analysis", tags=["customer-analysis"])
 
@@ -29,8 +29,8 @@ def _ok(data=None) -> dict:
     }
 
 
-async def _get_promoter(db: AsyncSession, user_id: int) -> Optional[Promoter]:
-    result = await db.execute(select(Promoter).where(Promoter.user_id == user_id))
+async def _get_promoter(db: AsyncSession, user_id: int) -> Optional[Distributor]:
+    result = await db.execute(select(Distributor).where(Distributor.user_id == user_id))
     return result.scalars().first()
 
 
@@ -85,20 +85,20 @@ async def get_customer_analysis(
     # --- Overview counts ---
     customer_base = select(func.count(Customer.id))
     if promoter_filter is not None:
-        customer_base = customer_base.where(Customer.promoter_id == promoter_filter)
+        customer_base = customer_base.where(Customer.distributor_id == promoter_filter)
 
     total_result = await db.execute(customer_base)
     total_customers = total_result.scalar() or 0
 
     bound_base = select(func.count(Customer.id)).where(Customer.binding_status == BindingStatus.BOUND)
     if promoter_filter is not None:
-        bound_base = bound_base.where(Customer.promoter_id == promoter_filter)
+        bound_base = bound_base.where(Customer.distributor_id == promoter_filter)
     bound_result = await db.execute(bound_base)
     bound_customers = bound_result.scalar() or 0
 
     new_base = select(func.count(Customer.id)).where(Customer.created_at >= start_date)
     if promoter_filter is not None:
-        new_base = new_base.where(Customer.promoter_id == promoter_filter)
+        new_base = new_base.where(Customer.distributor_id == promoter_filter)
     new_result = await db.execute(new_base)
     new_customers = new_result.scalar() or 0
 
@@ -140,7 +140,7 @@ async def get_customer_analysis(
             Customer.created_at < m_end,
         )
         if promoter_filter is not None:
-            trend_query_base = trend_query_base.where(Customer.promoter_id == promoter_filter)
+            trend_query_base = trend_query_base.where(Customer.distributor_id == promoter_filter)
 
         trend_result = await db.execute(trend_query_base)
         count = trend_result.scalar() or 0
@@ -159,7 +159,7 @@ async def get_customer_analysis(
         func.count(BindingRequest.id),
     )
     if promoter_filter is not None:
-        source_query = source_query.where(BindingRequest.promoter_id == promoter_filter)
+        source_query = source_query.where(BindingRequest.distributor_id == promoter_filter)
     source_query = source_query.where(
         BindingRequest.created_at >= start_date,
     ).group_by(BindingRequest.source_type)

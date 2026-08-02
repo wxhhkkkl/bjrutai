@@ -33,18 +33,19 @@ hierarchy_snapshots = Table(
     "hierarchy_snapshots",
     Base.metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("node_id", Integer, ForeignKey("hierarchy_nodes.id"), nullable=False),
+    Column("node_id", Integer, ForeignKey("_deprecated_hierarchy_nodes.id"), nullable=False),
     Column("snapshot_data", JSON, default=dict),
     Column("created_at", DateTime, default=datetime.utcnow),
 )
 
 
 class HierarchyNode(Base):
-    __tablename__ = "hierarchy_nodes"
+    # 迁移 004 已将表重命名（数据保留），映射到废弃表
+    __tablename__ = "_deprecated_hierarchy_nodes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     parent_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("hierarchy_nodes.id"), nullable=True, index=True
+        Integer, ForeignKey("_deprecated_hierarchy_nodes.id"), nullable=True, index=True
     )
     level: Mapped[int] = mapped_column(Integer, nullable=False)
     node_type: Mapped[NodeType] = mapped_column(
@@ -62,11 +63,12 @@ class HierarchyNode(Base):
 
 
 class Promoter(Base):
-    __tablename__ = "promoters"
+    # 迁移 004 已将表重命名（数据保留），映射到废弃表
+    __tablename__ = "_deprecated_promoters"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
-    node_id: Mapped[int] = mapped_column(Integer, ForeignKey("hierarchy_nodes.id"), unique=True, nullable=False)
+    node_id: Mapped[int] = mapped_column(Integer, ForeignKey("_deprecated_hierarchy_nodes.id"), unique=True, nullable=False)
     qualification_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -74,15 +76,6 @@ class Promoter(Base):
     user: Mapped["User"] = relationship("User", back_populates="promoter")
     node: Mapped["HierarchyNode"] = relationship("HierarchyNode", back_populates="promoter")
 
-    # Business relationships
+    # Business relationships（仅保留仍匹配 back_populates 的关系；
+    # customers/promotion_code/contribution_records/binding_requests 已迁移到 Distributor）
     qualifications: Mapped[list["Qualification"]] = relationship("Qualification", back_populates="promoter")
-    customers: Mapped[list["Customer"]] = relationship("Customer", back_populates="promoter")
-    binding_requests: Mapped[list["BindingRequest"]] = relationship(
-        "BindingRequest", back_populates="promoter"
-    )
-    promotion_code: Mapped[Optional["PromotionCode"]] = relationship(
-        "PromotionCode", back_populates="promoter", uselist=False
-    )
-    contribution_records: Mapped[list["ContributionRecord"]] = relationship(
-        "ContributionRecord", back_populates="promoter"
-    )

@@ -34,7 +34,7 @@ class ContributionRecord(Base):
     __tablename__ = "contribution_records"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    promoter_id: Mapped[int] = mapped_column(Integer, ForeignKey("promoters.id"), nullable=False, index=True)
+    distributor_id: Mapped[int] = mapped_column(Integer, ForeignKey("distributors.id"), nullable=False, index=True)
     customer_id: Mapped[int] = mapped_column(Integer, ForeignKey("customers.id"), nullable=False)
     bill_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("bills.id"), nullable=True)
     points: Mapped[str] = mapped_column(String(20), default="0.00")
@@ -59,7 +59,7 @@ class ContributionRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    promoter: Mapped["Promoter"] = relationship("Promoter", back_populates="contribution_records")
+    distributor: Mapped["Distributor"] = relationship("Distributor", back_populates="contribution_records")
 
 
 class SettlementLog(Base):
