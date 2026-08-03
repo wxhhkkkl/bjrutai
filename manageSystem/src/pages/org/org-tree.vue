@@ -12,9 +12,8 @@
       <div class="tree-panel" v-loading="loading">
         <div class="panel-title">
           <span>组织结构</span>
-          <el-button size="small" link type="primary" @click="openCreate(null)">＋ 新建根组织</el-button>
         </div>
-        <el-empty v-if="treeData.length === 0" description="暂无组织，请新建根组织" :image-size="60" />
+        <el-empty v-if="treeData.length === 0" description="暂无组织" :image-size="60" />
         <el-tree
           v-else
           :data="treeData"
@@ -53,10 +52,7 @@
             <el-space wrap class="org-actions">
               <el-button size="small" type="primary" @click="openCreate(selected)">新增下级组织</el-button>
               <el-button size="small" @click="openEdit(selected)">编辑</el-button>
-              <el-button size="small" @click="openMigrate(selected)">迁移</el-button>
               <el-button size="small" @click="showHistory(selected)">操作历史</el-button>
-              <el-button size="small" @click="goQualification">资质管理</el-button>
-              <el-button size="small" type="danger" @click="handleDelete(selected)">删除组织</el-button>
             </el-space>
           </div>
 
@@ -78,9 +74,12 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="80" align="center">
+              <el-table-column label="操作" width="230" fixed="right">
                 <template #default="{ row }">
                   <el-button size="small" link type="primary" @click="handleSelect(row)">查看</el-button>
+                  <el-button size="small" link @click="openMigrate(row)">迁移</el-button>
+                  <el-button size="small" link @click="goQualification(row)">资质管理</el-button>
+                  <el-button size="small" link type="danger" @click="handleDelete(row)">删除</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -161,7 +160,7 @@
     <el-dialog v-model="migrateVisible" title="迁移组织" width="460px">
       <el-form label-width="90px">
         <el-form-item label="组织">
-          <el-input :model-value="selected?.name" disabled />
+          <el-input :model-value="migrateOrg?.name" disabled />
         </el-form-item>
         <el-form-item label="目标上级">
           <el-select v-model="migrateTarget" filterable placeholder="选择新的上级组织（不选则为根）">
@@ -234,6 +233,7 @@ const form = reactive({ name: '', orgType: '', sortOrder: 0, status: 'active', p
 // 迁移 / 历史
 const migrateVisible = ref(false)
 const migrateTarget = ref(null)
+const migrateOrg = ref(null)
 const historyVisible = ref(false)
 const historyItems = ref([])
 
@@ -301,9 +301,9 @@ async function loadDistributors(orgId) {
   }
 }
 
-function goQualification() {
-  if (!selected.value) return
-  router.push({ path: '/org/detail', query: { orgId: selected.value.orgId, orgName: selected.value.name } })
+function goQualification(org) {
+  if (!org) return
+  router.push({ path: '/org/detail', query: { orgId: org.orgId, orgName: org.name } })
 }
 
 // ── 组织 CRUD ──────────────────────────────────────────────
@@ -360,15 +360,16 @@ async function saveForm() {
 }
 
 function openMigrate(org) {
+  migrateOrg.value = org
   migrateTarget.value = null
   migrateVisible.value = true
 }
 
 async function submitMigrate() {
-  if (!selected.value) return
+  if (!migrateOrg.value) return
   saving.value = true
   try {
-    await orgApi.migrate(selected.value.orgId, { newParentId: migrateTarget.value || undefined })
+    await orgApi.migrate(migrateOrg.value.orgId, { newParentId: migrateTarget.value || undefined })
     ElMessage.success('迁移成功')
     migrateVisible.value = false
     await loadAll()
@@ -388,7 +389,6 @@ async function handleDelete(org) {
   try {
     await orgApi.remove(org.orgId)
     ElMessage.success('删除成功')
-    selected.value = null
     await loadAll()
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '删除失败')
