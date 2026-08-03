@@ -14,7 +14,7 @@ class OrgQualificationCreate(BaseModel):
     credit_code: str = Field(..., min_length=1, max_length=64, alias="creditCode")
     file_urls: list[dict] = Field(..., min_length=1, alias="fileUrls")
     valid_from: Optional[str] = Field(None, alias="validFrom")
-    valid_until: str = Field(..., alias="validUntil")
+    valid_until: Optional[str] = Field(None, alias="validUntil")
 
     class Config:
         populate_by_name = True

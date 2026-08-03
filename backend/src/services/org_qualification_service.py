@@ -80,8 +80,11 @@ async def create_qualification(
 
     valid_from = _parse_dt(data.valid_from)
     valid_until = _parse_dt(data.valid_until)
+    if data.valid_until is not None and valid_until is None:
+        raise BadRequestException(message="validUntil must be a valid date")
     if valid_until is None:
-        raise BadRequestException(message="validUntil is required and must be a valid date")
+        # 未提供有效期 → 默认远期（迁移数据同样以 2099-12-31 兜底）
+        valid_until = _parse_dt("2099-12-31")
     if valid_from is not None and valid_until < valid_from:
         raise BadRequestException(message="validUntil must not be earlier than validFrom")
 

@@ -11,20 +11,32 @@
         </div>
 
         <el-table :data="qualifications" v-loading="loading" border style="width: 100%">
-          <el-table-column prop="qualificationId" label="ID" width="80" />
-          <el-table-column prop="legalEntityName" label="法人主体" />
-          <el-table-column label="类型" width="200">
+          <el-table-column prop="qualificationId" label="ID" width="70" />
+          <el-table-column label="资质图片" width="100">
             <template #default="{ row }">
-              <el-tag v-for="t in row.qualificationTypes" :key="t" size="small" style="margin-right: 4px">{{ t }}</el-tag>
+              <el-image
+                v-if="firstFile(row)"
+                :src="firstFile(row)"
+                :preview-src-list="fileListOf(row)"
+                preview-teleported
+                fit="cover"
+                style="width: 60px; height: 60px; border-radius: 4px; cursor: pointer"
+              />
+              <span v-else>-</span>
             </template>
           </el-table-column>
-          <el-table-column prop="validUntil" label="有效期至" width="120" />
-          <el-table-column label="状态" width="120">
+          <el-table-column prop="legalEntityName" label="法人主体" min-width="140" />
+          <el-table-column label="类型" width="180">
+            <template #default="{ row }">
+              <el-tag v-for="t in row.qualificationTypes" :key="t" size="small" style="margin-right: 4px">{{ typeLabel(t) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="100">
             <template #default="{ row }">
               <el-tag :type="statusType(row.status)">{{ statusLabel(row.status) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="reviewComment" label="审核意见" min-width="160" />
+          <el-table-column prop="reviewComment" label="审核意见" min-width="140" />
           <el-table-column label="操作" width="140" fixed="right">
             <template #default="{ row }">
               <el-button
@@ -48,12 +60,6 @@
     <!-- Upload dialog -->
     <el-dialog v-model="uploadVisible" title="上传组织资质" width="520px">
       <el-form :model="form" label-width="90px">
-        <el-form-item label="法人主体" required>
-          <el-input v-model="form.legalEntityName" maxlength="256" />
-        </el-form-item>
-        <el-form-item label="信用代码" required>
-          <el-input v-model="form.creditCode" maxlength="64" />
-        </el-form-item>
         <el-form-item label="资质类型" required>
           <el-select v-model="form.qualificationTypes" multiple placeholder="请选择资质类型">
             <el-option label="营业执照" value="business_license" />
@@ -61,22 +67,32 @@
             <el-option label="法人证书" value="legal_person_certificate" />
           </el-select>
         </el-form-item>
-        <el-form-item label="有效期至" required>
-          <el-date-picker v-model="form.validUntil" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" />
-        </el-form-item>
-        <el-form-item label="资质文件" required>
+        <el-form-item label="上传文件" required>
           <el-upload
             v-model:file-list="fileList"
             :auto-upload="false"
-            :show-file-list="true"
+            :show-file-list="false"
             :limit="1"
             :on-change="onFileChange"
             :on-remove="onFileRemove"
-            accept=".jpg,.jpeg,.png,.pdf"
+            accept=".jpg,.jpeg,.png,.gif,.webp"
           >
-            <el-button size="small" type="primary">选择文件并上传至腾讯 COS</el-button>
+            <el-button size="small" type="primary">{{ uploading ? '上传中...' : '选择图片上传' }}</el-button>
           </el-upload>
-          <div v-if="fileUrl" class="file-url-tip">已上传：{{ fileUrl }}</div>
+          <el-image
+            v-if="fileUrl"
+            :src="fileUrl"
+            :preview-src-list="[fileUrl]"
+            preview-teleported
+            fit="cover"
+            style="width: 120px; height: 120px; margin-top: 10px; border-radius: 6px; cursor: pointer"
+          />
+        </el-form-item>
+        <el-form-item label="法人主体" required>
+          <el-input v-model="form.legalEntityName" maxlength="256" />
+        </el-form-item>
+        <el-form-item label="信用代码" required>
+          <el-input v-model="form.creditCode" maxlength="64" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -105,13 +121,22 @@ const qualifications = ref([])
 const uploadVisible = ref(false)
 const fileUrl = ref('')
 const fileList = ref([])
-const form = ref({ legalEntityName: '', creditCode: '', qualificationTypes: ['business_license'], validUntil: '' })
+const form = ref({ legalEntityName: '', creditCode: '', qualificationTypes: ['business_license'] })
 
 function statusType(s) {
   return { reviewing: 'warning', approved: 'success', rejected: 'danger' }[s] || 'info'
 }
 function statusLabel(s) {
   return { reviewing: '审核中', approved: '已通过', rejected: '已驳回' }[s] || s
+}
+function typeLabel(t) {
+  return { business_license: '营业执照', medical_institution_permit: '医疗机构许可证', legal_person_certificate: '法人证书' }[t] || t
+}
+function firstFile(row) {
+  return (row.fileUrls && row.fileUrls[0] && row.fileUrls[0].url) || ''
+}
+function fileListOf(row) {
+  return (row.fileUrls || []).map((f) => f.url).filter(Boolean)
 }
 
 async function load() {
@@ -127,7 +152,7 @@ async function load() {
 }
 
 function openUpload() {
-  form.value = { legalEntityName: '', creditCode: '', qualificationTypes: ['business_license'], validUntil: '' }
+  form.value = { legalEntityName: '', creditCode: '', qualificationTypes: ['business_license'] }
   fileUrl.value = ''
   fileList.value = []
   uploadVisible.value = true
@@ -136,8 +161,13 @@ function openUpload() {
 async function onFileChange(file) {
   const raw = file.raw
   if (!raw) return
+  if (!raw.type || !raw.type.startsWith('image/')) {
+    ElMessage.warning('只支持上传图片（jpg/png/gif/webp）')
+    fileList.value = []
+    return
+  }
   if (raw.size > 10 * 1024 * 1024) {
-    ElMessage.warning('文件大小不能超过 10MB')
+    ElMessage.warning('图片大小不能超过 10MB')
     fileList.value = []
     return
   }
@@ -145,12 +175,12 @@ async function onFileChange(file) {
   try {
     const token = await orgQualificationApi.uploadToken({
       fileName: raw.name,
-      contentType: raw.type || 'application/octet-stream',
+      contentType: raw.type,
       fileSize: raw.size,
     })
     await fetch(token.uploadUrl, { method: 'PUT', body: raw, headers: { 'Content-Type': raw.type } })
     fileUrl.value = token.fileUrl
-    ElMessage.success('已上传到腾讯 COS')
+    ElMessage.success('图片已上传')
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '上传失败')
     fileUrl.value = ''
@@ -165,15 +195,15 @@ function onFileRemove() {
 }
 
 async function submitUpload() {
-  if (!form.value.legalEntityName || !form.value.creditCode || form.value.qualificationTypes.length === 0 || !form.value.validUntil || !fileUrl.value) {
-    ElMessage.warning('请填写完整资质信息（资质类型必选，并上传资质文件）')
+  if (form.value.qualificationTypes.length === 0 || !fileUrl.value || !form.value.legalEntityName || !form.value.creditCode) {
+    ElMessage.warning('请填写完整资质信息（资质类型必选、上传图片、法人主体、信用代码）')
     return
   }
   saving.value = true
   try {
     await orgQualificationApi.upload(orgId, {
       ...form.value,
-      fileUrls: [{ url: fileUrl.value, type: form.value.qualificationTypes.join(','), size: 0 }],
+      fileUrls: [{ url: fileUrl.value, type: 'image', size: 0 }],
     })
     ElMessage.success('上传成功，等待审核')
     uploadVisible.value = false
