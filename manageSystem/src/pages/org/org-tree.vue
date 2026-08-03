@@ -117,8 +117,9 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="230" fixed="right">
+              <el-table-column label="操作" width="280" fixed="right">
                 <template #default="{ row }">
+                  <el-button size="small" link @click="openMoveOrg(row)">调整组织</el-button>
                   <el-button size="small" link :type="row.orgRole === 'admin' ? 'danger' : 'success'" @click="toggleRole(row)">
                     {{ row.orgRole === 'admin' ? '撤销管理员' : '设为管理员' }}
                   </el-button>
@@ -215,6 +216,24 @@
         <el-button type="primary" @click="submitReset">重置</el-button>
       </template>
     </el-dialog>
+
+    <!-- 调整组织归属 -->
+    <el-dialog v-model="moveOrgVisible" title="调整组织归属" width="460px">
+      <el-form label-width="90px">
+        <el-form-item label="人员">
+          <el-input :model-value="moveOrgRow?.name" disabled />
+        </el-form-item>
+        <el-form-item label="目标组织" required>
+          <el-select v-model="moveOrgTarget" filterable placeholder="选择新的所属组织">
+            <el-option v-for="o in flatOrgs" :key="o.orgId" :value="o.orgId" :label="`${o.name}（L${o.level}）`" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="moveOrgVisible = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="submitMoveOrg">调整</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -252,6 +271,9 @@ const distForm = ref({ name: '', phone: '', initialPassword: '' })
 const resetVisible = ref(false)
 const newPassword = ref('')
 const activeRow = ref(null)
+const moveOrgVisible = ref(false)
+const moveOrgTarget = ref(null)
+const moveOrgRow = ref(null)
 
 const treeData = computed(() => tree.value || [])
 const subOrgs = computed(() => selected.value?.children || [])
@@ -464,6 +486,31 @@ async function toggleStatus(row) {
     await loadDistributors(selected.value.orgId)
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '操作失败')
+  }
+}
+
+function openMoveOrg(row) {
+  moveOrgRow.value = row
+  moveOrgTarget.value = null
+  moveOrgVisible.value = true
+}
+
+async function submitMoveOrg() {
+  if (!moveOrgRow.value || !moveOrgTarget.value) {
+    ElMessage.warning('请选择目标组织')
+    return
+  }
+  saving.value = true
+  try {
+    await distributorApi.update(moveOrgRow.value.distributorId, { orgId: moveOrgTarget.value })
+    ElMessage.success('已调整组织归属')
+    moveOrgVisible.value = false
+    await loadDistributors(selected.value.orgId)
+    await loadAll()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '调整失败')
+  } finally {
+    saving.value = false
   }
 }
 
