@@ -151,9 +151,9 @@ class TestContributionCreation:
 
         bill = make_mock_bill(bill_id=1, paid_amount_cent=10000)
 
-        # Mock: find customer → returns customer with promoter_id
+        # Mock: find customer → returns customer with distributor_id
         mock_customer = MagicMock()
-        mock_customer.promoter_id = 5
+        mock_customer.distributor_id = 5
         mock_customer.rutai_user_id = "hrb_user_001"
 
         # Mock: get coefficient → returns "1.0"
@@ -173,7 +173,7 @@ class TestContributionCreation:
         record = await svc.create_from_bill(mock_db, bill)
 
         assert record is not None
-        assert record.promoter_id == 5
+        assert record.distributor_id == 5
         assert record.bill_id == 1
         assert record.points == "100.00"
         assert record.category == ContributionCategory.BILL
@@ -198,11 +198,11 @@ class TestTreeWalkAggregation:
 
         # Build ancestor chain: L5 → L4 → L3 → L2 → L1
         ancestor_chain = [
-            {"promoter_id": 5, "node_id": 5, "level": 5},
-            {"promoter_id": 4, "node_id": 4, "level": 4},
-            {"promoter_id": 3, "node_id": 3, "level": 3},
-            {"promoter_id": 2, "node_id": 2, "level": 2},
-            {"promoter_id": 1, "node_id": 1, "level": 1},
+            {"distributor_id": 5, "node_id": 5, "level": 5},
+            {"distributor_id": 4, "node_id": 4, "level": 4},
+            {"distributor_id": 3, "node_id": 3, "level": 3},
+            {"distributor_id": 2, "node_id": 2, "level": 2},
+            {"distributor_id": 1, "node_id": 1, "level": 1},
         ]
 
         with patch.object(
@@ -213,7 +213,7 @@ class TestTreeWalkAggregation:
             svc, "_upsert_team_contribution",
             new_callable=AsyncMock,
         ) as mock_upsert:
-            await svc.aggregate_up_tree(mock_db, promoter_id=5, month="2026-07")
+            await svc.aggregate_up_tree(mock_db, distributor_id=5, month="2026-07")
 
             assert mock_upsert.call_count == 4  # L4, L3, L2, L1 (not self)
 
@@ -226,7 +226,7 @@ class TestTreeWalkAggregation:
         mock_db = AsyncMock()
 
         # L1 node has no ancestors
-        ancestor_chain = [{"promoter_id": 1, "node_id": 1, "level": 1}]
+        ancestor_chain = [{"distributor_id": 1, "node_id": 1, "level": 1}]
 
         with patch.object(
             svc, "_get_ancestor_chain",
@@ -236,7 +236,7 @@ class TestTreeWalkAggregation:
             svc, "_upsert_team_contribution",
             new_callable=AsyncMock,
         ) as mock_upsert:
-            await svc.aggregate_up_tree(mock_db, promoter_id=1, month="2026-07")
+            await svc.aggregate_up_tree(mock_db, distributor_id=1, month="2026-07")
 
             # Only one entry in chain (self) → zero ancestor upserts
             assert mock_upsert.call_count == 0
@@ -249,10 +249,10 @@ class TestTreeWalkAggregation:
         svc = ContributionService()
         mock_db = AsyncMock()
 
-        # Ancestor chain with a node that has no promoter_id
+        # Ancestor chain with a node that has no distributor_id
         ancestor_chain = [
-            {"promoter_id": 2, "node_id": 2, "level": 2},
-            {"promoter_id": None, "node_id": 1, "level": 1},  # no promoter
+            {"distributor_id": 2, "node_id": 2, "level": 2},
+            {"distributor_id": None, "node_id": 1, "level": 1},  # no distributor
         ]
 
         with patch.object(
@@ -263,9 +263,9 @@ class TestTreeWalkAggregation:
             svc, "_upsert_team_contribution",
             new_callable=AsyncMock,
         ) as mock_upsert:
-            await svc.aggregate_up_tree(mock_db, promoter_id=2, month="2026-07")
+            await svc.aggregate_up_tree(mock_db, distributor_id=2, month="2026-07")
 
-            # The only ancestor has promoter_id=None → skipped. Self is excluded.
+            # The only ancestor has distributor_id=None → skipped. Self is excluded.
             # Total upserts = 0 (None is skipped, self is not aggregated)
             assert mock_upsert.call_count == 0
 
@@ -290,7 +290,7 @@ class TestRefundReversal:
         original = MagicMock()
         original.id = 100
         original.points = "50.00"
-        original.promoter_id = 5
+        original.distributor_id = 5
         original.customer_id = 1
         original.bill_id = 1
         original.category = "bill"
@@ -315,7 +315,7 @@ class TestRefundReversal:
         )
 
         assert record is not None
-        assert record.promoter_id == 5
+        assert record.distributor_id == 5
         assert record.bill_id == 1
         assert record.category == "bill"
         assert record.status == ContributionStatus.REVERSED
@@ -336,7 +336,7 @@ class TestRefundReversal:
         original = MagicMock()
         original.id = 100
         original.points = "100.00"
-        original.promoter_id = 5
+        original.distributor_id = 5
         original.customer_id = 1
         original.bill_id = 1
         original.category = "bill"

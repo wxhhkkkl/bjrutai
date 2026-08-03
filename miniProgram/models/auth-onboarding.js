@@ -28,7 +28,6 @@ function createPendingProfileSession(phone) {
     role: 'collaborator',
     identityType: 'promoter',
     activationStatus: 'active',
-    qualificationStatus: 'reviewing',
     profileCompleted: false,
     name: '微信用户',
     phoneAuthorized: true,
@@ -85,7 +84,6 @@ function completeProfileSession(session, form) {
       ? session.identityType
       : 'promoter',
     activationStatus: 'active',
-    qualificationStatus: 'reviewing',
     profileCompleted: true,
     name: String(form.name).trim(),
     organization: String(form.organization).trim()

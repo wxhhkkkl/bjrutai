@@ -31,11 +31,10 @@ test('professional identity only changes the display label', () => {
   );
 });
 
-test('qualified doctors and promoters receive the same capabilities', () => {
+test('active doctors and promoters receive the same capabilities', () => {
   const base = {
     role: 'collaborator',
-    activationStatus: 'active',
-    qualificationStatus: 'approved'
+    activationStatus: 'active'
   };
   const doctor = getCollaboratorCapabilities({
     ...base,
@@ -52,15 +51,13 @@ test('qualified doctors and promoters receive the same capabilities', () => {
   assert.equal(doctor.customerBinding, true);
 });
 
-test('unqualified collaborators keep qualification access only', () => {
+test('inactive collaborators get no business capabilities', () => {
   const capabilities = getCollaboratorCapabilities({
     role: 'collaborator',
     identityType: 'doctor',
-    activationStatus: 'active',
-    qualificationStatus: 'reviewing'
+    activationStatus: 'inactive'
   });
 
-  assert.equal(capabilities.qualification, true);
   assert.equal(capabilities.promotion, false);
   assert.equal(capabilities.contribution, false);
 });

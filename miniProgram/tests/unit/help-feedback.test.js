@@ -10,7 +10,7 @@ const {
 } = require('../../models/help-feedback');
 
 test('help feedback exposes approved faq and type choices', () => {
-  assert.equal(HELP_FAQS.length, 4);
+  assert.equal(HELP_FAQS.length, 3);
   assert.equal(FEEDBACK_TYPES.length, 3);
   assert.equal(normalizeFeedbackType('suggestion'), 'suggestion');
   assert.equal(normalizeFeedbackType('unsupported'), 'issue');

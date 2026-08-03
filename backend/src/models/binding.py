@@ -136,12 +136,11 @@ class BindingChangeLog(Base):
     operation_type: Mapped[OperationType] = mapped_column(
         SAEnum(OperationType, name="operation_type_enum"), nullable=False
     )
-    previous_promoter_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("_deprecated_promoters.id"), nullable=True
-    )
-    new_promoter_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("_deprecated_promoters.id"), nullable=True
-    )
+    # Distributor IDs for audit history (bind/unbind/transfer). Plain integers —
+    # no FK to the deprecated promoters table, which new distributor IDs would
+    # violate (migration 005 dropped those constraints).
+    previous_promoter_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    new_promoter_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     operator_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

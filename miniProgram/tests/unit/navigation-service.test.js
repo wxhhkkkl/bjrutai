@@ -4,26 +4,21 @@ const {
   openAction
 } = require('../../services/navigation-service');
 
-test('qualification action follows the current account status', () => {
-  const result = openAction('qualification', {
+test('known action opens its configured path', () => {
+  const result = openAction('promote-code', {
     role: 'promoter',
-    qualificationStatus: 'expiring'
+    activationStatus: 'active'
   });
 
-  assert.equal(
-    result.url,
-    '/pages/qualification/status/index?state=expiring'
-  );
+  assert.equal(result.ok, true);
+  assert.equal(result.url, '/pages/promotion-code/index');
 });
 
-test('qualification action falls back to reviewing for unknown states', () => {
+test('unknown action is rejected', () => {
   const result = openAction('qualification', {
     role: 'promoter',
-    qualificationStatus: 'unknown'
+    activationStatus: 'active'
   });
 
-  assert.equal(
-    result.url,
-    '/pages/qualification/status/index?state=reviewing'
-  );
+  assert.equal(result.ok, false);
 });

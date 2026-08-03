@@ -207,73 +207,6 @@ test('promotion code page uses the approved QR and real sharing controls', () =>
   );
 });
 
-test('qualification status shares one structure across four approved states', () => {
-  const source = fs.readFileSync(
-    path.join(projectRoot, 'pages/qualification/status/index.wxml'),
-    'utf8'
-  );
-  const styles = fs.readFileSync(
-    path.join(projectRoot, 'pages/qualification/status/index.wxss'),
-    'utf8'
-  );
-
-  assert.match(source, /<flow-navigation\b/);
-  assert.match(source, /class="qualification-hero"/);
-  assert.match(source, /class="qualification-hero__banner"/);
-  assert.match(source, /status\.information/);
-  assert.match(source, /wx:if="\{\{status\.reason\}\}"/);
-  assert.match(source, /bindtap="viewFile"/);
-  assert.match(source, /bindtap="handlePrimaryAction"/);
-  assert.match(source, /class="qualification-action-bar"/);
-  assert.doesNotMatch(source, /<button\b[^>]*qualification-primary-action/);
-  assert.match(
-    styles,
-    /\.qualification-action-bar[\s\S]*env\(safe-area-inset-bottom\)/
-  );
-
-  for (const file of [
-    'qualification-approved-banner.png',
-    'qualification-reviewing-banner.png',
-    'qualification-rejected-banner.png',
-    'qualification-expiring-banner.png'
-  ]) {
-    assert.ok(
-      fs.existsSync(path.join(projectRoot, 'assets/images', file)),
-      file
-    );
-  }
-});
-
-test('qualification update follows the approved functional design', () => {
-  const source = fs.readFileSync(
-    path.join(projectRoot, 'pages/qualification/update/index.wxml'),
-    'utf8'
-  );
-  const appConfig = JSON.parse(
-    fs.readFileSync(path.join(projectRoot, 'app.json'), 'utf8')
-  );
-
-  assert.ok(appConfig.pages.includes('pages/qualification/update/index'));
-  assert.match(source, /<flow-navigation\b/);
-  assert.match(source, /bindinput="onFieldInput"/);
-  assert.match(source, /bindchange="onQualificationTypeChange"/);
-  assert.match(source, /bindchange="onExpiryChange"/);
-  assert.match(source, /bindtap="chooseQualificationFile"/);
-  assert.match(source, /bindtap="previewFile"/);
-  assert.match(source, /bindtap="toggleConfirmation"/);
-  assert.match(source, /bindtap="submitQualification"/);
-  assert.match(source, /\{\{expiryLabel\}\}/);
-  assert.match(source, /class="update-submit-bar"/);
-  assert.doesNotMatch(source, /<input\b[^>]*\bfocus=/s);
-
-  const script = fs.readFileSync(
-    path.join(projectRoot, 'pages/qualification/update/index.js'),
-    'utf8'
-  );
-  assert.match(script, /skipDraftPersistence/);
-  assert.match(script, /wx\.removeStorageSync\(DRAFT_KEY\)/);
-});
-
 test('login authorization uses the approved hero and real authorization controls', () => {
   const source = fs.readFileSync(
     path.join(projectRoot, 'pages/auth/login/index.wxml'),
@@ -331,7 +264,6 @@ test('account profile matches the approved editable account design', () => {
   assert.match(source, /bindtap="chooseAvatar"/);
   assert.match(source, /open-type="getPhoneNumber"/);
   assert.match(source, /bindgetphonenumber="authorizePhone"/);
-  assert.match(source, /bindtap="openQualification"/);
   assert.match(source, /bindtap="saveProfile"/);
   assert.match(source, /class="account-save-bar"/);
   assert.match(styles, /\.account-save-bar[\s\S]*env\(safe-area-inset-bottom\)/);
@@ -414,7 +346,6 @@ test('profile tab uses approved assets and complete service controls', () => {
 
   for (const file of [
     'profile-promo-icon.png',
-    'profile-qualification-icon.png',
     'profile-records-icon.png',
     'profile-contribution-icon.png',
     'profile-notification-icon.png',

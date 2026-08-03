@@ -9,9 +9,9 @@ from tests.conftest import (
     admin_auth_headers,
     make_access_token,
     seed_hierarchy_node,
+    seed_org_qualification,
     seed_promoter,
     seed_promotion_code,
-    seed_qualification,
     seed_user,
 )
 
@@ -28,12 +28,9 @@ async def _setup_approved_promoter(
     user_id = await seed_user(db_session, openid=f"promo_test_{s}", user_type=user_type, name=f"推广测试{s}")
     node_id = await seed_hierarchy_node(db_session, name=f"推广节点_{s}", node_type="promoter", level=2)
     distributor_id = await seed_promoter(db_session, user_id=user_id, node_id=node_id)
-    await seed_qualification(
+    await seed_org_qualification(
         db_session, distributor_id=distributor_id, qualification_type="enterprise",
-        status="approved", file_id="approved_key", file_name="approved.jpg",
-        file_type="image/jpeg", file_size=1024000, version=1,
-        submitted_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
-        approved_at=datetime(2026, 7, 2, tzinfo=timezone.utc),
+        status="approved",
     )
     token = make_access_token(user_id=user_id, user_type=user_type)
     return user_id, distributor_id, token

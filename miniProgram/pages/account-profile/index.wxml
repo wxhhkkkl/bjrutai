@@ -20,10 +20,6 @@
     <view class="account-identity-copy">
       <text class="account-identity-name">{{form.name || '张小明'}}</text>
       <text class="account-identity-role">{{view.identityDisplay}}</text>
-      <view class="account-qualification-badge account-qualification-badge--{{view.qualificationTone}}">
-        <van-icon name="{{view.qualificationIcon}}" size="17px" color="currentColor" />
-        <text>资质{{view.qualificationLabel}}</text>
-      </view>
     </view>
     <view
       class="account-avatar-action tap-target"
@@ -97,22 +93,6 @@
         <van-icon name="passed" size="20px" color="currentColor" />
         <text>{{view.wechatBound}}</text>
       </view>
-    </view>
-    <view
-      class="account-status-row tap-target"
-      bindtap="openQualification"
-      hover-class="tap-feedback"
-      hover-start-time="0"
-      hover-stay-time="80"
-      aria-role="button"
-      aria-label="查看资质状态"
-    >
-      <text class="account-status-row__label">资质状态</text>
-      <view class="account-status-row__state account-status-row__state--{{view.qualificationTone}}">
-        <van-icon name="{{view.qualificationIcon}}" size="20px" color="currentColor" />
-        <text>{{view.qualificationLabel}}</text>
-      </view>
-      <van-icon name="arrow" size="21px" color="#858c98" />
     </view>
   </view>
 

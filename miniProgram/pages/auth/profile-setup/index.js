@@ -85,8 +85,8 @@ Page({
     });
 
     setTimeout(() => {
-      wx.reLaunch({
-        url: '/pages/qualification/status/index?state=reviewing'
+      wx.switchTab({
+        url: '/pages/home/index'
       });
     }, 500);
   }

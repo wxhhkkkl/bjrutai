@@ -470,7 +470,7 @@ class BindingService:
         page_size = max(1, min(page_size, 100))
 
         query = select(BindingRequest).options(
-            selectinload(BindingRequest.promoter).selectinload(Distributor.user),
+            selectinload(BindingRequest.distributor).selectinload(Distributor.user),
         )
 
         # Filter by status
@@ -534,7 +534,7 @@ class BindingService:
                 user_map[u.id] = u
 
         for br in items_list:
-            proms = br.promoter
+            proms = br.distributor
             promoter_user = proms.user if proms else None
             submitter = user_map.get(br.submitted_by)
 
@@ -596,7 +596,7 @@ class BindingService:
         result = await db.execute(
             select(BindingRequest)
             .options(
-                selectinload(BindingRequest.promoter).selectinload(Distributor.user),
+                selectinload(BindingRequest.distributor).selectinload(Distributor.user),
                 selectinload(BindingRequest.change_logs),
             )
             .where(BindingRequest.id == binding_request_id)
@@ -606,7 +606,7 @@ class BindingService:
         if br is None:
             raise NotFoundException(code=40400, message="Binding request not found")
 
-        promoter_user = br.promoter.user if br.promoter else None
+        promoter_user = br.distributor.user if br.distributor else None
 
         # Get submitter user
         submitter_result = await db.execute(
@@ -681,7 +681,7 @@ class BindingService:
         """
         result = await db.execute(
             select(BindingRequest)
-            .options(selectinload(BindingRequest.promoter).selectinload(Distributor.user))
+            .options(selectinload(BindingRequest.distributor).selectinload(Distributor.user))
             .where(BindingRequest.id == binding_request_id)
         )
         br = result.scalars().first()
@@ -768,7 +768,7 @@ class BindingService:
         await db.flush()
         await db.refresh(br)
 
-        promoter_user = br.promoter.user if br.promoter else None
+        promoter_user = br.distributor.user if br.distributor else None
 
         return {
             "requestId": str(br.id),
@@ -946,7 +946,7 @@ class BindingService:
         result = await db.execute(
             select(BindingRequest)
             .options(
-                selectinload(BindingRequest.promoter).selectinload(Distributor.user),
+                selectinload(BindingRequest.distributor).selectinload(Distributor.user),
             )
             .where(BindingRequest.id == binding_request_id)
         )
@@ -1049,7 +1049,7 @@ class BindingService:
         result = await db.execute(
             select(BindingRequest)
             .options(
-                selectinload(BindingRequest.promoter).selectinload(Distributor.user),
+                selectinload(BindingRequest.distributor).selectinload(Distributor.user),
             )
             .where(BindingRequest.id == binding_request_id)
         )

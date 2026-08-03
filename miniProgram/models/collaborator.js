@@ -4,8 +4,6 @@ const IDENTITY_LABELS = {
   unknown: '鲁泰协作人员'
 };
 
-const VALID_QUALIFICATION_STATES = ['approved', 'expiring'];
-
 function normalizeIdentityType(session) {
   const value = session || {};
 
@@ -39,19 +37,18 @@ function getIdentityLabel(session) {
 }
 
 function getCollaboratorCapabilities(session) {
+  // Business capability gating no longer depends on a personal qualification
+  // status — the org qualification (FR-008) is enforced server-side. Only the
+  // collaborator role and account activation gate feature access.
   const value = session || {};
   const collaborator = normalizeCollaboratorRole(value) === 'collaborator';
   const active = value.activationStatus === 'active';
-  const qualified = VALID_QUALIFICATION_STATES.indexOf(
-    value.qualificationStatus
-  ) !== -1;
 
   return {
-    qualification: collaborator,
-    promotion: collaborator && active && qualified,
-    customerBinding: collaborator && active && qualified,
-    contribution: collaborator && active && qualified,
-    customerAnalysis: collaborator && active && qualified
+    promotion: collaborator && active,
+    customerBinding: collaborator && active,
+    contribution: collaborator && active,
+    customerAnalysis: collaborator && active
   };
 }
 
@@ -62,7 +59,6 @@ function hasCapability(session, capability) {
 
 module.exports = {
   IDENTITY_LABELS,
-  VALID_QUALIFICATION_STATES,
   normalizeIdentityType,
   normalizeCollaboratorRole,
   getIdentityLabel,

@@ -50,12 +50,25 @@ def _make_promoter_mock(distributor_id=1, user_id=1, qualification_status="appro
     return p
 
 
-def _make_qualification_mock(qual_id=1, distributor_id=1, status="approved"):
+def _make_org_mock(org_id=1, status="active"):
+    from src.models.organization import OrgStatus
+
+    o = MagicMock()
+    o.id = org_id
+    o.status = OrgStatus(status)
+    o.parent_id = None
+    return o
+
+
+def _make_org_qualification_mock(qual_id=1, org_id=1, status="approved"):
+    """Mock for the org's latest OrganizationQualification (FR-008 gate)."""
+    from src.models.org_qualification import OrgQualStatus
+
     q = MagicMock()
     q.id = qual_id
-    q.distributor_id = distributor_id
-    q.status = MagicMock()
-    q.status.value = status
+    q.org_id = org_id
+    q.status = OrgQualStatus(status)
+    q.valid_until = None
     return q
 
 
@@ -92,7 +105,8 @@ class TestFullPromotionFlow:
         promoter_headers = {"Authorization": f"Bearer {promoter_token}"}
 
         promoter = _make_promoter_mock(distributor_id=1, user_id=1, qualification_status="approved")
-        approved_qual = _make_qualification_mock(qual_id=1, distributor_id=1, status="approved")
+        org = _make_org_mock(org_id=1)
+        org_qual = _make_org_qualification_mock(qual_id=1, org_id=1, status="approved")
 
         # Phase 1: Get promotion code (first time - generates new)
         old_token = "old_ref_token_001"
@@ -106,13 +120,14 @@ class TestFullPromotionFlow:
             status="available", scan_count=0, lead_count=0, bind_count=0,
         )
 
-        # Mock: lookup promoter found, no existing promo code
+        # Mock: lookup promoter found, org approved (FR-008), no existing promo code
         mock_client._mock_db.execute = AsyncMock()
         mock_client._mock_db.execute.side_effect = [
-            mock_scalar_result(first_value=promoter),       # lookup promoter
-            mock_scalar_result(first_value=approved_qual),   # lookup approved qualification
-            mock_scalar_result(first_value=None),             # no existing promo code
-            mock_scalar_result(),                             # result for create
+            mock_scalar_result(first_value=promoter),       # lookup promoter by user_id
+            mock_scalar_result(first_value=promoter),        # lookup distributor by id (FR-008)
+            mock_scalar_result(first_value=org),             # lookup org
+            mock_scalar_result(first_value=org_qual),        # lookup org qualification
+            mock_scalar_result(first_value=None),            # no existing promo code
         ]
 
         get_resp = await mock_client.get(
@@ -126,10 +141,11 @@ class TestFullPromotionFlow:
         # Phase 2: Refresh promotion code
         mock_client._mock_db.execute = AsyncMock()
         mock_client._mock_db.execute.side_effect = [
-            mock_scalar_result(first_value=promoter),        # lookup promoter
-            mock_scalar_result(first_value=approved_qual),    # lookup approved qual
+            mock_scalar_result(first_value=promoter),        # lookup promoter by user_id
+            mock_scalar_result(first_value=promoter),         # lookup distributor by id (FR-008)
+            mock_scalar_result(first_value=org),              # lookup org
+            mock_scalar_result(first_value=org_qual),         # lookup org qualification
             mock_scalar_result(first_value=old_code),         # find existing code
-            mock_scalar_result(),                              # flush
         ]
 
         refresh_resp = await mock_client.post(
@@ -150,8 +166,10 @@ class TestFullPromotionFlow:
 
         mock_client._mock_db.execute = AsyncMock()
         mock_client._mock_db.execute.side_effect = [
-            mock_scalar_result(first_value=promoter),        # lookup promoter
-            mock_scalar_result(first_value=approved_qual),    # lookup approved qual
+            mock_scalar_result(first_value=promoter),        # lookup promoter by user_id
+            mock_scalar_result(first_value=promoter),         # lookup distributor by id (FR-008)
+            mock_scalar_result(first_value=org),              # lookup org
+            mock_scalar_result(first_value=org_qual),         # lookup org qualification
             mock_scalar_result(first_value=stats_code),       # find promo code
         ]
 
@@ -179,7 +197,8 @@ class TestPromotionPoster:
         promoter_headers = {"Authorization": f"Bearer {promoter_token}"}
 
         promoter = _make_promoter_mock(distributor_id=1, user_id=1, qualification_status="approved")
-        approved_qual = _make_qualification_mock(qual_id=1, distributor_id=1, status="approved")
+        org = _make_org_mock(org_id=1)
+        org_qual = _make_org_qualification_mock(qual_id=1, org_id=1, status="approved")
         code = _make_promotion_code_mock(
             code_id=1, distributor_id=1, ref_token="poster_token",
             status="available", qr_image_url="https://cos.example.com/qr/poster_1.png",
@@ -188,8 +207,10 @@ class TestPromotionPoster:
 
         mock_client._mock_db.execute = AsyncMock()
         mock_client._mock_db.execute.side_effect = [
-            mock_scalar_result(first_value=promoter),        # lookup promoter
-            mock_scalar_result(first_value=approved_qual),    # approved qual
+            mock_scalar_result(first_value=promoter),        # lookup promoter by user_id
+            mock_scalar_result(first_value=promoter),         # lookup distributor by id (FR-008)
+            mock_scalar_result(first_value=org),              # lookup org
+            mock_scalar_result(first_value=org_qual),         # lookup org qualification
             mock_scalar_result(first_value=code),             # promo code
         ]
 

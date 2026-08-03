@@ -6,28 +6,6 @@ const {
 } = require('./collaborator');
 
 const DEFAULT_AVATAR = '/assets/images/profile-avatar.png';
-const QUALIFICATION_LABELS = {
-  approved: {
-    label: '审核通过',
-    tone: 'green',
-    icon: 'passed'
-  },
-  reviewing: {
-    label: '审核中',
-    tone: 'blue',
-    icon: 'clock-o'
-  },
-  rejected: {
-    label: '审核未通过',
-    tone: 'red',
-    icon: 'warning-o'
-  },
-  expiring: {
-    label: '即将到期',
-    tone: 'orange',
-    icon: 'clock-o'
-  }
-};
 
 function createAccountProfileForm(session) {
   const value = session || {};
@@ -55,26 +33,15 @@ function getIdentityLabel(session) {
   return '鲁泰协作人员';
 }
 
-function getQualificationDisplay(status) {
-  return QUALIFICATION_LABELS[status] || QUALIFICATION_LABELS.reviewing;
-}
-
 function getAccountProfileView(session) {
   const value = session || {};
-  const qualification = getQualificationDisplay(value.qualificationStatus);
 
   return {
     identityDisplay: getIdentityDisplay(value),
     identityLabel: getIdentityLabel(value),
     phone: value.phone || '138****1028',
     accountId: value.accountId || 'RT****4826',
-    wechatBound: value.userId ? '已绑定' : '未绑定',
-    qualificationLabel: qualification.label,
-    qualificationTone: qualification.tone,
-    qualificationIcon: qualification.icon,
-    qualificationStatus: QUALIFICATION_LABELS[value.qualificationStatus]
-      ? value.qualificationStatus
-      : 'reviewing'
+    wechatBound: value.userId ? '已绑定' : '未绑定'
   };
 }
 
@@ -117,11 +84,9 @@ function saveAccountProfile(session, form, phone) {
 
 module.exports = {
   DEFAULT_AVATAR,
-  QUALIFICATION_LABELS,
   createAccountProfileForm,
   getIdentityDisplay,
   getIdentityLabel,
-  getQualificationDisplay,
   getAccountProfileView,
   validateAccountProfile,
   saveAccountProfile

@@ -104,12 +104,6 @@ Page({
     });
   },
 
-  openQualification() {
-    wx.navigateTo({
-      url: `/pages/qualification/status/index?state=${this.data.view.qualificationStatus}`
-    });
-  },
-
   saveProfile() {
     const validation = validateAccountProfile(this.data.form);
 

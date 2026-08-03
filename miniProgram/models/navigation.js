@@ -35,11 +35,6 @@ const ACTION_TARGETS = {
         path: '/pages/customer-binding/index',
         capability: 'customerBinding'
     },
-    qualification: {
-        title: '资质状态',
-        path: '/pages/qualification/status/index',
-        capability: 'qualification'
-    },
     'binding-records': {
         title: '绑定记录',
         path: '/pages/binding-records/index',

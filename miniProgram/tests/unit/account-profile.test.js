@@ -11,29 +11,16 @@ const approvedDoctor = {
   userId: 'demo-doctor-001',
   role: 'collaborator',
   identityType: 'doctor',
-  qualificationStatus: 'approved',
   name: '张小明',
   phone: '138****1028'
 };
 
-test('account profile exposes approved identity and account state', () => {
+test('account profile exposes identity and account state', () => {
   const view = getAccountProfileView(approvedDoctor);
 
   assert.equal(view.identityDisplay, '北京鲁泰合作医生');
   assert.equal(view.identityLabel, '鲁泰医生');
-  assert.equal(view.qualificationLabel, '审核通过');
-  assert.equal(view.qualificationIcon, 'passed');
   assert.equal(view.wechatBound, '已绑定');
-});
-
-test('account profile maps non-approved qualification states accurately', () => {
-  const rejected = getAccountProfileView(Object.assign({}, approvedDoctor, {
-    qualificationStatus: 'rejected'
-  }));
-
-  assert.equal(rejected.qualificationLabel, '审核未通过');
-  assert.equal(rejected.qualificationTone, 'red');
-  assert.equal(rejected.qualificationIcon, 'warning-o');
 });
 
 test('account profile requires editable identity fields', () => {

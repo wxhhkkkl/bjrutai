@@ -38,7 +38,6 @@ test('pending login session enters profile setup', () => {
   assert.equal(session.profileCompleted, false);
   assert.equal(session.role, 'collaborator');
   assert.equal(session.phoneAuthorized, true);
-  assert.equal(session.qualificationStatus, 'reviewing');
 });
 
 test('profile form validates required values and confirmation', () => {

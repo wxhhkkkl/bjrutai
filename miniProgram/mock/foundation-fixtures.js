@@ -1,12 +1,12 @@
 const sessions = {
-  promoter: { userId: 'demo-promoter-001', role: 'collaborator', identityType: 'promoter', activationStatus: 'active', qualificationStatus: 'approved', profileCompleted: true, name: '张小明' },
-  doctor: { userId: 'demo-doctor-001', role: 'collaborator', identityType: 'doctor', activationStatus: 'active', qualificationStatus: 'approved', profileCompleted: true, name: '李医生' },
-  reviewing: { userId: 'demo-reviewing-001', role: 'collaborator', identityType: 'promoter', activationStatus: 'active', qualificationStatus: 'reviewing', profileCompleted: true, name: '张小明' },
-  rejected: { userId: 'demo-rejected-001', role: 'collaborator', identityType: 'promoter', activationStatus: 'active', qualificationStatus: 'rejected', profileCompleted: true, name: '张小明' },
-  inactive: { userId: 'demo-inactive-001', role: 'collaborator', identityType: 'promoter', activationStatus: 'inactive', qualificationStatus: 'reviewing', profileCompleted: true, name: '张小明' },
-  expiring: { userId: 'demo-expiring-001', role: 'collaborator', identityType: 'promoter', activationStatus: 'active', qualificationStatus: 'expiring', profileCompleted: true, name: '张小明' },
-  incomplete: { userId: 'demo-incomplete-001', role: 'collaborator', identityType: 'promoter', activationStatus: 'active', qualificationStatus: 'approved', profileCompleted: false, name: '张小明' },
-  unknown: { userId: '', role: 'unknown', activationStatus: 'inactive', qualificationStatus: 'reviewing', profileCompleted: false, name: '' }
+  promoter: { userId: 'demo-promoter-001', role: 'collaborator', identityType: 'promoter', activationStatus: 'active', profileCompleted: true, name: '张小明' },
+  doctor: { userId: 'demo-doctor-001', role: 'collaborator', identityType: 'doctor', activationStatus: 'active', profileCompleted: true, name: '李医生' },
+  reviewing: { userId: 'demo-reviewing-001', role: 'collaborator', identityType: 'promoter', activationStatus: 'active', profileCompleted: true, name: '张小明' },
+  rejected: { userId: 'demo-rejected-001', role: 'collaborator', identityType: 'promoter', activationStatus: 'active', profileCompleted: true, name: '张小明' },
+  inactive: { userId: 'demo-inactive-001', role: 'collaborator', identityType: 'promoter', activationStatus: 'inactive', profileCompleted: true, name: '张小明' },
+  expiring: { userId: 'demo-expiring-001', role: 'collaborator', identityType: 'promoter', activationStatus: 'active', profileCompleted: true, name: '张小明' },
+  incomplete: { userId: 'demo-incomplete-001', role: 'collaborator', identityType: 'promoter', activationStatus: 'active', profileCompleted: false, name: '张小明' },
+  unknown: { userId: '', role: 'unknown', activationStatus: 'inactive', profileCompleted: false, name: '' }
 }
 
 const summaries = {

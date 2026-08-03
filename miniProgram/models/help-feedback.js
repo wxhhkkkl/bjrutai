@@ -15,12 +15,6 @@ const HELP_FAQS = Object.freeze([
     answer: '客户绑定、服务完成等有效行为会形成贡献值，最终结果以系统同步的实际结算数据为准。'
   },
   {
-    id: 'qualification',
-    title: '资质审核',
-    icon: 'shield-o',
-    answer: '提交完整有效的资质资料后会进入审核流程，审核结果和驳回原因可在资质状态页查看。'
-  },
-  {
     id: 'account',
     title: '账号与登录',
     icon: 'idcard',

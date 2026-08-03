@@ -32,11 +32,9 @@ async def test_org_tree_100_nodes_within_budget(db_session):
 async def test_org_performance_aggregation_within_budget(db_session):
     from src.models.binding import BindingStatus, Customer
     from src.models.contribution import ContributionCategory, ContributionRecord, ContributionStatus
-    from src.models.hierarchy import HierarchyNode, NodeType, Promoter
     from src.models.user import User
     from sqlalchemy import select
 
-    from src.models.distributor import OrgRole
     from src.schemas.distributor import DistributorRoleUpdate
 
     root = await organization_service.create_org(db_session, OrgCreate(name="总部", orgType="headquarters"))
@@ -45,19 +43,14 @@ async def test_org_performance_aggregation_within_budget(db_session):
     )
     await distributor_service.set_role(db_session, int(d["distributorId"]), DistributorRoleUpdate(orgRole="admin"))
     u = (await db_session.execute(select(User).where(User.phone == "13800000001"))).scalars().first()
+    distributor_id = int(d["distributorId"])
 
-    node = HierarchyNode(parent_id=None, level=1, node_type=NodeType.HEADQUARTERS, name="n")
-    db_session.add(node)
-    await db_session.flush()
-    p = Promoter(user_id=u.id, node_id=node.id)
-    db_session.add(p)
-    await db_session.flush()
     for i in range(200):
-        c = Customer(promoter_id=p.id, binding_status=BindingStatus.BOUND)
+        c = Customer(distributor_id=distributor_id, binding_status=BindingStatus.BOUND)
         db_session.add(c)
         await db_session.flush()
         db_session.add(ContributionRecord(
-            promoter_id=p.id, customer_id=c.id, points="1.00",
+            distributor_id=distributor_id, customer_id=c.id, points="1.00",
             status=ContributionStatus.PENDING, category=ContributionCategory.BILL,
             title=f"t{i}", occurred_at=__import__("datetime").datetime.utcnow(),
         ))

@@ -147,7 +147,7 @@ async def list_customers(
     user_type = payload.get("user_type", "promoter")
 
     # Build query
-    query = select(Customer).options(joinedload(Customer.promoter).joinedload(Distributor.user))
+    query = select(Customer).options(joinedload(Customer.distributor).joinedload(Distributor.user))
 
     # Admins see all, promoters see only their own
     if user_type != "admin":
@@ -189,7 +189,7 @@ async def list_customers(
 
     data_items = []
     for c in items:
-        p = c.promoter
+        p = c.distributor
         promoter_name = ""
         if p and p.user:
             promoter_name = p.user.name or ""
@@ -226,7 +226,7 @@ async def get_customer_detail(
     result = await db.execute(
         select(Customer)
         .options(
-            joinedload(Customer.promoter).joinedload(Distributor.user),
+            joinedload(Customer.distributor).joinedload(Distributor.user),
             joinedload(Customer.bills),
             joinedload(Customer.followup_records),
             joinedload(Customer.consent_records),
@@ -271,7 +271,7 @@ async def get_customer_detail(
     total_row = total_result.one_or_none()
     total_contribution = float(total_row[0]) if total_row and total_row[0] else 0.0
 
-    p = customer.promoter
+    p = customer.distributor
     promoter_name = ""
     if p and p.user:
         promoter_name = p.user.name or ""

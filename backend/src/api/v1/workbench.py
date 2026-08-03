@@ -20,7 +20,7 @@ from ...models.binding import BindingRequest, BindingRequestStatus, BindingStatu
 from ...models.contribution import ContributionRecord, ContributionStatus
 from ...models.distributor import Distributor
 from ...models.notification import Notification, NotificationCategory
-from ...models.qualification import QualStatus, Qualification
+from ...models.org_qualification import OrgQualStatus, OrganizationQualification
 from ...models.user import User, UserType
 
 router = APIRouter(prefix="/workbench", tags=["workbench"])
@@ -61,8 +61,8 @@ async def get_workbench(
         total_promoters = total_promoters_result.scalar() or 0
 
         pending_qual_result = await db.execute(
-            select(func.count(Qualification.id)).where(
-                Qualification.status == QualStatus.REVIEWING
+            select(func.count(OrganizationQualification.id)).where(
+                OrganizationQualification.status == OrgQualStatus.REVIEWING
             )
         )
         pending_qualifications = pending_qual_result.scalar() or 0
@@ -93,8 +93,7 @@ async def get_workbench(
                 "totalCustomers": total_customers,
             },
             "quickLinks": [
-                {"label": "资质审核", "path": "/qualifications"},
-                {"label": "层级管理", "path": "/hierarchy"},
+                {"label": "组织人员管理", "path": "/org"},
                 {"label": "绑定管理", "path": "/customers/binding"},
             ],
         })
@@ -198,29 +197,6 @@ async def get_notices(
     if user_type != "admin":
         promoter = await _get_promoter(db, user_id)
         if promoter:
-            # Qualification notices
-            qual_result = await db.execute(
-                select(Qualification).where(
-                    Qualification.distributor_id == promoter.id,
-                ).order_by(Qualification.updated_at.desc()).limit(3)
-            )
-            quals = qual_result.scalars().all()
-            for q in quals:
-                status_label = {
-                    QualStatus.DRAFT: "草稿",
-                    QualStatus.REVIEWING: "审核中",
-                    QualStatus.APPROVED: "已通过",
-                    QualStatus.REJECTED: "已驳回",
-                    QualStatus.EXPIRING: "即将过期",
-                    QualStatus.EXPIRED: "已过期",
-                }.get(q.status, str(q.status))
-                notices.append({
-                    "type": "qualification",
-                    "title": f"资质状态: {status_label}",
-                    "summary": f"您的资质当前状态为 {status_label}",
-                    "time": q.updated_at.isoformat() if q.updated_at else None,
-                })
-
             # Binding notices
             binding_result = await db.execute(
                 select(BindingRequest).where(

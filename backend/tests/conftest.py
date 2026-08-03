@@ -327,14 +327,15 @@ async def seed_hierarchy_node(
     parent_id: int | None = None,
     level: int = 1,
 ) -> int:
-    """Insert a HierarchyNode row and return its id."""
-    from src.models.hierarchy import HierarchyNode, NodeType
+    """Insert an Organization row and return its id (node_type -> org_type)."""
+    from src.models.organization import Organization
 
-    node = HierarchyNode(
+    node = Organization(
         name=name,
-        node_type=NodeType(node_type),
+        org_type=node_type,
         parent_id=parent_id,
         level=level,
+        sort_order=0,
     )
     db.add(node)
     await db.flush()
@@ -349,50 +350,57 @@ async def seed_promoter(
     node_id: int,
     qualification_status: str | None = None,
 ) -> int:
-    """Insert a Promoter row and return its id."""
-    from src.models.hierarchy import Promoter
+    """Insert a Distributor row and return its id (node_id -> org_id).
 
-    promoter = Promoter(
+    When ``qualification_status="approved"``, also seeds an approved org
+    qualification so the distributor's org is business-ready (FR-008).
+    """
+    from src.models.distributor import Distributor, OrgRole
+
+    distributor = Distributor(
         user_id=user_id,
-        node_id=node_id,
-        qualification_status=qualification_status,
+        org_id=node_id,
+        org_role=OrgRole.MEMBER,
     )
-    db.add(promoter)
+    db.add(distributor)
     await db.flush()
-    await db.refresh(promoter)
-    return promoter.id
+    await db.refresh(distributor)
+
+    if qualification_status == "approved":
+        await seed_org_qualification(db, org_id=node_id, status="approved")
+
+    return distributor.id
 
 
-async def seed_qualification(
+async def seed_org_qualification(
     db: AsyncSession,
     *,
-    promoter_id: int,
+    distributor_id: int | None = None,
+    org_id: int | None = None,
     qualification_type: str = "enterprise",
-    status: str = "draft",
-    file_id: str | None = None,
-    file_name: str | None = None,
-    file_type: str | None = None,
-    file_size: int | None = None,
-    version: int = 1,
-    submitted_at: datetime | None = None,
-    approved_at: datetime | None = None,
-    rejected_reason: str | None = None,
+    status: str = "approved",
+    valid_until: datetime | None = None,
 ) -> int:
-    """Insert a Qualification row and return its id."""
-    from src.models.qualification import QualStatus, Qualification, QualificationType
+    """Insert an OrganizationQualification row for a distributor's org."""
+    from datetime import timedelta
 
-    qual = Qualification(
-        promoter_id=promoter_id,
-        qualification_type=QualificationType(qualification_type),
-        status=QualStatus(status),
-        file_id=file_id,
-        file_name=file_name,
-        file_type=file_type,
-        file_size=file_size,
-        version=version,
-        submitted_at=submitted_at,
-        approved_at=approved_at,
-        rejected_reason=rejected_reason,
+    from sqlalchemy import select
+
+    from src.models.distributor import Distributor
+    from src.models.org_qualification import OrgQualStatus, OrganizationQualification
+
+    if org_id is None and distributor_id is not None:
+        dist = (await db.execute(select(Distributor).where(Distributor.id == distributor_id))).scalars().first()
+        org_id = dist.org_id if dist else distributor_id
+
+    qual = OrganizationQualification(
+        org_id=org_id,
+        legal_entity_name="测试主体",
+        qualification_types=[qualification_type],
+        credit_code="TEST" + str(org_id),
+        file_urls=[],
+        valid_until=valid_until or (datetime.utcnow() + timedelta(days=365)),
+        status=OrgQualStatus(status) if status in ("approved", "rejected") else OrgQualStatus.REVIEWING,
     )
     db.add(qual)
     await db.flush()
@@ -403,7 +411,8 @@ async def seed_qualification(
 async def seed_promotion_code(
     db: AsyncSession,
     *,
-    promoter_id: int,
+    promoter_id: int | None = None,
+    distributor_id: int | None = None,
     ref_token: str = "test_ref_token_abc123",
     source_code: str = "BJTR",
     status: str = "available",
@@ -415,7 +424,7 @@ async def seed_promotion_code(
     from src.models.promotion import PromotionCode, PromotionCodeStatus
 
     code = PromotionCode(
-        promoter_id=promoter_id,
+        distributor_id=distributor_id if distributor_id is not None else promoter_id,
         ref_token=ref_token,
         source_code=source_code,
         status=PromotionCodeStatus(status),

@@ -35,11 +35,14 @@ export const PERMISSION_MODULES = [
     ],
   },
   {
-    module: 'qualifications',
-    label: '资质审核',
+    module: 'org',
+    label: '组织人员管理',
     permissions: [
-      { key: 'qualifications.read', label: '查看资质申请' },
-      { key: 'qualifications.write', label: '审核资质申请' },
+      { key: 'org.read', label: '查看组织结构与资质' },
+      { key: 'org.write', label: '编辑组织结构/资质' },
+      { key: 'distributor.read', label: '查看分销员' },
+      { key: 'distributor.write', label: '创建/编辑分销员' },
+      { key: 'org_admin.write', label: '设置/撤销组织管理员' },
     ],
   },
   {
@@ -78,14 +81,6 @@ export const PERMISSION_MODULES = [
     permissions: [
       { key: 'notifications.read', label: '查看通知' },
       { key: 'notifications.write', label: '发送通知' },
-    ],
-  },
-  {
-    module: 'hierarchy',
-    label: '层级管理',
-    permissions: [
-      { key: 'hierarchy.read', label: '查看层级结构' },
-      { key: 'hierarchy.write', label: '编辑层级结构' },
     ],
   },
   {

@@ -1,6 +1,0 @@
-{
-  "usingComponents": {
-    "flow-navigation": "/components/flow-navigation/index",
-    "van-icon": "/miniprogram_npm/@vant/weapp/icon/index"
-  }
-}

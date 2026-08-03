@@ -15,12 +15,6 @@ const routes = [
     meta: { title: '仪表盘', icon: 'Odometer' },
   },
   {
-    path: '/hierarchy',
-    name: 'Hierarchy',
-    component: () => import('@/pages/hierarchy/index.vue'),
-    meta: { title: '层级管理', icon: 'Share' },
-  },
-  {
     path: '/org',
     name: 'OrgTree',
     component: () => import('@/pages/org/org-tree.vue'),
@@ -43,12 +37,6 @@ const routes = [
     name: 'OrgAdmins',
     component: () => import('@/pages/org/org-admins.vue'),
     meta: { title: '组织管理员设置', hidden: true, permission: 'org_admin.write' },
-  },
-  {
-    path: '/qualifications',
-    name: 'Qualifications',
-    component: () => import('@/pages/qualifications/index.vue'),
-    meta: { title: '资质审核', icon: 'Checked' },
   },
   {
     path: '/customers',

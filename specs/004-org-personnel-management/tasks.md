@@ -101,7 +101,7 @@ description: "Task list for 组织人员管理（组织架构 + 分销员 + 组�
 - [X] T027 [US6] 切换外键：`customers`/`promotion_codes`/`contribution_records`/`binding_requests` 的 `promoter_id` → `distributor_id`，于 `backend/migrations/versions/`
 - [X] T028 [US6] 更新 `roles` 权限数据（`hierarchy:manage` → `org:manage`）于迁移脚本
 - [X] T029 [US6] 废弃旧表：`hierarchy_nodes`/`promoters`/`qualifications` 重命名或标记废弃（数据保留）于迁移脚本（I4：与旧层级端点停用同批协调——见 T065，避免表废弃后旧接口报错）
-- [ ] T030 [US6] 适配贡献值聚合：修改 `backend/src/services/contribution_service.py`、`backend/src/services/team_service.py`，贡献主体改为分销员、逐级汇总改为按组织树聚合（依赖 T023）
+- [X] T030 [US6] 适配贡献值聚合：修改 `backend/src/services/contribution_service.py`、`backend/src/services/team_service.py`，贡献主体改为分销员、逐级汇总改为按组织树聚合（依赖 T023）
 - [ ] T031 [US6] 适配分账规则：修改 `backend/src/services/sharing_service.py`，层级维度改为组织层级/类型，新规则对新数据生效（US6-AC5）
 - [ ] T032 [US6] 适配对账报表：修改 `backend/src/services/report_service.py`，增加组织维度汇总（US6-AC6）
 - [X] T033 [US6] 迁移一致性校验脚本于 `backend/scripts/verify_migration.py`（行数/求和/绑定数对比，供迁移后运行）
@@ -209,7 +209,7 @@ description: "Task list for 组织人员管理（组织架构 + 分销员 + 组�
 
 **Purpose**: 跨故事收尾、回归与文档
 
-- [ ] T065 移除/下架原层级管理入口：删除 `manageSystem/src/pages/hierarchy/index.vue` 相关路由与 `backend/src/api/v1/admin.py` 中 hierarchy 端点（I4：须在 US6 T029 表废弃后立即执行，与迁移发布同批，避免旧表废弃后接口报错）
+- [X] T065 移除/下架原层级管理入口：删除 `manageSystem/src/pages/hierarchy/index.vue` 相关路由与 `backend/src/api/v1/admin.py` 中 hierarchy 端点（I4：须在 US6 T029 表废弃后立即执行，与迁移发布同批，避免旧表废弃后接口报错）——已移除后端 `/admin/hierarchy` 端点与 `hierarchy_service`/`schemas/hierarchy`/测试，管理后台 hierarchy 页面/路由/菜单/存储删除，侧栏以"组织人员管理"替代
 - [ ] T066 [P] 更新 README/文档：README.md 组织结构描述、`docs/` 相关接口文档同步组织模型
 - [X] T067 [P] 安全收尾：核对所有后台组织/分销员/管理员接口权限点校验无遗漏（SC-011）、分销员手机号脱敏
 - [X] T068 [P] 性能验证（E2）：组织树操作与组织业绩聚合接口满足 SC-002（5 秒内反映）目标，性能测试于 `backend/tests/performance/`（数百人组织子树场景）

@@ -20,12 +20,6 @@ const SERVICE_ITEMS = [{
         icon: '/assets/images/profile-promo-icon.png'
     },
     {
-        id: 'qualification',
-        title: '资质状态',
-        description: '审核通过',
-        icon: '/assets/images/profile-qualification-icon.png'
-    },
-    {
         id: 'binding-records',
         title: '绑定记录',
         description: '查看客户绑定状态',

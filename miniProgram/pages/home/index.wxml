@@ -8,10 +8,6 @@
     <view class="screen tab-screen">
         <view class="greeting">
             <text class="greeting-title">上午好，{{session.name}}</text>
-            <view class="greeting-note">
-                <text class="check">✓</text>
-                <text>已完成资质审核，可开始推广</text>
-            </view>
         </view>
 
         <page-state state="{{state}}" message="请稍后再试" bind:retry="retry" />
@@ -71,12 +67,6 @@
                 </view>
             </view>
 
-            <view class="qualification tap-target" data-id="qualification" bindtap="action" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
-                <image src="/assets/images/qualification-icon.png" mode="aspectFit" />
-                <text>资质状态</text>
-                <text class="status">审核通过</text>
-                <text class="arrow">›</text>
-            </view>
         </view>
     </view>
 </scroll-view>

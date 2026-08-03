@@ -12,7 +12,6 @@ from ..core.config import get_settings
 from ..core.exceptions import BadRequestException, ForbiddenException, NotFoundException
 from ..models.distributor import Distributor
 from ..models.promotion import PromotionCode, PromotionCodeStatus
-from ..models.qualification import QualStatus, Qualification
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -34,22 +33,19 @@ async def _get_promoter(db: AsyncSession, user_id: int) -> Distributor:
     return promoter
 
 
-async def _check_approved_qualification(db: AsyncSession, distributor_id: int) -> Qualification:
-    """Verify the promoter has at least one approved qualification. Raises Forbidden if not."""
+async def _check_approved_qualification(db: AsyncSession, distributor_id: int) -> bool:
+    """Verify the distributor's org has an approved qualification (FR-008)."""
+    from ..services import distributor_service
+
     result = await db.execute(
-        select(Qualification)
-        .where(
-            Qualification.distributor_id == distributor_id,
-            Qualification.status == QualStatus.APPROVED,
-        )
-        .limit(1)
+        select(Distributor).where(Distributor.id == distributor_id)
     )
-    qual = result.scalars().first()
-    if qual is None:
+    distributor = result.scalars().first()
+    if distributor is None or not await distributor_service.is_distributor_selectable(db, distributor):
         raise ForbiddenException(
             message="You must have an approved qualification to access promotion codes"
         )
-    return qual
+    return True
 
 
 def _generate_ref_token() -> str:

@@ -22,13 +22,9 @@
           <el-icon><Odometer /></el-icon>
           <span>仪表盘</span>
         </el-menu-item>
-        <el-menu-item index="/hierarchy">
+        <el-menu-item index="/org">
           <el-icon><Share /></el-icon>
-          <span>层级管理</span>
-        </el-menu-item>
-        <el-menu-item index="/qualifications">
-          <el-icon><Checked /></el-icon>
-          <span>资质审核</span>
+          <span>组织人员管理</span>
         </el-menu-item>
         <el-menu-item index="/customers">
           <el-icon><User /></el-icon>
@@ -164,7 +160,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import {
-  Odometer, Share, Checked, User, Link, TrendCharts,
+  Odometer, Share, User, Link, TrendCharts,
   Setting, DataAnalysis, Document, Bell, Discount,
   Fold, Expand, ArrowDown, UserFilled,
 } from '@element-plus/icons-vue'

@@ -8,15 +8,7 @@ function canOpen(actionId, session) {
   return hasCapability(session, action.capability)
 }
 function resolveActionPath(actionId, action, session) {
-  if (actionId !== 'qualification') return action.path
-
-  const allowedStates = ['approved', 'reviewing', 'rejected', 'expiring']
-  const currentState = session && session.qualificationStatus
-  const state = allowedStates.indexOf(currentState) === -1
-    ? 'reviewing'
-    : currentState
-
-  return `${action.path}?state=${state}`
+  return action.path
 }
 
 function openAction(actionId, session) {
