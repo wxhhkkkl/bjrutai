@@ -163,6 +163,8 @@ async def update_distributor(
     d = await get_distributor_or_404(db, distributor_id)
 
     if data.org_id is not None:
+        if d.org_role == OrgRole.ADMIN:
+            raise BadRequestException(message="组织管理员不可调整组织，请先撤销其管理员身份")
         await organization_service._get_org_or_404(db, data.org_id)
         d.org_id = data.org_id
 

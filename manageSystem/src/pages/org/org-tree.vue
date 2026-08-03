@@ -119,7 +119,13 @@
               </el-table-column>
               <el-table-column label="操作" width="280" fixed="right">
                 <template #default="{ row }">
-                  <el-button size="small" link @click="openMoveOrg(row)">调整组织</el-button>
+                  <el-button
+                    size="small"
+                    link
+                    :disabled="row.orgRole === 'admin'"
+                    :title="row.orgRole === 'admin' ? '组织管理员不可调整组织' : ''"
+                    @click="openMoveOrg(row)"
+                  >调整组织</el-button>
                   <el-button size="small" link :type="row.orgRole === 'admin' ? 'danger' : 'success'" @click="toggleRole(row)">
                     {{ row.orgRole === 'admin' ? '撤销管理员' : '设为管理员' }}
                   </el-button>
