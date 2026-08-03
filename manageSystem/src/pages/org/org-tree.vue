@@ -74,9 +74,8 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="230" fixed="right">
+              <el-table-column label="操作" width="200" fixed="right">
                 <template #default="{ row }">
-                  <el-button size="small" link type="primary" @click="handleSelect(row)">查看</el-button>
                   <el-button size="small" link @click="openMigrate(row)">迁移</el-button>
                   <el-button size="small" link @click="goQualification(row)">资质管理</el-button>
                   <el-button size="small" link type="danger" @click="handleDelete(row)">删除</el-button>
