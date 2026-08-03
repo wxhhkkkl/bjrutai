@@ -20,7 +20,9 @@ class OrganizationQualification(Base):
     __tablename__ = "org_qualifications"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    org_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     legal_entity_name: Mapped[str] = mapped_column(String(256), nullable=False)
     qualification_types: Mapped[list] = mapped_column(JSON, nullable=False)
     credit_code: Mapped[str] = mapped_column(String(64), nullable=False)

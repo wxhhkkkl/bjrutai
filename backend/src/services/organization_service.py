@@ -254,13 +254,13 @@ async def delete_org(db: AsyncSession, org_id: int, operator_id: Optional[int] =
 
     result = await db.execute(select(Organization.id).where(Organization.parent_id == org_id))
     if result.first() is not None:
-        raise BadRequestException(message="Cannot delete organization with child organizations (migrate first)")
+        raise BadRequestException(message="该组织下仍有下级组织，请先迁移或删除下级组织后再删除")
 
     from ..models.distributor import Distributor
 
     result = await db.execute(select(Distributor.id).where(Distributor.org_id == org_id))
     if result.first() is not None:
-        raise BadRequestException(message="Cannot delete organization with distributors (move or disable them first)")
+        raise BadRequestException(message="该组织下仍有分销员，请先调整归属或停用后再删除")
 
     await _record_history(db, org_id, OrgHistoryAction.DELETED, operator_id)
     await db.delete(node)
