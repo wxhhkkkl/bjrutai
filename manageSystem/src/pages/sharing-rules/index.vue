@@ -173,8 +173,10 @@ function collectLevels(nodes, acc = new Set()) {
 }
 async function loadOrgLevels() {
   try {
-    const tree = await orgApi.getTree()
-    const items = Array.isArray(tree) ? tree : (tree?.items || [])
+    const payload = await orgApi.getTree()
+    const items = Array.isArray(payload)
+      ? payload
+      : (Array.isArray(payload?.tree) ? payload.tree : (payload?.items || []))
     orgLevels.value = Array.from(collectLevels(items)).sort((a, b) => a - b)
   } catch {
     orgLevels.value = []

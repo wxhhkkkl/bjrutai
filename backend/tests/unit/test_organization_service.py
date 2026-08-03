@@ -185,5 +185,19 @@ async def test_tree_retrieval(db_session):
     )
     tree = await organization_service.get_tree(db_session)
     assert tree["totalNodes"] == 2
-    assert tree["tree"]["orgId"] == str(root.id)
-    assert len(tree["tree"]["children"]) == 1
+    assert tree["tree"][0]["orgId"] == str(root.id)
+    assert len(tree["tree"][0]["children"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_tree_retrieval_returns_all_roots(db_session):
+    """Multiple root orgs must all appear in the tree (regression: only roots[0] was shown)."""
+    a = await organization_service.create_org(db_session, OrgCreate(name="根A", orgType=None))
+    b = await organization_service.create_org(db_session, OrgCreate(name="根B", orgType=None))
+    await organization_service.create_org(
+        db_session, OrgCreate(name="根A子", orgType=None, parentId=a.id)
+    )
+    tree = await organization_service.get_tree(db_session)
+    root_ids = {t["orgId"] for t in tree["tree"]}
+    assert root_ids == {str(a.id), str(b.id)}
+    assert tree["totalNodes"] == 3

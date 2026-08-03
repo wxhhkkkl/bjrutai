@@ -18,7 +18,7 @@
     </div>
 
     <div class="tree-container" v-loading="loading">
-      <el-empty v-if="!tree" description="暂无组织，请先创建根组织" />
+      <el-empty v-if="treeData.length === 0" description="暂无组织，请先创建根组织" />
       <el-tree
         v-else
         :data="treeData"
@@ -132,10 +132,10 @@ const migrateTarget = ref(null)
 const historyVisible = ref(false)
 const historyItems = ref([])
 
-const treeData = computed(() => (tree.value ? [tree.value] : []))
+const treeData = computed(() => tree.value || [])
 const treeStats = computed(() => ({
-  totalNodes: tree.value ? countNodes(tree.value) : 0,
-  maxDepth: tree.value ? maxDepth(tree.value) : 0,
+  totalNodes: (tree.value || []).reduce((s, r) => s + countNodes(r), 0),
+  maxDepth: (tree.value || []).reduce((s, r) => Math.max(s, maxDepth(r)), 0),
 }))
 
 function countNodes(n) {
@@ -154,8 +154,9 @@ async function loadTree() {
   loading.value = true
   try {
     const data = await orgApi.getTree()
-    tree.value = data.tree || null
-    flatOrgs.value = tree.value ? flatten(tree.value) : []
+    const roots = Array.isArray(data.tree) ? data.tree : (data.tree ? [data.tree] : [])
+    tree.value = roots
+    flatOrgs.value = roots.flatMap((r) => flatten(r))
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '加载组织树失败')
   } finally {

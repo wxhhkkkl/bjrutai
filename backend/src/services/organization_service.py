@@ -99,7 +99,7 @@ async def get_tree(db: AsyncSession) -> dict:
     all_nodes = result.scalars().all()
 
     if not all_nodes:
-        return {"tree": None, "totalNodes": 0, "maxDepth": 0}
+        return {"tree": [], "totalNodes": 0, "maxDepth": 0}
 
     node_map: dict[int, dict] = {}
     children_map: dict[int, list[dict]] = {}
@@ -119,12 +119,16 @@ async def get_tree(db: AsyncSession) -> dict:
 
     roots = [node_map[n.id] for n in all_nodes if n.parent_id is None]
     if not roots:
-        return {"tree": None, "totalNodes": len(all_nodes), "maxDepth": 0}
+        return {"tree": [], "totalNodes": len(all_nodes), "maxDepth": 0}
 
-    root = roots[0]
-    tree = build_subtree(root)
+    # Multiple root orgs are allowed — return a forest of root subtrees.
+    trees = [build_subtree(r) for r in roots]
 
-    return {"tree": tree, "totalNodes": len(all_nodes), "maxDepth": _compute_depth(tree)}
+    return {
+        "tree": trees,
+        "totalNodes": len(all_nodes),
+        "maxDepth": max((_compute_depth(t) for t in trees), default=0),
+    }
 
 
 async def get_subtree(db: AsyncSession, org_id: int) -> dict:
