@@ -43,6 +43,7 @@ def _org_to_dict(node: Organization, include_children: bool = True) -> dict:
         "parentId": str(node.parent_id) if node.parent_id else None,
         "sortOrder": node.sort_order,
         "status": node.status.value if hasattr(node.status, "value") else str(node.status),
+        "qualificationStatus": "none",  # 由 get_tree/get_subtree 填充：approved/reviewing/rejected
         "children": children,
         "createdAt": node.created_at.isoformat() if node.created_at else None,
         "updatedAt": node.updated_at.isoformat() if node.updated_at else None,
@@ -93,6 +94,27 @@ async def _record_history(
 # ---------------------------------------------------------------------------
 # Tree retrieval
 # ---------------------------------------------------------------------------
+async def _org_qualification_status_map(db: AsyncSession, org_ids: set[int]) -> dict[int, str]:
+    """Return org_id -> latest qualification status for display.
+
+    Values: 'approved' / 'reviewing' / 'rejected'（无资质时不在 map 中）。
+    """
+    if not org_ids:
+        return {}
+    from ..models.org_qualification import OrganizationQualification
+
+    result = await db.execute(
+        select(OrganizationQualification)
+        .where(OrganizationQualification.org_id.in_(org_ids))
+        .order_by(OrganizationQualification.created_at.desc())
+    )
+    status_map: dict[int, str] = {}
+    for q in result.scalars().all():
+        if q.org_id not in status_map:
+            status_map[q.org_id] = q.status.value if hasattr(q.status, "value") else str(q.status)
+    return status_map
+
+
 async def get_tree(db: AsyncSession) -> dict:
     """Return the full organization tree starting from the root node."""
     result = await db.execute(select(Organization))
@@ -109,6 +131,11 @@ async def get_tree(db: AsyncSession) -> dict:
         node_dict["children"] = []
         node_map[node.id] = node_dict
         children_map.setdefault(node.parent_id if node.parent_id else 0, []).append(node_dict)
+
+    # 填充每个组织的资质状态（最新一条）
+    qual_map = await _org_qualification_status_map(db, set(node_map.keys()))
+    for nid, nd in node_map.items():
+        nd["qualificationStatus"] = qual_map.get(nid, "none")
 
     def build_subtree(node_dict: dict) -> dict:
         nid = int(node_dict["orgId"])
@@ -146,6 +173,10 @@ async def get_subtree(db: AsyncSession, org_id: int) -> dict:
         node_dict["children"] = []
         node_map[node.id] = node_dict
         children_map.setdefault(node.parent_id if node.parent_id else 0, []).append(node_dict)
+
+    qual_map = await _org_qualification_status_map(db, set(node_map.keys()))
+    for nid, nd in node_map.items():
+        nd["qualificationStatus"] = qual_map.get(nid, "none")
 
     def build_subtree(node_dict: dict) -> dict:
         nid = int(node_dict["orgId"])

@@ -67,11 +67,19 @@
               <el-table-column prop="orgType" label="备注" min-width="120">
                 <template #default="{ row }">{{ row.orgType || '-' }}</template>
               </el-table-column>
-              <el-table-column label="状态" width="80" align="center">
+              <el-table-column label="状态" width="70" align="center">
                 <template #default="{ row }">
                   <el-tag size="small" :type="row.status === 'disabled' ? 'danger' : 'success'" effect="plain">
                     {{ row.status === 'disabled' ? '停用' : '正常' }}
                   </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="资质状态" width="100" align="center">
+                <template #default="{ row }">
+                  <el-tag v-if="row.qualificationStatus === 'approved'" type="success" size="small">资质已审核</el-tag>
+                  <el-tag v-else-if="row.qualificationStatus === 'reviewing'" type="warning" size="small">审核中</el-tag>
+                  <el-tag v-else-if="row.qualificationStatus === 'rejected'" type="danger" size="small">未通过</el-tag>
+                  <el-tag v-else type="info" size="small" effect="plain">无资质</el-tag>
                 </template>
               </el-table-column>
               <el-table-column label="操作" width="200" fixed="right">
