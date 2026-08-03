@@ -106,6 +106,7 @@ class COSClient:
 
         return {
             "fileId": object_key,
+            "fileUrl": f"https://{self._bucket}.cos.{self._region}.myqcloud.com/{object_key}",
             "uploadUrl": upload_url,
             "expiresAt": expires_at,
             "contentType": content_type,

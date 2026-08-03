@@ -51,6 +51,9 @@ export const orgQualificationApi = {
   list(orgId) {
     return http.get(`/admin/orgs/${orgId}/qualifications`).then(payload)
   },
+  uploadToken(data) {
+    return http.post(`/admin/org-qualifications/upload-token`, data).then(payload)
+  },
   upload(orgId, data) {
     return http.post(`/admin/orgs/${orgId}/qualifications`, data).then(payload)
   },

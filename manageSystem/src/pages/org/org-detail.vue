@@ -54,8 +54,8 @@
         <el-form-item label="信用代码" required>
           <el-input v-model="form.creditCode" maxlength="64" />
         </el-form-item>
-        <el-form-item label="资质类型">
-          <el-select v-model="form.qualificationTypes" multiple>
+        <el-form-item label="资质类型" required>
+          <el-select v-model="form.qualificationTypes" multiple placeholder="请选择资质类型">
             <el-option label="营业执照" value="business_license" />
             <el-option label="医疗机构许可证" value="medical_institution_permit" />
             <el-option label="法人证书" value="legal_person_certificate" />
@@ -64,8 +64,19 @@
         <el-form-item label="有效期至" required>
           <el-date-picker v-model="form.validUntil" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" />
         </el-form-item>
-        <el-form-item label="文件地址">
-          <el-input v-model="fileUrl" placeholder="COS 文件 URL" />
+        <el-form-item label="资质文件" required>
+          <el-upload
+            v-model:file-list="fileList"
+            :auto-upload="false"
+            :show-file-list="true"
+            :limit="1"
+            :on-change="onFileChange"
+            :on-remove="onFileRemove"
+            accept=".jpg,.jpeg,.png,.pdf"
+          >
+            <el-button size="small" type="primary">选择文件并上传至腾讯 COS</el-button>
+          </el-upload>
+          <div v-if="fileUrl" class="file-url-tip">已上传：{{ fileUrl }}</div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -89,10 +100,12 @@ const orgName = ref(route.query.orgName || `组织 #${orgId}`)
 const activeTab = ref('qualification')
 const loading = ref(false)
 const saving = ref(false)
+const uploading = ref(false)
 const qualifications = ref([])
 const uploadVisible = ref(false)
 const fileUrl = ref('')
-const form = ref({ legalEntityName: '', creditCode: '', qualificationTypes: [], validUntil: '' })
+const fileList = ref([])
+const form = ref({ legalEntityName: '', creditCode: '', qualificationTypes: ['business_license'], validUntil: '' })
 
 function statusType(s) {
   return { reviewing: 'warning', approved: 'success', rejected: 'danger' }[s] || 'info'
@@ -114,21 +127,53 @@ async function load() {
 }
 
 function openUpload() {
-  form.value = { legalEntityName: '', creditCode: '', qualificationTypes: [], validUntil: '' }
+  form.value = { legalEntityName: '', creditCode: '', qualificationTypes: ['business_license'], validUntil: '' }
   fileUrl.value = ''
+  fileList.value = []
   uploadVisible.value = true
 }
 
+async function onFileChange(file) {
+  const raw = file.raw
+  if (!raw) return
+  if (raw.size > 10 * 1024 * 1024) {
+    ElMessage.warning('文件大小不能超过 10MB')
+    fileList.value = []
+    return
+  }
+  uploading.value = true
+  try {
+    const token = await orgQualificationApi.uploadToken({
+      fileName: raw.name,
+      contentType: raw.type || 'application/octet-stream',
+      fileSize: raw.size,
+    })
+    await fetch(token.uploadUrl, { method: 'PUT', body: raw, headers: { 'Content-Type': raw.type } })
+    fileUrl.value = token.fileUrl
+    ElMessage.success('已上传到腾讯 COS')
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '上传失败')
+    fileUrl.value = ''
+    fileList.value = []
+  } finally {
+    uploading.value = false
+  }
+}
+
+function onFileRemove() {
+  fileUrl.value = ''
+}
+
 async function submitUpload() {
-  if (!form.value.legalEntityName || !form.value.creditCode || !form.value.validUntil) {
-    ElMessage.warning('请填写完整资质信息')
+  if (!form.value.legalEntityName || !form.value.creditCode || form.value.qualificationTypes.length === 0 || !form.value.validUntil || !fileUrl.value) {
+    ElMessage.warning('请填写完整资质信息（资质类型必选，并上传资质文件）')
     return
   }
   saving.value = true
   try {
     await orgQualificationApi.upload(orgId, {
       ...form.value,
-      fileUrls: fileUrl.value ? [{ url: fileUrl.value, type: 'pdf', size: 0 }] : [],
+      fileUrls: [{ url: fileUrl.value, type: form.value.qualificationTypes.join(','), size: 0 }],
     })
     ElMessage.success('上传成功，等待审核')
     uploadVisible.value = false
@@ -161,4 +206,5 @@ onMounted(load)
 <style scoped>
 .org-detail { padding: 16px; }
 .qual-toolbar { margin-bottom: 12px; }
+.file-url-tip { margin-top: 8px; font-size: 12px; color: #67c23a; word-break: break-all; }
 </style>
