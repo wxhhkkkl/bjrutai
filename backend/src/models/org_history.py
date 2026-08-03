@@ -23,7 +23,8 @@ class OrgHistory(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     org_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     action: Mapped[OrgHistoryAction] = mapped_column(
-        SAEnum(OrgHistoryAction, name="org_history_action_enum"), nullable=False
+        SAEnum(OrgHistoryAction, name="org_history_action_enum", values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
     )
     operator_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("admin_accounts.id"), nullable=True)
     detail: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)

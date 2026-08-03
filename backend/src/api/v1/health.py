@@ -40,29 +40,31 @@ async def health_check() -> dict:
         db_message = str(exc)[:200]
         logger.error("Health check DB error: %s", exc)
 
-    # Rutai API status (HEAD request)
+    # Rutai API status (HEAD request). Skip the live connectivity probe when
+    # the external 互联网医院 API is mocked for dev/acceptance.
     rutai_status = "ok"
-    rutai_message = ""
-    try:
-        import httpx
+    rutai_message = "mocked" if settings.rutai_mock else ""
+    if not settings.rutai_mock:
+        try:
+            import httpx
 
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.head(
-                settings.rutai_api_base_url,
-                headers={
-                    "Authorization": f"Bearer {settings.rutai_api_key}",
-                },
-            )
-            if resp.status_code < 500:
-                rutai_status = "ok"
-                rutai_message = f"HTTP {resp.status_code}"
-            else:
-                rutai_status = "degraded"
-                rutai_message = f"HTTP {resp.status_code}"
-    except Exception as exc:
-        rutai_status = "error"
-        rutai_message = str(exc)[:200]
-        logger.error("Health check Rutai API error: %s", exc)
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.head(
+                    settings.rutai_api_base_url,
+                    headers={
+                        "Authorization": f"Bearer {settings.rutai_api_key}",
+                    },
+                )
+                if resp.status_code < 500:
+                    rutai_status = "ok"
+                    rutai_message = f"HTTP {resp.status_code}"
+                else:
+                    rutai_status = "degraded"
+                    rutai_message = f"HTTP {resp.status_code}"
+        except Exception as exc:
+            rutai_status = "error"
+            rutai_message = str(exc)[:200]
+            logger.error("Health check Rutai API error: %s", exc)
 
     # Memory usage (cross-platform)
     try:

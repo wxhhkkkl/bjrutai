@@ -182,6 +182,9 @@ class RutaiClient:
     # Public API methods
     # ------------------------------------------------------------------
 
+    def _mock_responses(self) -> bool:
+        return bool(settings.rutai_mock)
+
     async def bind_bj_user(
         self,
         request_id: str,
@@ -203,6 +206,15 @@ class RutaiClient:
           - hrb_user_id: Optional[str]  # Rutai user ID if matched
           - marked_source: Optional[str]
         """
+        if self._mock_responses():
+            return {
+                "match_status": "matched",
+                "match_level": "exact",
+                "matched_by": "phone",
+                "hrb_user_id": f"hrb_mock_{request_id}",
+                "marked_source": source,
+            }
+
         body: dict[str, Any] = {
             "request_id": request_id,
             "patient_name": patient_name,
@@ -234,6 +246,9 @@ class RutaiClient:
           - next_cursor: Optional[str]
           - has_more: bool
         """
+        if self._mock_responses():
+            return {"items": [], "next_cursor": None, "has_more": False}
+
         params: dict[str, Any] = {
             "page_size": page_size,
             "source": source,
@@ -262,6 +277,9 @@ class RutaiClient:
           - next_cursor: Optional[str]
           - has_more: bool
         """
+        if self._mock_responses():
+            return {"items": [], "next_cursor": None, "has_more": False}
+
         params: dict[str, Any] = {
             "hrb_user_id": hrb_user_id,
             "page_size": page_size,
@@ -289,6 +307,9 @@ class RutaiClient:
           - next_cursor: Optional[str]
           - has_more: bool
         """
+        if self._mock_responses():
+            return {"items": [], "next_cursor": None, "has_more": False}
+
         params: dict[str, Any] = {
             "bill_date": bill_date,
             "source": source,

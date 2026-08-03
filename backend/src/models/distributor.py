@@ -27,10 +27,12 @@ class Distributor(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
     org_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     org_role: Mapped[OrgRole] = mapped_column(
-        SAEnum(OrgRole, name="org_role_enum"), default=OrgRole.MEMBER
+        SAEnum(OrgRole, name="org_role_enum", values_callable=lambda x: [e.value for e in x]),
+        default=OrgRole.MEMBER,
     )
     status: Mapped[DistributorStatus] = mapped_column(
-        SAEnum(DistributorStatus, name="distributor_status_enum"), default=DistributorStatus.ACTIVE
+        SAEnum(DistributorStatus, name="distributor_status_enum", values_callable=lambda x: [e.value for e in x]),
+        default=DistributorStatus.ACTIVE,
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

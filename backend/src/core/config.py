@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     rutai_api_base_url: str = "https://api.rutai.example.com"
     rutai_api_key: str = ""
     rutai_api_secret: str = ""
+    # Mock the external Rutai API (dev/acceptance without a live 互联网医院对接).
+    rutai_mock: bool = False
 
     # COS
     cos_secret_id: str = ""

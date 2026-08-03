@@ -28,7 +28,8 @@ class OrganizationQualification(Base):
     valid_from: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     valid_until: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     status: Mapped[OrgQualStatus] = mapped_column(
-        SAEnum(OrgQualStatus, name="org_qual_status_enum"), default=OrgQualStatus.REVIEWING
+        SAEnum(OrgQualStatus, name="org_qual_status_enum", values_callable=lambda x: [e.value for e in x]),
+        default=OrgQualStatus.REVIEWING,
     )
     review_comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     reviewed_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("admin_accounts.id"), nullable=True)

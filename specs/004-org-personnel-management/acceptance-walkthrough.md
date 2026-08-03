@@ -11,7 +11,8 @@
    - 「工具 → 构建 npm」生成 `miniprogram_npm`（同时解决 vant 图标契约测试）。
    - `app.js` 中 `globalData.apiBase` 为本机后端地址；真机调试需改为局域网 IP。
 4. **测试数据**：后台需存在组织树 + 分销员 + 组织资质 + 组织管理员，由走查第 1 步创建。
-5. **管理员凭据**：使用系统内已存在的 admin 账号（默认创建时密码见 `src/core/config.py` 的 `admin_default_password`，如已修改请用实际密码）。
+5. **管理员凭据**：`admin` / `change-me-immediately`（本次已用该凭据创建测试数据）。
+6. **测试数据（已种入）**：组织树 `北京儒泰总部 → 华北区 → 石家庄`；总部组织资质已审核通过；分销员 `13800000001` / `pass12345`（总部组织管理员）。分销员首次登录会进入微信绑定步骤。
 
 ---
 
@@ -98,4 +99,5 @@ cd backend
 
 ## 已知环境项
 - 微信绑定需真实 AppID/Secret（`.env` 的 WECHAT 配置），DevTools 测试号可走通登录但 jscode2session 需真实凭据。
-- 外部儒泰接口（bindBjUser 等）在当前环境不可达，涉及客户绑定/账单的走查需真实对接或 mock。
+- 外部互联网医院接口（bindBjUser/getBindUser/getUserBill 等）当前以 mock 运行：`backend/.env` 设 `RUTAI_MOCK=true`，客户绑定走 mock 匹配，涉及账单/贡献的走查数据为空。
+- 小程序 vant 组件依赖 `miniprogram_npm/`（已由「构建 npm」或本会话从 `node_modules/@vant/weapp/dist` 生成）。

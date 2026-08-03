@@ -27,7 +27,8 @@ class Organization(Base):
     level: Mapped[int] = mapped_column(Integer, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     status: Mapped[OrgStatus] = mapped_column(
-        SAEnum(OrgStatus, name="org_status_enum"), default=OrgStatus.ACTIVE
+        SAEnum(OrgStatus, name="org_status_enum", values_callable=lambda x: [e.value for e in x]),
+        default=OrgStatus.ACTIVE,
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

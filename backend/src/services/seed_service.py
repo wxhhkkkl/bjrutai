@@ -56,6 +56,13 @@ async def seed_system_admin_role(db: AsyncSession) -> None:
         await db.flush()
         await db.refresh(system_role)
         logger.info("Created system admin role: %s", system_role.name)
+    else:
+        # Idempotent sync: keep the system admin role's permission set current
+        # (org/distributor permissions replaced hierarchy/qualifications).
+        if system_role.permissions != _ALL_PERMISSIONS:
+            system_role.permissions = _ALL_PERMISSIONS
+            await db.flush()
+            logger.info("Synced system admin role permissions")
 
     # ── Assign to default admin ───────────────────────────────────
     admin_result = await db.execute(
