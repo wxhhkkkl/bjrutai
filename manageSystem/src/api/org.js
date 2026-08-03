@@ -54,6 +54,11 @@ export const orgQualificationApi = {
   uploadToken(data) {
     return http.post(`/admin/org-qualifications/upload-token`, data).then(payload)
   },
+  uploadFile(file) {
+    const fd = new FormData()
+    fd.append('file', file)
+    return http.post('/admin/org-qualifications/upload', fd).then(payload)
+  },
   upload(orgId, data) {
     return http.post(`/admin/orgs/${orgId}/qualifications`, data).then(payload)
   },

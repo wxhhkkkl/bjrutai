@@ -6,13 +6,13 @@ List/upload require ``org.read`` / ``org.write``; review requires
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_admin_user, get_db, require_permission
 from ...core.error_handler import _build_response
-from ...integrations.cos_client import get_cos_client
+from ...integrations.cos_client import MAX_FILE_SIZE, get_cos_client
 from ...schemas.org_qualification import (
     OrgQualificationCreate,
     OrgQualificationReview,
@@ -45,6 +45,51 @@ async def list_qualifications(
     """List org qualifications (latest first)."""
     result = await org_qualification_service.list_qualifications(db, org_id)
     return _build_response(0, "success", {"items": result})
+
+
+@router.post("/org-qualifications/upload")
+async def upload_qualification_file(
+    file: UploadFile = File(...),
+    admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("org.write")),
+):
+    """Receive a qualification image and upload it to Tencent COS server-side.
+
+    前端把文件发给后端，后端上传到 COS——绕开浏览器直传的 CORS/防盗链/
+    Content-Type 签名差异问题。返回 COS 文件 URL。
+    """
+    import httpx
+
+    from ...core.exceptions import BadRequestException
+
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise BadRequestException(message=f"文件大小不能超过 {MAX_FILE_SIZE // (1024 * 1024)}MB")
+    content_type = file.content_type or "application/octet-stream"
+
+    client = get_cos_client()
+    try:
+        token = client.generate_upload_token(
+            user_id=_operator_id(admin) or 0,
+            file_name=file.filename or "qualification.jpg",
+            content_type=content_type,
+            file_size=len(content),
+            key_prefix="qualifications/",
+        )
+    except ValueError as exc:
+        raise BadRequestException(message=str(exc))
+
+    async with httpx.AsyncClient(timeout=60) as h:
+        resp = await h.put(
+            token["uploadUrl"], content=content, headers={"Content-Type": content_type}
+        )
+    if resp.status_code >= 300:
+        raise BadRequestException(message=f"COS 上传失败 (HTTP {resp.status_code})")
+
+    return _build_response(0, "success", {
+        "fileUrl": token["fileUrl"],
+        "fileName": file.filename,
+    })
 
 
 @router.post("/org-qualifications/upload-token")

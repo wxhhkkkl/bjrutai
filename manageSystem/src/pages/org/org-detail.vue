@@ -173,13 +173,8 @@ async function onFileChange(file) {
   }
   uploading.value = true
   try {
-    const token = await orgQualificationApi.uploadToken({
-      fileName: raw.name,
-      contentType: raw.type,
-      fileSize: raw.size,
-    })
-    await fetch(token.uploadUrl, { method: 'PUT', body: raw, headers: { 'Content-Type': raw.type } })
-    fileUrl.value = token.fileUrl
+    const result = await orgQualificationApi.uploadFile(raw)
+    fileUrl.value = result.fileUrl
     ElMessage.success('图片已上传')
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '上传失败')
