@@ -27,18 +27,6 @@ const routes = [
     meta: { title: '组织详情', hidden: true, permission: 'org.read' },
   },
   {
-    path: '/org/distributors',
-    name: 'OrgDistributors',
-    component: () => import('@/pages/org/distributors.vue'),
-    meta: { title: '分销员管理', hidden: true, permission: 'distributor.read' },
-  },
-  {
-    path: '/org/admins',
-    name: 'OrgAdmins',
-    component: () => import('@/pages/org/org-admins.vue'),
-    meta: { title: '组织管理员设置', hidden: true, permission: 'org_admin.write' },
-  },
-  {
     path: '/customers',
     name: 'Customers',
     component: () => import('@/pages/customers/index.vue'),
