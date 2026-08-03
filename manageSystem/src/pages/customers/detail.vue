@@ -18,13 +18,23 @@
             <el-form-item label="手机号">
               <el-input v-model="form.phone" placeholder="手机号" :disabled="!editing" />
             </el-form-item>
+            <el-form-item label="身份证号">
+              <el-input v-model="form.idCard" placeholder="身份证号（脱敏展示，修改需填写原因）" :disabled="!editing" maxlength="18" />
+            </el-form-item>
+            <el-form-item label="医保账户">
+              <el-input v-model="form.medicalAccount" placeholder="医保账户（脱敏展示，修改需填写原因）" :disabled="!editing" maxlength="64" />
+            </el-form-item>
             <el-form-item label="绑定状态">
               <el-tag :type="bindingStatusType(customer.bindingStatus)" size="small">
                 {{ bindingStatusLabel(customer.bindingStatus) }}
               </el-tag>
+              <span v-if="customer.boundAt" class="muted">绑定于 {{ formatTime(customer.boundAt) }}</span>
             </el-form-item>
             <el-form-item label="推广员">
-              {{ customer.promoterName || '-' }}
+              <span>{{ customer.promoterName || '-' }}</span>
+              <el-button v-if="canWrite" link type="primary" size="small" style="margin-left: 8px;" @click="openTransfer">
+                更改推广员
+              </el-button>
             </el-form-item>
             <el-form-item label="备注">
               <el-input v-model="form.note" type="textarea" :rows="2" :disabled="!editing" />
@@ -34,12 +44,12 @@
             </el-form-item>
 
             <el-form-item v-if="editing" label="修改原因">
-              <el-input v-model="form.changeReason" placeholder="敏感字段修改请填写原因" />
+              <el-input v-model="form.changeReason" placeholder="修改身份证/医保账户/手机号等敏感字段时必须填写" />
             </el-form-item>
 
             <div class="form-actions">
               <template v-if="!editing">
-                <el-button type="primary" size="small" @click="startEdit">编辑</el-button>
+                <el-button v-if="canWrite" type="primary" size="small" @click="startEdit">编辑</el-button>
               </template>
               <template v-else>
                 <el-button size="small" @click="cancelEdit">取消</el-button>
@@ -51,9 +61,38 @@
           <el-descriptions v-if="customer" :column="2" border size="small" style="margin-top: 16px;">
             <el-descriptions-item label="服务次数">{{ customer.serviceCount ?? 0 }}</el-descriptions-item>
             <el-descriptions-item label="跟进次数">{{ customer.followupCount ?? 0 }}</el-descriptions-item>
-            <el-descriptions-item label="本月贡献">{{ customer.monthlyContribution ?? 0 }}</el-descriptions-item>
-            <el-descriptions-item label="累计贡献">{{ customer.totalContribution ?? 0 }}</el-descriptions-item>
+            <el-descriptions-item label="所属组织">{{ customer.orgName || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="医院ID">{{ customer.rutaiUserId || '-' }}</el-descriptions-item>
           </el-descriptions>
+        </el-tab-pane>
+
+        <!-- 推广员变更记录 -->
+        <el-tab-pane label="推广员变更" name="changeLogs">
+          <el-timeline v-if="changeLogItems.length">
+            <el-timeline-item
+              v-for="log in changeLogItems"
+              :key="log.id"
+              :timestamp="formatTime(log.createdAt)"
+              placement="top"
+            >
+              <p style="margin: 0;">
+                <el-tag :type="log.operationType === 'created' ? 'info' : 'warning'" size="small">
+                  {{ log.operationType === 'created' ? '建档' : '推广员变更' }}
+                </el-tag>
+                <span style="margin-left: 8px;">
+                  <template v-if="log.operationType === 'created'">
+                    初始推广员：{{ log.newPromoterName || '-' }}
+                  </template>
+                  <template v-else>
+                    {{ log.previousPromoterName || '-' }} → {{ log.newPromoterName || '-' }}
+                  </template>
+                </span>
+              </p>
+              <div v-if="log.reason" class="muted">原因：{{ log.reason }}</div>
+              <div v-if="log.operatorName" class="muted">操作人：{{ log.operatorName }}</div>
+            </el-timeline-item>
+          </el-timeline>
+          <el-empty v-else description="暂无推广员变更记录" />
         </el-tab-pane>
 
         <!-- Binding history -->
@@ -163,18 +202,33 @@
         <el-button type="primary" size="small" :loading="addingFollowup" @click="submitFollowup">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 更改推广员 -->
+    <TransferPromoterDialog
+      v-model="showTransfer"
+      :customer-id="customerId"
+      :customer-name="customer?.name"
+      :current-promoter="customer?.promoterName"
+      :current-distributor-id="customer?.distributorId"
+      :org-id="customer?.orgId"
+      @success="handleTransferSuccess"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { computed, reactive, ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http from '@/api/http'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
+import { adminCustomerApi } from '@/api/customers'
+import { useAuthStore } from '@/stores/auth'
+import TransferPromoterDialog from '@/components/customers/TransferPromoterDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 
 const customerId = route.params.id
 const loading = ref(false)
@@ -182,10 +236,15 @@ const customer = ref(null)
 const activeTab = ref('profile')
 const editing = ref(false)
 const saving = ref(false)
+const showTransfer = ref(false)
+
+const canWrite = computed(() => authStore.hasPermission('customers.write'))
 
 const form = reactive({
   name: '',
   phone: '',
+  idCard: '',
+  medicalAccount: '',
   note: '',
   familyPhone: '',
   changeReason: '',
@@ -207,6 +266,9 @@ function contribStatusType(s) {
 function followupResultType(r) {
   return { successful: 'success', failed: 'danger', pending: 'warning', no_answer: 'info' }[r] || 'info'
 }
+
+// 推广员变更记录
+const changeLogItems = ref([])
 
 // Binding history
 const bindingItems = ref([])
@@ -232,12 +294,14 @@ onMounted(async () => {
 async function loadCustomer() {
   loading.value = true
   try {
-    const res = await http.get(`/customers/${customerId}`)
+    const res = await http.get(`/admin/customers/${customerId}`)
     customer.value = res.data?.data || res.data
 
     if (customer.value) {
       form.name = customer.value.name || ''
-      form.phone = customer.value.phone || ''
+      form.phone = customer.value.phoneMasked || ''
+      form.idCard = customer.value.idCardMasked || ''
+      form.medicalAccount = customer.value.medicalAccountMasked || ''
       form.note = customer.value.note || ''
       form.familyPhone = customer.value.familyPhone || ''
     }
@@ -253,7 +317,9 @@ function cancelEdit() {
   editing.value = false
   if (customer.value) {
     form.name = customer.value.name || ''
-    form.phone = customer.value.phone || ''
+    form.phone = customer.value.phoneMasked || ''
+    form.idCard = customer.value.idCardMasked || ''
+    form.medicalAccount = customer.value.medicalAccountMasked || ''
     form.note = customer.value.note || ''
     form.familyPhone = customer.value.familyPhone || ''
     form.changeReason = ''
@@ -268,20 +334,55 @@ async function saveProfile() {
       note: form.note,
       familyPhone: form.familyPhone,
     }
-    // Only include phone if it changed (sensitive field)
-    if (form.phone !== (customer.value?.phone || '')) {
+    // 仅提交发生变化的字段；敏感字段变化需 changeReason
+    if (form.phone !== (customer.value?.phoneMasked || '')) {
       body.phone = form.phone
-      body.changeReason = form.changeReason || '管理员修改'
+    }
+    if (form.idCard !== (customer.value?.idCardMasked || '')) {
+      body.idCard = form.idCard
+    }
+    if (form.medicalAccount !== (customer.value?.medicalAccountMasked || '')) {
+      body.medicalAccount = form.medicalAccount
+    }
+    const sensitiveChanged = body.phone !== undefined || body.idCard !== undefined || body.medicalAccount !== undefined
+    if (sensitiveChanged) {
+      if (!form.changeReason) {
+        ElMessage.warning('修改身份证/医保账户/手机号等敏感字段必须填写修改原因')
+        return
+      }
+      body.changeReason = form.changeReason
     }
 
-    await http.patch(`/customers/${customerId}`, body)
+    await adminCustomerApi.update(customerId, body)
     ElMessage.success('保存成功')
     editing.value = false
     await loadCustomer()
   } catch (e) {
-    ElMessage.error(e.userMessage || '保存失败')
+    ElMessage.error(e.response?.data?.message || e.userMessage || '保存失败')
   } finally {
     saving.value = false
+  }
+}
+
+// 推广员变更
+function openTransfer() {
+  showTransfer.value = true
+}
+
+async function handleTransferSuccess() {
+  showTransfer.value = false
+  await loadCustomer()
+  await loadChangeLogs()
+}
+
+// 推广员变更记录 - loaded on tab switch
+async function loadChangeLogs() {
+  if (changeLogItems.value.length) return
+  try {
+    const data = await adminCustomerApi.changeLogs(customerId)
+    changeLogItems.value = data.items || []
+  } catch {
+    // Silently ignore
   }
 }
 
@@ -369,15 +470,12 @@ async function submitFollowup() {
 }
 
 // Tab switch handling
-function onTabChange(name) {
+watch(activeTab, (name) => {
+  if (name === 'changeLogs') loadChangeLogs()
   if (name === 'bindingHistory') loadBindingHistory()
   if (name === 'contributions') loadContributions()
   if (name === 'followups') loadFollowups()
-}
-
-// Watch activeTab
-import { watch } from 'vue'
-watch(activeTab, onTabChange)
+})
 
 function formatTime(t) {
   if (!t) return '-'
@@ -395,6 +493,7 @@ function formatTime(t) {
 
 .followup-header { display: flex; justify-content: flex-end; }
 .no-reminder { color: #c0c4cc; }
+.muted { color: #909399; font-size: 12px; margin-left: 8px; }
 
 .load-more { text-align: center; padding: 10px 0; }
 </style>

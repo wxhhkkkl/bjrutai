@@ -34,9 +34,7 @@ const routes = [
   },
   {
     path: '/customers/binding',
-    name: 'CustomerBinding',
-    component: () => import('@/pages/customers/binding.vue'),
-    meta: { title: '绑定管理', icon: 'Link' },
+    redirect: '/customers',
   },
   {
     path: '/customers/:id',

@@ -222,6 +222,67 @@ class TestSubmitBindingRequest:
         assert data["data"]["status"] in ("bound", "pending_match", "matching")
         assert "requestId" in data["data"]
 
+    async def test_match_reuses_existing_customer_by_id_card(
+        self, client: AsyncClient, db_session, mock_rutai
+    ):
+        """FR-007: a successful match reuses an existing customer (no duplicate)."""
+        from sqlalchemy import select
+
+        from src.models.binding import BindingStatus, Customer
+        from src.models.customer_change_log import CustomerChangeLog
+
+        prom_a = await _create_promoter(db_session, name="推广员A")
+        prom_b = await _create_promoter(db_session, name="推广员B")
+        doctor_id = await _create_doctor(db_session)
+
+        # Existing 待绑定 customer under promoter A sharing the same id_card.
+        existing = Customer(
+            distributor_id=prom_a["distributor_id"],
+            name="患者张三",
+            phone="13800138000",
+            phone_masked="138****8000",
+            id_card_encrypted="110101199001011234",
+            id_card_masked="110***********1234",
+            binding_status=BindingStatus.PENDING,
+            version=1,
+        )
+        db_session.add(existing)
+        await db_session.flush()
+
+        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        with patch(
+            "src.services.binding_service.get_rutai_client",
+            return_value=mock_rutai,
+        ):
+            resp = await client.post(
+                "/api/v1/binding-requests",
+                json={
+                    "promoterId": str(prom_b["user_id"]),
+                    "customerInfo": {
+                        "name": "患者张三",
+                        "phone": "13800138000",
+                        "idCard": "110101199001011234",
+                        "medicalAccount": "MED001",
+                    },
+                    "sourceType": "manual",
+                },
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Idempotency-Key": "ik_dedup_001",
+                },
+            )
+        assert resp.json()["code"] == 0
+
+        customers = (await db_session.execute(select(Customer))).scalars().all()
+        assert len(customers) == 1  # reused, no duplicate
+        assert customers[0].id == existing.id
+        assert customers[0].binding_status == BindingStatus.BOUND
+        assert customers[0].distributor_id == prom_b["distributor_id"]
+
+        logs = (await db_session.execute(select(CustomerChangeLog))).scalars().all()
+        assert len(logs) == 1
+        assert logs[0].operation_type.value == "transfer"
+
     async def test_duplicate_idempotency_key(
         self, client: AsyncClient, db_session, mock_rutai
     ):
@@ -832,236 +893,6 @@ class TestBindingSummary:
         """Binding summary requires authentication."""
         resp = await client.get("/api/v1/binding-summary")
         assert resp.status_code == 401
-
-
-# =============================================================================
-# Test Group 7: POST /api/v1/admin/bindings/{id}/unbind
-# =============================================================================
-
-
-class TestAdminUnbind:
-    """POST /api/v1/admin/bindings/{id}/unbind"""
-
-    async def test_unbind_success(self, client: AsyncClient, db_session, mock_rutai):
-        """Admin can unbind a bound customer with a reason."""
-        # Create admin
-        admin_id = await seed_admin(db_session, username="unbind_admin")
-        prom = await _create_promoter(db_session, name="解绑推广员")
-        doctor_id = await _create_doctor(db_session)
-        doctor_token = make_access_token(user_id=doctor_id, user_type="doctor")
-
-        # Create bound binding request
-        with patch(
-            "src.services.binding_service.get_rutai_client",
-            return_value=mock_rutai,
-        ):
-            resp = await client.post(
-                "/api/v1/binding-requests",
-                json={
-                    "promoterId": str(prom["user_id"]),
-                    "customerInfo": {"name": "解绑患者", "phone": "13800138015"},
-                    "sourceType": "manual",
-                },
-                headers={
-                    "Authorization": f"Bearer {doctor_token}",
-                    "Idempotency-Key": "ik_unbind_create",
-                },
-            )
-        req_id = resp.json()["data"]["requestId"]
-
-        admin_token = make_access_token(user_id=admin_id, user_type="admin")
-        unbind_resp = await client.post(
-            f"/api/v1/admin/bindings/{req_id}/unbind",
-            json={"reason": "客户投诉，要求解绑"},
-            headers={"Authorization": f"Bearer {admin_token}"},
-        )
-        data = unbind_resp.json()
-        assert_response_envelope(data)
-        assert data["code"] == 0
-        assert data["data"]["status"] == "unbound"
-        assert "reason" in data["data"]
-
-    async def test_missing_reason(self, client: AsyncClient, db_session, mock_rutai):
-        """Unbind without reason fails validation."""
-        admin_id = await seed_admin(db_session, username="no_reason_admin")
-        prom = await _create_promoter(db_session, name="推广员无理由")
-        doctor_id = await _create_doctor(db_session)
-        doctor_token = make_access_token(user_id=doctor_id, user_type="doctor")
-
-        with patch(
-            "src.services.binding_service.get_rutai_client",
-            return_value=mock_rutai,
-        ):
-            resp = await client.post(
-                "/api/v1/binding-requests",
-                json={
-                    "promoterId": str(prom["user_id"]),
-                    "customerInfo": {"name": "无理由", "phone": "13800138016"},
-                    "sourceType": "manual",
-                },
-                headers={
-                    "Authorization": f"Bearer {doctor_token}",
-                    "Idempotency-Key": "ik_unbind_noreason",
-                },
-            )
-        req_id = resp.json()["data"]["requestId"]
-
-        admin_token = make_access_token(user_id=admin_id, user_type="admin")
-        unbind_resp = await client.post(
-            f"/api/v1/admin/bindings/{req_id}/unbind",
-            json={"reason": ""},
-            headers={"Authorization": f"Bearer {admin_token}"},
-        )
-        assert unbind_resp.status_code == 422
-
-    async def test_already_unbound(self, client: AsyncClient, db_session, mock_rutai):
-        """Unbinding an already-unbound request fails."""
-        admin_id = await seed_admin(db_session, username="double_unbind_admin")
-        prom = await _create_promoter(db_session, name="推广员重复解绑")
-        doctor_id = await _create_doctor(db_session)
-        doctor_token = make_access_token(user_id=doctor_id, user_type="doctor")
-
-        with patch(
-            "src.services.binding_service.get_rutai_client",
-            return_value=mock_rutai,
-        ):
-            resp = await client.post(
-                "/api/v1/binding-requests",
-                json={
-                    "promoterId": str(prom["user_id"]),
-                    "customerInfo": {"name": "重复解绑", "phone": "13800138017"},
-                    "sourceType": "manual",
-                },
-                headers={
-                    "Authorization": f"Bearer {doctor_token}",
-                    "Idempotency-Key": "ik_double_unbind",
-                },
-            )
-        req_id = resp.json()["data"]["requestId"]
-
-        admin_token = make_access_token(user_id=admin_id, user_type="admin")
-        # First unbind
-        await client.post(
-            f"/api/v1/admin/bindings/{req_id}/unbind",
-            json={"reason": "第一次解绑"},
-            headers={"Authorization": f"Bearer {admin_token}"},
-        )
-        # Second unbind should fail
-        resp2 = await client.post(
-            f"/api/v1/admin/bindings/{req_id}/unbind",
-            json={"reason": "第二次解绑"},
-            headers={"Authorization": f"Bearer {admin_token}"},
-        )
-        assert resp2.status_code == 400
-        assert resp2.json()["code"] == 40027
-
-    async def test_requires_admin_role(self, client: AsyncClient, db_session):
-        """Non-admin users cannot unbind."""
-        token = make_access_token(user_id=1, user_type="doctor")
-        resp = await client.post(
-            "/api/v1/admin/bindings/1/unbind",
-            json={"reason": "非法解绑"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp.status_code == 403
-
-
-# =============================================================================
-# Test Group 8: POST /api/v1/admin/bindings/{id}/transfer
-# =============================================================================
-
-
-class TestAdminTransfer:
-    """POST /api/v1/admin/bindings/{id}/transfer"""
-
-    async def test_transfer_success(self, client: AsyncClient, db_session, mock_rutai):
-        """Admin can transfer a customer from one promoter to another."""
-        admin_id = await seed_admin(db_session, username="transfer_admin")
-        prom1 = await _create_promoter(db_session, name="原推广员")
-        prom2 = await _create_promoter(db_session, name="新推广员")
-        doctor_id = await _create_doctor(db_session)
-        doctor_token = make_access_token(user_id=doctor_id, user_type="doctor")
-
-        # Create bound binding request with prom1
-        with patch(
-            "src.services.binding_service.get_rutai_client",
-            return_value=mock_rutai,
-        ):
-            resp = await client.post(
-                "/api/v1/binding-requests",
-                json={
-                    "promoterId": str(prom1["user_id"]),
-                    "customerInfo": {"name": "转移患者", "phone": "13800138018"},
-                    "sourceType": "manual",
-                },
-                headers={
-                    "Authorization": f"Bearer {doctor_token}",
-                    "Idempotency-Key": "ik_transfer_create",
-                },
-            )
-        req_id = resp.json()["data"]["requestId"]
-
-        admin_token = make_access_token(user_id=admin_id, user_type="admin")
-        transfer_resp = await client.post(
-            f"/api/v1/admin/bindings/{req_id}/transfer",
-            json={
-                "newPromoterId": str(prom2["user_id"]),
-                "reason": "业务调整",
-            },
-            headers={"Authorization": f"Bearer {admin_token}"},
-        )
-        data = transfer_resp.json()
-        assert_response_envelope(data)
-        assert data["code"] == 0
-        assert "previousPromoterId" in data["data"]
-        assert "newPromoterId" in data["data"]
-
-    async def test_transfer_to_same_promoter(self, client: AsyncClient, db_session, mock_rutai):
-        """Transfer to the same promoter fails."""
-        admin_id = await seed_admin(db_session, username="same_transfer_admin")
-        prom = await _create_promoter(db_session, name="同一推广员")
-        doctor_id = await _create_doctor(db_session)
-        doctor_token = make_access_token(user_id=doctor_id, user_type="doctor")
-
-        with patch(
-            "src.services.binding_service.get_rutai_client",
-            return_value=mock_rutai,
-        ):
-            resp = await client.post(
-                "/api/v1/binding-requests",
-                json={
-                    "promoterId": str(prom["user_id"]),
-                    "customerInfo": {"name": "同一推广员转移", "phone": "13800138019"},
-                    "sourceType": "manual",
-                },
-                headers={
-                    "Authorization": f"Bearer {doctor_token}",
-                    "Idempotency-Key": "ik_same_transfer",
-                },
-            )
-        req_id = resp.json()["data"]["requestId"]
-
-        admin_token = make_access_token(user_id=admin_id, user_type="admin")
-        transfer_resp = await client.post(
-            f"/api/v1/admin/bindings/{req_id}/transfer",
-            json={
-                "newPromoterId": str(prom["user_id"]),
-                "reason": "不变",
-            },
-            headers={"Authorization": f"Bearer {admin_token}"},
-        )
-        assert transfer_resp.status_code == 400
-        assert transfer_resp.json()["code"] == 40020
-
-    async def test_requires_admin_role(self, client: AsyncClient, db_session):
-        """Non-admin users cannot transfer."""
-        token = make_access_token(user_id=1, user_type="doctor")
-        resp = await client.post(
-            "/api/v1/admin/bindings/1/transfer",
-            json={"newPromoterId": "2", "reason": "非法转移"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp.status_code == 403
 
 
 # =============================================================================

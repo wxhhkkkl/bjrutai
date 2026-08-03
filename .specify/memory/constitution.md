@@ -1,28 +1,33 @@
 <!--
   Sync Impact Report
   ==================
-  Version change: (none) → 1.0.0 (initial constitution)
+  Version change: 1.0.0 → 2.0.0 (MAJOR: Principle IV redefinition)
   
-  Principles defined:
-  - I. Test-Driven Development (TDD)
-  - II. API-First Design
-  - III. Separation of Concerns
-  - IV. Database Integrity
-  - V. Simplicity (YAGNI)
+  Principles changed:
+  - IV. Database Integrity: replaced "Sensitive data ... MUST be encrypted at rest"
+    with 前后台脱敏 — sensitive data (phone / ID card / medical account) is stored
+    plaintext at rest but MUST be masked on all backend API output and frontend UI
+    display; access & modification remain audit-logged.
   
-  Sections added:
-  - Core Principles (5 principles)
-  - Technology Stack
-  - Development Workflow
-  - Governance
+  Rationale:
+  北京儒泰分销管理系统的客户敏感信息（手机号/身份证/医保账户）经产品确认采用
+  "明文存储 + 前后台统一脱敏"策略（specs/005-customer-management spec 澄清 Q1，
+  2026-08-03 确认）。真实加密需密钥管理与存量数据迁移，超出当前迭代范围；
+  脱敏 + 审计仍满足个人信息保护的基本要求。
+  
+  Sections added: None
+  Sections changed: Core Principles (IV. Database Integrity)
   
   Templates requiring updates:
-  - .specify/templates/plan-template.md ✅ aligned (tech stack section, project structure matches)
+  - .specify/templates/plan-template.md ✅ aligned (no changes needed)
   - .specify/templates/spec-template.md ✅ aligned (no changes needed)
-  - .specify/templates/tasks-template.md ✅ aligned (path conventions match, TDD emphasis present)
-  - CLAUDE.md ✅ aligned (behavioral guidelines consistent with principles)
+  - .specify/templates/tasks-template.md ✅ aligned (no changes needed)
+  - CLAUDE.md ✅ aligned (no changes needed)
+  - specs/005-customer-management/plan.md ✅ updated (Constitution Check + Complexity Tracking aligned)
+  - specs/005-customer-management/research.md ✅ updated (D8 alternatives note aligned)
   
-  Follow-up TODOs: None
+  Follow-up TODOs:
+  - 若后续产品要求上线真实静态加密，需重新修订本条款（回退本修订）并评估存量数据迁移。
 -->
 
 # 北京儒泰分销管理系统 Constitution
@@ -81,7 +86,7 @@ All persistent data is stored in MySQL on Tencent Cloud, accessed exclusively th
 
 - The database connection MUST be configured via environment variables — never hardcoded
 - All database schema changes MUST be managed through versioned migration scripts
-- Sensitive data (phone numbers, ID cards, medical account numbers) MUST be encrypted at rest
+- Sensitive data (phone numbers, ID cards, medical account numbers) MUST be masked on all output channels (前后台脱敏): backend API responses and frontend UI displays MUST only expose masked values (e.g., `138****1234`, `110***********1234`); storage at rest is plaintext
 - Audit logs MUST be written for all sensitive data access and modifications
 - The database connection MUST use TLS for data in transit
 - No client application (mini-program, admin SPA, third-party) may connect directly to the database
@@ -183,4 +188,4 @@ This constitution supersedes all other development practices and guidelines. Whe
 - When the constitution is silent on a topic, `CLAUDE.md` guidance applies
 - Project-specific conventions not covered here SHOULD be documented in `CLAUDE.md`
 
-**Version**: 1.0.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-30
+**Version**: 2.0.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-08-03

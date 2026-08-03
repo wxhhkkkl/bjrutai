@@ -38,7 +38,6 @@ from ..models.binding import (
     SourceType,
 )
 from ..models.consent import ConsentRecord, ConsentScene
-from ..models.contribution import ContributionRecord, ContributionStatus
 from ..models.distributor import Distributor
 from ..models.org_qualification import OrgQualStatus, OrganizationQualification
 from . import distributor_service
@@ -412,23 +411,62 @@ class BindingService:
 
         # If matched, create/update Customer record
         if binding_req.status == BindingRequestStatus.BOUND and hrb_user_id:
-            customer = Customer(
-                distributor_id=promoter.id,
-                name=name or None,
-                phone=phone or None,
-                phone_masked=_mask_phone(phone) if phone else None,
-                id_card_encrypted=id_card or None,
-                id_card_masked=_mask_id_card(id_card) if id_card else None,
-                medical_account_encrypted=medical_account or None,
-                family_phone=family_phone,
-                rutai_user_id=hrb_user_id,
-                note=remark,
-                binding_status=BindingStatus.BOUND,
-                bound_at=now,
-                version=1,
-            )
-            db.add(customer)
-            await db.flush()
+            existing_customer_id = None
+            if id_card:
+                existing_result = await db.execute(
+                    select(Customer.id).where(Customer.id_card_encrypted == id_card)
+                )
+                existing_customer_id = existing_result.scalars().first()
+
+            if existing_customer_id is not None:
+                # FR-007: reuse the existing profile (e.g. manually created 待绑定
+                # customer) instead of creating a duplicate record.
+                customer = await db.get(Customer, existing_customer_id)
+                customer.binding_status = BindingStatus.BOUND
+                customer.rutai_user_id = hrb_user_id
+                customer.bound_at = now
+                if not customer.id_card_encrypted and id_card:
+                    customer.id_card_encrypted = id_card
+                    customer.id_card_masked = _mask_id_card(id_card)
+                if not customer.phone and phone:
+                    customer.phone = phone
+                    customer.phone_masked = _mask_phone(phone)
+                if not customer.medical_account_encrypted and medical_account:
+                    customer.medical_account_encrypted = medical_account
+                if customer.distributor_id != promoter.id:
+                    previous_distributor_id = customer.distributor_id
+                    customer.distributor_id = promoter.id
+                    from ..models.customer_change_log import ChangeOperationType, CustomerChangeLog
+
+                    db.add(CustomerChangeLog(
+                        customer_id=customer.id,
+                        operation_type=ChangeOperationType.TRANSFER,
+                        previous_distributor_id=previous_distributor_id,
+                        new_distributor_id=promoter.id,
+                        operator_id=submitted_by,
+                        reason="绑定流程匹配成功，推广员更新",
+                    ))
+                customer.version += 1
+                db.add(customer)
+                await db.flush()
+            else:
+                customer = Customer(
+                    distributor_id=promoter.id,
+                    name=name or None,
+                    phone=phone or None,
+                    phone_masked=_mask_phone(phone) if phone else None,
+                    id_card_encrypted=id_card or None,
+                    id_card_masked=_mask_id_card(id_card) if id_card else None,
+                    medical_account_encrypted=medical_account or None,
+                    family_phone=family_phone,
+                    rutai_user_id=hrb_user_id,
+                    note=remark,
+                    binding_status=BindingStatus.BOUND,
+                    bound_at=now,
+                    version=1,
+                )
+                db.add(customer)
+                await db.flush()
             binding_req.customer_id = customer.id
             await db.flush()
 
@@ -931,231 +969,6 @@ class BindingService:
             "lastBindingAt": last_binding_at_str,
         }
 
-    # ==================================================================
-    # Admin: Unbind Customer
-    # ==================================================================
-
-    async def unbind_customer(
-        self,
-        db: AsyncSession,
-        binding_request_id: int,
-        reason: str,
-        operator_id: int,
-    ) -> dict[str, Any]:
-        """Admin unbinds a customer from a promoter. Checks for unsettled contributions."""
-        result = await db.execute(
-            select(BindingRequest)
-            .options(
-                selectinload(BindingRequest.distributor).selectinload(Distributor.user),
-            )
-            .where(BindingRequest.id == binding_request_id)
-        )
-        br = result.scalars().first()
-        if br is None:
-            raise NotFoundException(code=40400, message="Binding request not found")
-
-        if br.status == BindingRequestStatus.UNBOUND:
-            raise BadRequestException(
-                code=40027,
-                message="Customer is already unbound",
-            )
-
-        # Check for unsettled contributions
-        if br.customer_id:
-            unsettled_result = await db.execute(
-                select(func.count(ContributionRecord.id)).where(
-                    ContributionRecord.customer_id == br.customer_id,
-                    ContributionRecord.status.in_([
-                        ContributionStatus.PENDING,
-                        ContributionStatus.CONFIRMED,
-                    ]),
-                )
-            )
-            unsettled_count = unsettled_result.scalar() or 0
-            if unsettled_count > 0:
-                raise ConflictException(
-                    code=40901,
-                    message=f"Customer has {unsettled_count} unsettled contribution(s). Please settle before unbinding.",
-                )
-
-        previous_status = br.status
-        br.status = BindingRequestStatus.UNBOUND
-        br.bound_at = None
-        br.failure_reason = f"Admin unbind: {reason}"
-        br.version += 1
-        br.updated_at = datetime.utcnow()
-
-        # Update Customer record if exists
-        if br.customer_id:
-            cust_result = await db.execute(
-                select(Customer).where(Customer.id == br.customer_id)
-            )
-            customer = cust_result.scalars().first()
-            if customer:
-                customer.binding_status = BindingStatus.UNBOUND
-                customer.version += 1
-                customer.updated_at = datetime.utcnow()
-
-        # Create change log
-        log = BindingChangeLog(
-            binding_request_id=br.id,
-            operation_type=OperationType.UNBIND,
-            previous_promoter_id=br.distributor_id,
-            new_promoter_id=None,
-            operator_id=operator_id,
-            reason=reason,
-        )
-        db.add(log)
-        await db.flush()
-
-        # Also log to AuditLog
-        from ..models.audit import AuditLog
-        audit = AuditLog(
-            user_id=operator_id,
-            action="unbind_customer",
-            entity_type="BindingRequest",
-            entity_id=str(br.id),
-            detail={"reason": reason, "previous_status": previous_status.value},
-        )
-        db.add(audit)
-        await db.flush()
-
-        now = datetime.utcnow()
-
-        return {
-            "requestId": str(br.id),
-            "status": br.status.value,
-            "statusLabel": STATUS_LABELS.get(br.status.value, br.status.value),
-            "unboundAt": now.strftime("%Y-%m-%dT%H:%M:%S+08:00"),
-            "reason": reason,
-        }
-
-    # ==================================================================
-    # Admin: Transfer Customer
-    # ==================================================================
-
-    async def transfer_customer(
-        self,
-        db: AsyncSession,
-        binding_request_id: int,
-        new_promoter_id: int,
-        operator_id: int,
-        reason: Optional[str] = None,
-    ) -> dict[str, Any]:
-        """Admin transfers a customer to a different promoter.
-
-        Preserves historical data. Warns about unsettled contributions but allows the transfer.
-        """
-        result = await db.execute(
-            select(BindingRequest)
-            .options(
-                selectinload(BindingRequest.distributor).selectinload(Distributor.user),
-            )
-            .where(BindingRequest.id == binding_request_id)
-        )
-        br = result.scalars().first()
-        if br is None:
-            raise NotFoundException(code=40400, message="Binding request not found")
-
-        if br.status == BindingRequestStatus.UNBOUND:
-            raise BadRequestException(code=40027, message="Customer is unbound, cannot transfer")
-
-        if br.status == BindingRequestStatus.TRANSFERRED:
-            raise BadRequestException(code=40027, message="Customer has already been transferred")
-
-        # Validate new distributor exists and its org is business-available
-        new_promoter_result = await db.execute(
-            select(Distributor).where(Distributor.user_id == new_promoter_id)
-        )
-        new_promoter = new_promoter_result.scalars().first()
-        if new_promoter is None or not await distributor_service.is_distributor_selectable(db, new_promoter):
-            raise BadRequestException(
-                code=40020,
-                message="New promoter not found or not selectable",
-            )
-
-        if new_promoter.id == br.distributor_id:
-            raise BadRequestException(
-                code=40020,
-                message="Cannot transfer to the same promoter",
-            )
-
-        # Get unsettled contributions count (warning, not blocking)
-        unsettled_count = 0
-        if br.customer_id:
-            unsettled_result = await db.execute(
-                select(func.count(ContributionRecord.id)).where(
-                    ContributionRecord.customer_id == br.customer_id,
-                    ContributionRecord.status.in_([
-                        ContributionStatus.PENDING,
-                        ContributionStatus.CONFIRMED,
-                    ]),
-                )
-            )
-            unsettled_count = unsettled_result.scalar() or 0
-
-        previous_promoter_id = br.distributor_id
-        previous_status = br.status
-
-        br.distributor_id = new_promoter.id
-        br.status = BindingRequestStatus.TRANSFERRED
-        br.version += 1
-        br.updated_at = datetime.utcnow()
-
-        # Update Customer record
-        if br.customer_id:
-            cust_result = await db.execute(
-                select(Customer).where(Customer.id == br.customer_id)
-            )
-            customer = cust_result.scalars().first()
-            if customer:
-                customer.distributor_id = new_promoter.id
-                customer.version += 1
-                customer.updated_at = datetime.utcnow()
-
-        # Create change log
-        log = BindingChangeLog(
-            binding_request_id=br.id,
-            operation_type=OperationType.TRANSFER,
-            previous_promoter_id=previous_promoter_id,
-            new_promoter_id=new_promoter.id,
-            operator_id=operator_id,
-            reason=reason or "Admin transfer",
-        )
-        db.add(log)
-        await db.flush()
-
-        # Audit log
-        from ..models.audit import AuditLog
-        audit = AuditLog(
-            user_id=operator_id,
-            action="transfer_customer",
-            entity_type="BindingRequest",
-            entity_id=str(br.id),
-            detail={
-                "previous_promoter_id": previous_promoter_id,
-                "new_promoter_id": new_promoter.id,
-                "reason": reason,
-                "unsettled_contributions": unsettled_count,
-            },
-        )
-        db.add(audit)
-        await db.flush()
-
-        now = datetime.utcnow()
-
-        result_data: dict[str, Any] = {
-            "requestId": str(br.id),
-            "previousPromoterId": str(previous_promoter_id) if previous_promoter_id else None,
-            "newPromoterId": str(new_promoter_id),
-            "transferredAt": now.strftime("%Y-%m-%dT%H:%M:%S+08:00"),
-            "reason": reason,
-        }
-
-        if unsettled_count > 0:
-            result_data["unsettledContributionWarning"] = f"Customer has {unsettled_count} unsettled contribution(s)"
-
-        return result_data
 
 
 # ---------------------------------------------------------------------------

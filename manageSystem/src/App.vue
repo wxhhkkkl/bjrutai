@@ -30,10 +30,6 @@
           <el-icon><User /></el-icon>
           <span>客户管理</span>
         </el-menu-item>
-        <el-menu-item index="/customers/binding">
-          <el-icon><Link /></el-icon>
-          <span>绑定管理</span>
-        </el-menu-item>
         <el-menu-item index="/contributions">
           <el-icon><TrendCharts /></el-icon>
           <span>业绩贡献</span>

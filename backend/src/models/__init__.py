@@ -13,6 +13,7 @@ from .org_history import OrgHistory, OrgHistoryAction  # noqa: F401
 from .hierarchy import HierarchyNode, Promoter, hierarchy_snapshots  # noqa: F401
 from .qualification import Qualification  # noqa: F401
 from .binding import BindingChangeLog, BindingRequest, Customer  # noqa: F401
+from .customer_change_log import ChangeOperationType, CustomerChangeLog  # noqa: F401
 from .promotion import PromotionCode  # noqa: F401
 from .bill import Bill  # noqa: F401
 from .contribution import ContributionRecord, SettlementLog  # noqa: F401

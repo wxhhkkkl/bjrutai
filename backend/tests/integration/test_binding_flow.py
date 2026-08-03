@@ -95,10 +95,8 @@ async def test_full_binding_lifecycle(client: AsyncClient, db_session, mock_ruta
     """Full lifecycle: select promoter -> submit -> match -> unbind -> verify audit."""
     prom = await _setup_promoter(db_session)
     doctor_id = await _setup_doctor(db_session)
-    admin_id = await seed_admin(db_session, username="lifecycle_admin")
 
     doctor_token = make_access_token(user_id=doctor_id, user_type="doctor")
-    admin_token = make_access_token(user_id=admin_id, user_type="admin")
 
     # ------------------------------------------------------------------
     # Step 1: Select available promoters
@@ -218,63 +216,6 @@ async def test_full_binding_lifecycle(client: AsyncClient, db_session, mock_ruta
     assert summary["data"]["activeBindings"] >= 1
     assert summary["data"]["totalBindings"] >= 1
 
-    # ------------------------------------------------------------------
-    # Step 7: Admin unbinds
-    # ------------------------------------------------------------------
-    unbind_resp = await client.post(
-        f"/api/v1/admin/bindings/{req_id}/unbind",
-        json={"reason": "集成测试：模拟客户投诉"},
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-    unbind_data = unbind_resp.json()
-    assert_response_envelope(unbind_data)
-    assert unbind_data["code"] == 0
-    assert unbind_data["data"]["status"] == "unbound"
-
-    # ------------------------------------------------------------------
-    # Step 8: Verify audit log (binding change log + audit log)
-    # ------------------------------------------------------------------
-    from src.models.audit import AuditLog
-    from src.models.binding import BindingChangeLog
-    from sqlalchemy import select
-
-    # Check BindingChangeLog exists for UNBIND operation
-    log_result = await db_session.execute(
-        select(BindingChangeLog).where(
-            BindingChangeLog.binding_request_id == int(req_id),
-            BindingChangeLog.operation_type == "unbind",
-        )
-    )
-    change_logs = log_result.scalars().all()
-    assert len(change_logs) >= 1
-    assert change_logs[0].reason == "集成测试：模拟客户投诉"
-
-    # Check AuditLog exists
-    audit_result = await db_session.execute(
-        select(AuditLog).where(
-            AuditLog.entity_type == "BindingRequest",
-            AuditLog.entity_id == req_id,
-        )
-    )
-    audit_logs = audit_result.scalars().all()
-    assert len(audit_logs) >= 1
-
-    # ------------------------------------------------------------------
-    # Step 9: Verify detail now shows unbound with audit events
-    # ------------------------------------------------------------------
-    final_detail = await client.get(
-        f"/api/v1/binding-requests/{req_id}",
-        headers={"Authorization": f"Bearer {doctor_token}"},
-    )
-    final = final_detail.json()
-    assert_response_envelope(final)
-    assert final["data"]["status"] == "unbound"
-    # Should have at least 2 events: bind + unbind
-    assert len(final["data"]["events"]) >= 2
-    actions = [e["action"] for e in final["data"]["events"]]
-    assert "bind" in actions
-    assert "unbind" in actions
-
 
 @pytest.mark.asyncio
 async def test_binding_failure_and_retry_flow(
@@ -359,6 +300,13 @@ async def test_transfer_preserves_data(
         db_session, user_id=user2_id, node_id=node2_id, qualification_status="approved"
     )
 
+    # Force a matched result so a bound Customer is created under prom1.
+    mock_rutai.bind_bj_user_response = {
+        "match_status": "matched",
+        "match_level": "exact",
+        "hrb_user_id": "hrb_transfer_001",
+    }
+
     # Create bound request
     with patch(
         "src.services.binding_service.get_rutai_client",
@@ -377,14 +325,23 @@ async def test_transfer_preserves_data(
             },
         )
 
-    req_id = resp.json()["data"]["requestId"]
-    admin_token = make_access_token(user_id=admin_id, user_type="admin")
+    # The matched binding request created a bound customer under prom1.
+    from src.models.binding import Customer
+    from src.models.customer_change_log import ChangeOperationType, CustomerChangeLog
+    from sqlalchemy import select
 
-    # Transfer
+    customers = (await db_session.execute(select(Customer))).scalars().all()
+    assert len(customers) == 1
+    customer_id = customers[0].id
+
+    # Transfer via the customer-based endpoint (US4) — preserves customer data
+    admin_token = make_access_token(
+        user_id=admin_id, user_type="admin", permissions=["customers.write"]
+    )
     transfer_resp = await client.post(
-        f"/api/v1/admin/bindings/{req_id}/transfer",
+        f"/api/v1/admin/customers/{customer_id}/transfer",
         json={
-            "newPromoterId": str(user2_id),
+            "newDistributorId": str(prom2_id),
             "reason": "组织结构调整",
         },
         headers={"Authorization": f"Bearer {admin_token}"},
@@ -393,18 +350,10 @@ async def test_transfer_preserves_data(
     transfer_data = transfer_resp.json()
     assert_response_envelope(transfer_data)
     assert transfer_data["code"] == 0
-    assert transfer_data["data"]["newPromoterId"] == str(user2_id)
+    assert transfer_data["data"]["newDistributorId"] == str(prom2_id)
 
-    # Verify audit logs
-    from src.models.binding import BindingChangeLog, OperationType
-    from sqlalchemy import select
-
-    log_result = await db_session.execute(
-        select(BindingChangeLog).where(
-            BindingChangeLog.binding_request_id == int(req_id),
-            BindingChangeLog.operation_type == OperationType.TRANSFER,
-        )
-    )
-    logs = log_result.scalars().all()
+    # Verify customer change log (transfer) with reason
+    logs = (await db_session.execute(select(CustomerChangeLog))).scalars().all()
     assert len(logs) >= 1
+    assert logs[0].operation_type == ChangeOperationType.TRANSFER
     assert logs[0].reason == "组织结构调整"
