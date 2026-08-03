@@ -125,11 +125,15 @@ class COSClient:
 
     @staticmethod
     def _sanitize_filename(file_name: str, unique_id: str) -> str:
-        """Sanitize filename: keep only safe chars, prepend unique id."""
+        """Sanitize filename: keep only safe ASCII chars, prepend unique id.
+
+        只保留 ASCII 字母数字/下划线/连字符。中文等非 ASCII 字符若进入
+        object_key，预签名 URL 的中文编码在部分 HTTP 客户端（httpx/浏览器）
+        会被二次编码，导致路径与签名不符 → 403。
+        """
         ext = COSClient._extract_extension(file_name)
         base = file_name[: file_name.rfind(ext)] if ext else file_name
-        # Only allow alphanumeric and underscores in the base name
-        safe_base = "".join(c for c in base if c.isalnum() or c in "_-")
+        safe_base = "".join(c for c in base if (c.isascii() and c.isalnum()) or c in "_-")
         if not safe_base:
             safe_base = "file"
         return f"{unique_id}_{safe_base}{ext}"
