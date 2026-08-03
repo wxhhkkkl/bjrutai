@@ -272,6 +272,9 @@ async function loadAll() {
       // 重载后尝试重新定位选中的组织（id 可能变化）
       const fresh = flatOrgs.value.find((o) => o.orgId === selected.value.orgId)
       handleSelect(fresh || null)
+    } else if (roots.length > 0) {
+      // 进入页面默认选中第一个根组织
+      handleSelect(roots[0])
     }
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '加载组织树失败')
