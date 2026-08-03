@@ -162,9 +162,12 @@ class COSClient:
         ).hexdigest()
 
         # Step 2: HttpString = {method}\n{path}\n\nhost={host}\n
+        # 只签 host，不签 content-type：浏览器对 File 的 Content-Type 处理不可控，
+        # 若实际发送的与签名不一致会 SignatureDoesNotMatch。签名 host 则任意
+        # Content-Type 均可上传。
         http_method = "put"
         http_uri = quote(path, safe="/")
-        http_headers = f"content-type={quote(content_type, safe='')}&host={host}"
+        http_headers = f"host={host}"
         http_string = f"{http_method}\n{http_uri}\n\n{http_headers}\n"
 
         # Step 3: StringToSign
@@ -179,7 +182,7 @@ class COSClient:
         ).hexdigest()
 
         # Build authorization parameter
-        q_header_list = "content-type;host"
+        q_header_list = "host"
         q_url_param_list = ""
         auth = (
             f"q-sign-algorithm=sha1"
