@@ -18,6 +18,7 @@
         "pages/binding-result/index",
         "pages/auth/login/index",
         "pages/auth/profile-setup/index",
+        "pages/auth/bind-wechat/index",
         "pages/org-performance/index",
         "pages/common/feature-placeholder/index",
         "pages/index/index"

@@ -2,10 +2,9 @@
  * Org performance API service (US5).
  *
  * Fetches the org-admin's authorized org subtree contribution summary from
- * the backend. The mini-program demo uses mock data by default; set
- * USE_MOCK = false to call the real endpoint.
+ * the backend. Set USE_MOCK = true to run the demo without a backend.
  */
-const USE_MOCK = true;
+const USE_MOCK = false;
 
 const MOCK_PERFORMANCE = {
   orgId: 'org_1001',
@@ -23,6 +22,8 @@ const MOCK_PERFORMANCE = {
   ],
 };
 
+const { getAccessToken } = require('./auth-service');
+
 function requestOrgPerformance({ month } = {}) {
   if (USE_MOCK) {
     return Promise.resolve({
@@ -31,13 +32,13 @@ function requestOrgPerformance({ month } = {}) {
     });
   }
 
-  const token = wx.getStorageSync('token');
+  const apiBase = getApp().globalData.apiBase || 'http://127.0.0.1:8000';
   return new Promise((resolve, reject) => {
     wx.request({
-      url: `${getApp().globalData.apiBase || 'https://api.example.com'}/api/v1/org/performance`,
+      url: `${apiBase}/api/v1/org/performance`,
       method: 'GET',
       data: { month },
-      header: { Authorization: `Bearer ${token}` },
+      header: { Authorization: `Bearer ${getAccessToken()}` },
       success: (res) => {
         const body = res.data || {};
         if (body.code === 0) resolve(body.data);

@@ -1,0 +1,23 @@
+<flow-navigation title="绑定微信" bind:back="handleBack" />
+
+<view class="bind-page">
+  <view class="bind-hero">
+    <van-icon name="wechat" size="72px" color="#07c160" />
+  </view>
+  <text class="bind-title">绑定微信</text>
+  <text class="bind-description">
+    为保障账号安全，首次登录需绑定微信，绑定后可用微信授权快速登录。
+  </text>
+
+  <button
+    class="bind-button tap-target"
+    bindtap="bindWechat"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+    loading="{{binding}}"
+    disabled="{{binding}}"
+  >
+    {{binding ? '绑定中...' : '立即绑定微信'}}
+  </button>
+</view>

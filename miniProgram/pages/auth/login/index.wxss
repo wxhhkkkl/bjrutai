@@ -63,6 +63,38 @@ page {
   line-height: 1.35;
 }
 
+.login-input {
+  margin-top: 28rpx;
+  height: 88rpx;
+  padding: 0 28rpx;
+  background: #f6f8fb;
+  border: 1rpx solid #e8ecf2;
+  border-radius: 20rpx;
+  font-size: 29rpx;
+}
+
+.login-input__placeholder {
+  color: #a3abb6;
+}
+
+.login-divider {
+  margin: 34rpx 0 0;
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+}
+
+.login-divider__line {
+  flex: 1;
+  height: 1rpx;
+  background: #eceff4;
+}
+
+.login-divider__text {
+  color: #a3abb6;
+  font-size: 23rpx;
+}
+
 .login-wechat-button,
 .login-phone-button {
   width: 100%;
@@ -79,31 +111,31 @@ page {
   border-radius: 25rpx;
 }
 
-.login-wechat-button {
-  margin-top: 37rpx;
+.login-phone-button {
+  margin-top: 34rpx;
   color: #ffffff;
   background: #050505;
 }
 
-.login-phone-button {
+.login-wechat-button {
   margin-top: 28rpx;
   color: #080b10;
   background: #ffffff;
   border: 1rpx solid #cfd4dc;
 }
 
-.login-phone-button > text {
+.login-wechat-button > text {
   flex: 1;
-  text-align: left;
+  text-align: center;
 }
 
-.login-phone-button--authorized {
+.login-wechat-button--authorized {
   color: #168f35;
   background: #f7fff9;
   border-color: #70c584;
 }
 
-.login-wechat-button[disabled] {
+.login-phone-button[disabled] {
   opacity: 0.7;
 }
 

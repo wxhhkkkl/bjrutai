@@ -152,10 +152,10 @@ export const useContributionsStore = defineStore('contributions', () => {
     }
   }
 
-  async function drillDown(promoterId, month) {
+  async function drillDown(distributorId, month) {
     loading.value = true
     try {
-      const res = await http.get(`/team/contributions/${promoterId}`, { params: { month } })
+      const res = await http.get(`/team/contributions/${distributorId}`, { params: { month } })
       drillDownData.value = res.data.data
       return drillDownData.value
     } catch (e) {

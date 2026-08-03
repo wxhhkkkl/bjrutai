@@ -207,7 +207,7 @@ test('promotion code page uses the approved QR and real sharing controls', () =>
   );
 });
 
-test('login authorization uses the approved hero and real authorization controls', () => {
+test('login offers phone+password and WeChat quick login with agreement', () => {
   const source = fs.readFileSync(
     path.join(projectRoot, 'pages/auth/login/index.wxml'),
     'utf8'
@@ -216,8 +216,9 @@ test('login authorization uses the approved hero and real authorization controls
   assert.match(source, /<app-header\b/);
   assert.match(source, /login-security-hero\.png/);
   assert.match(source, /bindtap="login"/);
-  assert.match(source, /open-type="getPhoneNumber"/);
-  assert.match(source, /bindgetphonenumber="authorizePhone"/);
+  assert.match(source, /bindtap="wechatLogin"/);
+  assert.match(source, /bindinput="onPhoneInput"/);
+  assert.match(source, /bindinput="onPasswordInput"/);
   assert.match(source, /bindtap="toggleAgreement"/);
   assert.match(source, /bindtap="openDocument"/);
   assert.ok(

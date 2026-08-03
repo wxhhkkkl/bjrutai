@@ -15,11 +15,29 @@
   />
 
   <view class="login-auth-card">
-    <text class="login-auth-card__title">登录并完成身份识别</text>
-    <text class="login-auth-card__description">首次使用需授权手机号，用于账户与业务联系</text>
+    <text class="login-auth-card__title">分销员登录</text>
+    <text class="login-auth-card__description">使用组织为您创建的账号（手机号 + 密码）登录</text>
+
+    <input
+      class="login-input"
+      type="number"
+      maxlength="11"
+      placeholder="手机号"
+      placeholder-class="login-input__placeholder"
+      value="{{phone}}"
+      bindinput="onPhoneInput"
+    />
+    <input
+      class="login-input"
+      password="{{true}}"
+      placeholder="密码"
+      placeholder-class="login-input__placeholder"
+      value="{{password}}"
+      bindinput="onPasswordInput"
+    />
 
     <button
-      class="login-wechat-button tap-target"
+      class="login-phone-button tap-target"
       bindtap="login"
       hover-class="tap-feedback"
       hover-start-time="0"
@@ -27,22 +45,27 @@
       loading="{{loggingIn}}"
       disabled="{{loggingIn}}"
     >
-      <van-icon wx:if="{{!loggingIn}}" name="wechat" size="31px" color="#ffffff" />
-      <text>{{loggingIn ? '正在登录' : '微信一键登录'}}</text>
+      <van-icon name="phone-o" size="31px" color="#ffffff" />
+      <text>{{loggingIn ? '登录中...' : '手机号+密码登录'}}</text>
     </button>
 
+    <view class="login-divider">
+      <view class="login-divider__line" />
+      <text class="login-divider__text">或</text>
+      <view class="login-divider__line" />
+    </view>
+
     <button
-      class="login-phone-button tap-target {{phoneAuthorized ? 'login-phone-button--authorized' : ''}}"
-      open-type="getPhoneNumber"
-      bindgetphonenumber="authorizePhone"
+      class="login-wechat-button tap-target"
+      bindtap="wechatLogin"
       hover-class="tap-feedback"
       hover-start-time="0"
       hover-stay-time="80"
+      loading="{{loggingIn}}"
+      disabled="{{loggingIn}}"
     >
-      <van-icon name="phone-o" size="31px" color="{{phoneAuthorized ? '#18a63d' : '#050505'}}" />
-      <text>{{phoneLabel}}</text>
-      <van-icon wx:if="{{phoneAuthorized}}" name="passed" size="22px" color="#18a63d" />
-      <van-icon wx:else name="arrow" size="22px" color="#7d8490" />
+      <van-icon wx:if="{{!loggingIn}}" name="wechat" size="31px" color="#050505" />
+      <text>{{loggingIn ? '正在登录' : '微信一键登录'}}</text>
     </button>
   </view>
 

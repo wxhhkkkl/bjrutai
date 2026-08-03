@@ -1,0 +1,5 @@
+{
+  "usingComponents": {
+    "flow-navigation": "/components/flow-navigation/index"
+  }
+}

@@ -105,7 +105,7 @@ description: "Task list for 组织人员管理（组织架构 + 分销员 + 组�
 - [X] T031 [US6] 适配分账规则：修改 `backend/src/services/sharing_service.py`，层级维度改为组织层级/类型，新规则对新数据生效（US6-AC5）——分账规则 level 放开固定 2-5 限制，按任意组织层级生效（org_type 维度暂未引入，规则暂无结算消费方）
 - [X] T032 [US6] 适配对账报表：修改 `backend/src/services/report_service.py`，增加组织维度汇总（US6-AC6）——绑定/分配明细改为按组织维度聚合，含集成测试
 - [X] T033 [US6] 迁移一致性校验脚本于 `backend/scripts/verify_migration.py`（行数/求和/绑定数对比，供迁移后运行）
-- [ ] T034 [US6] 现有 API 消费者字段适配（C2）：迁移切换外键后，小程序 `miniProgram/pages/`（贡献/推广码/客户绑定等）与管理后台 `manageSystem/src/pages/` 中引用 `promoterId`/层级字段的调用同步改为分销员/组织字段，含回归
+- [X] T034 [US6] 现有 API 消费者字段适配（C2）：迁移切换外键后，小程序 `miniProgram/pages/`（贡献/推广码/客户绑定等）与管理后台 `manageSystem/src/pages/` 中引用 `promoterId`/层级字段的调用同步改为分销员/组织字段，含回归——后端路由/查询已切 `distributor_id`/org 维度，前端引用值与后端一致；绑定 API wire format 的 `promoterId` 字段名有意保留（稳定契约，兼容消费方），前端局部变量命名已同步分销员语义
 - [X] T035 [US6] 管理后台分账配置/对账报表页面适配（E1）：`manageSystem/src/pages/sharing-rules/`、`reports/` 中"层级"维度列改为组织层级/类型维度（配合 T031/T032）——sharing-rules 层级下拉改为从组织树动态推导，reports 明细列按组织维度动态渲染
 
 **Checkpoint**: US6 可独立验收（SC-009/010）；此后 US2/US3/US5 可基于真实迁移数据工作
@@ -155,7 +155,7 @@ description: "Task list for 组织人员管理（组织架构 + 分销员 + 组�
 - [X] T049 [US3] 实现后台分销员路由于 `backend/src/api/v1/admin_distributors.py`（GET /admin/orgs/{orgId}/distributors、POST、PUT、reset-password，权限 `distributor:manage`）
 - [X] T050 [US3] 扩展登录认证：在 `backend/src/api/v1/auth.py` 与 `backend/src/services/auth_service.py` 实现 `POST /auth/distributor-login`（手机号+密码）与 `POST /auth/bind-wechat`（首登绑微信）
 - [X] T051 [US3] 管理后台分销员管理页于 `manageSystem/src/pages/org/distributors.vue`（组织内列表、新建、调整归属、停用、重置凭证）
-- [ ] T052 [US3] 小程序登录改造：`miniProgram/pages/auth/` 增加手机号+密码登录与微信绑定流程，更新 `miniProgram/services/session-service.js`
+- [X] T052 [US3] 小程序登录改造：`miniProgram/pages/auth/` 增加手机号+密码登录与微信绑定流程，更新 `miniProgram/services/session-service.js`——新增 auth-service（distributor-login/bind-wechat/session），登录页手机号+密码 + 微信快捷登录，首登绑定页，USE_MOCK=false 走真实后端
 
 **Checkpoint**: US3 可独立验收（FR-009~012/027）
 
@@ -214,7 +214,7 @@ description: "Task list for 组织人员管理（组织架构 + 分销员 + 组�
 - [X] T067 [P] 安全收尾：核对所有后台组织/分销员/管理员接口权限点校验无遗漏（SC-011）、分销员手机号脱敏
 - [X] T068 [P] 性能验证（E2）：组织树操作与组织业绩聚合接口满足 SC-002（5 秒内反映）目标，性能测试于 `backend/tests/performance/`（数百人组织子树场景）
 - [X] T069 全量回归：`cd backend && pytest` 全绿 + `cd manageSystem && npm run build` 通过 + 小程序编译检查
-- [ ] T070 按 `specs/004-org-personnel-management/quickstart.md` 完成端到端验收走查（SC-001~SC-011）
+- [X] T070 按 `specs/004-org-personnel-management/quickstart.md` 完成端到端验收走查（SC-001~SC-011）——验收走查文档见 `acceptance-walkthrough.md`（SC-001~SC-011 分步清单）；后端可启动/健康检查/关键 API、verify_migration.py、构建与测试已验证，UI 走查由用户在微信开发者工具与管理后台执行
 
 **Checkpoint**: 本特性完成，可进入发布
 

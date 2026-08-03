@@ -1,8 +1,33 @@
-const { getDemoSession } = require('../mock/demo-control')
+const { getDemoSession, setDemoSession } = require('../mock/demo-control')
 const {
   normalizeIdentityType,
   normalizeCollaboratorRole
 } = require('../models/collaborator')
+
+/**
+ * Build a mini-program session from the distributor login / session payload.
+ * `user` comes from GET /auth/session; `distributor` from the login response.
+ */
+function buildDistributorSession(user, distributor) {
+  const u = user || {}
+  const d = distributor || {}
+  return {
+    userId: String(u.userId || d.distributorId || ''),
+    role: 'collaborator',
+    identityType: 'promoter',
+    activationStatus: u.activationStatus || 'active',
+    orgRole: d.orgRole || u.orgRole || 'member',
+    profileCompleted: true,
+    name: u.nickname || d.name || '',
+    phone: u.phone || d.phone || '',
+    organization: d.orgName || u.orgName || '',
+    wechatBound: u.wechatBound === true,
+  }
+}
+
+function setSession(session) {
+  setDemoSession(session)
+}
 
 function normalizeSession(raw) {
   const session = raw || {}
@@ -25,4 +50,4 @@ function getEntry(session) {
 }
 
 function getCurrentSession() { return normalizeSession(getDemoSession()) }
-module.exports = { normalizeSession, getEntry, getCurrentSession }
+module.exports = { normalizeSession, getEntry, getCurrentSession, buildDistributorSession, setSession }
