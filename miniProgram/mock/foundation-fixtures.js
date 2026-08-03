@@ -1,5 +1,5 @@
 const sessions = {
-  promoter: { userId: 'demo-promoter-001', role: 'collaborator', identityType: 'promoter', activationStatus: 'active', profileCompleted: true, name: '张小明' },
+  promoter: { userId: 'demo-promoter-001', role: 'collaborator', identityType: 'promoter', activationStatus: 'active', orgRole: 'admin', profileCompleted: true, name: '张小明' },
   doctor: { userId: 'demo-doctor-001', role: 'collaborator', identityType: 'doctor', activationStatus: 'active', profileCompleted: true, name: '李医生' },
   reviewing: { userId: 'demo-reviewing-001', role: 'collaborator', identityType: 'promoter', activationStatus: 'active', profileCompleted: true, name: '张小明' },
   rejected: { userId: 'demo-rejected-001', role: 'collaborator', identityType: 'promoter', activationStatus: 'active', profileCompleted: true, name: '张小明' },

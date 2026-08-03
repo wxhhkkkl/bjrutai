@@ -22,7 +22,6 @@ from ..models.contribution import ContributionRecord, ContributionStatus
 from ..models.distributor import Distributor
 from ..models.organization import Organization
 from ..models.report import Report
-from ..models.user import User
 
 
 # ---------------------------------------------------------------------------
@@ -261,10 +260,47 @@ class ReportService:
     # ------------------------------------------------------------------
     # Section builders
     # ------------------------------------------------------------------
+    async def _org_maps(
+        self, db: AsyncSession, distributor_ids: set[int]
+    ) -> tuple[dict[int, int], dict[int, str]]:
+        """Return (distributor_id -> org_id, org_id -> org_name) maps."""
+        org_map: dict[int, int] = {}
+        org_name_map: dict[int, str] = {}
+        if not distributor_ids:
+            return org_map, org_name_map
+
+        dists = (
+            await db.execute(
+                select(Distributor).where(Distributor.id.in_(distributor_ids))
+            )
+        ).scalars().all()
+        org_ids = {d.org_id for d in dists}
+        if org_ids:
+            orgs = (
+                await db.execute(
+                    select(Organization).where(Organization.id.in_(org_ids))
+                )
+            ).scalars().all()
+            org_name_map = {o.id: o.name for o in orgs}
+        for d in dists:
+            org_map[d.id] = d.org_id
+        return org_map, org_name_map
+
+    async def _org_level_map(self, db: AsyncSession, org_ids: set[int]) -> dict[int, int]:
+        """Return org_id -> level for the given org ids."""
+        if not org_ids:
+            return {}
+        orgs = (
+            await db.execute(
+                select(Organization).where(Organization.id.in_(org_ids))
+            )
+        ).scalars().all()
+        return {o.id: o.level for o in orgs}
+
     async def _build_binding_section(
         self, db: AsyncSession, start: datetime, end: datetime
     ) -> dict:
-        """Build binding summary section: new bindings, by promoter, etc."""
+        """Build binding summary section grouped by org (US6-AC6)."""
         result = await db.execute(
             select(Customer).where(
                 Customer.bound_at >= start,
@@ -276,23 +312,23 @@ class ReportService:
 
         total_bindings = len(bindings)
 
-        # Group by promoter
-        by_promoter = {}
+        org_map, org_name_map = await self._org_maps(
+            db, {c.distributor_id for c in bindings}
+        )
+
+        # Group by org
+        by_org: dict[int | None, int] = {}
         for c in bindings:
-            pid = c.distributor_id
-            by_promoter[pid] = by_promoter.get(pid, 0) + 1
+            oid = org_map.get(c.distributor_id)
+            by_org[oid] = by_org.get(oid, 0) + 1
 
         details = []
-        for pid, count in sorted(by_promoter.items(), key=lambda x: -x[1]):
-            prom_result = await db.execute(select(Distributor).where(Distributor.id == pid))
-            promoter = prom_result.scalars().first()
-            prom_name = f"Distributor {pid}"
-            if promoter:
-                user_result = await db.execute(select(User).where(User.id == promoter.user_id))
-                user = user_result.scalars().first()
-                if user:
-                    prom_name = user.name or prom_name
-            details.append({"推广员": prom_name, "新绑定数": count})
+        for oid, count in sorted(by_org.items(), key=lambda x: -x[1]):
+            name = org_name_map.get(oid) if oid is not None else None
+            details.append({
+                "组织": name or (f"Org {oid}" if oid is not None else "未分配组织"),
+                "新绑定数": count,
+            })
 
         return {
             "title": "绑定汇总",
@@ -388,7 +424,7 @@ class ReportService:
     async def _build_allocation_section(
         self, db: AsyncSession, start: datetime, end: datetime
     ) -> dict:
-        """Build allocation by level section from contribution records."""
+        """Build allocation section grouped by org dimension (US6-AC6)."""
         result = await db.execute(
             select(ContributionRecord).where(
                 ContributionRecord.occurred_at >= start,
@@ -397,49 +433,41 @@ class ReportService:
         )
         records = result.scalars().all()
 
-        # Group by promoter
-        by_promoter = {}
+        org_map, org_name_map = await self._org_maps(
+            db, {r.distributor_id for r in records}
+        )
+        org_level_map = await self._org_level_map(db, set(org_name_map.keys()))
+
+        # Group by org
+        by_org: dict[int | None, dict] = {}
         for r in records:
-            pid = r.distributor_id
-            if pid not in by_promoter:
-                by_promoter[pid] = {"totalPoints": 0.0, "count": 0}
+            oid = org_map.get(r.distributor_id)
+            agg = by_org.setdefault(oid, {"totalPoints": 0.0, "count": 0, "members": set()})
             try:
-                by_promoter[pid]["totalPoints"] += float(r.points)
+                agg["totalPoints"] += float(r.points)
             except (ValueError, TypeError):
                 pass
-            by_promoter[pid]["count"] += 1
+            agg["count"] += 1
+            agg["members"].add(r.distributor_id)
 
-        # Get promoter hierarchy levels
         details = []
-        for pid, data in sorted(by_promoter.items(), key=lambda x: -x[1]["totalPoints"]):
-            prom_result = await db.execute(select(Distributor).where(Distributor.id == pid))
-            promoter = prom_result.scalars().first()
-            prom_name = f"Distributor {pid}"
-            level = "N/A"
-            if promoter:
-                user_result = await db.execute(select(User).where(User.id == promoter.user_id))
-                user = user_result.scalars().first()
-                if user:
-                    prom_name = user.name or prom_name
-                node_result = await db.execute(
-                    select(Organization).where(Organization.id == promoter.org_id)
-                )
-                node = node_result.scalars().first()
-                if node:
-                    level = f"L{node.level}"
-
+        for oid, data in sorted(by_org.items(), key=lambda x: -x[1]["totalPoints"]):
+            name = org_name_map.get(oid) if oid is not None else None
+            level = org_level_map.get(oid) if oid is not None else None
             details.append({
-                "推广员": prom_name,
-                "层级": level,
+                "组织": name or (f"Org {oid}" if oid is not None else "未分配组织"),
+                "层级": f"L{level}" if level is not None else "N/A",
                 "贡献值": f"{data['totalPoints']:.2f}",
                 "记录数": data["count"],
+                "分销员数": len(data["members"]),
             })
 
         return {
             "title": "分配明细",
             "summary": {
                 "总记录数": len(records),
-                "总推广员数": len(by_promoter),
+                "总组织数": len(by_org),
+                "总分销员数": len({r.distributor_id for r in records}),
             },
             "details": details,
         }

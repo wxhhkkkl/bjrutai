@@ -20,6 +20,13 @@ const SERVICE_ITEMS = [{
         icon: '/assets/images/profile-promo-icon.png'
     },
     {
+        id: 'org-performance',
+        title: '组织业绩',
+        description: '查看组织贡献汇总',
+        icon: '/assets/images/profile-contribution-icon.png',
+        adminOnly: true
+    },
+    {
         id: 'binding-records',
         title: '绑定记录',
         description: '查看客户绑定状态',
@@ -68,6 +75,9 @@ Page({
             state: demo.getPageViewState('profile'),
             session,
             identityLabel: getIdentityLabel(session),
+            serviceItems: SERVICE_ITEMS.filter(
+                (item) => !item.adminOnly || session.orgRole === 'admin'
+            ),
             metrics: [{
                     label: '客户',
                     value: '36'

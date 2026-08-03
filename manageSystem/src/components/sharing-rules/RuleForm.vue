@@ -13,12 +13,12 @@
       label-width="100px"
       label-position="right"
     >
-      <el-form-item label="层级" prop="level">
-        <el-select v-model="form.level" placeholder="请选择层级" style="width: 100%" :disabled="isEdit">
+      <el-form-item label="组织层级" prop="level">
+        <el-select v-model="form.level" placeholder="请选择组织层级" style="width: 100%" :disabled="isEdit">
           <el-option
-            v-for="n in [2, 3, 4, 5]"
+            v-for="n in orgLevels"
             :key="n"
-            :label="'层级 ' + n"
+            :label="'L' + n"
             :value="n"
           />
         </el-select>
@@ -93,6 +93,7 @@ const props = defineProps({
   modelValue: { type: Boolean, default: false },
   isEdit: { type: Boolean, default: false },
   ruleData: { type: Object, default: null },
+  orgLevels: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['update:modelValue', 'success'])

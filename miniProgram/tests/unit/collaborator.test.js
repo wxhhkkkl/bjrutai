@@ -61,3 +61,19 @@ test('inactive collaborators get no business capabilities', () => {
   assert.equal(capabilities.promotion, false);
   assert.equal(capabilities.contribution, false);
 });
+
+test('org performance is visible only to org admins (US5)', () => {
+  const admin = getCollaboratorCapabilities({
+    role: 'collaborator',
+    activationStatus: 'active',
+    orgRole: 'admin'
+  });
+  const member = getCollaboratorCapabilities({
+    role: 'collaborator',
+    activationStatus: 'active',
+    orgRole: 'member'
+  });
+
+  assert.equal(admin.orgPerformance, true);
+  assert.equal(member.orgPerformance, false);
+});

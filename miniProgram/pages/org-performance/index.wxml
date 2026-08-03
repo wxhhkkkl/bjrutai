@@ -1,0 +1,82 @@
+<flow-navigation title="组织业绩" bind:back="handleBack" />
+
+<view class="org-performance-screen">
+  <page-state
+    state="{{state}}"
+    message="{{state === 'forbidden' ? '当前账号非组织管理员，无权限查看组织业绩' : '请稍后再试'}}"
+    bind:retry="retry"
+  />
+
+  <block wx:if="{{state === 'success'}}">
+    <!-- Period selector -->
+    <view class="period-bar">
+      <view
+        wx:for="{{months}}"
+        wx:key="*this"
+        class="period-chip {{selectedMonth === item ? 'period-chip--active' : ''}} tap-target"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+        data-month="{{item}}"
+        bindtap="selectMonth"
+      >{{item}}</view>
+    </view>
+
+    <!-- Org summary -->
+    <view class="org-card">
+      <text class="org-card__name">{{orgName}}</text>
+      <view class="org-card__summary">
+        <view class="org-card__metric">
+          <text class="org-card__label">本月贡献</text>
+          <text class="org-card__value">{{summary.thisMonth}}</text>
+          <text class="org-card__unit">分</text>
+        </view>
+        <view class="org-card__metric org-card__metric--divider">
+          <text class="org-card__label">累计贡献</text>
+          <text class="org-card__value">{{summary.cumulative}}</text>
+          <text class="org-card__unit">分</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Sub orgs -->
+    <view class="section-block" wx:if="{{subOrgs.length}}">
+      <text class="section-title">下级组织</text>
+      <view class="sub-org-list">
+        <view
+          wx:for="{{subOrgs}}"
+          wx:key="orgId"
+          class="sub-org-row tap-target"
+          hover-class="tap-feedback"
+          hover-start-time="0"
+          hover-stay-time="80"
+        >
+          <text class="sub-org-row__name">{{item.orgName}}</text>
+          <text class="sub-org-row__metric">本月 {{item.thisMonth}} · 累计 {{item.cumulative}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Members -->
+    <view class="section-block" wx:if="{{members.length}}">
+      <text class="section-title">成员贡献</text>
+      <view class="member-table">
+        <view class="member-table__head">
+          <text>成员</text>
+          <text>本月</text>
+          <text>累计</text>
+        </view>
+        <view
+          wx:for="{{members}}"
+          wx:key="distributorId"
+          class="member-table__row"
+        >
+          <text>{{item.name}}</text>
+          <text>{{item.thisMonth}}</text>
+          <text>{{item.cumulative}}</text>
+        </view>
+      </view>
+      <text class="member-note">贡献值仅显示数值，不含客户级明细</text>
+    </view>
+  </block>
+</view>

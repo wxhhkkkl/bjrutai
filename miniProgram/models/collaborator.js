@@ -48,7 +48,9 @@ function getCollaboratorCapabilities(session) {
     promotion: collaborator && active,
     customerBinding: collaborator && active,
     contribution: collaborator && active,
-    customerAnalysis: collaborator && active
+    customerAnalysis: collaborator && active,
+    // US5: org performance is visible only to org admins (backend-authorized).
+    orgPerformance: collaborator && active && value.orgRole === 'admin'
   };
 }
 

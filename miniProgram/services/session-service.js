@@ -9,6 +9,7 @@ function normalizeSession(raw) {
   return {
     userId: session.userId || '', role: normalizeCollaboratorRole(session), identityType: normalizeIdentityType(session),
     activationStatus: session.activationStatus || 'inactive',
+    orgRole: session.orgRole || 'member',
     profileCompleted: session.profileCompleted === true, name: session.name || '',
     phoneAuthorized: session.phoneAuthorized === true, phone: session.phone || '', organization: session.organization || '',
     avatar: session.avatar || ''

@@ -206,6 +206,85 @@ class TestReportGenerationFlow:
         wb.close()
 
     @pytest.mark.asyncio
+    async def test_binding_and_allocation_group_by_org(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Binding/allocation report sections aggregate by org (US6-AC6)."""
+        await seed_admin(db_session, username="admin_org", password_plain="testpass123")
+
+        # Org tree: 总部 (L1) -> 华北区 (L2)
+        root = await seed_hierarchy_node(
+            db_session, name="总部", node_type="headquarters", level=1, parent_id=None
+        )
+        child = await seed_hierarchy_node(
+            db_session, name="华北区", node_type="region", level=2, parent_id=root
+        )
+
+        # One distributor per org
+        u1 = await seed_user(db_session, openid="rpt_org_u1", user_type="promoter", name="张分销")
+        d1 = await seed_promoter(db_session, user_id=u1, node_id=root)
+        u2 = await seed_user(db_session, openid="rpt_org_u2", user_type="promoter", name="李分销")
+        d2 = await seed_promoter(db_session, user_id=u2, node_id=child)
+
+        # Bound customers
+        c1 = Customer(
+            distributor_id=d1, rutai_user_id="hrb_org_1",
+            binding_status=BindingStatus.BOUND, bound_at=datetime(2026, 7, 5, tzinfo=timezone.utc),
+        )
+        c2 = Customer(
+            distributor_id=d2, rutai_user_id="hrb_org_2",
+            binding_status=BindingStatus.BOUND, bound_at=datetime(2026, 7, 6, tzinfo=timezone.utc),
+        )
+        db_session.add_all([c1, c2])
+        await db_session.flush()
+
+        # Contribution records
+        db_session.add_all([
+            ContributionRecord(
+                distributor_id=d1, customer_id=c1.id, points="100.00",
+                status=ContributionStatus.CONFIRMED, category=ContributionCategory.BILL,
+                title="org_a", occurred_at=datetime(2026, 7, 7, tzinfo=timezone.utc),
+            ),
+            ContributionRecord(
+                distributor_id=d2, customer_id=c2.id, points="50.00",
+                status=ContributionStatus.CONFIRMED, category=ContributionCategory.BILL,
+                title="org_b", occurred_at=datetime(2026, 7, 8, tzinfo=timezone.utc),
+            ),
+        ])
+        await db_session.flush()
+
+        gen_resp = await client.post(
+            "/api/v1/reports/generate",
+            json={
+                "startDate": "2026-07-01",
+                "endDate": "2026-07-31",
+                "dimensions": ["binding", "allocation"],
+            },
+            headers=_admin_headers(),
+        )
+        assert gen_resp.status_code == 200
+        report_id = gen_resp.json()["data"]["reportId"]
+
+        detail_resp = await client.get(
+            f"/api/v1/reports/{report_id}", headers=_admin_headers()
+        )
+        sections = detail_resp.json()["data"]["sections"]
+
+        # Binding section groups by org
+        binding_details = sections["binding"]["details"]
+        binding_by_org = {row["组织"]: row["新绑定数"] for row in binding_details}
+        assert binding_by_org.get("总部") == 1
+        assert binding_by_org.get("华北区") == 1
+
+        # Allocation section groups by org with correct totals
+        alloc_details = sections["allocation"]["details"]
+        alloc_by_org = {row["组织"]: row for row in alloc_details}
+        assert alloc_by_org["总部"]["贡献值"] == "100.00"
+        assert alloc_by_org["华北区"]["贡献值"] == "50.00"
+        assert alloc_by_org["总部"]["层级"] == "L1"
+        assert alloc_by_org["华北区"]["层级"] == "L2"
+
+    @pytest.mark.asyncio
     async def test_report_empty_date_range(
         self, client: AsyncClient, db_session: AsyncSession
     ):

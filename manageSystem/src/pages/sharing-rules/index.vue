@@ -14,15 +14,15 @@
       <div class="filter-left">
         <el-select
           v-model="filters.level"
-          placeholder="选择层级"
+          placeholder="选择组织层级"
           clearable
           style="width: 140px"
           @change="handleFilterChange"
         >
           <el-option
-            v-for="n in [2, 3, 4, 5]"
+            v-for="n in orgLevels"
             :key="n"
-            :label="'层级 ' + n"
+            :label="'L' + n"
             :value="n"
           />
         </el-select>
@@ -120,6 +120,7 @@
       v-model="showRuleForm"
       :is-edit="isEditing"
       :rule-data="currentRule"
+      :org-levels="orgLevels"
       @success="onRuleFormSuccess"
     />
 
@@ -156,9 +157,29 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { useSharingStore } from '@/stores/sharing'
+import { orgApi } from '@/api/org'
 import RuleForm from '@/components/sharing-rules/RuleForm.vue'
 
 const store = useSharingStore()
+
+// Distinct org-tree levels for the level filter / rule form (FR-005 arbitrary depth)
+const orgLevels = ref([])
+function collectLevels(nodes, acc = new Set()) {
+  for (const node of nodes) {
+    if (node.level != null) acc.add(node.level)
+    if (node.children?.length) collectLevels(node.children, acc)
+  }
+  return acc
+}
+async function loadOrgLevels() {
+  try {
+    const tree = await orgApi.getTree()
+    const items = Array.isArray(tree) ? tree : (tree?.items || [])
+    orgLevels.value = Array.from(collectLevels(items)).sort((a, b) => a - b)
+  } catch {
+    orgLevels.value = []
+  }
+}
 
 const filters = reactive({
   level: null,
@@ -210,7 +231,7 @@ function onRuleFormSuccess() {
 async function handleDeactivate(row) {
   try {
     await ElMessageBox.confirm(
-      `确定要停用层级 ${row.level} 的「${store.getRuleTypeLabel(row.rule_type)}」规则吗？`,
+      `确定要停用 L${row.level} 组织层级的「${store.getRuleTypeLabel(row.rule_type)}」规则吗？`,
       '确认停用',
       { confirmButtonText: '停用', cancelButtonText: '取消', type: 'warning' }
     )
@@ -238,7 +259,7 @@ async function handleUpdateCoefficient() {
 async function init() {
   coefficientLoading.value = true
   try {
-    await Promise.all([store.fetchRules(), store.fetchCoefficient()])
+    await Promise.all([store.fetchRules(), store.fetchCoefficient(), loadOrgLevels()])
   } finally {
     coefficientLoading.value = false
   }

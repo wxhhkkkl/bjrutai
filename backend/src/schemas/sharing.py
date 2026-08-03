@@ -13,7 +13,8 @@ from pydantic import BaseModel, Field, field_validator, ValidationInfo
 class SharingRuleCreate(BaseModel):
     """Schema for creating a new sharing rule (admin only)."""
 
-    level: int = Field(..., ge=2, le=5, description="Distribution level (2-5)")
+    # Level refers to the org-tree depth (FR-005: arbitrary depth, no fixed L1-L6).
+    level: int = Field(..., ge=1, description="Org level the rule applies to")
     rule_type: str = Field(
         ..., pattern=r"^(fixed_ratio|fixed_amount|tiered)$", description="Rule type"
     )
@@ -64,7 +65,7 @@ class SharingRuleCreate(BaseModel):
 class SharingRuleUpdate(BaseModel):
     """Schema for updating an existing sharing rule with optimistic locking."""
 
-    level: Optional[int] = Field(None, ge=2, le=5)
+    level: Optional[int] = Field(None, ge=1)
     rule_type: Optional[str] = Field(None, pattern=r"^(fixed_ratio|fixed_amount|tiered)$")
     base: Optional[str] = Field(None, pattern=r"^(paid_amount|total_amount)$")
     value: Optional[str] = Field(None, min_length=1, max_length=5000)
