@@ -31,7 +31,7 @@
         <template #default="{ data }">
           <div class="tree-node-content">
             <span class="node-name">{{ data.name }}</span>
-            <el-tag size="small" class="node-type-tag">{{ data.orgType }}</el-tag>
+            <el-tag v-if="data.orgType" size="small" class="node-type-tag">{{ data.orgType }}</el-tag>
             <span class="node-level">L{{ data.level }}</span>
             <el-tag size="small" :type="data.status === 'disabled' ? 'danger' : 'success'">
               {{ data.status === 'disabled' ? '停用' : '正常' }}
@@ -63,8 +63,8 @@
         <el-form-item label="名称" required>
           <el-input v-model="form.name" placeholder="组织名称" maxlength="128" />
         </el-form-item>
-        <el-form-item label="组织类型" required>
-          <el-input v-model="form.orgType" placeholder="如 headquarters / region / branch" maxlength="50" />
+        <el-form-item label="备注">
+          <el-input v-model="form.orgType" placeholder="备注（可选），如总部/区域/分站" maxlength="50" />
         </el-form-item>
         <el-form-item label="排序" v-if="formMode === 'create'">
           <el-input-number v-model="form.sortOrder" :min="0" />
@@ -188,8 +188,8 @@ function openEdit(org) {
 }
 
 async function saveForm() {
-  if (!form.name || !form.orgType) {
-    ElMessage.warning('请填写名称与组织类型')
+  if (!form.name) {
+    ElMessage.warning('请填写组织名称')
     return
   }
   saving.value = true
@@ -197,7 +197,7 @@ async function saveForm() {
     if (formMode.value === 'create') {
       await orgApi.create({
         name: form.name,
-        orgType: form.orgType,
+        orgType: form.orgType?.trim() || undefined,
         parentId: form.parentId || undefined,
         sortOrder: form.sortOrder,
       })
@@ -205,7 +205,7 @@ async function saveForm() {
     } else {
       await orgApi.update(selected.value.orgId, {
         name: form.name,
-        orgType: form.orgType,
+        orgType: form.orgType?.trim() || undefined,
         status: form.status,
       })
       ElMessage.success('保存成功')

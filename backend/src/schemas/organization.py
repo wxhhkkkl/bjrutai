@@ -14,7 +14,7 @@ class OrgCreate(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=128, description="Organization name")
     parent_id: Optional[int] = Field(None, alias="parentId", description="Parent org ID (null = root)")
-    org_type: str = Field(..., min_length=1, max_length=50, alias="orgType", description="Org type")
+    org_type: Optional[str] = Field(None, max_length=50, alias="orgType", description="备注（可选）：组织类型说明")
     sort_order: int = Field(0, alias="sortOrder", description="Sort order among siblings")
 
     class Config:
@@ -51,7 +51,7 @@ class OrgNodeResponse(BaseModel):
 
     org_id: str = Field(..., alias="orgId")
     name: str
-    org_type: str = Field(..., alias="orgType")
+    org_type: Optional[str] = Field(None, alias="orgType")
     level: int
     parent_id: Optional[str] = Field(None, alias="parentId")
     sort_order: int = Field(0, alias="sortOrder")

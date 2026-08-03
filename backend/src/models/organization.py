@@ -23,7 +23,7 @@ class Organization(Base):
         Integer, ForeignKey("organizations.id"), nullable=True, index=True
     )
     name: Mapped[str] = mapped_column(String(128), nullable=False)
-    org_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    org_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     level: Mapped[int] = mapped_column(Integer, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     status: Mapped[OrgStatus] = mapped_column(
