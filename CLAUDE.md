@@ -1,7 +1,7 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-specs/005-customer-management/plan.md
+specs/006-performance-rules/plan.md
 <!-- SPECKIT END -->
 
 # CLAUDE.md

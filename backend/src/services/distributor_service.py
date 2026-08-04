@@ -195,10 +195,26 @@ async def reset_password(
 async def set_role(
     db: AsyncSession, distributor_id: int, data: DistributorRoleUpdate, operator_id: Optional[int] = None
 ) -> dict:
-    """Set or revoke org-admin role for a distributor (US4, backend-only)."""
+    """Set or revoke org-admin role for a distributor (US4, backend-only).
+
+    Enforces FR-008: each org has at most one admin. Setting a second admin
+    in an org that already has one is rejected.
+    """
     if data.org_role not in {r.value for r in OrgRole}:
         raise BadRequestException(message="orgRole must be member or admin")
     d = await get_distributor_or_404(db, distributor_id)
+
+    if data.org_role == OrgRole.ADMIN.value:
+        existing = await db.execute(
+            select(Distributor).where(
+                Distributor.org_id == d.org_id,
+                Distributor.org_role == OrgRole.ADMIN,
+                Distributor.id != d.id,
+            )
+        )
+        if existing.scalars().first() is not None:
+            raise BadRequestException(message="该组织已有管理员，请先撤销")
+
     d.org_role = OrgRole(data.org_role)
     db.add(d)
     await db.flush()

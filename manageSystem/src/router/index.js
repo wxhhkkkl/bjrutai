@@ -49,10 +49,10 @@ const routes = [
     meta: { title: '业绩贡献', icon: 'TrendCharts' },
   },
   {
-    path: '/sharing-rules',
-    name: 'SharingRules',
-    component: () => import('@/pages/sharing-rules/index.vue'),
-    meta: { title: '分成规则', icon: 'Setting' },
+    path: '/performance-rules',
+    name: 'PerformanceRules',
+    component: () => import('@/pages/performance-rules/index.vue'),
+    meta: { title: '绩效规则', icon: 'Setting' },
   },
   {
     path: '/reports',

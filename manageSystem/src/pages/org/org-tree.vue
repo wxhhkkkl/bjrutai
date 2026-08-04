@@ -126,7 +126,14 @@
                     :title="row.orgRole === 'admin' ? '组织管理员不可调整组织' : ''"
                     @click="openMoveOrg(row)"
                   >调整组织</el-button>
-                  <el-button size="small" link :type="row.orgRole === 'admin' ? 'danger' : 'success'" @click="toggleRole(row)">
+                  <el-button
+                    size="small"
+                    link
+                    :type="row.orgRole === 'admin' ? 'danger' : 'success'"
+                    :disabled="row.orgRole !== 'admin' && orgHasAdmin"
+                    :title="row.orgRole !== 'admin' && orgHasAdmin ? '该组织已有管理员，请先撤销' : ''"
+                    @click="toggleRole(row)"
+                  >
                     {{ row.orgRole === 'admin' ? '撤销管理员' : '设为管理员' }}
                   </el-button>
                   <el-button size="small" link @click="openReset(row)">重置密码</el-button>
@@ -283,6 +290,7 @@ const moveOrgRow = ref(null)
 
 const treeData = computed(() => tree.value || [])
 const subOrgs = computed(() => selected.value?.children || [])
+const orgHasAdmin = computed(() => distributors.value.some((d) => d.orgRole === 'admin'))
 
 function countNodes(n) {
   return 1 + (n.children || []).reduce((s, c) => s + countNodes(c), 0)

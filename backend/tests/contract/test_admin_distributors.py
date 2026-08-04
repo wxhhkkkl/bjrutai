@@ -100,3 +100,43 @@ async def test_distributor_login_and_bind_wechat(
         )
     assert bind.status_code == 200
     assert bind.json()["data"]["bound"] is True
+
+
+@pytest.mark.asyncio
+async def test_set_role_second_admin_rejected(client: AsyncClient, db_session: AsyncSession):
+    """FR-008: an org can have only one admin; setting a second is rejected."""
+    org_id = await _seed_org(db_session)
+
+    a = (await client.post(
+        f"/api/v1/admin/orgs/{org_id}/distributors",
+        json={"name": "甲", "phone": "13800000011", "initialPassword": "password123"},
+        headers=DIST_RW,
+    )).json()["data"]["distributorId"]
+    b = (await client.post(
+        f"/api/v1/admin/orgs/{org_id}/distributors",
+        json={"name": "乙", "phone": "13800000022", "initialPassword": "password123"},
+        headers=DIST_RW,
+    )).json()["data"]["distributorId"]
+
+    # Promote A to admin -> success
+    resp = await client.put(
+        f"/api/v1/admin/distributors/{a}/role",
+        json={"orgRole": "admin"}, headers=DIST_RW,
+    )
+    assert resp.json()["code"] == 0
+
+    # Promote B to admin -> rejected (org already has an admin)
+    resp2 = await client.put(
+        f"/api/v1/admin/distributors/{b}/role",
+        json={"orgRole": "admin"}, headers=DIST_RW,
+    )
+    assert resp2.json()["code"] == 40000
+    assert "已有管理员" in resp2.json()["message"]
+
+    # Revoke A, then promote B -> success
+    await client.put(f"/api/v1/admin/distributors/{a}/role", json={"orgRole": "member"}, headers=DIST_RW)
+    resp3 = await client.put(
+        f"/api/v1/admin/distributors/{b}/role",
+        json={"orgRole": "admin"}, headers=DIST_RW,
+    )
+    assert resp3.json()["code"] == 0

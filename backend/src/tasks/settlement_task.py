@@ -44,3 +44,15 @@ async def monthly_settlement_job():
             await db.rollback()
             logger.error("Monthly settlement failed for period %s: %s", period, exc)
             raise
+
+        # FR-013: compute commissions from performance rules after settlement.
+        # Isolated so a commission failure never blocks contribution settlement.
+        try:
+            from ..services.commission_service import compute_commission
+
+            await compute_commission(db, period)
+            await db.commit()
+            logger.info("Commission computed for period %s", period)
+        except Exception as exc:
+            await db.rollback()
+            logger.error("Commission computation failed for period %s: %s", period, exc)

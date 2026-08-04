@@ -34,9 +34,9 @@
           <el-icon><TrendCharts /></el-icon>
           <span>业绩贡献</span>
         </el-menu-item>
-        <el-menu-item index="/sharing-rules">
+        <el-menu-item index="/performance-rules">
           <el-icon><Setting /></el-icon>
-          <span>分成规则</span>
+          <span>绩效规则</span>
         </el-menu-item>
         <el-menu-item index="/reports">
           <el-icon><DataAnalysis /></el-icon>

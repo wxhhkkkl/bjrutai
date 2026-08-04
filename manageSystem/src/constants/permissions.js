@@ -85,10 +85,10 @@ export const PERMISSION_MODULES = [
   },
   {
     module: 'sharing_rules',
-    label: '分成规则',
+    label: '绩效规则',
     permissions: [
-      { key: 'sharing_rules.read', label: '查看分成规则' },
-      { key: 'sharing_rules.write', label: '编辑分成规则' },
+      { key: 'sharing_rules.read', label: '查看绩效规则' },
+      { key: 'sharing_rules.write', label: '编辑绩效规则' },
     ],
   },
   {
