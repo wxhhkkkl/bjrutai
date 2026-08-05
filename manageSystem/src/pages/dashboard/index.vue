@@ -68,25 +68,6 @@
       </template>
     </el-row>
 
-    <!-- Quick links -->
-    <el-card shadow="never" class="links-card">
-      <template #header>
-        <span>快捷操作</span>
-      </template>
-      <div class="quick-links">
-        <el-button
-          v-for="link in quickLinks"
-          :key="link.path"
-          type="primary"
-          plain
-          size="small"
-          @click="$router.push(link.path)"
-        >
-          {{ link.label }}
-        </el-button>
-      </div>
-    </el-card>
-
     <!-- Notices -->
     <el-card v-if="workbenchData" shadow="never" class="notices-card">
       <template #header>
@@ -133,7 +114,6 @@ const roleLabel = computed(() => {
 const today = ref('')
 const welcomeMessage = ref('欢迎使用北京儒泰分销管理系统')
 const metrics = ref({})
-const quickLinks = ref([])
 const workbenchData = ref(null)
 const recentBindings = ref([])
 const contributionSummary = ref(null)
@@ -148,15 +128,10 @@ onMounted(async () => {
     if (data) {
       welcomeMessage.value = data.welcomeMessage || welcomeMessage.value
       metrics.value = data.metrics || {}
-      quickLinks.value = data.quickLinks || []
     }
   } catch (e) {
     // Workbench not yet deployed — use fallback
     metrics.value = { myCustomers: 0, myMonthlyContribution: 0, myBindings: 0, pendingFollowups: 0 }
-    quickLinks.value = [
-      { label: '客户管理', path: '/customers' },
-      { label: '我的业绩', path: '/contributions' },
-    ]
   }
 
   try {
@@ -211,9 +186,6 @@ function formatTime(t) {
 .kpi-value.pending { color: #e6a23c; }
 .kpi-value.abnormal { color: #f56c6c; }
 .kpi-label { margin-top: 4px; color: #909399; font-size: 13px; }
-
-.links-card { margin-bottom: 16px; }
-.quick-links { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .notices-list { display: flex; flex-direction: column; gap: 10px; }
 .notice-item { display: flex; align-items: center; gap: 8px; }

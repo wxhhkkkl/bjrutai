@@ -67,10 +67,6 @@
             <span>角色管理</span>
           </el-menu-item>
         </el-sub-menu>
-        <el-menu-item index="/promotions">
-          <el-icon><Discount /></el-icon>
-          <span>推广码</span>
-        </el-menu-item>
       </el-menu>
     </el-aside>
 
@@ -157,7 +153,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import {
   Odometer, Share, User, Link, TrendCharts,
-  Setting, DataAnalysis, Document, Bell, Discount,
+  Setting, DataAnalysis, Document, Bell,
   Fold, Expand, ArrowDown, UserFilled,
 } from '@element-plus/icons-vue'
 
