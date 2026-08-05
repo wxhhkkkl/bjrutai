@@ -92,6 +92,13 @@ export const PERMISSION_MODULES = [
     ],
   },
   {
+    module: 'performance',
+    label: '绩效计算',
+    permissions: [
+      { key: 'performance.settle', label: '审核/导出月度核算' },
+    ],
+  },
+  {
     module: 'sync',
     label: '数据同步',
     permissions: [

@@ -1,0 +1,66 @@
+.perf-screen {
+  min-height: 100vh;
+  background: #f5f7fa;
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.est-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 28rpx;
+}
+.est-card__title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #303133;
+  display: block;
+  margin-bottom: 20rpx;
+}
+.est-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10rpx 0;
+  font-size: 28rpx;
+  color: #303133;
+}
+.est-row--sub {
+  font-size: 24rpx;
+  color: #909399;
+  justify-content: flex-start;
+}
+.est-row__amount {
+  color: #409eff;
+  font-weight: 600;
+}
+.est-empty {
+  font-size: 26rpx;
+  color: #909399;
+  padding: 16rpx 0;
+}
+
+.conf-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #303133;
+  margin: 32rpx 8rpx 16rpx;
+}
+.conf-empty {
+  text-align: center;
+  color: #909399;
+  font-size: 26rpx;
+  padding: 40rpx 0;
+}
+.conf-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx 28rpx;
+  margin-bottom: 16rpx;
+}
+.conf-card__month {
+  font-size: 26rpx;
+  color: #909399;
+  display: block;
+  margin-bottom: 8rpx;
+}

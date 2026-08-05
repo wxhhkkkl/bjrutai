@@ -20,6 +20,7 @@
         "pages/auth/profile-setup/index",
         "pages/auth/bind-wechat/index",
         "pages/org-performance/index",
+        "pages/performance/index",
         "pages/common/feature-placeholder/index",
         "pages/index/index"
     ],

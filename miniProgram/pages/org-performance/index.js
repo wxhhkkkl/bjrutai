@@ -1,11 +1,20 @@
 const { getCurrentSession } = require('../../services/session-service');
 const { requestOrgPerformance } = require('../../services/org-performance-service');
+const { requestOrgCommission } = require('../../services/commission-service');
 
 const MONTHS = ['2026-07', '2026-08', '2026-09'];
 
 function formatNumber(value) {
   const num = Number(value);
   return Number.isFinite(num) ? num.toLocaleString('en-US') : '0';
+}
+
+function fmtYuan(cent) {
+  const num = Number(cent) || 0;
+  return (num / 100).toFixed(2);
+}
+function fmtRatio(ratio) {
+  return `${(Number(ratio) * 100).toFixed(2)}%`;
 }
 
 Page({
@@ -18,6 +27,7 @@ Page({
     members: [],
     months: MONTHS,
     selectedMonth: MONTHS[1],
+    commission: null,
   },
 
   onLoad() {
@@ -46,6 +56,14 @@ Page({
     } catch {
       this.setData({ state: 'recoverable-error' });
     }
+
+    // 008 US3: commission estimate + confirmed months (best-effort; failure hides the block).
+    try {
+      const commission = await requestOrgCommission({ month: this.data.selectedMonth });
+      this.setData({ commission });
+    } catch {
+      this.setData({ commission: null });
+    }
   },
 
   retry() {
@@ -65,4 +83,6 @@ Page({
   },
 
   formatNumber,
+  fmtYuan,
+  fmtRatio,
 });

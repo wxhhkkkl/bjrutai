@@ -38,6 +38,10 @@
           <el-icon><Setting /></el-icon>
           <span>绩效规则</span>
         </el-menu-item>
+        <el-menu-item index="/performance">
+          <el-icon><DataAnalysis /></el-icon>
+          <span>绩效计算</span>
+        </el-menu-item>
         <el-menu-item index="/reports">
           <el-icon><DataAnalysis /></el-icon>
           <span>数据报表</span>

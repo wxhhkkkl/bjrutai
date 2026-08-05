@@ -1,0 +1,52 @@
+<flow-navigation title="我的绩效" bind:back="handleBack" />
+
+<view class="perf-screen">
+  <page-state
+    state="{{state}}"
+    message="加载失败，请稍后再试"
+    bind:retry="retry"
+  />
+
+  <block wx:if="{{state === 'success'}}">
+    <!-- 当月预估 -->
+    <view class="est-card">
+      <text class="est-card__title">当月预估{{currentMonth.month ? '（' + currentMonth.month + '）' : ''}}</text>
+      <block wx:if="{{currentMonth.intraOrg}}">
+        <view class="est-row">
+          <text class="est-row__label">组织内提成</text>
+          <text class="est-row__amount">¥{{fmtYuan(currentMonth.intraOrg.commissionCent)}}</text>
+        </view>
+        <view class="est-row est-row--sub">
+          <text>基数 ¥{{fmtYuan(currentMonth.intraOrg.baseCent)}} · 比例 {{fmtRatio(currentMonth.intraOrg.ratio)}}</text>
+        </view>
+      </block>
+      <block wx:if="{{currentMonth.orgManagement}}">
+        <view class="est-row">
+          <text class="est-row__label">组织管理提成</text>
+          <text class="est-row__amount">¥{{fmtYuan(currentMonth.orgManagement.commissionCent)}}</text>
+        </view>
+        <view class="est-row est-row--sub">
+          <text>基数 ¥{{fmtYuan(currentMonth.orgManagement.baseCent)}} · 比例 {{fmtRatio(currentMonth.orgManagement.ratio)}}</text>
+        </view>
+      </block>
+      <view wx:if="{{!currentMonth.intraOrg && !currentMonth.orgManagement}}" class="est-empty">
+        暂无预估（组织可能未配置绩效规则）
+      </view>
+    </view>
+
+    <!-- 已确认月份 -->
+    <view class="conf-title">已确认月份</view>
+    <view wx:if="{{confirmed.length === 0}}" class="conf-empty">暂无已确认的月度核算</view>
+    <view wx:for="{{confirmed}}" wx:key="month" class="conf-card">
+      <text class="conf-card__month">{{item.month}}</text>
+      <view wx:if="{{item.intraOrg}}" class="est-row">
+        <text class="est-row__label">组织内提成</text>
+        <text class="est-row__amount">¥{{fmtYuan(item.intraOrg.commissionCent)}}</text>
+      </view>
+      <view wx:if="{{item.orgManagement}}" class="est-row">
+        <text class="est-row__label">组织管理提成</text>
+        <text class="est-row__amount">¥{{fmtYuan(item.orgManagement.commissionCent)}}</text>
+      </view>
+    </view>
+  </block>
+</view>

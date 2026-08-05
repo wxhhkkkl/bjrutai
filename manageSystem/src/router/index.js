@@ -55,6 +55,12 @@ const routes = [
     meta: { title: '绩效规则', icon: 'Setting' },
   },
   {
+    path: '/performance',
+    name: 'PerformanceSettlement',
+    component: () => import('@/pages/performance/settlement.vue'),
+    meta: { title: '绩效计算', icon: 'DataAnalysis' },
+  },
+  {
     path: '/reports',
     name: 'Reports',
     component: () => import('@/pages/reports/index.vue'),

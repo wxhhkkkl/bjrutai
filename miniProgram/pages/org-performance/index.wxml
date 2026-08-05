@@ -39,6 +39,39 @@
       </view>
     </view>
 
+    <!-- 008 US3: 提成预估 + 已确认 -->
+    <view class="section-block" wx:if="{{commission}}">
+      <text class="section-title">提成预估{{commission.currentMonth.month ? '（' + commission.currentMonth.month + '）' : ''}}</text>
+      <view class="commission-card">
+        <view class="commission-row">
+          <text class="commission-row__label">组织提成</text>
+          <text class="commission-row__amount">¥{{fmtYuan(commission.currentMonth.summary.commissionCent)}}</text>
+        </view>
+        <view wx:if="{{commission.currentMonth.members.length}}" class="member-table">
+          <view class="member-table__head">
+            <text>成员</text>
+            <text>提成金额</text>
+          </view>
+          <view
+            wx:for="{{commission.currentMonth.members}}"
+            wx:key="distributorId"
+            class="member-table__row"
+          >
+            <text>{{item.name}}</text>
+            <text>¥{{fmtYuan(item.commissionCent)}}</text>
+          </view>
+        </view>
+      </view>
+      <view
+        wx:for="{{commission.confirmed}}"
+        wx:key="month"
+        class="commission-row commission-row--confirmed"
+      >
+        <text>{{item.month}}（已确认）</text>
+        <text class="commission-row__amount">¥{{fmtYuan(item.summary.commissionCent)}}</text>
+      </view>
+    </view>
+
     <!-- Sub orgs -->
     <view class="section-block" wx:if="{{subOrgs.length}}">
       <text class="section-title">下级组织</text>
