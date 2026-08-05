@@ -93,6 +93,9 @@ class AdminArticleItem(BaseModel):
     articleId: str
     title: str
     summary: Optional[str] = None
+    content: Optional[str] = None
+    coverImageUrl: Optional[str] = None
+    tags: Optional[list[str]] = None
     category: Optional[str] = None
     status: str
     statusLabel: str

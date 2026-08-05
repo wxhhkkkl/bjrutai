@@ -43,10 +43,28 @@
       </el-form-item>
 
       <el-form-item label="封面图片" prop="coverImageUrl">
-        <el-input
-          v-model="form.coverImageUrl"
-          placeholder="请输入封面图片URL（选填）"
-        />
+        <div class="cover-upload">
+          <el-upload
+            :show-file-list="false"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            :before-upload="validateCoverFile"
+            :http-request="handleCoverUpload"
+          >
+            <div v-if="form.coverImageUrl" class="cover-preview">
+              <img :src="form.coverImageUrl" alt="封面预览" />
+            </div>
+            <div v-else class="cover-placeholder">
+              <el-icon class="cover-icon"><Plus /></el-icon>
+              <span>上传封面图片</span>
+            </div>
+          </el-upload>
+          <el-input
+            v-model="form.coverImageUrl"
+            placeholder="或手动输入图片URL（选填）"
+            clearable
+            class="cover-url-input"
+          />
+        </div>
       </el-form-item>
 
       <el-form-item label="分类" prop="category_id">
@@ -87,6 +105,8 @@
 <script setup>
 import { ref, reactive, watch, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
+import http from '@/api/http'
 import { useArticlesStore } from '@/stores/articles'
 import { useCategoriesStore } from '@/stores/categories'
 import ArticleEditor from '@/components/ArticleEditor.vue'
@@ -166,6 +186,39 @@ function parseTags() {
     .slice(0, 20)
 }
 
+function validateCoverFile(file) {
+  if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+    ElMessage.error('仅支持 JPG/PNG/GIF/WebP 格式')
+    return false
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    ElMessage.error('图片大小不能超过 10MB')
+    return false
+  }
+  return true
+}
+
+async function handleCoverUpload({ file, onSuccess, onError }) {
+  try {
+    const res = await http.post('/admin/articles/upload-image', {
+      fileName: file.name,
+      contentType: file.type,
+    })
+    const { uploadUrl, fileUrl } = res.data.data || res.data
+    await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: { 'Content-Type': file.type },
+    })
+    form.coverImageUrl = fileUrl
+    ElMessage.success('封面上传成功')
+    onSuccess?.()
+  } catch (err) {
+    onError?.(err)
+    ElMessage.error('封面上传失败：' + (err.userMessage || err.message || '网络错误'))
+  }
+}
+
 onMounted(() => { categoriesStore.fetchCategories() })
 
 function resetForm() {
@@ -232,6 +285,27 @@ async function handleSave() {
 </script>
 
 <style scoped>
+.cover-upload { width: 100%; }
+.cover-preview {
+  width: 240px; height: 135px;
+  border: 1px dashed #dcdfe6; border-radius: 6px;
+  overflow: hidden; cursor: pointer;
+  background: #f5f7fa;
+}
+.cover-preview img { width: 100%; height: 100%; object-fit: cover; }
+.cover-placeholder {
+  width: 240px; height: 135px;
+  border: 1px dashed #dcdfe6; border-radius: 6px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 6px; color: #909399; cursor: pointer;
+  background: #f5f7fa;
+  transition: border-color .2s, color .2s;
+}
+.cover-placeholder:hover { border-color: #409EFF; color: #409EFF; }
+.cover-icon { font-size: 22px; }
+.cover-url-input { margin-top: 8px; }
+
 .editor-toolbar {
   margin-bottom: 8px;
   padding: 6px 10px;

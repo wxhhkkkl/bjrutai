@@ -53,6 +53,19 @@
       style="width: 100%; margin-top: 16px"
       empty-text="暂无文章数据"
     >
+      <el-table-column label="封面" width="100" align="center">
+        <template #default="{ row }">
+          <el-image
+            v-if="row.coverImageUrl"
+            :src="row.coverImageUrl"
+            fit="cover"
+            class="cover-thumb"
+            :preview-src-list="[row.coverImageUrl]"
+            preview-teleported
+          />
+          <span v-else class="cover-empty">-</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="title" label="标题" min-width="200">
         <template #default="{ row }">
           <span class="article-title-link">{{ row.title }}</span>
@@ -254,6 +267,18 @@ onMounted(() => {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.cover-thumb {
+  width: 72px;
+  height: 45px;
+  border-radius: 4px;
+  display: block;
+  cursor: pointer;
+}
+
+.cover-empty {
+  color: #c0c4cc;
 }
 
 .article-title-link {
