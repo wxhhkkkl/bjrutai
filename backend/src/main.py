@@ -222,6 +222,9 @@ app = FastAPI(
 # ---------------------------------------------------------------------------
 from .core.rate_limiter import RateLimitMiddleware
 
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(IdempotencyMiddleware)
+app.add_middleware(LoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -229,9 +232,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(RateLimitMiddleware)
-app.add_middleware(IdempotencyMiddleware)
-app.add_middleware(LoggingMiddleware)
 
 # ---------------------------------------------------------------------------
 # Error handlers
