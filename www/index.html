@@ -276,6 +276,11 @@
       text-align: center; padding: 32px 24px;
     }
     footer span { color: var(--gold); }
+    footer a {
+      color: var(--gray-300); text-decoration: none;
+      transition: color var(--transition);
+    }
+    footer a:hover { color: var(--white); }
 
     /* ===== 响应式 ===== */
     @media (max-width: 900px) {
@@ -436,7 +441,8 @@
 
   <!-- 页脚 -->
   <footer>
-    © 2026 <span>北京儒泰</span> 版权所有
+    © 2026 <span>北京儒泰</span> 版权所有 ·
+    <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">京ICP备2026047312号</a>
   </footer>
 
   <!-- 滚动动画 -->
