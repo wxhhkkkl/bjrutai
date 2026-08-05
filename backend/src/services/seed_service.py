@@ -29,6 +29,7 @@ _ALL_PERMISSIONS = {
         "distributor.read", "distributor.write",
         "org_admin.write",
         "sharing_rules.read", "sharing_rules.write",
+        "performance.settle",
         "sync.read", "sync.write",
     ]
 }

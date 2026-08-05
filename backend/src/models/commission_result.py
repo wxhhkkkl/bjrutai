@@ -2,8 +2,10 @@
 
 import enum
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy.dialects.mysql import JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..core.database import Base
@@ -29,4 +31,5 @@ class CommissionResult(Base):
     base_cent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     ratio: Mapped[str] = mapped_column(String(20), nullable=False)  # decimal as string (precision)
     commission_cent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    rule_snapshot: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # 核算时生效规则快照（008 FR-007）
     computed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

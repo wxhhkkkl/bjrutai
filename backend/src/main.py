@@ -248,6 +248,8 @@ from .api.v1.admin_org_qualifications import router as admin_org_qualifications_
 from .api.v1.admin_distributors import router as admin_distributors_router
 from .api.v1.admin_customers import router as admin_customers_router
 from .api.v1.admin_performance_rules import router as admin_performance_rules_router
+from .api.v1.admin_performance import router as admin_performance_router
+from .api.v1.my_performance import router as my_performance_router
 from .api.v1.admin_contributions import router as admin_contributions_router
 from .api.v1.org_performance import router as org_performance_router
 from .api.v1.admin_categories import router as admin_categories_router
@@ -286,6 +288,8 @@ app.include_router(admin_org_qualifications_router, prefix="/api/v1")
 app.include_router(admin_distributors_router, prefix="/api/v1")
 app.include_router(admin_customers_router, prefix="/api/v1")
 app.include_router(admin_performance_rules_router, prefix="/api/v1")
+app.include_router(admin_performance_router, prefix="/api/v1")
+app.include_router(my_performance_router, prefix="/api/v1")
 app.include_router(admin_contributions_router, prefix="/api/v1")
 app.include_router(org_performance_router, prefix="/api/v1")
 app.include_router(binding_router, prefix="/api/v1")

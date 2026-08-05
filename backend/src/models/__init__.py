@@ -16,6 +16,7 @@ from .binding import BindingChangeLog, BindingRequest, Customer  # noqa: F401
 from .customer_change_log import ChangeOperationType, CustomerChangeLog  # noqa: F401
 from .performance_rule import PerformanceRule, PerformanceRuleChangeLog, RuleStatus, RuleType  # noqa: F401
 from .commission_result import CommissionResult  # noqa: F401
+from .performance_settlement import PerformanceSettlement, SettlementStatus  # noqa: F401
 from .promotion import PromotionCode  # noqa: F401
 from .bill import Bill  # noqa: F401
 from .contribution import ContributionRecord, SettlementLog  # noqa: F401
