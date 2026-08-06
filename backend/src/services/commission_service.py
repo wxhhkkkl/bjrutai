@@ -25,14 +25,10 @@ from ..models.performance_settlement import PerformanceSettlement, SettlementSta
 from . import distributor_service, organization_service
 
 
-def _period_start_end(period: str) -> tuple[datetime, datetime]:
-    year, month = (int(x) for x in period.split("-"))
-    start = datetime(year, month, 1)
-    if month == 12:
-        end = datetime(year + 1, 1, 1)
-    else:
-        end = datetime(year, month + 1, 1)
-    return start, end
+from .consumption_service import (
+    consumption_by_distributor as _consumption_by_distributor,
+    period_start_end as _period_start_end,
+)
 
 
 def _apply_tiers(tiers: list, base_cent: int) -> float:
@@ -44,26 +40,6 @@ def _apply_tiers(tiers: list, base_cent: int) -> float:
         if t["maxCent"] is None or base_cent < t["maxCent"]:
             return float(t["ratio"])
     return 0.0
-
-
-async def _consumption_by_distributor(db: AsyncSession, distributor_ids: list, period: str) -> dict[int, int]:
-    """Return {distributor_id: total paid consumption (cents)} in the period,
-    excluding refunded/cancelled bills."""
-    if not distributor_ids:
-        return {}
-    start, end = _period_start_end(period)
-    result = await db.execute(
-        select(Customer.distributor_id, func.coalesce(func.sum(Bill.paid_amount_cent), 0))
-        .join(Bill, Bill.customer_id == Customer.id)
-        .where(
-            Customer.distributor_id.in_(distributor_ids),
-            Bill.transaction_time >= start,
-            Bill.transaction_time < end,
-            Bill.transaction_status.notin_([TransactionStatus.REFUNDED, TransactionStatus.CANCELLED]),
-        )
-        .group_by(Customer.distributor_id)
-    )
-    return {int(did): int(amount) for did, amount in result.all()}
 
 
 async def _org_subtree_ids(db: AsyncSession, org_id: int) -> set[int]:

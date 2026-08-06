@@ -6,13 +6,13 @@ from pydantic import BaseModel, Field
 
 
 class OrgMemberPerformance(BaseModel):
-    """Per-distributor contribution (this month + cumulative)."""
+    """Per-distributor 消费金额 (this month + cumulative, cents)."""
 
     distributor_id: str = Field(..., alias="distributorId")
     org_id: str = Field(..., alias="orgId")
     name: Optional[str] = None
-    this_month: str = Field("0.00", alias="thisMonth")
-    cumulative: str = Field("0.00")
+    this_month: int = Field(0, alias="thisMonth")
+    cumulative: int = Field(0)
 
 
 class OrgPerformanceResponse(BaseModel):

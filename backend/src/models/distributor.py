@@ -46,6 +46,3 @@ class Distributor(Base):
     promotion_code: Mapped[Optional["PromotionCode"]] = relationship(
         "PromotionCode", back_populates="distributor", uselist=False
     )
-    contribution_records: Mapped[list["ContributionRecord"]] = relationship(
-        "ContributionRecord", back_populates="distributor"
-    )

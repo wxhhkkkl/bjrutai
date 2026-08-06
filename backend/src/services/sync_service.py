@@ -1,7 +1,7 @@
 """Sync service: polling bind users, fetching bills, idempotent upsert, refund handling.
 
-Coordinates with RutaiClient for API calls and ContributionService for
-contribution calculation.
+Coordinates with RutaiClient for API calls. 业绩贡献 = 消费金额，直接由
+Bill.paid_amount_cent 汇总，无需额外贡献记录。
 """
 
 import asyncio
@@ -19,7 +19,6 @@ from ..models.binding import BindingStatus, Customer
 from ..models.distributor import Distributor
 from ..models.organization import Organization
 from ..models.notification import Notification, NotificationCategory
-from ..services.contribution_service import ContributionService
 
 settings = get_settings()
 
@@ -60,7 +59,6 @@ class SyncService:
 
     def __init__(self) -> None:
         self._rutai_client: Optional[RutaiClient] = None
-        self._contrib_svc = ContributionService()
 
     @property
     def _client(self) -> RutaiClient:
@@ -342,8 +340,6 @@ class SyncService:
                 db.add(existing_bill)
                 await db.flush()
 
-                # Create reversal contribution
-                await self._handle_refund(db, existing_bill, item)
                 return "refund_processed"
 
             # Update existing bill fields if changed
@@ -417,50 +413,13 @@ class SyncService:
         await db.flush()
         await db.refresh(bill)
 
-        # Trigger contribution calculation if this is a paid bill
-        if not is_refund and tx_status == TransactionStatus.PAID:
-            await self._contrib_svc.create_from_bill(db, bill)
-            # Trigger up-tree aggregation
-            if customer:
-                await self._contrib_svc.aggregate_up_tree(
-                    db,
-                    distributor_id=customer.distributor_id,
-                    month=tx_time.strftime("%Y-%m"),
-                )
-
         if is_refund:
-            # Record the refund but also create a reversal
-            await self._handle_refund(db, bill, item)
             return "refund_processed"
 
         return "created"
 
-    async def _handle_refund(
-        self,
-        db: AsyncSession,
-        bill: Bill,
-        item: dict,
-    ) -> None:
-        """Handle refund: find original contribution and create reversal."""
-        from ..models.contribution import ContributionRecord
-
-        # Find the original contribution for this bill
-        result = await db.execute(
-            select(ContributionRecord).where(
-                ContributionRecord.bill_id == bill.id,
-                ContributionRecord.category == "bill",
-            ).order_by(ContributionRecord.id)
-        )
-
-        original = result.scalars().first()
-        if original is not None:
-            refund_amount = item.get("refund_amount_cent", bill.refund_amount_cent)
-            if refund_amount > 0:
-                await self._contrib_svc.reverse_on_refund(
-                    db,
-                    original_contribution_id=original.id,
-                    refund_amount_cent=refund_amount,
-                )
+    # 退款处理：账单 transaction_status 已更新为 refunded/partially_refunded，
+    # 消费金额口径（consumption_by_distributor）自动排除，无需冲正记录。
 
     # ------------------------------------------------------------------
     # Manual retry endpoints

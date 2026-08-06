@@ -30,8 +30,10 @@ async def test_org_tree_100_nodes_within_budget(db_session):
 
 @pytest.mark.asyncio
 async def test_org_performance_aggregation_within_budget(db_session):
+    from datetime import datetime, timezone
+
+    from src.models.bill import Bill, TransactionStatus
     from src.models.binding import BindingStatus, Customer
-    from src.models.contribution import ContributionCategory, ContributionRecord, ContributionStatus
     from src.models.user import User
     from sqlalchemy import select
 
@@ -46,18 +48,20 @@ async def test_org_performance_aggregation_within_budget(db_session):
     distributor_id = int(d["distributorId"])
 
     for i in range(200):
-        c = Customer(distributor_id=distributor_id, binding_status=BindingStatus.BOUND)
+        c = Customer(
+            distributor_id=distributor_id, name="患者", phone="13800138000", phone_masked="138****8000",
+            id_card_encrypted="x", id_card_masked="y", binding_status=BindingStatus.BOUND, version=1,
+        )
         db_session.add(c)
         await db_session.flush()
-        db_session.add(ContributionRecord(
-            distributor_id=distributor_id, customer_id=c.id, points="1.00",
-            status=ContributionStatus.PENDING, category=ContributionCategory.BILL,
-            title=f"t{i}", occurred_at=__import__("datetime").datetime.utcnow(),
+        db_session.add(Bill(
+            customer_id=c.id, transaction_id=f"perf_{i}", transaction_time=datetime.now(timezone.utc),
+            paid_amount_cent=100, total_amount_cent=100, transaction_status=TransactionStatus.PAID,
         ))
     await db_session.flush()
 
     start = time.monotonic()
     result = await org_performance_service.get_org_performance(db_session, u.id)
     elapsed = time.monotonic() - start
-    assert result["summary"]["cumulative"] == "200.00"
+    assert result["summary"]["cumulative"] == 20000  # 200 x 100 分
     assert elapsed < 5.0

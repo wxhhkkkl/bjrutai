@@ -1,9 +1,6 @@
-"""Integration tests for contribution view flow (US6).
+"""Integration tests for 消费业绩 view flow（业绩贡献=消费金额，分）.
 
-Full flow: calculate contributions -> verify overview -> verify trend ->
-drill team -> verify no monetary amounts in team views.
-
-Uses real SQLite test database via conftest.py fixtures.
+Full flow: seed bills -> verify overview -> trend -> list/detail -> team drill.
 """
 
 from datetime import datetime, timezone
@@ -15,18 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.security import create_access_token
 from src.models.bill import Bill, TransactionStatus
 from src.models.binding import BindingStatus, Customer
-from src.models.contribution import (
-    ContributionCategory,
-    ContributionRecord,
-    ContributionStatus,
-)
-from src.models.organization import Organization
-from src.models.hierarchy import NodeType
-from tests.conftest import (
-    seed_hierarchy_node,
-    seed_promoter,
-    seed_user,
-)
+from tests.conftest import seed_hierarchy_node, seed_promoter, seed_user
 
 
 def _auth_headers(user_id: int, user_type: str = "promoter") -> dict:
@@ -34,97 +20,61 @@ def _auth_headers(user_id: int, user_type: str = "promoter") -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-async def seed_contribution(
+async def seed_bill(
     db: AsyncSession,
-    distributor_id: int,
     customer_id: int,
-    points: str,
-    status: str = "settled",
-    category: str = "bill",
-    source_id: str = "txn_test",
+    paid_cent: int,
+    source_id: str,
     occurred_at: datetime | None = None,
 ) -> int:
-    record = ContributionRecord(
-        distributor_id=distributor_id,
-        customer_id=customer_id,
-        points=points,
-        status=ContributionStatus(status),
-        category=ContributionCategory(category),
-        title=f"贡献 - {source_id}",
-        source_type="bill",
-        source_id=source_id,
-        rule_version="1.0",
-        occurred_at=occurred_at or datetime.now(timezone.utc),
+    bill = Bill(
+        customer_id=customer_id, transaction_id=source_id,
+        transaction_time=occurred_at or datetime.now(timezone.utc),
+        paid_amount_cent=paid_cent, total_amount_cent=paid_cent,
+        transaction_status=TransactionStatus.PAID,
     )
-    db.add(record)
+    db.add(bill)
     await db.flush()
-    await db.refresh(record)
-    return record.id
+    await db.refresh(bill)
+    return bill.id
 
 
-# ============================================================================
-# Full Flow: calculate -> overview -> trend -> team -> no amounts
-# ============================================================================
+async def seed_bound_customer(db: AsyncSession, distributor_id: int, rutai_user_id: str) -> int:
+    customer = Customer(
+        distributor_id=distributor_id, name="患者", phone="13800138000", phone_masked="138****8000",
+        id_card_encrypted="x", id_card_masked="y", rutai_user_id=rutai_user_id,
+        binding_status=BindingStatus.BOUND, version=1,
+    )
+    db.add(customer)
+    await db.flush()
+    await db.refresh(customer)
+    return customer.id
+
+
 class TestContributionViewFullFlow:
-    """End-to-end contribution view flow verifying all US6 endpoints work together."""
-
     @pytest.mark.asyncio
-    async def test_full_flow_overview_trend_composition(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
-        """Calculate contributions, then verify overview / trend / composition."""
-        # ---- Setup hierarchy ----
-        node = await seed_hierarchy_node(
-            db_session, name="FlowNode", node_type="promoter", level=1, parent_id=None
-        )
+    async def test_full_flow_overview_trend_list_detail(self, client: AsyncClient, db_session: AsyncSession):
+        node = await seed_hierarchy_node(db_session, name="FlowNode", node_type="promoter", level=1, parent_id=None)
         user_id = await seed_user(db_session, openid="wx_flow", user_type="promoter", name="流量测试")
         distributor_id = await seed_promoter(db_session, user_id=user_id, node_id=node)
+        customer_id = await seed_bound_customer(db_session, distributor_id, "hrb_flow")
 
-        customer = Customer(
-            distributor_id=distributor_id,
-            rutai_user_id="hrb_flow",
-            binding_status=BindingStatus.BOUND,
-            bound_at=datetime.now(timezone.utc),
-        )
-        db_session.add(customer)
-        await db_session.flush()
+        await seed_bill(db_session, customer_id, 30000, "txn_flow_1", datetime(2026, 7, 5, tzinfo=timezone.utc))
+        await seed_bill(db_session, customer_id, 15000, "txn_flow_2", datetime(2026, 7, 10, tzinfo=timezone.utc))
+        await seed_bill(db_session, customer_id, 5000, "txn_flow_3", datetime(2026, 7, 15, tzinfo=timezone.utc))
+        await seed_bill(db_session, customer_id, 20000, "txn_flow_jun", datetime(2026, 6, 20, tzinfo=timezone.utc))
 
-        # ---- Seed contributions across categories ----
-        await seed_contribution(
-            db_session, distributor_id, customer.id, "300.00",
-            category="bill", source_id="txn_flow_1",
-            occurred_at=datetime(2026, 7, 5, tzinfo=timezone.utc),
-        )
-        await seed_contribution(
-            db_session, distributor_id, customer.id, "150.00",
-            category="binding", source_id="txn_flow_2",
-            occurred_at=datetime(2026, 7, 10, tzinfo=timezone.utc),
-        )
-        await seed_contribution(
-            db_session, distributor_id, customer.id, "50.00",
-            category="followup", source_id="txn_flow_3",
-            occurred_at=datetime(2026, 7, 15, tzinfo=timezone.utc),
-        )
-        # Also seed in June for trend verification
-        await seed_contribution(
-            db_session, distributor_id, customer.id, "200.00",
-            category="bill", source_id="txn_flow_jun",
-            occurred_at=datetime(2026, 6, 20, tzinfo=timezone.utc),
-        )
-
-        await db_session.flush()
         headers = _auth_headers(user_id)
 
-        # ---- Step 1: Overview ----
+        # Overview
         resp = await client.get("/api/v1/contributions/overview?month=2026-07", headers=headers)
         assert resp.status_code == 200
         overview = resp.json()["data"]
-        assert overview["monthlyPoints"] == "500.00"  # 300 + 150 + 50
-        assert overview["totalPoints"] == "700.00"    # 300+150+50+200
+        assert overview["monthlyAmountCent"] == 50000  # 300+150+50
+        assert overview["totalAmountCent"] == 70000
         assert "growthRate" in overview
-        assert isinstance(overview["statusCounts"], dict)
 
-        # ---- Step 2: Trend ----
+        # Trend
         resp = await client.get("/api/v1/contributions/trend?period=6m", headers=headers)
         assert resp.status_code == 200
         trend = resp.json()["data"]
@@ -132,104 +82,43 @@ class TestContributionViewFullFlow:
         assert "2026-07" in trend["categories"]
         assert len(trend["values"]) == 6
 
-        # ---- Step 3: Composition ----
-        resp = await client.get("/api/v1/contributions/composition?month=2026-07", headers=headers)
-        assert resp.status_code == 200
-        comp = resp.json()["data"]
-        categories = {c["label"]: c for c in comp["categories"]}
-        assert "消费贡献" in categories or "bill" in str(categories)
-        # Percentages should exist
-        for cat in comp["categories"]:
-            assert isinstance(cat["percent"], (int, float))
-
-        # ---- Step 4: Detail list ----
+        # List
         resp = await client.get("/api/v1/contributions?month=2026-07", headers=headers)
         assert resp.status_code == 200
         items = resp.json()["data"]["items"]
         assert len(items) == 3
 
-        # ---- Step 5: Detail of one record ----
+        # Detail of one bill
         first_id = items[0]["id"]
         resp = await client.get(f"/api/v1/contributions/{first_id}", headers=headers)
         assert resp.status_code == 200
         detail = resp.json()["data"]
-        assert "calculationBase" in detail
-        assert "coefficient" in detail
-        assert "calculationDescription" in detail
+        assert "amountCent" in detail
+        assert detail["id"] == first_id
 
     @pytest.mark.asyncio
-    async def test_team_view_no_monetary_amounts(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
-        """Team contribution views do not expose any monetary amounts."""
-        # Build L2 -> L3 hierarchy
-        node_l2 = await seed_hierarchy_node(
-            db_session, name="Lead L2", node_type="promoter", level=2, parent_id=None
-        )
-        node_l3 = await seed_hierarchy_node(
-            db_session, name="Member L3", node_type="promoter", level=3, parent_id=node_l2
-        )
+    async def test_team_view_shows_consumption_amounts(self, client: AsyncClient, db_session: AsyncSession):
+        node_l2 = await seed_hierarchy_node(db_session, name="Lead L2", node_type="promoter", level=2, parent_id=None)
+        node_l3 = await seed_hierarchy_node(db_session, name="Member L3", node_type="promoter", level=3, parent_id=node_l2)
         user_l2 = await seed_user(db_session, openid="wx_tm_l2", user_type="promoter", name="上级")
         user_l3 = await seed_user(db_session, openid="wx_tm_l3", user_type="promoter", name="下级")
         promoter_l2 = await seed_promoter(db_session, user_id=user_l2, node_id=node_l2)
         promoter_l3 = await seed_promoter(db_session, user_id=user_l3, node_id=node_l3)
+        customer_id = await seed_bound_customer(db_session, promoter_l3, "hrb_tm")
+        await seed_bill(db_session, customer_id, 50000, "txn_tm_1", datetime(2026, 7, 15, tzinfo=timezone.utc))
 
-        customer = Customer(
-            distributor_id=promoter_l3,
-            rutai_user_id="hrb_tm",
-            binding_status=BindingStatus.BOUND,
-        )
-        db_session.add(customer)
-        await db_session.flush()
-
-        await seed_contribution(
-            db_session, promoter_l3, customer.id, "500.00",
-            source_id="txn_tm_1",
-            occurred_at=datetime(2026, 7, 15, tzinfo=timezone.utc),
-        )
-
-        headers = _auth_headers(user_l2)
-
-        # Team summary
-        resp = await client.get("/api/v1/team/contributions?month=2026-07", headers=headers)
+        resp = await client.get("/api/v1/team/contributions?month=2026-07", headers=_auth_headers(user_l2))
         assert resp.status_code == 200
         team_data = resp.json()["data"]
-
-        # Verify: no monetary amounts anywhere in the response
-        def check_no_monetary(obj, path=""):
-            if isinstance(obj, dict):
-                for k, v in obj.items():
-                    assert "amount" not in k.lower(), f"amount field at {path}.{k}"
-                    assert "money" not in k.lower(), f"money field at {path}.{k}"
-                    assert "revenue" not in k.lower(), f"revenue field at {path}.{k}"
-                    assert "discount" not in k.lower(), f"discount field at {path}.{k}"
-                    check_no_monetary(v, f"{path}.{k}")
-            elif isinstance(obj, list):
-                for i, v in enumerate(obj):
-                    check_no_monetary(v, f"{path}[{i}]")
-
-        check_no_monetary(team_data)
-
-        # Verify the expected fields exist
-        assert "teamMonthlyPoints" in team_data
-        assert "directMemberCount" in team_data
-        assert "members" in team_data
+        assert team_data["teamMonthlyAmountCent"] == 50000
+        assert team_data["directMemberCount"] == 1
+        assert team_data["members"][0]["monthlyAmountCent"] == 50000
 
     @pytest.mark.asyncio
-    async def test_full_team_drill_down_flow(
-        self, client: AsyncClient, db_session: AsyncSession
-    ):
-        """Full team view flow: summary -> drill down -> verify branch access."""
-        # L3 -> L4 -> L5 hierarchy
-        node_l3 = await seed_hierarchy_node(
-            db_session, name="Branch L3", node_type="promoter", level=3, parent_id=None
-        )
-        node_l4 = await seed_hierarchy_node(
-            db_session, name="Team L4", node_type="promoter", level=4, parent_id=node_l3
-        )
-        node_l5 = await seed_hierarchy_node(
-            db_session, name="Distributor L5", node_type="promoter", level=5, parent_id=node_l4
-        )
+    async def test_full_team_drill_down_flow(self, client: AsyncClient, db_session: AsyncSession):
+        node_l3 = await seed_hierarchy_node(db_session, name="Branch L3", node_type="promoter", level=3, parent_id=None)
+        node_l4 = await seed_hierarchy_node(db_session, name="Team L4", node_type="promoter", level=4, parent_id=node_l3)
+        node_l5 = await seed_hierarchy_node(db_session, name="Distributor L5", node_type="promoter", level=5, parent_id=node_l4)
 
         user_l3 = await seed_user(db_session, openid="wx_dd_l3", user_type="promoter", name="分部经理")
         user_l4 = await seed_user(db_session, openid="wx_dd_l4", user_type="promoter", name="团队长")
@@ -238,56 +127,22 @@ class TestContributionViewFullFlow:
         promoter_l4 = await seed_promoter(db_session, user_id=user_l4, node_id=node_l4)
         promoter_l5 = await seed_promoter(db_session, user_id=user_l5, node_id=node_l5)
 
-        customer = Customer(
-            distributor_id=promoter_l5,
-            rutai_user_id="hrb_dd",
-            binding_status=BindingStatus.BOUND,
-        )
-        db_session.add(customer)
-        await db_session.flush()
+        customer_id = await seed_bound_customer(db_session, promoter_l5, "hrb_dd")
+        await seed_bill(db_session, customer_id, 40000, "txn_dd_1", datetime(2026, 7, 10, tzinfo=timezone.utc))
 
-        await seed_contribution(
-            db_session, promoter_l5, customer.id, "400.00",
-            source_id="txn_dd_1",
-            occurred_at=datetime(2026, 7, 10, tzinfo=timezone.utc),
-        )
-
-        await db_session.flush()
-
-        # ---- L3 (branch manager) views own team ----
         headers_l3 = _auth_headers(user_l3)
         resp = await client.get("/api/v1/team/contributions?month=2026-07", headers=headers_l3)
         assert resp.status_code == 200
-        summary_l3 = resp.json()["data"]
-        # L3 has 1 direct child (L4), and L4's subtree includes L5
-        assert summary_l3["directMemberCount"] >= 1
+        assert resp.json()["data"]["directMemberCount"] >= 1
 
-        # ---- L3 drills down to L4 ----
-        resp = await client.get(
-            f"/api/v1/team/contributions/{promoter_l4}?month=2026-07",
-            headers=headers_l3,
-        )
+        resp = await client.get(f"/api/v1/team/contributions/{promoter_l4}?month=2026-07", headers=headers_l3)
         assert resp.status_code == 200
-        dd_l4 = resp.json()["data"]
-        # L4's team should include L5
-        assert dd_l4["directMemberCount"] >= 1
+        assert resp.json()["data"]["directMemberCount"] >= 1
 
-        # ---- L3 drills down to L5 ----
-        resp = await client.get(
-            f"/api/v1/team/contributions/{promoter_l5}?month=2026-07",
-            headers=headers_l3,
-        )
+        resp = await client.get(f"/api/v1/team/contributions/{promoter_l5}?month=2026-07", headers=headers_l3)
         assert resp.status_code == 200
-        dd_l5 = resp.json()["data"]
-        # L5 has no direct children (leaf node)
-        assert dd_l5["directMemberCount"] == 0
+        assert resp.json()["data"]["directMemberCount"] == 0
 
-        # ---- L5 (leaf promoter) tries to drill into L4 (not in subtree) ----
         headers_l5 = _auth_headers(user_l5)
-        resp = await client.get(
-            f"/api/v1/team/contributions/{promoter_l4}?month=2026-07",
-            headers=headers_l5,
-        )
-        # L5 is below L4 in hierarchy, so L4 is an ancestor, not descendant
-        # L5 should NOT be able to see L4's team view
+        resp = await client.get(f"/api/v1/team/contributions/{promoter_l4}?month=2026-07", headers=headers_l5)
         assert resp.status_code == 403

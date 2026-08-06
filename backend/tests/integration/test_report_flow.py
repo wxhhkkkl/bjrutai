@@ -15,11 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.security import create_access_token
 from src.models.bill import Bill, TransactionStatus
 from src.models.binding import BindingStatus, Customer
-from src.models.contribution import (
-    ContributionCategory,
-    ContributionRecord,
-    ContributionStatus,
-)
 from tests.conftest import (
     seed_admin,
     seed_hierarchy_node,
@@ -238,17 +233,17 @@ class TestReportGenerationFlow:
         db_session.add_all([c1, c2])
         await db_session.flush()
 
-        # Contribution records
+        # 消费账单（业绩贡献=消费金额）
         db_session.add_all([
-            ContributionRecord(
-                distributor_id=d1, customer_id=c1.id, points="100.00",
-                status=ContributionStatus.CONFIRMED, category=ContributionCategory.BILL,
-                title="org_a", occurred_at=datetime(2026, 7, 7, tzinfo=timezone.utc),
+            Bill(
+                customer_id=c1.id, transaction_id="rpt_org_bill_1",
+                transaction_time=datetime(2026, 7, 7, tzinfo=timezone.utc),
+                paid_amount_cent=10000, total_amount_cent=10000, transaction_status=TransactionStatus.PAID,
             ),
-            ContributionRecord(
-                distributor_id=d2, customer_id=c2.id, points="50.00",
-                status=ContributionStatus.CONFIRMED, category=ContributionCategory.BILL,
-                title="org_b", occurred_at=datetime(2026, 7, 8, tzinfo=timezone.utc),
+            Bill(
+                customer_id=c2.id, transaction_id="rpt_org_bill_2",
+                transaction_time=datetime(2026, 7, 8, tzinfo=timezone.utc),
+                paid_amount_cent=5000, total_amount_cent=5000, transaction_status=TransactionStatus.PAID,
             ),
         ])
         await db_session.flush()
@@ -276,11 +271,11 @@ class TestReportGenerationFlow:
         assert binding_by_org.get("总部") == 1
         assert binding_by_org.get("华北区") == 1
 
-        # Allocation section groups by org with correct totals
+        # Allocation section groups by org with correct 消费金额 totals
         alloc_details = sections["allocation"]["details"]
         alloc_by_org = {row["组织"]: row for row in alloc_details}
-        assert alloc_by_org["总部"]["贡献值"] == "100.00"
-        assert alloc_by_org["华北区"]["贡献值"] == "50.00"
+        assert alloc_by_org["总部"]["消费金额(元)"] == "100.00"
+        assert alloc_by_org["华北区"]["消费金额(元)"] == "50.00"
         assert alloc_by_org["总部"]["层级"] == "L1"
         assert alloc_by_org["华北区"]["层级"] == "L2"
 

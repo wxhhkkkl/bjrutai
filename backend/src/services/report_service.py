@@ -18,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.exceptions import BadRequestException, NotFoundException
 from ..models.bill import Bill, TransactionStatus
 from ..models.binding import BindingStatus, Customer
-from ..models.contribution import ContributionRecord, ContributionStatus
 from ..models.distributor import Distributor
 from ..models.organization import Organization
 from ..models.report import Report
@@ -424,40 +423,42 @@ class ReportService:
     async def _build_allocation_section(
         self, db: AsyncSession, start: datetime, end: datetime
     ) -> dict:
-        """Build allocation section grouped by org dimension (US6-AC6)."""
+        """Build allocation section grouped by org dimension (US6-AC6).
+
+        业绩贡献 = 消费金额：按 PAID 账单 paid_amount_cent 聚合。
+        """
         result = await db.execute(
-            select(ContributionRecord).where(
-                ContributionRecord.occurred_at >= start,
-                ContributionRecord.occurred_at <= end,
+            select(Bill, Customer.distributor_id)
+            .join(Customer, Customer.id == Bill.customer_id)
+            .where(
+                Bill.transaction_time >= start,
+                Bill.transaction_time <= end,
+                Bill.transaction_status.notin_([TransactionStatus.REFUNDED, TransactionStatus.CANCELLED]),
             )
         )
-        records = result.scalars().all()
+        rows = result.all()  # (Bill, distributor_id)
 
         org_map, org_name_map = await self._org_maps(
-            db, {r.distributor_id for r in records}
+            db, {did for _, did in rows}
         )
         org_level_map = await self._org_level_map(db, set(org_name_map.keys()))
 
-        # Group by org
         by_org: dict[int | None, dict] = {}
-        for r in records:
-            oid = org_map.get(r.distributor_id)
-            agg = by_org.setdefault(oid, {"totalPoints": 0.0, "count": 0, "members": set()})
-            try:
-                agg["totalPoints"] += float(r.points)
-            except (ValueError, TypeError):
-                pass
+        for bill, did in rows:
+            oid = org_map.get(did)
+            agg = by_org.setdefault(oid, {"totalCents": 0, "count": 0, "members": set()})
+            agg["totalCents"] += bill.paid_amount_cent
             agg["count"] += 1
-            agg["members"].add(r.distributor_id)
+            agg["members"].add(did)
 
         details = []
-        for oid, data in sorted(by_org.items(), key=lambda x: -x[1]["totalPoints"]):
+        for oid, data in sorted(by_org.items(), key=lambda x: -x[1]["totalCents"]):
             name = org_name_map.get(oid) if oid is not None else None
             level = org_level_map.get(oid) if oid is not None else None
             details.append({
                 "组织": name or (f"Org {oid}" if oid is not None else "未分配组织"),
                 "层级": f"L{level}" if level is not None else "N/A",
-                "贡献值": f"{data['totalPoints']:.2f}",
+                "消费金额(元)": f"{data['totalCents'] / 100:.2f}",
                 "记录数": data["count"],
                 "分销员数": len(data["members"]),
             })
@@ -465,9 +466,9 @@ class ReportService:
         return {
             "title": "分配明细",
             "summary": {
-                "总记录数": len(records),
+                "总记录数": len(rows),
                 "总组织数": len(by_org),
-                "总分销员数": len({r.distributor_id for r in records}),
+                "总分销员数": len({did for _, did in rows}),
             },
             "details": details,
         }

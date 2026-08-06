@@ -135,12 +135,11 @@ async def test_preview_matches_compute(db_session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_monthly_settlement_hook_calls_compute(db_session: AsyncSession):
-    """monthly_settlement_job runs compute_commission after batch_settle, isolated."""
+    """monthly_settlement_job runs compute_commission for the previous month."""
     from unittest.mock import AsyncMock, patch
 
     from src.tasks import settlement_task
 
-    with patch.object(settlement_task.ContributionService, "batch_settle", new=AsyncMock(return_value={"settled_count": 0, "total_processed": 0})), \
-         patch("src.services.commission_service.compute_commission", new=AsyncMock(return_value={"period": "2026-07", "computed": 0})) as mock_compute:
+    with patch("src.services.commission_service.compute_commission", new=AsyncMock(return_value={"period": "2026-07", "computed": 0, "frozen": False})) as mock_compute:
         await settlement_task.monthly_settlement_job()
         mock_compute.assert_awaited_once()

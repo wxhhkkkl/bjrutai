@@ -16,7 +16,6 @@ from sqlalchemy import select
 
 from src.models.bill import Bill, TransactionStatus
 from src.models.binding import Customer
-from src.models.contribution import ContributionRecord, ContributionStatus, ContributionCategory
 from src.models.distributor import Distributor
 from src.models.organization import Organization
 from src.models.hierarchy import NodeType
@@ -247,8 +246,8 @@ class TestUserBillSync:
         assert len(bills) == 1
 
     @pytest.mark.asyncio
-    async def test_bill_sync_triggers_contribution_calculation(self, db_session):
-        """Fetching bills triggers contribution calculation for new bills."""
+    async def test_bill_sync_creates_paid_bill(self, db_session):
+        """Fetching bills creates a paid Bill that counts toward 消费金额."""
         from src.services.sync_service import SyncService
 
         # Setup promoter, customer, hierarchy
@@ -266,7 +265,6 @@ class TestUserBillSync:
             bound_at=datetime.now(timezone.utc),
         )
         db_session.add(customer)
-        customer_id = customer.id
         await db_session.flush()
 
         svc = SyncService()
@@ -296,21 +294,19 @@ class TestUserBillSync:
 
         assert result["created"] == 1
 
-        # Verify ContributionRecord was created
-        q = select(ContributionRecord).where(
-            ContributionRecord.bill_id.isnot(None)
-        )
-        exec_result = await db_session.execute(q)
-        contribs = exec_result.scalars().all()
-        assert len(contribs) == 1
-        assert contribs[0].points == "700.00"  # 70000 fen = 700 yuan = 700 points
-        assert contribs[0].distributor_id == distributor_id
-        assert contribs[0].category == ContributionCategory.BILL
-        assert contribs[0].source_id == "txn_contrib_001"
+        q = select(Bill).where(Bill.transaction_id == "txn_contrib_001")
+        bill = (await db_session.execute(q)).scalars().first()
+        assert bill is not None
+        assert bill.paid_amount_cent == 70000
+        assert bill.transaction_status == TransactionStatus.PAID
+
+        # 消费金额（业绩贡献 = 消费金额）
+        from src.services.consumption_service import consumption_by_distributor
+        assert await consumption_by_distributor(db_session, [distributor_id], "2026-07") == {distributor_id: 70000}
 
     @pytest.mark.asyncio
-    async def test_refund_bill_updates_contribution(self, db_session):
-        """A refunded bill updates transaction_status and creates reversal."""
+    async def test_refund_bill_updates_status_and_excludes_consumption(self, db_session):
+        """A refunded bill updates transaction_status and is excluded from 消费金额."""
         from src.services.sync_service import SyncService
 
         # Setup
@@ -387,13 +383,6 @@ class TestUserBillSync:
         assert bill.transaction_status == TransactionStatus.REFUNDED
         assert bill.refund_amount_cent == 10000
 
-        # Verify reversal contribution was created
-        q2 = select(ContributionRecord).where(
-            ContributionRecord.source_id == "txn_refund_test_001"
-        )
-        exec_result2 = await db_session.execute(q2)
-        contribs = exec_result2.scalars().all()
-        # Should have original + reversal
-        assert len(contribs) == 2
-        statuses = {c.status for c in contribs}
-        assert ContributionStatus.REVERSED in statuses
+        # 退款账单不计入消费金额
+        from src.services.consumption_service import consumption_by_distributor
+        assert (await consumption_by_distributor(db_session, [distributor_id], "2026-07")).get(distributor_id, 0) == 0

@@ -1,12 +1,12 @@
-"""Unit tests for contribution_dashboard_service (FR-001~FR-008)."""
+"""Unit tests for contribution_dashboard_service（业绩贡献=消费金额，分口径）."""
 
 from datetime import datetime, timedelta
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.models.bill import Bill, TransactionStatus
 from src.models.binding import BindingStatus, Customer
-from src.models.contribution import ContributionCategory, ContributionRecord, ContributionStatus
 from src.schemas.organization import OrgCreate
 from src.services import organization_service
 from src.services.contribution_dashboard_service import (
@@ -45,11 +45,11 @@ async def _seed_customer(db: AsyncSession, distributor_id: int, id_card: str) ->
     return c.id
 
 
-async def _seed_contribution(db: AsyncSession, distributor_id: int, customer_id: int, points: str, txn: datetime) -> None:
-    db.add(ContributionRecord(
-        distributor_id=distributor_id, customer_id=customer_id, points=points,
-        category=ContributionCategory.BILL, status=ContributionStatus.CONFIRMED,
-        title="消费贡献", occurred_at=txn,
+async def _seed_bill(db: AsyncSession, customer_id: int, paid_cent: int, txn: datetime) -> None:
+    db.add(Bill(
+        customer_id=customer_id, transaction_id=f"txn_{txn.timestamp()}",
+        transaction_time=txn, paid_amount_cent=paid_cent, total_amount_cent=paid_cent,
+        transaction_status=TransactionStatus.PAID,
     ))
     await db.flush()
 
@@ -61,12 +61,12 @@ async def test_dashboard_latest_30_ordered(db_session: AsyncSession):
     c = await _seed_customer(db_session, d, "110101199001011234")
     base = datetime(2026, 7, 1)
     for i in range(35):
-        await _seed_contribution(db_session, d, c, "10.00", base + timedelta(hours=i))
+        await _seed_bill(db_session, c, 1000, base + timedelta(hours=i))
 
     data = await get_dashboard(db_session, "2026-07")
     assert len(data["latest"]) == 30
-    assert data["stats"]["monthlyPoints"] == 350.0
-    # Latest is ordered by occurred_at desc
+    assert data["stats"]["monthlyAmountCent"] == 35000
+    assert data["stats"]["totalAmountCent"] == 35000
     times = [x["occurredAt"] for x in data["latest"]]
     assert times == sorted(times, reverse=True)
 
@@ -79,12 +79,13 @@ async def test_org_ranking_ties_same_rank(db_session: AsyncSession):
     d_child = await _seed_distributor(db_session, child, "13900000002")
     c1 = await _seed_customer(db_session, d_root, "110101199001011234")
     c2 = await _seed_customer(db_session, d_child, "110101199001011235")
-    await _seed_contribution(db_session, d_root, c1, "100.00", datetime(2026, 7, 5))
-    await _seed_contribution(db_session, d_child, c2, "100.00", datetime(2026, 7, 6))  # 同分
+    await _seed_bill(db_session, c1, 10000, datetime(2026, 7, 5))
+    await _seed_bill(db_session, c2, 10000, datetime(2026, 7, 6))  # 同分
 
     data = await org_ranking(db_session, "2026-07")
     assert data["total"] == 2
     assert data["items"][0]["rank"] == data["items"][1]["rank"] == 1
+    assert data["items"][0]["amountCent"] == 10000
 
 
 @pytest.mark.asyncio
@@ -92,16 +93,17 @@ async def test_persons_ranking_order(db_session: AsyncSession):
     org_id = await _seed_org(db_session)
     d1 = await _seed_distributor(db_session, org_id, "13900000001")
     d2 = await _seed_distributor(db_session, org_id, "13900000002")
-    c = await _seed_customer(db_session, d1, "110101199001011234")
-    await _seed_contribution(db_session, d1, c, "50.00", datetime(2026, 7, 10))
-    await _seed_contribution(db_session, d2, c, "50.00", datetime(2026, 7, 11))
-    await _seed_contribution(db_session, d2, c, "20.00", datetime(2026, 7, 12))
+    c1 = await _seed_customer(db_session, d1, "110101199001011234")
+    c2 = await _seed_customer(db_session, d2, "110101199001011235")
+    await _seed_bill(db_session, c1, 5000, datetime(2026, 7, 10))
+    await _seed_bill(db_session, c2, 5000, datetime(2026, 7, 11))
+    await _seed_bill(db_session, c2, 2000, datetime(2026, 7, 12))
 
     data = await persons_ranking(db_session, "2026-07")
     assert data["total"] == 2
     assert data["items"][0]["distributorId"] == str(d2)
-    assert data["items"][0]["points"] == 70.0
-    assert data["items"][1]["points"] == 50.0
+    assert data["items"][0]["amountCent"] == 7000
+    assert data["items"][1]["amountCent"] == 5000
 
 
 @pytest.mark.asyncio

@@ -74,24 +74,6 @@ class SharingRuleUpdate(BaseModel):
     version: int = Field(..., ge=1, description="Current version for optimistic locking")
 
 
-class CoefficientUpdateRequest(BaseModel):
-    """Schema for updating the contribution coefficient."""
-
-    coefficient: str = Field(..., min_length=1, max_length=20, description="Decimal string, e.g. '0.33'")
-    effective_from: datetime = Field(..., description="When the coefficient takes effect")
-
-    @field_validator("coefficient")
-    @classmethod
-    def validate_coefficient(cls, v: str) -> str:
-        try:
-            val = float(v)
-            if val <= 0 or val > 1:
-                raise ValueError("Coefficient must be between 0 and 1 (exclusive of 0)")
-        except ValueError:
-            raise ValueError("Invalid coefficient: must be a decimal between 0 and 1")
-        return v
-
-
 # ---------------------------------------------------------------------------
 # Response schemas
 # ---------------------------------------------------------------------------
@@ -122,16 +104,3 @@ class SharingRuleListResponse(BaseModel):
     items: list[SharingRuleResponse]
     nextCursor: Optional[str] = None
     hasMore: bool = False
-
-
-class CoefficientResponse(BaseModel):
-    """Response for the current contribution coefficient."""
-
-    coefficient: str
-    coefficientPercent: str
-    effective_from: datetime
-    previousCoefficient: Optional[str] = None
-    updatedAt: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True

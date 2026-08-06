@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_current_user, get_db
 from ...models.binding import BindingRequest, BindingRequestStatus, BindingStatus, Customer, OperationType, SourceType
-from ...models.contribution import ContributionRecord, ContributionStatus
 from ...models.distributor import Distributor
 
 router = APIRouter(prefix="/customer-analysis", tags=["customer-analysis"])

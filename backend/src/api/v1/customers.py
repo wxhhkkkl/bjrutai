@@ -33,7 +33,7 @@ from ...models.binding import (
     Customer,
     OperationType,
 )
-from ...models.contribution import ContributionRecord
+from ...models.bill import Bill
 from ...models.followup import FollowupMethod, FollowupRecord, FollowupResult, ReminderStatus
 from ...models.distributor import Distributor
 from ...models.user import User, UserType
@@ -249,27 +249,18 @@ async def get_customer_detail(
     service_count = len(customer.bills) if customer.bills else 0
     followup_count = len(customer.followup_records) if customer.followup_records else 0
 
-    # Monthly contribution (current month)
-    now = datetime.now(timezone.utc)
-    month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
-    contrib_result = await db.execute(
-        select(func.sum(ContributionRecord.points), func.count(ContributionRecord.id))
-        .where(
-            ContributionRecord.customer_id == customer_id,
-            ContributionRecord.occurred_at >= month_start,
-        )
-    )
-    monthly_row = contrib_result.one_or_none()
-    monthly_contribution = float(monthly_row[0]) if monthly_row and monthly_row[0] else 0.0
-    monthly_count = monthly_row[1] if monthly_row else 0
+    # 消费金额（业绩贡献 = 消费金额，分）
+    from ...services.consumption_service import consumption_by_customer
 
-    # Total contribution
-    total_result = await db.execute(
-        select(func.sum(ContributionRecord.points), func.count(ContributionRecord.id))
-        .where(ContributionRecord.customer_id == customer_id)
-    )
-    total_row = total_result.one_or_none()
-    total_contribution = float(total_row[0]) if total_row and total_row[0] else 0.0
+    now = datetime.now(timezone.utc)
+    if now.month == 12:
+        next_month = datetime(now.year + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        next_month = datetime(now.year, now.month + 1, 1, tzinfo=timezone.utc)
+    month_map = await consumption_by_customer(db, [customer_id], now.replace(day=1, hour=0, minute=0, second=0, microsecond=0), next_month)
+    total_map = await consumption_by_customer(db, [customer_id])
+    monthly_consumption = month_map.get(customer_id, 0)
+    total_consumption = total_map.get(customer_id, 0)
 
     p = customer.distributor
     promoter_name = ""
@@ -292,9 +283,8 @@ async def get_customer_detail(
         "version": customer.version,
         "serviceCount": service_count,
         "followupCount": followup_count,
-        "monthlyContribution": monthly_contribution,
-        "monthlyContributionCount": monthly_count,
-        "totalContribution": total_contribution,
+        "monthlyConsumptionCent": monthly_consumption,
+        "totalConsumptionCent": total_consumption,
         "createdAt": customer.created_at.isoformat() if customer.created_at else None,
         "updatedAt": customer.updated_at.isoformat() if customer.updated_at else None,
     })
@@ -484,18 +474,18 @@ async def get_customer_contributions(
     db: AsyncSession = Depends(get_db),
     payload: dict = Depends(get_current_user),
 ) -> dict:
-    """Get a customer's contribution records."""
+    """Get a customer's 消费记录 (bills)."""
     customer = await _get_customer(db, customer_id)
 
-    query = select(ContributionRecord).where(ContributionRecord.customer_id == customer_id)
+    query = select(Bill).where(Bill.customer_id == customer_id)
     if cursor:
         try:
             cursor_id = int(cursor)
-            query = query.where(ContributionRecord.id < cursor_id)
+            query = query.where(Bill.id < cursor_id)
         except (ValueError, TypeError):
             pass
 
-    query = query.order_by(desc(ContributionRecord.id)).limit(pageSize + 1)
+    query = query.order_by(desc(Bill.id)).limit(pageSize + 1)
     result = await db.execute(query)
     rows = result.scalars().all()
 
@@ -504,15 +494,13 @@ async def get_customer_contributions(
     next_cursor = str(items[-1].id) if has_more and items else None
 
     data_items = []
-    for cr in items:
+    for b in items:
         data_items.append({
-            "id": str(cr.id),
-            "title": cr.title,
-            "points": cr.points,
-            "status": cr.status.value if hasattr(cr.status, "value") else str(cr.status),
-            "category": cr.category.value if hasattr(cr.category, "value") else str(cr.category),
-            "occurredAt": cr.occurred_at.isoformat() if cr.occurred_at else None,
-            "settledAt": cr.settled_at.isoformat() if cr.settled_at else None,
+            "id": str(b.id),
+            "title": b.transaction_id,
+            "amountCent": b.paid_amount_cent,
+            "status": b.transaction_status.value if hasattr(b.transaction_status, "value") else str(b.transaction_status),
+            "occurredAt": b.transaction_time.isoformat() if b.transaction_time else None,
         })
 
     return _ok({

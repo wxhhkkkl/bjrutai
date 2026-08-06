@@ -15,7 +15,6 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.contribution import ContributionRecord
 from ..models.distributor import Distributor, DistributorStatus, OrgRole
 from ..models.hierarchy import HierarchyNode, Promoter
 from ..models.organization import Organization, OrgStatus

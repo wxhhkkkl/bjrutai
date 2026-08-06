@@ -1,22 +1,23 @@
-"""Admin contribution dashboard service — aggregation queries (FR-001~FR-008).
+"""Admin 消费业绩 dashboard service — aggregation from bills (业绩贡献=消费金额).
 
 Provides stats, monthly trend, org/person rankings, bound-count rankings and
-latest-30 details, all aggregated in real time from existing tables.
+latest-30 bill details, all aggregated in real time from bills. Amounts are in
+integer cents.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Numeric, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql import cast
 
+from ..models.bill import Bill, TransactionStatus
 from ..models.binding import BindingStatus, Customer
-from ..models.contribution import ContributionRecord
 from ..models.distributor import Distributor, DistributorStatus
 from ..models.organization import Organization
 from ..models.user import User
 from . import distributor_service, organization_service
+from .consumption_service import consumption_by_distributor
 
 
 # ---------------------------------------------------------------------------
@@ -30,11 +31,6 @@ def _month_bounds(month: str) -> tuple[datetime, datetime]:
     else:
         end = datetime(year, m + 1, 1)
     return start, end
-
-
-def _points_col():
-    """CAST points (stored as string) to numeric for SUM."""
-    return cast(ContributionRecord.points, Numeric(20, 2))
 
 
 def _month_labels(n: int, end_month: str) -> list[str]:
@@ -60,6 +56,11 @@ async def _scope_distributor_ids(db: AsyncSession, org_id: Optional[int]) -> Opt
     if org_ids is None:
         return None
     result = await db.execute(select(Distributor.id).where(Distributor.org_id.in_(org_ids)))
+    return set(result.scalars().all())
+
+
+async def _all_distributor_ids(db: AsyncSession) -> set[int]:
+    result = await db.execute(select(Distributor.id))
     return set(result.scalars().all())
 
 
@@ -101,27 +102,14 @@ async def get_dashboard(
     period: str = "12m",
     org_id: Optional[int] = None,
 ) -> dict:
-    start, end = _month_bounds(month)
     dist_ids = await _scope_distributor_ids(db, org_id)
+    if dist_ids is None:
+        dist_ids = await _all_distributor_ids(db)
     org_ids = await _subtree_org_ids(db, org_id)
 
-    def contrib_where(extra_start=None, extra_end=None):
-        conds = []
-        if extra_start is not None:
-            conds.append(ContributionRecord.occurred_at >= extra_start)
-        if extra_end is not None:
-            conds.append(ContributionRecord.occurred_at < extra_end)
-        if dist_ids is not None:
-            conds.append(ContributionRecord.distributor_id.in_(dist_ids))
-        return conds
-
-    # Stats
-    monthly = float((await db.execute(
-        select(func.sum(_points_col())).where(*contrib_where(extra_start=start, extra_end=end))
-    )).scalar() or 0)
-    total = float((await db.execute(
-        select(func.sum(_points_col())).where(*contrib_where())
-    )).scalar() or 0)
+    # Stats（消费金额，分）
+    monthly = sum((await consumption_by_distributor(db, list(dist_ids), month)).values())
+    total = sum((await consumption_by_distributor(db, list(dist_ids), None)).values())
 
     org_count_stmt = select(func.count(Organization.id))
     if org_ids is not None:
@@ -138,48 +126,44 @@ async def get_dashboard(
         bound_stmt = bound_stmt.where(Customer.distributor_id.in_(dist_ids))
     bound_count = (await db.execute(bound_stmt)).scalar() or 0
 
-    # Trend: last N months (DB-agnostic Python aggregation)
+    # Trend: last N months by bill month
     num_months = int(period.replace("m", "")) if period.endswith("m") else 12
     trend_labels = _month_labels(num_months, month)
-    trend_start = datetime(int(trend_labels[0][:4]), int(trend_labels[0][5:7]), 1)
-    trend_rows = (await db.execute(
-        select(ContributionRecord.occurred_at, _points_col()).where(*contrib_where(extra_start=trend_start))
-    )).all()
-    trend_map: dict[str, float] = {}
-    for occurred, pts in trend_rows:
-        if occurred is None:
-            continue
-        key = f"{occurred.year}-{occurred.month:02d}"
-        trend_map[key] = trend_map.get(key, 0.0) + float(pts or 0)
-    trend = [{"month": m, "points": trend_map.get(m, 0.0)} for m in trend_labels]
+    trend = []
+    for m in trend_labels:
+        per_dist = await consumption_by_distributor(db, list(dist_ids), m)
+        trend.append({"month": m, "amountCent": sum(per_dist.values())})
 
-    # Latest 30
+    # Latest 30 paid bills
     latest_stmt = (
-        select(ContributionRecord)
-        .where(*contrib_where())
-        .order_by(ContributionRecord.occurred_at.desc(), ContributionRecord.id.desc())
+        select(Bill, Customer.distributor_id)
+        .join(Customer, Customer.id == Bill.customer_id)
+        .where(
+            Bill.transaction_status.notin_([TransactionStatus.REFUNDED, TransactionStatus.CANCELLED]),
+            Customer.distributor_id.in_(dist_ids),
+        )
+        .order_by(Bill.transaction_time.desc(), Bill.id.desc())
         .limit(30)
     )
-    latest_rows = (await db.execute(latest_stmt)).scalars().all()
-    person_map = await _person_map(db, {c.distributor_id for c in latest_rows})
+    latest_rows = (await db.execute(latest_stmt)).all()
+    person_map = await _person_map(db, {did for _, did in latest_rows})
     org_name_map = await _org_name_map(db, {o for _, o in person_map.values()})
     latest = []
-    for c in latest_rows:
-        name, c_org = person_map.get(c.distributor_id, (None, None))
+    for bill, did in latest_rows:
+        name, c_org = person_map.get(did, (None, None))
         latest.append({
-            "id": str(c.id),
-            "distributorId": str(c.distributor_id),
+            "id": str(bill.id),
+            "distributorId": str(did),
             "personName": name,
             "orgName": org_name_map.get(c_org),
-            "title": c.title,
-            "category": c.category.value if hasattr(c.category, "value") else str(c.category),
-            "points": float(c.points or 0),
-            "status": c.status.value if hasattr(c.status, "value") else str(c.status),
-            "occurredAt": c.occurred_at.isoformat() if c.occurred_at else None,
+            "title": bill.transaction_id,
+            "amountCent": bill.paid_amount_cent,
+            "status": bill.transaction_status.value if hasattr(bill.transaction_status, "value") else str(bill.transaction_status),
+            "occurredAt": bill.transaction_time.isoformat() if bill.transaction_time else None,
         })
 
     return {
-        "stats": {"monthlyPoints": monthly, "totalPoints": total, "orgCount": org_count,
+        "stats": {"monthlyAmountCent": monthly, "totalAmountCent": total, "orgCount": org_count,
                   "personCount": person_count, "boundUserCount": bound_count},
         "trend": trend,
         "latest": latest,
@@ -192,24 +176,29 @@ async def get_dashboard(
 async def org_ranking(
     db: AsyncSession, month: str, org_id: Optional[int] = None, page: int = 1, page_size: int = 20
 ) -> dict:
-    start, end = _month_bounds(month)
+    dist_ids = await _scope_distributor_ids(db, org_id)
+    if dist_ids is None:
+        dist_ids = await _all_distributor_ids(db)
     org_ids = await _subtree_org_ids(db, org_id)
-    pts_expr = func.sum(_points_col()).label("pts")
 
-    stmt = (
-        select(Distributor.org_id.label("oid"), pts_expr)
-        .join(ContributionRecord, ContributionRecord.distributor_id == Distributor.id)
-        .where(ContributionRecord.occurred_at >= start, ContributionRecord.occurred_at < end)
-        .group_by(Distributor.org_id)
-    )
-    if org_ids is not None:
-        stmt = stmt.where(Distributor.org_id.in_(org_ids))
-    rows = (await db.execute(stmt.order_by(pts_expr.desc()))).all()
+    consumption = await consumption_by_distributor(db, list(dist_ids), month)
+    did_to_org = dict((await db.execute(
+        select(Distributor.id, Distributor.org_id).where(Distributor.id.in_(dist_ids))
+    )).all())
+    org_totals: dict[int, int] = {}
+    for did, cents in consumption.items():
+        oid = did_to_org.get(did)
+        if oid is None:
+            continue
+        if org_ids is not None and oid not in org_ids:
+            continue
+        org_totals[oid] = org_totals.get(oid, 0) + cents
 
-    name_map = await _org_name_map(db, {oid for oid, _ in rows})
-    pts_by_org = {oid: float(pts or 0) for oid, pts in rows}
-    ranked = _assign_ranks([(pts_by_org[oid], oid) for oid, _ in rows])
-    items = [{"rank": rank, "orgId": str(oid), "orgName": name_map.get(oid), "points": pts_by_org[oid]}
+    pairs = sorted(((cents, oid) for oid, cents in org_totals.items()), key=lambda x: x[0], reverse=True)
+    name_map = await _org_name_map(db, {oid for _, oid in pairs})
+    cnt_by_org = {oid: cents for cents, oid in pairs}
+    ranked = _assign_ranks(pairs)
+    items = [{"rank": rank, "orgId": str(oid), "orgName": name_map.get(oid), "amountCent": cnt_by_org[oid]}
              for rank, oid in ranked]
     total = len(items)
     return {"items": items[(page - 1) * page_size: page * page_size], "total": total,
@@ -222,30 +211,23 @@ async def org_ranking(
 async def persons_ranking(
     db: AsyncSession, month: str, org_id: Optional[int] = None, page: int = 1, page_size: int = 20
 ) -> dict:
-    start, end = _month_bounds(month)
     dist_ids = await _scope_distributor_ids(db, org_id)
-    pts_expr = func.sum(_points_col()).label("pts")
+    if dist_ids is None:
+        dist_ids = await _all_distributor_ids(db)
 
-    stmt = (
-        select(ContributionRecord.distributor_id.label("did"), pts_expr)
-        .where(ContributionRecord.occurred_at >= start, ContributionRecord.occurred_at < end)
-        .group_by(ContributionRecord.distributor_id)
-    )
-    if dist_ids is not None:
-        stmt = stmt.where(ContributionRecord.distributor_id.in_(dist_ids))
-    rows = (await db.execute(stmt.order_by(pts_expr.desc()))).all()
-
-    person_map = await _person_map(db, {did for did, _ in rows})
+    consumption = await consumption_by_distributor(db, list(dist_ids), month)
+    person_map = await _person_map(db, {did for did, cents in consumption.items() if cents > 0})
     org_name_map = await _org_name_map(db, {o for _, o in person_map.values()})
-    pts_by_person = {did: float(pts or 0) for did, pts in rows}
-    ranked = _assign_ranks([(pts_by_person[did], did) for did, _ in rows])
+    pairs = sorted(((cents, did) for did, cents in consumption.items() if cents > 0),
+                   key=lambda x: x[0], reverse=True)
+    ranked = _assign_ranks(pairs)
     items = []
     for rank, did in ranked:
         name, c_org = person_map.get(did, (None, None))
         items.append({
             "rank": rank, "distributorId": str(did), "name": name,
             "orgId": str(c_org) if c_org else None, "orgName": org_name_map.get(c_org),
-            "points": pts_by_person[did],
+            "amountCent": consumption[did],
         })
     total = len(items)
     return {"items": items[(page - 1) * page_size: page * page_size], "total": total,
@@ -253,7 +235,7 @@ async def persons_ranking(
 
 
 # ---------------------------------------------------------------------------
-# US4: bound-count ranking (person / org)
+# US4: bound-count ranking (person / org) — 不变（绑定客户数）
 # ---------------------------------------------------------------------------
 async def bindings_ranking(
     db: AsyncSession, scope: str, org_id: Optional[int] = None, page: int = 1, page_size: int = 20

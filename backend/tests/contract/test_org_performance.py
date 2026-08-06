@@ -1,4 +1,4 @@
-"""Contract tests for org performance endpoint (US5)."""
+"""Contract tests for org performance endpoint (US5) — 消费金额（分）."""
 
 from datetime import datetime, timezone
 
@@ -7,8 +7,8 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.models.bill import Bill, TransactionStatus
 from src.models.binding import BindingStatus, Customer
-from src.models.contribution import ContributionCategory, ContributionRecord, ContributionStatus
 from src.models.distributor import Distributor
 from src.models.user import User
 from src.schemas.distributor import DistributorCreate, DistributorRoleUpdate
@@ -30,17 +30,16 @@ async def _seed(db: AsyncSession):
     await distributor_service.set_role(db, int(d["distributorId"]), DistributorRoleUpdate(orgRole="admin"))
     did = int(d["distributorId"])
 
-    customer = Customer(distributor_id=did, binding_status=BindingStatus.BOUND)
+    customer = Customer(
+        distributor_id=did, name="患者", phone="13800138000", phone_masked="138****8000",
+        id_card_encrypted="x", id_card_masked="y", binding_status=BindingStatus.BOUND, version=1,
+    )
     db.add(customer)
     await db.flush()
-    db.add(ContributionRecord(
-        distributor_id=did,
-        customer_id=customer.id,
-        points="88.00",
-        status=ContributionStatus.PENDING,
-        category=ContributionCategory.BILL,
-        title="t",
-        occurred_at=datetime.now(timezone.utc),
+    db.add(Bill(
+        customer_id=customer.id, transaction_id="txn_org_1",
+        transaction_time=datetime.now(timezone.utc),
+        paid_amount_cent=8800, total_amount_cent=8800, transaction_status=TransactionStatus.PAID,
     ))
     await db.flush()
     user_id = (await db.execute(select(Distributor.user_id).where(Distributor.id == did))).scalar()
@@ -54,7 +53,7 @@ async def test_org_performance_returns_summary(client: AsyncClient, db_session: 
     assert resp.status_code == 200
     body = resp.json()
     assert body["code"] == 0
-    assert body["data"]["summary"]["cumulative"] == "88.00"
+    assert body["data"]["summary"]["cumulative"] == 8800
     assert len(body["data"]["members"]) == 1
 
 

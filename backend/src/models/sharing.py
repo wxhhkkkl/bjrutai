@@ -71,17 +71,3 @@ class SharingRule(Base):
     created_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
-# ---------------------------------------------------------------------------
-# Contribution coefficient – global setting for contribution calculation
-# ---------------------------------------------------------------------------
-class ContributionCoefficient(Base):
-    __tablename__ = "contribution_coefficient"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    coefficient: Mapped[str] = mapped_column(String(20), nullable=False)
-    effective_from: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    previous_coefficient: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    created_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

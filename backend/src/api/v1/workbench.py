@@ -17,7 +17,7 @@ from sqlalchemy.orm import joinedload
 
 from ...api.deps import get_current_user, get_db
 from ...models.binding import BindingRequest, BindingRequestStatus, BindingStatus, Customer
-from ...models.contribution import ContributionRecord, ContributionStatus
+from ...models.bill import Bill, TransactionStatus
 from ...models.distributor import Distributor
 from ...models.notification import Notification, NotificationCategory
 from ...models.org_qualification import OrgQualStatus, OrganizationQualification
@@ -109,7 +109,7 @@ async def get_workbench(
             "metrics": {
                 "myCustomers": 0,
                 "myBindings": 0,
-                "myMonthlyContribution": 0,
+                "myMonthlyConsumption": 0,
                 "pendingFollowups": 0,
             },
             "quickLinks": [
@@ -138,15 +138,12 @@ async def get_workbench(
     )
     my_bindings = bindings_result.scalar() or 0
 
-    # Monthly contribution
-    contrib_result = await db.execute(
-        select(func.sum(ContributionRecord.points)).where(
-            ContributionRecord.distributor_id == prom_id,
-            ContributionRecord.occurred_at >= month_start,
-            ContributionRecord.status != ContributionStatus.CANCELLED,
-        )
-    )
-    my_contrib = float(contrib_result.scalar() or 0)
+    # 本月消费金额（业绩贡献 = 消费金额，分）
+    from ...services.consumption_service import consumption_by_distributor
+
+    my_consumption = (await consumption_by_distributor(
+        db, [prom_id], f"{now.year}-{now.month:02d}"
+    )).get(prom_id, 0)
 
     # Pending followups
     from ...models.followup import FollowupRecord, ReminderStatus
@@ -168,7 +165,7 @@ async def get_workbench(
         "metrics": {
             "myCustomers": my_customers,
             "myBindings": my_bindings,
-            "myMonthlyContribution": my_contrib,
+            "myMonthlyConsumption": my_consumption,
             "pendingFollowups": pending_followups,
         },
         "quickLinks": [
@@ -304,100 +301,33 @@ async def get_contribution_summary(
     else:
         target_month_end = datetime(now.year, now.month + 1, 1, tzinfo=timezone.utc)
 
+    from ...services.consumption_service import consumption_by_distributor
+
+    period = month or now.strftime("%Y-%m")
+    paid_cond = (
+        Bill.transaction_time >= target_month_start,
+        Bill.transaction_time < target_month_end,
+        Bill.transaction_status.notin_([TransactionStatus.REFUNDED, TransactionStatus.CANCELLED]),
+    )
+
     if user_type == "admin":
-        # Admin: total system contributions
-        total_result = await db.execute(
-            select(
-                func.sum(ContributionRecord.points),
-                func.count(ContributionRecord.id),
-            ).where(
-                ContributionRecord.occurred_at >= target_month_start,
-                ContributionRecord.occurred_at < target_month_end,
-                ContributionRecord.status != ContributionStatus.CANCELLED,
-            )
-        )
-        row = total_result.one_or_none()
-        total = float(row[0]) if row and row[0] else 0.0
-        count = row[1] if row else 0
-
-        categories_result = await db.execute(
-            select(
-                ContributionRecord.category,
-                func.count(ContributionRecord.id),
-                func.sum(ContributionRecord.points),
-            ).where(
-                ContributionRecord.occurred_at >= target_month_start,
-                ContributionRecord.occurred_at < target_month_end,
-                ContributionRecord.status != ContributionStatus.CANCELLED,
-            ).group_by(ContributionRecord.category)
-        )
-        breakdown = []
-        for cat_row in categories_result:
-            cat_val = cat_row[0]
-            cat_name = cat_val.value if hasattr(cat_val, "value") else str(cat_val)
-            breakdown.append({
-                "category": cat_name,
-                "count": cat_row[1] or 0,
-                "points": float(cat_row[2] or 0),
-            })
-
-        return _ok({
-            "month": month or now.strftime("%Y-%m"),
-            "total": total,
-            "count": count,
-            "breakdown": breakdown,
-        })
+        # Admin: total system consumption
+        dist_ids = (await db.execute(select(Distributor.id))).scalars().all()
+        total = sum((await consumption_by_distributor(db, list(dist_ids), period)).values())
+        count = (await db.execute(
+            select(func.count(Bill.id)).where(*paid_cond)
+        )).scalar() or 0
+        return _ok({"month": period, "totalAmountCent": total, "count": count})
 
     # Distributor view
     promoter = await _get_promoter(db, user_id)
     if promoter is None:
-        return _ok({
-            "month": month or now.strftime("%Y-%m"),
-            "total": 0,
-            "count": 0,
-            "breakdown": [],
-        })
+        return _ok({"month": period, "totalAmountCent": 0, "count": 0})
 
-    total_result = await db.execute(
-        select(
-            func.sum(ContributionRecord.points),
-            func.count(ContributionRecord.id),
-        ).where(
-            ContributionRecord.distributor_id == promoter.id,
-            ContributionRecord.occurred_at >= target_month_start,
-            ContributionRecord.occurred_at < target_month_end,
-            ContributionRecord.status != ContributionStatus.CANCELLED,
-        )
-    )
-    row = total_result.one_or_none()
-    total = float(row[0]) if row and row[0] else 0.0
-    count = row[1] if row else 0
-
-    categories_result = await db.execute(
-        select(
-            ContributionRecord.category,
-            func.count(ContributionRecord.id),
-            func.sum(ContributionRecord.points),
-        ).where(
-            ContributionRecord.distributor_id == promoter.id,
-            ContributionRecord.occurred_at >= target_month_start,
-            ContributionRecord.occurred_at < target_month_end,
-            ContributionRecord.status != ContributionStatus.CANCELLED,
-        ).group_by(ContributionRecord.category)
-    )
-    breakdown = []
-    for cat_row in categories_result:
-        cat_val = cat_row[0]
-        cat_name = cat_val.value if hasattr(cat_val, "value") else str(cat_val)
-        breakdown.append({
-            "category": cat_name,
-            "count": cat_row[1] or 0,
-            "points": float(cat_row[2] or 0),
-        })
-
-    return _ok({
-        "month": month or now.strftime("%Y-%m"),
-        "total": total,
-        "count": count,
-        "breakdown": breakdown,
-    })
+    total = (await consumption_by_distributor(db, [promoter.id], period)).get(promoter.id, 0)
+    count = (await db.execute(
+        select(func.count(Bill.id))
+        .join(Customer, Customer.id == Bill.customer_id)
+        .where(Customer.distributor_id == promoter.id, *paid_cond)
+    )).scalar() or 0
+    return _ok({"month": period, "totalAmountCent": total, "count": count})

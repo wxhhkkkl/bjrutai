@@ -10,14 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.exceptions import BadRequestException, ConflictException, NotFoundException
 from ..models.sharing import (
-    ContributionCoefficient,
     RuleBase,
     RuleStatus,
     RuleType,
     SharingRule,
     sharing_rule_change_logs,
 )
-from ..schemas.sharing import CoefficientUpdateRequest, SharingRuleCreate, SharingRuleUpdate
+from ..schemas.sharing import SharingRuleCreate, SharingRuleUpdate
 
 
 # ============================================================================
@@ -345,62 +344,3 @@ async def check_conflicts(db: AsyncSession, level: int) -> Optional[SharingRule]
     Returns the conflicting rule if found, None otherwise.
     """
     return await _check_active_conflict(db, level)
-
-
-# ============================================================================
-# Contribution coefficient
-# ============================================================================
-async def get_coefficient(db: AsyncSession) -> dict | None:
-    """Get the current (most recent) contribution coefficient."""
-    result = await db.execute(
-        select(ContributionCoefficient).order_by(
-            ContributionCoefficient.id.desc()
-        ).limit(1)
-    )
-    coeff = result.scalars().first()
-    if coeff is None:
-        return None
-    try:
-        pct = f"{float(coeff.coefficient) * 100:.0f}%"
-    except ValueError:
-        pct = "0%"
-    return {
-        "coefficient": coeff.coefficient,
-        "coefficientPercent": pct,
-        "effective_from": coeff.effective_from,
-        "previousCoefficient": coeff.previous_coefficient,
-        "updatedAt": coeff.created_at,
-    }
-
-
-async def update_coefficient(
-    db: AsyncSession,
-    data: CoefficientUpdateRequest,
-    created_by: int | None = None,
-) -> ContributionCoefficient:
-    """Set a new contribution coefficient.
-
-    Records the previous coefficient for history tracking.
-    """
-    # Get current coefficient to record as previous
-    existing = await db.execute(
-        select(ContributionCoefficient).order_by(
-            ContributionCoefficient.id.desc()
-        ).limit(1)
-    )
-    current = existing.scalars().first()
-
-    previous_value = current.coefficient if current else None
-
-    now = datetime.now(timezone.utc)
-    coeff = ContributionCoefficient(
-        coefficient=data.coefficient,
-        effective_from=data.effective_from,
-        previous_coefficient=previous_value,
-        created_by=created_by,
-        created_at=now,
-    )
-    db.add(coeff)
-    await db.flush()
-    await db.refresh(coeff)
-    return coeff

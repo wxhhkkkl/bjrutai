@@ -50,7 +50,7 @@ async def _verify() -> int:
             print(f"[FAIL] {orphan} distributors reference missing orgs")
             errors += 1
 
-        for table in ("customers", "promotion_codes", "contribution_records", "binding_requests"):
+        for table in ("customers", "promotion_codes", "binding_requests"):
             try:
                 total = (await db.execute(text(f"SELECT COUNT(*) FROM `{table}`"))).scalar()
                 orphan = (await db.execute(text(
