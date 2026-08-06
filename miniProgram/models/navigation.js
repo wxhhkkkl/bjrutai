@@ -12,7 +12,7 @@ const TAB_ITEMS = [{
     },
     {
         id: 'contribution',
-        label: '贡献',
+        label: '消费',
         pagePath: '/pages/contribution/index',
         icon: 'diamond-o'
     },
@@ -41,7 +41,7 @@ const ACTION_TARGETS = {
         capability: 'customerBinding'
     },
     'contribution-detail': {
-        title: '贡献明细',
+        title: '消费明细',
         path: '/pages/contribution-detail/index',
         capability: 'contribution'
     },

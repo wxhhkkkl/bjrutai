@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <h2 class="page-title">业绩贡献</h2>
+      <h2 class="page-title">消费业绩</h2>
       <el-button @click="loadAll"><el-icon style="margin-right: 4px"><Refresh /></el-icon>刷新</el-button>
     </div>
 
@@ -36,12 +36,12 @@
 
     <!-- 月度趋势 -->
     <el-card class="chart-card" shadow="never">
-      <template #header><span>总体业绩月度趋势</span></template>
+      <template #header><span>总体消费月度趋势</span></template>
       <div class="trend-bars" v-if="trend.length">
         <div v-for="t in trend" :key="t.month" class="trend-bar-wrapper">
           <div class="trend-bar-label">{{ t.month.substring(5) }}月</div>
-          <div class="trend-bar" :style="{ height: barHeight(t.points) + 'px' }" :title="`${t.month}: ${t.points}`">
-            <span class="trend-bar-value">{{ Math.round(t.points) }}</span>
+          <div class="trend-bar" :style="{ height: barHeight(t.amountCent) + 'px' }" :title="`${t.month}: ¥${fmtYuan(t.amountCent)}`">
+            <span class="trend-bar-value">¥{{ fmtYuan(t.amountCent) }}</span>
           </div>
         </div>
       </div>
@@ -56,7 +56,7 @@
           <el-table :data="orgsRanking.items" v-loading="rankLoading" stripe size="small">
             <el-table-column prop="rank" label="名次" width="70" align="center" />
             <el-table-column prop="orgName" label="组织" min-width="140" />
-            <el-table-column label="当月业绩" width="140" align="right"><template #default="{ row }">{{ row.points }}</template></el-table-column>
+            <el-table-column label="当月消费" width="140" align="right"><template #default="{ row }">¥{{ fmtYuan(row.amountCent) }}</template></el-table-column>
           </el-table>
         </el-tab-pane>
         <el-tab-pane label="个人业绩排名" name="persons">
@@ -64,7 +64,7 @@
             <el-table-column prop="rank" label="名次" width="70" align="center" />
             <el-table-column prop="name" label="人员" min-width="100" />
             <el-table-column prop="orgName" label="组织" min-width="120" />
-            <el-table-column label="当月业绩" width="140" align="right"><template #default="{ row }">{{ row.points }}</template></el-table-column>
+            <el-table-column label="当月消费" width="140" align="right"><template #default="{ row }">¥{{ fmtYuan(row.amountCent) }}</template></el-table-column>
           </el-table>
         </el-tab-pane>
         <el-tab-pane label="绑定数量排名" name="bindings">
@@ -83,16 +83,15 @@
       </el-tabs>
     </el-card>
 
-    <!-- 最新 30 条明细 -->
+    <!-- 最新 30 条消费明细 -->
     <el-card class="chart-card" shadow="never">
-      <template #header><span>最新业绩贡献明细（30 条）</span></template>
+      <template #header><span>最新消费明细（30 条）</span></template>
       <el-table :data="latest" v-loading="loading" stripe size="small">
         <el-table-column prop="personName" label="人员" min-width="90" />
         <el-table-column prop="orgName" label="组织" min-width="110" />
         <el-table-column prop="title" label="标题" min-width="150" show-overflow-tooltip />
-        <el-table-column label="类别" width="90"><template #default="{ row }">{{ categoryLabel(row.category) }}</template></el-table-column>
-        <el-table-column label="贡献值" width="100" align="right"><template #default="{ row }">{{ row.points }}</template></el-table-column>
-        <el-table-column label="状态" width="90"><template #default="{ row }">{{ statusLabel(row.status) }}</template></el-table-column>
+        <el-table-column label="消费金额" width="110" align="right"><template #default="{ row }">¥{{ fmtYuan(row.amountCent) }}</template></el-table-column>
+        <el-table-column label="状态" width="100"><template #default="{ row }">{{ statusLabel(row.status) }}</template></el-table-column>
         <el-table-column label="时间" width="160"><template #default="{ row }">{{ formatTime(row.occurredAt) }}</template></el-table-column>
       </el-table>
     </el-card>
@@ -114,9 +113,13 @@ const treeData = ref([])
 
 const stats = ref(null)
 
+function fmtYuan(cent) {
+  return (Number(cent || 0) / 100).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 const statCards = computed(() => [
-  { key: 'monthlyPoints', label: '当月总业绩', color: '#409eff', format: (v) => Number(v || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 }) },
-  { key: 'totalPoints', label: '累计业绩', color: '#67c23a', format: (v) => Number(v || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 }) },
+  { key: 'monthlyAmountCent', label: '当月总消费', color: '#409eff', format: (v) => `¥${fmtYuan(v)}` },
+  { key: 'totalAmountCent', label: '累计消费', color: '#67c23a', format: (v) => `¥${fmtYuan(v)}` },
   { key: 'personCount', label: '人员数', color: '#f56c6c', format: (v) => v ?? 0 },
   { key: 'boundUserCount', label: '绑定用户数', color: '#909399', format: (v) => v ?? 0 },
 ])
@@ -128,11 +131,8 @@ const orgsRanking = ref({ items: [] })
 const personsRanking = ref({ items: [] })
 const bindingsRanking = ref({ items: [] })
 
-function categoryLabel(c) {
-  return { bill: '消费贡献', binding: '绑定贡献', service: '服务贡献', followup: '跟进贡献', adjustment: '调整贡献' }[c] || c
-}
 function statusLabel(s) {
-  return { pending: '待确认', confirmed: '已确认', settled: '已结算', reversed: '已冲正', cancelled: '已取消' }[s] || s
+  return { paid: '已支付', partially_refunded: '部分退款', refunded: '已退款', cancelled: '已取消' }[s] || s
 }
 
 async function loadOrgTree() {
@@ -154,7 +154,7 @@ async function loadDashboard() {
     trend.value = data.trend || []
     latest.value = data.latest || []
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '加载业绩看板失败')
+    ElMessage.error(e.response?.data?.message || '加载消费看板失败')
   } finally {
     loading.value = false
   }
@@ -178,7 +178,7 @@ async function loadRankings() {
 }
 
 function barHeight(v) {
-  const max = Math.max(...trend.value.map((t) => t.points), 1)
+  const max = Math.max(...trend.value.map((t) => t.amountCent), 1)
   return Math.max(4, Math.round((v / max) * 180))
 }
 
@@ -216,6 +216,6 @@ onMounted(async () => {
 .trend-bar-wrapper { flex: 1; min-width: 24px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
 .trend-bar-label { font-size: 12px; color: #909399; margin-top: 4px; }
 .trend-bar { width: 60%; max-width: 40px; background: linear-gradient(180deg, #409eff, #66b1ff); border-radius: 3px 3px 0 0; position: relative; }
-.trend-bar-value { position: absolute; top: -16px; left: 0; right: 0; font-size: 10px; color: #606266; text-align: center; }
+.trend-bar-value { position: absolute; top: -16px; left: 0; right: 0; font-size: 10px; color: #606266; text-align: center; white-space: nowrap; }
 .bindings-toolbar { margin-bottom: 10px; }
 </style>

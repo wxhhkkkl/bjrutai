@@ -38,9 +38,9 @@
                 <view class="quick-card tap-target" data-id="contribution-detail" bindtap="action" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
                     <image src="/assets/images/contribution-icon.png" mode="aspectFit" />
                     <view class="quick-content">
-                        <text class="quick-title">我的贡献</text>
-                        <text class="muted quick-description">本月贡献值</text>
-                        <view class="quick-number"><text>12,680</text><text class="score-unit">分</text></view>
+                        <text class="quick-title">我的消费</text>
+                        <text class="muted quick-description">本月消费金额</text>
+                        <view class="quick-number"><text>¥12,680</text></view>
                     </view>
                 </view>
             </view>
@@ -57,8 +57,8 @@
                 </view>
                 <view class="team-item">
                     <image src="/assets/images/team-contribution-icon.png" mode="aspectFit" />
-                    <text>本月贡献</text>
-                    <text class="team-number">86,420</text>
+                    <text>本月消费</text>
+                    <text class="team-number">¥86,420</text>
                 </view>
                 <view class="team-item">
                     <image src="/assets/images/team-pending-icon.png" mode="aspectFit" />

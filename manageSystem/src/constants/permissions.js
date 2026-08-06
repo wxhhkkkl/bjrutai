@@ -47,7 +47,7 @@ export const PERMISSION_MODULES = [
   },
   {
     module: 'contributions',
-    label: '业绩贡献',
+    label: '消费业绩',
     permissions: [
       { key: 'contributions.read', label: '查看业绩数据' },
     ],

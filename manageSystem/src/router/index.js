@@ -46,7 +46,7 @@ const routes = [
     path: '/contributions',
     name: 'Contributions',
     component: () => import('@/pages/contributions/index.vue'),
-    meta: { title: '业绩贡献', icon: 'TrendCharts' },
+    meta: { title: '消费业绩', icon: 'TrendCharts' },
   },
   {
     path: '/performance-rules',

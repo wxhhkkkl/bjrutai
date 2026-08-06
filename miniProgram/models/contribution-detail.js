@@ -35,9 +35,9 @@ const CONTRIBUTION_RECORDS = [
     customer: '王女士',
     phone: '138****1028',
     time: '10:30',
-    points: '+1,200',
+    points: '1,200',
     status: 'settled',
-    statusLabel: '已结算',
+    statusLabel: '已支付',
     tone: 'green',
     icon: 'contact-o'
   },
@@ -50,9 +50,9 @@ const CONTRIBUTION_RECORDS = [
     customer: '李先生',
     phone: '186****3156',
     time: '14:20',
-    points: '+680',
+    points: '680',
     status: 'settled',
-    statusLabel: '已结算',
+    statusLabel: '已支付',
     tone: 'green',
     icon: 'certificate'
   },
@@ -65,9 +65,9 @@ const CONTRIBUTION_RECORDS = [
     customer: '刘女士',
     phone: '139****6721',
     time: '16:30',
-    points: '+300',
+    points: '300',
     status: 'pending',
-    statusLabel: '待结算',
+    statusLabel: '待支付',
     tone: 'orange',
     icon: 'calendar-o'
   },
@@ -80,9 +80,9 @@ const CONTRIBUTION_RECORDS = [
     customer: '陈先生',
     phone: '137****9046',
     time: '09:40',
-    points: '+1,020',
+    points: '1,020',
     status: 'settled',
-    statusLabel: '已结算',
+    statusLabel: '已支付',
     tone: 'green',
     icon: 'contact-o'
   },
@@ -95,9 +95,9 @@ const CONTRIBUTION_RECORDS = [
     customer: '赵女士',
     phone: '135****4482',
     time: '11:15',
-    points: '+880',
+    points: '880',
     status: 'settled',
-    statusLabel: '已结算',
+    statusLabel: '已支付',
     tone: 'blue',
     icon: 'friends-o'
   },
@@ -110,9 +110,9 @@ const CONTRIBUTION_RECORDS = [
     customer: '周女士',
     phone: '136****7812',
     time: '15:10',
-    points: '+1,000',
+    points: '1,000',
     status: 'settled',
-    statusLabel: '已结算',
+    statusLabel: '已支付',
     tone: 'green',
     icon: 'contact-o'
   },
@@ -125,9 +125,9 @@ const CONTRIBUTION_RECORDS = [
     customer: '吴先生',
     phone: '139****3617',
     time: '09:20',
-    points: '+420',
+    points: '420',
     status: 'pending',
-    statusLabel: '待结算',
+    statusLabel: '待支付',
     tone: 'orange',
     icon: 'calendar-o'
   }
@@ -141,8 +141,8 @@ function getContributionMonth(id) {
 function getStatusFilters(month) {
   return [
     { id: 'all', label: '全部', count: month.totalCount },
-    { id: 'settled', label: '已结算', count: month.settledCount },
-    { id: 'pending', label: '待结算', count: month.pendingCount }
+    { id: 'settled', label: '已支付', count: month.settledCount },
+    { id: 'pending', label: '待支付', count: month.pendingCount }
   ];
 }
 

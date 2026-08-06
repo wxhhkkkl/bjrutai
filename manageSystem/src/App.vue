@@ -32,7 +32,7 @@
         </el-menu-item>
         <el-menu-item index="/contributions">
           <el-icon><TrendCharts /></el-icon>
-          <span>业绩贡献</span>
+          <span>消费业绩</span>
         </el-menu-item>
         <el-menu-item index="/performance-rules">
           <el-icon><Setting /></el-icon>

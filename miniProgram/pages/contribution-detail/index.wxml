@@ -1,4 +1,4 @@
-<flow-navigation title="贡献明细" bind:back="handleBack" />
+<flow-navigation title="消费明细" bind:back="handleBack" />
 
 <view class="contribution-detail-page">
   <view class="contribution-summary">
@@ -14,10 +14,9 @@
         <van-icon name="arrow-down" size="18px" color="#050505" />
       </view>
     </picker>
-    <text class="contribution-summary__label">本月贡献</text>
+    <text class="contribution-summary__label">本月消费</text>
     <view class="contribution-summary__amount">
-      <text>{{month.total}}</text>
-      <text>分</text>
+      <text>¥{{month.total}}</text>
     </view>
     <view class="contribution-summary__meta">
       <view>
@@ -35,7 +34,7 @@
       src="/assets/images/contribution-detail-hero.png"
       mode="aspectFit"
       aria-role="img"
-      aria-label="贡献趋势"
+      aria-label="消费趋势"
     />
   </view>
 
@@ -51,17 +50,6 @@
       hover-stay-time="80"
     >
       {{item.label}} {{item.count}}
-    </view>
-    <view
-      class="contribution-filter-button tap-target {{selectedCategory !== 'all' ? 'contribution-filter-button--active' : ''}}"
-      bindtap="openCategoryFilter"
-      hover-class="tap-feedback"
-      hover-start-time="0"
-      hover-stay-time="80"
-      aria-role="button"
-      aria-label="筛选贡献来源"
-    >
-      <van-icon name="filter-o" size="26px" color="{{selectedCategory !== 'all' ? '#1677ff' : '#111318'}}" />
     </view>
   </view>
 
@@ -86,13 +74,6 @@
               size="31px"
               color="{{record.tone === 'orange' ? '#df8a00' : record.tone === 'blue' ? '#1677ff' : '#087d58'}}"
             />
-            <van-icon
-              wx:if="{{record.category === 'binding'}}"
-              class="contribution-record__link"
-              name="link-o"
-              size="16px"
-              color="#087d58"
-            />
           </view>
           <view class="contribution-record__copy">
             <text class="contribution-record__title">{{record.title}}</text>
@@ -102,8 +83,7 @@
           </view>
           <view class="contribution-record__value">
             <view>
-              <text>{{record.points}}</text>
-              <text>分</text>
+              <text>¥{{record.points}}</text>
             </view>
             <text class="contribution-record__status contribution-record__status--{{record.status}}">
               {{record.statusLabel}}
@@ -117,12 +97,12 @@
 
   <view wx:if="{{!groups.length}}" class="contribution-empty">
     <van-icon name="description-o" size="43px" color="#a2a8b1" />
-    <text>当前筛选条件下暂无贡献记录</text>
+    <text>当前筛选条件下暂无消费记录</text>
   </view>
 
   <view class="contribution-detail-notice">
     <van-icon name="info-o" size="20px" color="#1677ff" />
-    <text>贡献数据由系统同步，以实际结算结果为准</text>
+    <text>消费数据由系统同步，以实际账单为准</text>
   </view>
-  <text class="contribution-detail-limit">仅展示近 12 个月贡献记录</text>
+  <text class="contribution-detail-limit">仅展示近 12 个月消费记录</text>
 </view>

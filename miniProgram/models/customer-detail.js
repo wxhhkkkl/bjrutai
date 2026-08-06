@@ -1,7 +1,7 @@
 const CUSTOMER_DETAIL_TABS = [
   { id: 'info', label: '客户信息' },
   { id: 'service', label: '服务记录' },
-  { id: 'contribution', label: '贡献记录' }
+  { id: 'contribution', label: '消费记录' }
 ];
 
 const CONTRIBUTION_FILTERS = [
@@ -98,7 +98,7 @@ const CONTRIBUTION_RECORDS = [
     category: 'binding',
     title: '客户绑定成功',
     time: '2026年7月18日 10:30',
-    points: '+1,200',
+    points: '1,200',
     tone: 'blue',
     icon: 'link-o'
   },
@@ -107,7 +107,7 @@ const CONTRIBUTION_RECORDS = [
     category: 'service',
     title: '服务包已激活',
     time: '2026年7月16日 14:20',
-    points: '+680',
+    points: '680',
     tone: 'green',
     icon: 'certificate'
   },
@@ -116,7 +116,7 @@ const CONTRIBUTION_RECORDS = [
     category: 'service',
     title: '健康随访完成',
     time: '2026年7月14日 16:30',
-    points: '+300',
+    points: '300',
     tone: 'purple',
     icon: 'calendar-o'
   },
@@ -125,7 +125,7 @@ const CONTRIBUTION_RECORDS = [
     category: 'service',
     title: '客户服务完成',
     time: '2026年7月12日 09:40',
-    points: '+1,020',
+    points: '1,020',
     tone: 'blue',
     icon: 'friends-o'
   }

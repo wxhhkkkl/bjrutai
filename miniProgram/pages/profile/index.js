@@ -22,7 +22,7 @@ const SERVICE_ITEMS = [{
     {
         id: 'org-performance',
         title: '组织业绩',
-        description: '查看组织贡献汇总',
+        description: '查看组织消费汇总',
         icon: '/assets/images/profile-contribution-icon.png',
         adminOnly: true
     },
@@ -34,8 +34,8 @@ const SERVICE_ITEMS = [{
     },
     {
         id: 'contribution-detail',
-        title: '贡献明细',
-        description: '查看每笔贡献来源',
+        title: '消费明细',
+        description: '查看每笔消费来源',
         icon: '/assets/images/profile-contribution-icon.png'
     }
 ];
@@ -83,8 +83,8 @@ Page({
                     value: '36'
                 },
                 {
-                    label: '本月贡献',
-                    value: summary.monthlyContribution
+                    label: '本月消费',
+                    value: `¥${summary.monthlyContribution}`
                 },
                 {
                     label: '累计服务',

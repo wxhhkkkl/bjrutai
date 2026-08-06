@@ -65,7 +65,7 @@ function buildChartOption(period) {
       },
       formatter(params) {
         const point = params[0];
-        return `${point.axisValue}\n${formatNumber(point.value)} 分`;
+        return `${point.axisValue}\n¥${formatNumber(point.value)}`;
       }
     },
     xAxis: {
@@ -148,7 +148,6 @@ Page({
   data: {
     state: 'success',
     overview: {},
-    composition: {},
     details: [],
     periods: PERIODS,
     selectedPeriod: 'month',
@@ -165,7 +164,6 @@ Page({
     this.setData({
       state: demo.getPageViewState('contribution'),
       overview: summaries.contributionOverview,
-      composition: summaries.contributionComposition,
       details: summaries.contribution
     });
     updateTabBar(this, 'contribution');

@@ -64,23 +64,6 @@ Page({
     });
   },
 
-  openCategoryFilter() {
-    wx.showActionSheet({
-      itemList: ['全部来源', '客户绑定', '服务完成'],
-      success: ({ tapIndex }) => {
-        const categories = ['all', 'binding', 'service'];
-        const selectedCategory = categories[tapIndex] || 'all';
-
-        this.setData({
-          selectedCategory,
-          groups: this.getVisibleGroups({
-            category: selectedCategory
-          })
-        });
-      }
-    });
-  },
-
   openContribution(e) {
     const record = CONTRIBUTION_RECORDS.find(
       (item) => item.id === e.currentTarget.dataset.id
@@ -90,7 +73,7 @@ Page({
 
     wx.showModal({
       title: record.title,
-      content: `${record.customer} · ${record.phone}\n${record.date} ${record.time}\n贡献 ${record.points} 分 · ${record.statusLabel}`,
+      content: `${record.customer} · ${record.phone}\n${record.date} ${record.time}\n消费 ¥${record.points} · ${record.statusLabel}`,
       showCancel: false,
       confirmText: '我知道了'
     });

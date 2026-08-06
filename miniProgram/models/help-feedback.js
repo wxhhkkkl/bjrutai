@@ -10,9 +10,9 @@ const HELP_FAQS = Object.freeze([
   },
   {
     id: 'contribution',
-    title: '贡献值与结算',
+    title: '消费与结算',
     icon: 'bar-chart-o',
-    answer: '客户绑定、服务完成等有效行为会形成贡献值，最终结果以系统同步的实际结算数据为准。'
+    answer: '业绩贡献以消费金额（账单实付金额）为准，由系统同步账单数据统计。'
   },
   {
     id: 'account',

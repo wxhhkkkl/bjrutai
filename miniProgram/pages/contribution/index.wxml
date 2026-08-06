@@ -1,4 +1,4 @@
-<app-header title="贡献" />
+<app-header title="消费" />
 
 <view class="contribution-screen tab-screen">
   <view class="contribution-banner">
@@ -7,20 +7,19 @@
       src="/assets/images/contribution-banner-visual.png"
       mode="aspectFill"
       aria-role="img"
-      aria-label="贡献增长数据视觉"
+      aria-label="消费增长数据视觉"
     />
     <view class="contribution-banner__copy">
-      <text class="contribution-banner__label">本月贡献</text>
+      <text class="contribution-banner__label">本月消费金额</text>
       <view class="contribution-banner__amount">
         <text class="contribution-banner__number">{{overview.amount}}</text>
-        <text class="contribution-banner__unit">分</text>
       </view>
       <view class="contribution-banner__growth">
         <van-icon name="upgrade" size="17px" color="#1677ff" />
         <text>较上月 {{overview.growth}}</text>
       </view>
       <text class="contribution-banner__description">
-        持续服务，贡献持续累积
+        消费金额持续累积
       </text>
     </view>
   </view>
@@ -45,7 +44,7 @@
 
     <view class="trend-card">
       <view class="trend-card__header">
-        <text class="contribution-title">贡献趋势</text>
+        <text class="contribution-title">消费趋势</text>
         <view class="trend-card__total">
           <text>{{chartSummary.label}}</text>
           <text class="trend-card__total-number">{{chartSummary.total}}</text>
@@ -60,44 +59,9 @@
       </view>
     </view>
 
-    <view class="composition-card">
-      <text class="contribution-title">贡献构成</text>
-      <view class="composition-content">
-        <view class="composition-item">
-          <image
-            class="composition-icon"
-            src="/assets/images/contribution-bind-icon.png"
-            mode="aspectFill"
-          />
-          <view class="composition-copy">
-            <text class="composition-label">客户绑定</text>
-            <view class="composition-value">
-              <text>{{composition.binding}}</text>
-              <text class="composition-unit">分</text>
-            </view>
-          </view>
-        </view>
-        <view class="composition-divider"></view>
-        <view class="composition-item composition-item--service">
-          <image
-            class="composition-icon"
-            src="/assets/images/contribution-service-icon.png"
-            mode="aspectFill"
-          />
-          <view class="composition-copy">
-            <text class="composition-label">服务完成</text>
-            <view class="composition-value">
-              <text>{{composition.service}}</text>
-              <text class="composition-unit">分</text>
-            </view>
-          </view>
-        </view>
-      </view>
-    </view>
-
     <view class="detail-card">
       <view class="detail-card__header">
-        <text class="contribution-title">近期贡献明细</text>
+        <text class="contribution-title">近期消费明细</text>
         <view
           class="detail-card__all tap-target"
           bindtap="openAllDetails"
@@ -105,7 +69,7 @@
           hover-start-time="0"
           hover-stay-time="80"
           aria-role="button"
-          aria-label="查看全部贡献明细"
+          aria-label="查看全部消费明细"
         >
           <text>查看全部</text>
           <van-icon name="arrow" size="19px" color="#1677ff" />
@@ -130,7 +94,6 @@
           </view>
           <view class="detail-value">
             <text>{{item.value}}</text>
-            <text class="detail-unit">分</text>
           </view>
           <van-icon name="arrow" size="22px" color="#8a8f98" />
         </view>

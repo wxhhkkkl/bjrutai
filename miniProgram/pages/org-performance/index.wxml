@@ -27,14 +27,12 @@
       <text class="org-card__name">{{orgName}}</text>
       <view class="org-card__summary">
         <view class="org-card__metric">
-          <text class="org-card__label">本月贡献</text>
-          <text class="org-card__value">{{summary.thisMonth}}</text>
-          <text class="org-card__unit">分</text>
+          <text class="org-card__label">本月消费</text>
+          <text class="org-card__value">¥{{fmtYuan(summary.thisMonth)}}</text>
         </view>
         <view class="org-card__metric org-card__metric--divider">
-          <text class="org-card__label">累计贡献</text>
-          <text class="org-card__value">{{summary.cumulative}}</text>
-          <text class="org-card__unit">分</text>
+          <text class="org-card__label">累计消费</text>
+          <text class="org-card__value">¥{{fmtYuan(summary.cumulative)}}</text>
         </view>
       </view>
     </view>
@@ -85,14 +83,14 @@
           hover-stay-time="80"
         >
           <text class="sub-org-row__name">{{item.orgName}}</text>
-          <text class="sub-org-row__metric">本月 {{item.thisMonth}} · 累计 {{item.cumulative}}</text>
+          <text class="sub-org-row__metric">本月 ¥{{fmtYuan(item.thisMonth)}} · 累计 ¥{{fmtYuan(item.cumulative)}}</text>
         </view>
       </view>
     </view>
 
     <!-- Members -->
     <view class="section-block" wx:if="{{members.length}}">
-      <text class="section-title">成员贡献</text>
+      <text class="section-title">成员消费</text>
       <view class="member-table">
         <view class="member-table__head">
           <text>成员</text>
@@ -105,11 +103,11 @@
           class="member-table__row"
         >
           <text>{{item.name}}</text>
-          <text>{{item.thisMonth}}</text>
-          <text>{{item.cumulative}}</text>
+          <text>¥{{fmtYuan(item.thisMonth)}}</text>
+          <text>¥{{fmtYuan(item.cumulative)}}</text>
         </view>
       </view>
-      <text class="member-note">贡献值仅显示数值，不含客户级明细</text>
+      <text class="member-note">消费金额仅显示数值，不含客户级明细</text>
     </view>
   </block>
 </view>

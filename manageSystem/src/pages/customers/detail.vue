@@ -118,17 +118,16 @@
           <el-empty v-else description="暂无绑定历史" />
         </el-tab-pane>
 
-        <!-- Contributions -->
-        <el-tab-pane label="贡献记录" name="contributions">
-          <el-table v-loading="contribLoading" :data="contribItems" stripe empty-text="暂无贡献记录" size="small">
+        <!-- 消费记录 -->
+        <el-tab-pane label="消费记录" name="contributions">
+          <el-table v-loading="contribLoading" :data="contribItems" stripe empty-text="暂无消费记录" size="small">
             <el-table-column prop="title" label="项目" min-width="150" />
-            <el-table-column prop="points" label="积分" width="100" />
-            <el-table-column label="分类" width="100">
-              <template #default="{ row }">{{ row.category }}</template>
+            <el-table-column label="消费金额" width="110">
+              <template #default="{ row }">¥{{ (Number(row.amountCent || 0) / 100).toFixed(2) }}</template>
             </el-table-column>
             <el-table-column label="状态" width="90">
               <template #default="{ row }">
-                <el-tag :type="contribStatusType(row.status)" size="small">{{ row.status }}</el-tag>
+                <el-tag :type="contribStatusType(row.status)" size="small">{{ contribStatusLabel(row.status) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="时间" width="160">
@@ -261,7 +260,10 @@ function bindingReqStatusType(s) {
   return { pending_match: 'info', matching: 'warning', bound: 'success', unbound: 'info', abnormal: 'danger' }[s] || 'info'
 }
 function contribStatusType(s) {
-  return { pending: 'warning', confirmed: 'info', settled: 'success', reversed: 'danger', cancelled: 'info' }[s] || 'info'
+  return { paid: 'success', partially_refunded: 'warning', refunded: 'danger', cancelled: 'info' }[s] || 'info'
+}
+function contribStatusLabel(s) {
+  return { paid: '已支付', partially_refunded: '部分退款', refunded: '已退款', cancelled: '已取消' }[s] || s
 }
 function followupResultType(r) {
   return { successful: 'success', failed: 'danger', pending: 'warning', no_answer: 'info' }[r] || 'info'

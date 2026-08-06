@@ -21,8 +21,8 @@
         </el-col>
         <el-col :xs="12" :sm="6">
           <el-card shadow="hover" class="kpi-card">
-            <div class="kpi-value">{{ metrics.myMonthlyContribution ?? '-' }}</div>
-            <div class="kpi-label">本月业绩 (分)</div>
+            <div class="kpi-value">¥{{ fmtYuan(metrics.myMonthlyConsumption) }}</div>
+            <div class="kpi-label">本月消费 (元)</div>
           </el-card>
         </el-col>
         <el-col :xs="12" :sm="6">
@@ -131,7 +131,7 @@ onMounted(async () => {
     }
   } catch (e) {
     // Workbench not yet deployed — use fallback
-    metrics.value = { myCustomers: 0, myMonthlyContribution: 0, myBindings: 0, pendingFollowups: 0 }
+    metrics.value = { myCustomers: 0, myMonthlyConsumption: 0, myBindings: 0, pendingFollowups: 0 }
   }
 
   try {
@@ -162,6 +162,9 @@ function noticeTagType(type) {
   return map[type] || 'info'
 }
 
+function fmtYuan(cent) {
+  return (Number(cent || 0) / 100).toFixed(2)
+}
 function formatTime(t) {
   if (!t) return ''
   try {

@@ -32,10 +32,9 @@
     </view>
     <view class="customer-hero__metrics">
       <view class="customer-metric">
-        <text class="customer-metric__label">累计贡献</text>
+        <text class="customer-metric__label">累计消费</text>
         <view class="customer-metric__value">
-          <text>{{customer.totalContribution}}</text>
-          <text class="customer-metric__unit">分</text>
+          <text>¥{{customer.totalContribution}}</text>
         </view>
       </view>
       <view class="customer-metric">
@@ -211,20 +210,18 @@
   </block>
 
   <block wx:else>
-    <text class="detail-section-title">贡献概览</text>
+    <text class="detail-section-title">消费概览</text>
     <view class="contribution-overview">
       <view class="contribution-overview__item">
-        <text>累计贡献</text>
+        <text>累计消费</text>
         <view class="contribution-overview__value">
-          <text>{{customer.totalContribution}}</text>
-          <text>分</text>
+          <text>¥{{customer.totalContribution}}</text>
         </view>
       </view>
       <view class="contribution-overview__item">
-        <text>本月贡献</text>
+        <text>本月消费</text>
         <view class="contribution-overview__value">
-          <text>{{customer.monthlyContribution}}</text>
-          <text>分</text>
+          <text>¥{{customer.monthlyContribution}}</text>
         </view>
       </view>
     </view>
@@ -258,15 +255,14 @@
           <text class="contribution-row__time">{{item.time}}</text>
         </view>
         <view class="contribution-row__points">
-          <text>{{item.points}}</text>
-          <text>分</text>
+          <text>¥{{item.points}}</text>
         </view>
       </view>
     </view>
 
     <view class="detail-notice detail-notice--contribution">
       <van-icon name="info-o" size="20px" color="#1677ff" />
-      <text>贡献数据由系统同步，以实际结算结果为准</text>
+      <text>消费数据由系统同步，以实际账单为准</text>
     </view>
   </block>
 </view>
