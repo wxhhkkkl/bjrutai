@@ -8,7 +8,6 @@ export const useReportsStore = defineStore('reports', () => {
   const reports = ref([])
   const currentReport = ref(null)
   const loading = ref(false)
-  const generating = ref(false)
 
   // Dimension labels
   const dimensionLabels = {
@@ -20,25 +19,6 @@ export const useReportsStore = defineStore('reports', () => {
   }
 
   // Actions
-  async function generateReport(startDate, endDate, dimensions) {
-    generating.value = true
-    try {
-      const res = await http.post('/reports/generate', {
-        startDate,
-        endDate,
-        dimensions,
-      })
-      ElMessage.success('报表生成成功')
-      await fetchReports()
-      return res.data.data
-    } catch (e) {
-      ElMessage.error(e.userMessage || '生成报表失败')
-      throw e
-    } finally {
-      generating.value = false
-    }
-  }
-
   async function fetchReports() {
     loading.value = true
     try {
@@ -97,11 +77,9 @@ export const useReportsStore = defineStore('reports', () => {
     reports,
     currentReport,
     loading,
-    generating,
     // Labels
     dimensionLabels,
     // Actions
-    generateReport,
     fetchReports,
     fetchReportDetail,
     exportReport,

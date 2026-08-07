@@ -4,42 +4,6 @@
       <h2 class="page-title">数据报表</h2>
     </div>
 
-    <!-- Generation controls -->
-    <el-card class="generate-card" shadow="never">
-      <template #header><span>生成新报表</span></template>
-      <el-row :gutter="16" align="middle">
-        <el-col :span="6">
-          <el-date-picker
-            v-model="dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            format="YYYY-MM-DD"
-            value-format="YYYY-MM-DD"
-          />
-        </el-col>
-        <el-col :span="10">
-          <el-checkbox-group v-model="selectedDimensions">
-            <el-checkbox label="binding">绑定汇总</el-checkbox>
-            <el-checkbox label="revenue">收入汇总</el-checkbox>
-            <el-checkbox label="discount">优惠汇总</el-checkbox>
-            <el-checkbox label="allocation">分配明细</el-checkbox>
-          </el-checkbox-group>
-        </el-col>
-        <el-col :span="4">
-          <el-button
-            type="primary"
-            :loading="store.generating"
-            :disabled="!canGenerate"
-            @click="handleGenerate"
-          >
-            生成报表
-          </el-button>
-        </el-col>
-      </el-row>
-    </el-card>
-
     <!-- Report list -->
     <el-card class="list-card" shadow="never">
       <template #header>
@@ -90,7 +54,7 @@
         </el-table-column>
       </el-table>
       <div v-if="store.reports.length === 0 && !store.loading" class="empty-text">
-        暂无报表，请先生成
+        暂无报表
       </div>
     </el-card>
 
@@ -108,7 +72,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { useReportsStore } from '@/stores/reports'
 import { useAuthStore } from '@/stores/auth'
-import { ElMessage } from 'element-plus'
 import ReportDetail from '@/components/reports/ReportDetail.vue'
 
 const store = useReportsStore()
@@ -122,13 +85,7 @@ function settlementStatusType(s) {
   return { pending: 'warning', reviewed: 'success', rejected: 'danger' }[s] || 'info'
 }
 
-const dateRange = ref(['2026-07-01', '2026-07-31'])
-const selectedDimensions = ref(['revenue', 'discount', 'binding', 'allocation'])
 const detailVisible = ref(false)
-
-const canGenerate = computed(() => {
-  return dateRange.value && dateRange.value.length === 2 && selectedDimensions.value.length > 0
-})
 
 function formatDate(dateStr) {
   if (!dateStr) return '-'
@@ -136,19 +93,6 @@ function formatDate(dateStr) {
     return new Date(dateStr).toLocaleString('zh-CN')
   } catch {
     return dateStr
-  }
-}
-
-async function handleGenerate() {
-  if (!canGenerate.value) return
-  try {
-    await store.generateReport(
-      dateRange.value[0],
-      dateRange.value[1],
-      selectedDimensions.value,
-    )
-  } catch {
-    // Error already shown by store
   }
 }
 
@@ -185,7 +129,6 @@ onMounted(() => {
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .page-title { font-size: 20px; font-weight: 600; color: #303133; }
 
-.generate-card { margin-bottom: 16px; }
 .list-card { margin-bottom: 16px; }
 .empty-text { text-align: center; padding: 40px 0; color: #909399; font-size: 14px; }
 </style>
