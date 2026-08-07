@@ -18,8 +18,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.exceptions import BadRequestException, NotFoundException
 from ..models.bill import Bill, TransactionStatus
 from ..models.binding import BindingStatus, Customer
+from ..models.commission_result import CommissionResult
 from ..models.distributor import Distributor
 from ..models.organization import Organization
+from ..models.performance_rule import RuleType
+from ..models.performance_settlement import PerformanceSettlement, SettlementStatus
 from ..models.report import Report
 
 
@@ -54,6 +57,142 @@ class ReportService:
             raise BadRequestException(message=f"Date range cannot exceed {MAX_DATE_RANGE_DAYS} days.")
 
         return start, end
+
+    # ------------------------------------------------------------------
+    # Settlement report record (010, FR-005/FR-006)
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _month_range(period: str) -> tuple[str, str]:
+        """Return (start_date, end_date) for a 'YYYY-MM' period."""
+        year, month = period.split("-")
+        return f"{period}-01", f"{year}-{month}-31"
+
+    @staticmethod
+    def _settlement_status_label(status: Optional[str]) -> str:
+        return {
+            "pending": "待审核",
+            "reviewed": "已确认/冻结",
+            "rejected": "已打回",
+        }.get(status or "", "")
+
+    @classmethod
+    async def ensure_settlement_report(
+        cls,
+        db: AsyncSession,
+        period: str,
+        status: str,
+        generated_by: Optional[str] = None,
+    ) -> str:
+        """Idempotently upsert the settlement report record for a period.
+
+        Builds the ``performance`` section (summary + details) from
+        ``commission_results`` so the report always matches the settlement
+        data (FR-006, deviation 0). Returns the report id.
+        """
+        from sqlalchemy import select
+
+        rows = (
+            await db.execute(
+                select(Report).where(
+                    Report.source == "performance_settlement",
+                    Report.period == period,
+                )
+            )
+        ).scalars().first()
+
+        report_id = rows.id if rows is not None else uuid.uuid4().hex
+        start_date, end_date = cls._month_range(period)
+
+        results = (
+            await db.execute(
+                select(CommissionResult).where(CommissionResult.period == period)
+            )
+        ).scalars().all()
+
+        org_ids = {r.org_id for r in results}
+        org_names: dict[int, str] = {}
+        if org_ids:
+            orgs = (
+                await db.execute(
+                    select(Organization).where(Organization.id.in_(org_ids))
+                )
+            ).scalars().all()
+            org_names = {o.id: o.name for o in orgs}
+
+        dist_ids = {r.distributor_id for r in results}
+        dist_names: dict[int, str] = {}
+        if dist_ids:
+            dists = (
+                await db.execute(
+                    select(Distributor).where(Distributor.id.in_(dist_ids))
+                )
+            ).scalars().all()
+            from ..models.user import User
+
+            user_ids = {d.user_id for d in dists if d.user_id}
+            users: dict[int, str] = {}
+            if user_ids:
+                us = (
+                    await db.execute(select(User).where(User.id.in_(user_ids)))
+                ).scalars().all()
+                users = {u.id: u.name for u in us}
+            dist_names = {d.id: users.get(d.user_id, "") for d in dists}
+
+        rule_labels = {
+            RuleType.INTRA_ORG: "组织内提成",
+            RuleType.ORG_MANAGEMENT: "组织管理提成",
+        }
+
+        details = []
+        total_commission = 0
+        for r in results:
+            total_commission += r.commission_cent or 0
+            details.append({
+                "组织": org_names.get(r.org_id) or f"Org {r.org_id}",
+                "姓名": dist_names.get(r.distributor_id) or str(r.distributor_id),
+                "提成类型": rule_labels.get(r.rule_type, str(r.rule_type)),
+                "计算基数(元)": f"{(r.base_cent or 0) / 100:.2f}",
+                "比例": f"{(float(r.ratio) * 100):.2f}%" if r.ratio else "0.00%",
+                "提成金额(元)": f"{(r.commission_cent or 0) / 100:.2f}",
+            })
+
+        sections = {
+            "performance": {
+                "title": "绩效核算",
+                "summary": {
+                    "周期": period,
+                    "状态": cls._settlement_status_label(status),
+                    "核算人数": len({r.distributor_id for r in results}),
+                    "提成总额(元)": f"{total_commission / 100:.2f}",
+                    "组织数": len(org_ids),
+                },
+                "details": details,
+            }
+        }
+
+        if rows is not None:
+            rows.start_date = start_date
+            rows.end_date = end_date
+            rows.dimensions = ["performance"]
+            rows.sections = sections
+            rows.status = status
+            if generated_by:
+                rows.generated_by = generated_by
+            db.add(rows)
+        else:
+            db.add(Report(
+                id=report_id,
+                start_date=start_date,
+                end_date=end_date,
+                dimensions=["performance"],
+                sections=sections,
+                generated_by=generated_by,
+                source="performance_settlement",
+                period=period,
+                status=status,
+            ))
+        await db.flush()
+        return report_id
 
     # ------------------------------------------------------------------
     # Generate report
@@ -123,6 +262,9 @@ class ReportService:
                 "dimensions": r.dimensions or [],
                 "generatedAt": r.generated_at.isoformat() if r.generated_at else None,
                 "generatedBy": r.generated_by,
+                "source": r.source,
+                "period": r.period,
+                "status": r.status,
             })
 
         return {"items": items}
@@ -145,6 +287,9 @@ class ReportService:
             "dimensions": report.dimensions or [],
             "sections": report.sections or {},
             "generatedAt": report.generated_at.isoformat() if report.generated_at else None,
+            "source": report.source,
+            "period": report.period,
+            "status": report.status,
         }
 
     # ------------------------------------------------------------------
@@ -196,6 +341,7 @@ class ReportService:
             "revenue": "收入汇总",
             "discount": "优惠汇总",
             "allocation": "分配明细",
+            "performance": "绩效核算",
         }
 
         for dim_key, sheet_name in dimension_sheet_config.items():

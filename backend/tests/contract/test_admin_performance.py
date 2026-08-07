@@ -226,3 +226,90 @@ async def test_export_csv(client: AsyncClient, db_session: AsyncSession):
 async def test_export_requires_settle_permission(client: AsyncClient, db_session: AsyncSession):
     resp = await client.get("/api/v1/admin/performance/settlements/2026-07/export", headers=R_R)
     assert _status_code(resp) == 40300
+
+
+# ──────────────────────────────────────────────────────────────────
+# US1 (010): settleable-periods + settle
+# ──────────────────────────────────────────────────────────────────
+@pytest.mark.asyncio
+async def test_settleable_periods_returns_months(client: AsyncClient, db_session: AsyncSession):
+    """GET settleable-periods lists months with bill data (FR-002)."""
+    org_id = await _seed_org(db_session)
+    dist = await _seed_distributor(db_session, org_id)
+    cid = await _seed_customer(db_session, dist)
+    await _seed_bill(db_session, cid, paid_cent=800000, txn_id="txn_settle_1")
+
+    data = _assert_envelope(await client.get(
+        "/api/v1/admin/performance/settleable-periods", headers=R_R,
+    ))
+    assert "periods" in data
+    assert "2026-07" in data["periods"]
+
+
+@pytest.mark.asyncio
+async def test_settleable_periods_requires_read_permission(client: AsyncClient, db_session: AsyncSession):
+    resp = await client.get("/api/v1/admin/performance/settleable-periods", headers=NO_PERM)
+    assert _status_code(resp) == 40300
+
+
+@pytest.mark.asyncio
+async def test_settleable_periods_excludes_reviewed(client: AsyncClient, db_session: AsyncSession):
+    """Settled (reviewed) months are not listed as settleable (FR-002/SC-001)."""
+    org_id = await _seed_org(db_session)
+    dist = await _seed_distributor(db_session, org_id)
+    cid = await _seed_customer(db_session, dist)
+    await _seed_bill(db_session, cid, paid_cent=800000, txn_id="txn_settle_2")
+    await _seed_settlement(db_session, "2026-07", SettlementStatus.REVIEWED)
+
+    data = _assert_envelope(await client.get(
+        "/api/v1/admin/performance/settleable-periods", headers=R_R,
+    ))
+    assert "2026-07" not in data["periods"]
+
+
+@pytest.mark.asyncio
+async def test_settle_creates_pending_and_report(client: AsyncClient, db_session: AsyncSession):
+    """Settle a settleable month -> pending batch + settlement report record (FR-001/FR-004/FR-005)."""
+    from src.models.report import Report
+
+    org_id = await _seed_org(db_session)
+    dist = await _seed_distributor(db_session, org_id)
+    cid = await _seed_customer(db_session, dist)
+    await _seed_bill(db_session, cid, paid_cent=800000, txn_id="txn_settle_3")
+    await _config_intra_rule(client, org_id, _tiers((0, None, 0.05)))
+
+    data = _assert_envelope(await client.post(
+        "/api/v1/admin/performance/settlements/2026-07/settle", headers=R_SETTLE,
+    ))
+    assert data["status"] == "pending"
+
+    # Batch exists as pending
+    batches = (await db_session.execute(select(PerformanceSettlement))).scalars().all()
+    assert len(batches) == 1
+    assert batches[0].status == SettlementStatus.PENDING
+
+    # Settlement report record auto-generated
+    reports = (await db_session.execute(select(Report))).scalars().all()
+    assert len(reports) == 1
+    assert reports[0].source == "performance_settlement"
+    assert reports[0].period == "2026-07"
+    assert reports[0].status == "pending"
+
+
+@pytest.mark.asyncio
+async def test_settle_requires_settle_permission(client: AsyncClient, db_session: AsyncSession):
+    resp = await client.post("/api/v1/admin/performance/settlements/2026-07/settle", headers=R_R)
+    assert _status_code(resp) == 40300
+
+
+@pytest.mark.asyncio
+async def test_settle_rejects_reviewed_month(client: AsyncClient, db_session: AsyncSession):
+    """Settle on a frozen (reviewed) month is rejected (FR-008)."""
+    org_id = await _seed_org(db_session)
+    dist = await _seed_distributor(db_session, org_id)
+    cid = await _seed_customer(db_session, dist)
+    await _seed_bill(db_session, cid, paid_cent=800000, txn_id="txn_settle_4")
+    await _seed_settlement(db_session, "2026-07", SettlementStatus.REVIEWED)
+
+    resp = await client.post("/api/v1/admin/performance/settlements/2026-07/settle", headers=R_SETTLE)
+    assert _status_code(resp) == 40000

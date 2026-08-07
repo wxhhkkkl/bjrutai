@@ -31,8 +31,11 @@ async def monthly_settlement_job():
         # FR-013: compute commissions from performance rules after settlement.
         try:
             from ..services.commission_service import compute_commission
+            from ..services.report_service import ReportService
 
             result = await compute_commission(db, period)
+            # 010 FR-005: auto-generated settlement report record for the period
+            await ReportService.ensure_settlement_report(db, period, "pending")
             await db.commit()
             logger.info("Commission computed for period %s: %s", period, result)
         except Exception as exc:

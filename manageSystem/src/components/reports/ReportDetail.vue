@@ -135,6 +135,33 @@
             />
           </el-table>
         </div>
+
+        <!-- Performance (settlement) section -->
+        <div v-if="report.sections?.performance" class="section-block">
+          <h4 class="section-title">{{ report.sections.performance.title }}</h4>
+          <el-descriptions :column="4" border size="small">
+            <el-descriptions-item
+              v-for="(val, key) in report.sections.performance.summary"
+              :key="key"
+              :label="key"
+            >{{ val }}</el-descriptions-item>
+          </el-descriptions>
+          <el-table
+            v-if="report.sections.performance.details?.length"
+            :data="report.sections.performance.details"
+            stripe
+            size="small"
+            class="section-table"
+          >
+            <el-table-column
+              v-for="col in detailColumns(report.sections.performance.details)"
+              :key="col"
+              :prop="col"
+              :label="col"
+              min-width="120"
+            />
+          </el-table>
+        </div>
       </template>
       <div v-else-if="!loading" class="empty-text">请选择报表查看</div>
     </div>
@@ -164,6 +191,7 @@ const dimensionLabels = {
   revenue: '收入汇总',
   discount: '优惠汇总',
   allocation: '分配明细',
+  performance: '绩效核算',
 }
 
 function dimensionLabel(dim) {

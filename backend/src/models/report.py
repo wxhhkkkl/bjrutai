@@ -19,5 +19,8 @@ class Report(Base):
     dimensions: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     sections: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     generated_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="reconciliation", server_default="reconciliation")
+    period: Mapped[Optional[str]] = mapped_column(String(7), nullable=True, index=True)  # 'YYYY-MM' for settlement reports
+    status: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)  # settlement: pending/reviewed/rejected
     generated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

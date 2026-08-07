@@ -16,6 +16,7 @@ export const useReportsStore = defineStore('reports', () => {
     revenue: '收入汇总',
     discount: '优惠汇总',
     allocation: '分配明细',
+    performance: '绩效核算',
   }
 
   // Actions

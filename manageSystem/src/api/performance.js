@@ -37,4 +37,11 @@ export const performanceApi = {
   export(period) {
     return http.get(`/admin/performance/settlements/${period}/export`, { responseType: 'blob' })
   },
+  // 010 月度核算：可核算月份 + 发起核算
+  settleablePeriods() {
+    return http.get('/admin/performance/settleable-periods').then(payload)
+  },
+  settle(period) {
+    return http.post(`/admin/performance/settlements/${period}/settle`).then(payload)
+  },
 }

@@ -3,14 +3,28 @@
     <div class="page-header">
       <h2 class="page-title">绩效计算</h2>
       <el-space>
-        <el-date-picker
+        <el-select
           v-model="period"
-          type="month"
-          value-format="YYYY-MM"
-          placeholder="选择月份"
-          style="width: 150px"
+          placeholder="选择可核算月份"
+          style="width: 170px"
+          filterable
           @change="loadAll"
-        />
+        >
+          <el-option
+            v-for="p in settleablePeriods"
+            :key="p"
+            :value="p"
+            :label="`${p}（可核算）`"
+          />
+        </el-select>
+        <el-button
+          v-if="canSettle && canSettleNow"
+          type="primary"
+          :loading="settling"
+          @click="handleSettle"
+        >
+          发起核算
+        </el-button>
         <el-button @click="loadAll">
           <el-icon style="margin-right: 4px"><Refresh /></el-icon>刷新
         </el-button>
@@ -90,6 +104,25 @@
       </div>
     </div>
 
+    <!-- 月度核算状态列表（含自动核算 pending 月份，供审核入口） -->
+    <el-card class="status-card" shadow="never">
+      <template #header><span>月度核算状态</span></template>
+      <el-table :data="settlementItems" size="small" v-loading="statusLoading" empty-text="暂无核算批次">
+        <el-table-column prop="period" label="月份" width="120" />
+        <el-table-column label="状态" width="140">
+          <template #default="{ row }">
+            <el-tag size="small" :type="statusType(row.status)">{{ statusLabel(row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="rejectReason" label="打回原因" min-width="200" show-overflow-tooltip />
+        <el-table-column label="操作" width="200" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="selectPeriod(row.period)">查看</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
     <!-- 打回原因 -->
     <el-dialog v-model="rejectVisible" title="打回核算" width="440px">
       <el-input v-model="rejectReason" type="textarea" :rows="3" placeholder="请填写打回原因（必填）" />
@@ -115,6 +148,10 @@ const canSettle = computed(() => authStore.hasPermission('performance.settle'))
 const now = new Date()
 const period = ref(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
 
+const settleablePeriods = ref([])
+const settling = ref(false)
+const canSettleNow = computed(() => settleablePeriods.value.includes(period.value))
+
 const treeLoading = ref(false)
 const loading = ref(false)
 const tree = ref([])
@@ -124,6 +161,9 @@ const selected = ref(null)
 
 const estimate = ref({ intraOrg: [], orgManagement: [], unconfigured: [] })
 const settlement = ref(null)
+
+const settlementItems = ref([])
+const statusLoading = ref(false)
 
 const rejectVisible = ref(false)
 const rejectReason = ref('')
@@ -142,7 +182,35 @@ function flatten(n, acc = []) {
   return acc
 }
 
+async function loadSettleablePeriods() {
+  try {
+    const data = await performanceApi.settleablePeriods()
+    settleablePeriods.value = data?.periods || []
+  } catch {
+    settleablePeriods.value = []
+  }
+}
+
+async function loadSettlementStatus() {
+  statusLoading.value = true
+  try {
+    const data = await performanceApi.settlements()
+    settlementItems.value = data?.items || []
+  } catch {
+    settlementItems.value = []
+  } finally {
+    statusLoading.value = false
+  }
+}
+
+function selectPeriod(p) {
+  period.value = p
+  loadAll()
+}
+
 async function loadAll() {
+  await loadSettleablePeriods()
+  await loadSettlementStatus()
   treeLoading.value = true
   try {
     const data = await orgApi.getTree()
@@ -178,6 +246,24 @@ async function loadForOrg(orgId) {
     ElMessage.error(e.response?.data?.message || '加载绩效估算失败')
   } finally {
     loading.value = false
+  }
+}
+
+async function handleSettle() {
+  try {
+    await ElMessageBox.confirm(`确认对 ${period.value} 月发起核算？核算后该月进入待审核。`, '发起核算', {
+      confirmButtonText: '核算', cancelButtonText: '取消', type: 'info',
+    })
+  } catch { return }
+  settling.value = true
+  try {
+    await performanceApi.settle(period.value)
+    ElMessage.success('核算成功，已进入待审核')
+    await loadAll()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '发起核算失败')
+  } finally {
+    settling.value = false
   }
 }
 

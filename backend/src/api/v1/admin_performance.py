@@ -79,6 +79,31 @@ async def settlements(
     return _build_response(0, "success", result)
 
 
+@router.get("/settleable-periods")
+async def settleable_periods(
+    db: AsyncSession = Depends(get_db),
+    _admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("sharing_rules.read")),
+):
+    """List months available for settlement (FR-002)."""
+    periods = await settlement_service.settleable_periods(db)
+    return _build_response(0, "success", {"periods": periods})
+
+
+@router.post("/settlements/{period}/settle")
+async def settle_settlement(
+    period: str,
+    db: AsyncSession = Depends(get_db),
+    admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("performance.settle")),
+):
+    """Initiate settlement for a settleable month (FR-001/FR-002/FR-005)."""
+    result = await settlement_service.settle(
+        db, period, operator_id=int(admin["sub"])
+    )
+    return _build_response(0, "success", result)
+
+
 @router.post("/settlements/{period}/review")
 async def review_settlement(
     period: str,

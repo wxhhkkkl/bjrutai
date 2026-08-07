@@ -80,6 +80,7 @@ async def test_compute_commission_skips_reviewed_period(db_session: AsyncSession
     rows = (await db_session.execute(select(CommissionResult))).scalars().all()
     assert len(rows) == 1
     assert rows[0].base_cent == 1  # unchanged
+    assert rows[0].rule_snapshot == {"old": True}  # not overwritten (FR-008 regression)
 
 
 @pytest.mark.asyncio

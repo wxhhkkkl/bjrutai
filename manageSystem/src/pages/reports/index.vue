@@ -66,6 +66,17 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column v-if="showSettlementStatus" label="核算状态" width="120">
+          <template #default="{ row }">
+            <el-tag
+              v-if="row.source === 'performance_settlement'"
+              size="small"
+              :type="settlementStatusType(row.status)"
+            >
+              {{ settlementStatusLabel(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="generatedAt" label="生成时间" width="180">
           <template #default="{ row }">
             {{ formatDate(row.generatedAt) }}
@@ -96,10 +107,20 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useReportsStore } from '@/stores/reports'
+import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
 import ReportDetail from '@/components/reports/ReportDetail.vue'
 
 const store = useReportsStore()
+const authStore = useAuthStore()
+const showSettlementStatus = computed(() => authStore.hasPermission('sharing_rules.read'))
+
+function settlementStatusLabel(s) {
+  return { pending: '待审核', reviewed: '已确认', rejected: '已打回' }[s] || s || '-'
+}
+function settlementStatusType(s) {
+  return { pending: 'warning', reviewed: 'success', rejected: 'danger' }[s] || 'info'
+}
 
 const dateRange = ref(['2026-07-01', '2026-07-31'])
 const selectedDimensions = ref(['revenue', 'discount', 'binding', 'allocation'])

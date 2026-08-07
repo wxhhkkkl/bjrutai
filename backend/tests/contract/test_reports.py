@@ -471,3 +471,250 @@ class TestExportReport:
         """Calling without auth returns 401."""
         resp = await client.get("/api/v1/reports/1/export")
         assert resp.status_code == 401
+
+
+# ============================================================================
+# Settlement report records (010, FR-005/FR-006/FR-011)
+# ============================================================================
+async def _seed_settlement_report(
+    db: AsyncSession,
+    *,
+    period: str = "2026-07",
+    status: str = "pending",
+    generated_by: str = "User 7",
+) -> str:
+    """Insert a performance_settlement report record and return its id."""
+    from src.models.commission_result import CommissionResult
+    from src.models.distributor import Distributor, OrgRole
+    from src.models.organization import Organization
+    from src.models.performance_rule import RuleType
+    from src.models.report import Report
+
+    org = Organization(name="总部", org_type="headquarters", level=1, sort_order=0)
+    db.add(org)
+    await db.flush()
+    await db.refresh(org)
+
+    dist = Distributor(user_id=77, org_id=org.id, org_role=OrgRole.MEMBER)
+    db.add(dist)
+    await db.flush()
+    await db.refresh(dist)
+
+    db.add(CommissionResult(
+        period=period, distributor_id=dist.id, org_id=org.id,
+        rule_type=RuleType.INTRA_ORG, base_cent=800000, ratio="0.050000",
+        commission_cent=40000, rule_snapshot={"ruleType": "intra_org", "tiers": [], "version": 1},
+    ))
+    await db.flush()
+
+    report = Report(
+        id="settlement-report-1",
+        start_date=f"{period}-01",
+        end_date=f"{period}-31",
+        dimensions=["performance"],
+        sections={"performance": {
+            "title": "绩效核算",
+            "summary": {"周期": period, "状态": "待审核", "核算人数": 1, "提成总额(元)": "400.00", "组织数": 1},
+            "details": [{"组织": "总部", "姓名": "推广员", "提成类型": "组织内提成", "计算基数(元)": "8000.00", "比例": "5.00%", "提成金额(元)": "400.00"}],
+        }},
+        generated_by=generated_by,
+        source="performance_settlement",
+        period=period,
+        status=status,
+    )
+    db.add(report)
+    await db.flush()
+    return report.id
+
+
+def _settle_token(user_id: int = 99) -> str:
+    return create_access_token(
+        data={"sub": str(user_id), "user_type": "admin", "permissions": ["sharing_rules.read", "performance.settle"]}
+    )
+
+
+def _read_only_token(user_id: int = 99) -> str:
+    return create_access_token(
+        data={"sub": str(user_id), "user_type": "admin", "permissions": ["reports.read"]}
+    )
+
+
+class TestSettlementReportList:
+    """GET /api/v1/reports with settlement source records (FR-005/FR-011)."""
+
+    async def test_list_includes_settlement_source_fields(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Settlement report list item carries source/period/status."""
+        await seed_admin(db_session, username="admin_test", password_plain="testpass123")
+        await _seed_settlement_report(db_session)
+
+        resp = await client.get(
+            "/api/v1/reports", headers={"Authorization": f"Bearer {_settle_token()}"}
+        )
+        assert resp.status_code == 200
+        items = resp.json()["data"]["items"]
+        settlement_items = [i for i in items if i.get("source") == "performance_settlement"]
+        assert len(settlement_items) == 1
+        item = settlement_items[0]
+        assert item["period"] == "2026-07"
+        assert item["status"] == "pending"
+
+    async def test_list_filters_settlement_without_read_permission(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Caller without sharing_rules.read does not see settlement reports (FR-011)."""
+        await seed_admin(db_session, username="admin_test", password_plain="testpass123")
+        await _seed_settlement_report(db_session)
+
+        resp = await client.get(
+            "/api/v1/reports", headers={"Authorization": f"Bearer {_read_only_token()}"}
+        )
+        assert resp.status_code == 200
+        items = resp.json()["data"]["items"]
+        settlement_items = [i for i in items if i.get("source") == "performance_settlement"]
+        assert len(settlement_items) == 0
+
+
+class TestSettlementReportDetail:
+    """GET /api/v1/reports/{id} for settlement reports (FR-006)."""
+
+    async def test_detail_includes_performance_section(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Settlement report detail carries performance section + status."""
+        await seed_admin(db_session, username="admin_test", password_plain="testpass123")
+        report_id = await _seed_settlement_report(db_session)
+
+        resp = await client.get(
+            f"/api/v1/reports/{report_id}", headers={"Authorization": f"Bearer {_settle_token()}"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["source"] == "performance_settlement"
+        assert data["status"] == "pending"
+        assert "performance" in data["sections"]
+        assert data["sections"]["performance"]["summary"]["核算人数"] == 1
+
+    async def test_detail_denied_without_read_permission(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Settlement report detail returns 403 without sharing_rules.read (FR-011)."""
+        await seed_admin(db_session, username="admin_test", password_plain="testpass123")
+        report_id = await _seed_settlement_report(db_session)
+
+        resp = await client.get(
+            f"/api/v1/reports/{report_id}", headers={"Authorization": f"Bearer {_read_only_token()}"}
+        )
+        assert resp.status_code == 403
+
+
+class TestSettlementReportExport:
+    """GET /api/v1/reports/{id}/export for settlement reports (FR-012)."""
+
+    async def test_export_returns_excel(self, client: AsyncClient, db_session: AsyncSession):
+        """Settlement report exports an Excel file."""
+        await seed_admin(db_session, username="admin_test", password_plain="testpass123")
+        report_id = await _seed_settlement_report(db_session)
+
+        resp = await client.get(
+            f"/api/v1/reports/{report_id}/export", headers={"Authorization": f"Bearer {_settle_token()}"}
+        )
+        assert resp.status_code == 200
+        content_type = resp.headers.get("content-type", "")
+        assert "spreadsheet" in content_type.lower() or "excel" in content_type.lower() or "xlsx" in content_type.lower()
+
+    async def test_export_denied_without_read_permission(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """Settlement report export returns 403 without sharing_rules.read (FR-011)."""
+        await seed_admin(db_session, username="admin_test", password_plain="testpass123")
+        report_id = await _seed_settlement_report(db_session)
+
+        resp = await client.get(
+            f"/api/v1/reports/{report_id}/export", headers={"Authorization": f"Bearer {_read_only_token()}"}
+        )
+        assert resp.status_code == 403
+
+
+# ============================================================================
+# Settlement report status sync on review/reject/recompute (010, FR-005/FR-007/FR-009)
+# ============================================================================
+def _settle_only_token(user_id: int = 99) -> str:
+    return create_access_token(
+        data={"sub": str(user_id), "user_type": "admin", "permissions": ["performance.settle"]}
+    )
+
+
+class TestSettlementReportStatusSync:
+    """Review/reject/recompute update the settlement report record's status."""
+
+    async def test_review_updates_report_status(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """review → settlement report status becomes reviewed (FR-005)."""
+        from src.models.performance_settlement import PerformanceSettlement, SettlementStatus
+        from src.models.report import Report
+        from sqlalchemy import select
+
+        await seed_admin(db_session, username="admin_test", password_plain="testpass123")
+        report_id = await _seed_settlement_report(db_session, period="2026-07", status="pending")
+        db_session.add(PerformanceSettlement(period="2026-07", status=SettlementStatus.PENDING))
+        await db_session.flush()
+
+        resp = await client.post(
+            "/api/v1/admin/performance/settlements/2026-07/review",
+            headers={"Authorization": f"Bearer {_settle_only_token()}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["data"]["status"] == "reviewed"
+
+        report = (await db_session.execute(select(Report).where(Report.id == report_id))).scalars().first()
+        assert report.status == "reviewed"
+
+    async def test_reject_updates_report_status(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """reject with reason → settlement report status becomes rejected (FR-007)."""
+        from src.models.performance_settlement import PerformanceSettlement, SettlementStatus
+        from src.models.report import Report
+        from sqlalchemy import select
+
+        await seed_admin(db_session, username="admin_test", password_plain="testpass123")
+        report_id = await _seed_settlement_report(db_session, period="2026-07", status="pending")
+        db_session.add(PerformanceSettlement(period="2026-07", status=SettlementStatus.PENDING))
+        await db_session.flush()
+
+        resp = await client.post(
+            "/api/v1/admin/performance/settlements/2026-07/reject",
+            json={"reason": "核对有误"},
+            headers={"Authorization": f"Bearer {_settle_only_token()}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["data"]["status"] == "rejected"
+
+        report = (await db_session.execute(select(Report).where(Report.id == report_id))).scalars().first()
+        assert report.status == "rejected"
+
+    async def test_recompute_updates_report_status(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        """recompute rejected → settlement report status becomes pending (FR-009)."""
+        from src.models.performance_settlement import PerformanceSettlement, SettlementStatus
+        from src.models.report import Report
+        from sqlalchemy import select
+
+        await seed_admin(db_session, username="admin_test", password_plain="testpass123")
+        report_id = await _seed_settlement_report(db_session, period="2026-07", status="rejected")
+        db_session.add(PerformanceSettlement(period="2026-07", status=SettlementStatus.REJECTED, reject_reason="核对有误"))
+        await db_session.flush()
+
+        resp = await client.post(
+            "/api/v1/admin/performance/settlements/2026-07/recompute",
+            headers={"Authorization": f"Bearer {_settle_only_token()}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["data"]["status"] == "pending"
+
+        report = (await db_session.execute(select(Report).where(Report.id == report_id))).scalars().first()
+        assert report.status == "pending"
