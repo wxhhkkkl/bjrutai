@@ -180,9 +180,6 @@ function formatTime(t) {
 </script>
 
 <style scoped>
-.page-container { padding: 10px 0; }
-.page-title { font-size: 20px; font-weight: 600; color: #303133; margin-bottom: 16px; }
-
 .filter-card {
   margin-bottom: 12px;
   display: flex;

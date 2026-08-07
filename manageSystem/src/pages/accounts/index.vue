@@ -217,9 +217,6 @@ function formatTime(t) {
 </script>
 
 <style scoped>
-.page-container { padding: 10px 0; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.page-title { font-size: 20px; font-weight: 600; color: #303133; margin: 0; }
 .load-more { text-align: center; padding: 14px 0; }
 .no-roles { color: #c0c4cc; font-size: 12px; }
 </style>

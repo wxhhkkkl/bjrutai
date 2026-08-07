@@ -1,0 +1,236 @@
+/* ============================================================
+   现代清爽蓝主题 — 设计令牌 + Element Plus 变量覆盖
+   在 element-plus/dist/index.css 之后引入
+   ============================================================ */
+
+:root {
+  /* ── 品牌主色 + EP 主题覆盖（关键：必须同步 --el-color-primary-rgb） ── */
+  --el-color-primary: #3b82f6;
+  --el-color-primary-rgb: 59, 130, 246;
+  --el-color-primary-light-3: #76a8f9;
+  --el-color-primary-light-5: #9dc1fb;
+  --el-color-primary-light-7: #c4dafc;
+  --el-color-primary-light-8: #d8e6fd;
+  --el-color-primary-light-9: #ebf3fe;
+  --el-color-primary-dark-2: #2f68c5;
+
+  /* ── 状态色 ── */
+  --app-success: #16a34a;
+  --app-warning: #f59e0b;
+  --app-danger: #ef4444;
+
+  /* ── 语义化文本 / 背景 / 边框 ── */
+  --app-text-primary: #1f2937;
+  --app-text-regular: #4b5563;
+  --app-text-secondary: #9aa3b2;
+  --app-text-placeholder: #c0c4cc;
+  --app-bg-page: #eef2f7;
+  --app-bg-gradient: linear-gradient(180deg, #f4f7fb 0%, #eef2f7 100%);
+  --app-bg-card: #ffffff;
+  --app-border-color: #e8ebf1;
+  --app-border-lighter: #f0f2f7;
+
+  /* ── 圆角 / 阴影（柔和多层） ── */
+  --app-radius-lg: 12px;
+  --app-radius-md: 8px;
+  --app-radius-sm: 6px;
+  --app-shadow-sm: 0 1px 2px rgba(31, 45, 61, 0.04), 0 2px 8px rgba(31, 45, 61, 0.05);
+  --app-shadow: 0 2px 8px rgba(31, 45, 61, 0.06), 0 8px 24px rgba(31, 45, 61, 0.05);
+  --app-shadow-hover: 0 6px 18px rgba(59, 130, 246, 0.14), 0 10px 30px rgba(31, 45, 61, 0.08);
+
+  /* ── 侧栏配色（深海军蓝 + 主色点缀） ── */
+  --app-sidebar-bg: #263650;
+  --app-sidebar-text: #a3b3cf;
+  --app-sidebar-hover-bg: rgba(255, 255, 255, 0.08);
+  --app-sidebar-active-bg: linear-gradient(90deg, rgba(59, 130, 246, 0.28), rgba(59, 130, 246, 0.04));
+
+  /* ── 顶栏 ── */
+  --app-header-bg: rgba(255, 255, 255, 0.78);
+
+  /* ── 过渡时长 ── */
+  --app-dur-fast: 0.15s;
+  --app-dur: 0.3s;
+  --app-ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Element Plus 组件变量覆盖 ── */
+  --el-card-border-radius: var(--app-radius-lg);
+  --el-card-border-color: var(--app-border-color);
+  --el-card-bg-color: var(--app-bg-card);
+  --el-table-border-color: var(--app-border-lighter);
+  --el-table-header-bg-color: #f7f9fc;
+  --el-table-header-text-color: var(--app-text-regular);
+  --el-table-row-hover-bg-color: #eef4ff;
+  --el-bg-color-page: var(--app-bg-page);
+  --el-border-radius-base: 6px;
+}
+
+/* ── 基础 reset 与字体 ── */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+html,
+body,
+#app {
+  height: 100%;
+  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+}
+
+/* ── 全局滚动条美化 ── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #c6cdd8;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a9b2c1;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── 全局卡片：白卡 + 柔和阴影 + hover 上浮 ── */
+.el-card {
+  border-radius: var(--app-radius-lg);
+  transition: transform var(--app-dur) var(--app-ease), box-shadow var(--app-dur) var(--app-ease);
+}
+.el-card.is-never-shadow,
+.el-card.is-always-shadow {
+  box-shadow: var(--app-shadow-sm);
+}
+.el-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--app-shadow-hover);
+}
+
+/* ── 表格行 hover：蓝调底 + 首列主色左条 ── */
+.el-table__body tr:hover > td:first-child {
+  box-shadow: inset 3px 0 0 var(--el-color-primary);
+}
+
+/* ── 页面通用三件套 ── */
+.page-container {
+  padding: 10px 0;
+}
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.page-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--app-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.page-title::before {
+  content: '';
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  flex: none;
+  background: linear-gradient(180deg, var(--el-color-primary), var(--el-color-primary-light-5));
+}
+
+/* ── 组织树双面板 ── */
+.tree-panel {
+  width: 280px;
+  flex: none;
+  background: var(--app-bg-card);
+  border: 1px solid var(--app-border-color);
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow-sm);
+  padding: 12px;
+  min-height: 420px;
+}
+.detail-panel {
+  flex: 1;
+  min-width: 0;
+  background: var(--app-bg-card);
+  border: 1px solid var(--app-border-color);
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow-sm);
+  padding: 16px;
+}
+.panel-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--app-text-primary);
+  margin-bottom: 10px;
+}
+
+/* ── KPI 统计卡统一方案 ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.stat-card {
+  background: var(--app-bg-card);
+  border: 1px solid var(--app-border-color);
+  border-top: 3px solid transparent;
+  border-radius: var(--app-radius-lg);
+  padding: 20px 18px;
+  box-shadow: var(--app-shadow-sm);
+  transition: transform var(--app-dur) var(--app-ease), box-shadow var(--app-dur) var(--app-ease);
+}
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--app-shadow-hover);
+}
+.stat-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  margin-bottom: 12px;
+}
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--app-text-primary);
+  line-height: 1.2;
+}
+.stat-label {
+  font-size: 13px;
+  color: var(--app-text-secondary);
+  margin-top: 6px;
+}
+.stat-value.stat-success {
+  color: var(--app-success);
+}
+.stat-value.stat-primary {
+  color: var(--el-color-primary);
+}
+
+/* ── 折叠菜单弹层（teleport 到 body，全局兜底） ── */
+.el-menu--popup {
+  --el-menu-bg-color: var(--app-sidebar-bg);
+  --el-menu-text-color: var(--app-sidebar-text);
+  --el-menu-active-color: #fff;
+}
+
+/* ── 尊重系统减弱动效偏好 ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

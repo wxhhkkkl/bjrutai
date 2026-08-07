@@ -254,6 +254,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Refresh, Plus } from '@element-plus/icons-vue'
 import { orgApi, distributorApi } from '@/api/org'
 
 const router = useRouter()
@@ -553,8 +554,7 @@ onMounted(loadAll)
 
 <style scoped>
 .org-page { padding: 16px; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.page-title { font-size: 20px; font-weight: 600; color: #303133; margin: 0; }
+.page-header { margin-bottom: 12px; }
 
 .org-layout {
   display: flex;
@@ -564,22 +564,12 @@ onMounted(loadAll)
 
 .tree-panel {
   width: 300px;
-  flex: none;
-  background: #fff;
-  border: 1px solid #ebeef5;
-  border-radius: 6px;
-  padding: 12px;
-  min-height: 420px;
 }
 
 .panel-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 14px;
-  font-weight: 600;
-  color: #303133;
-  margin-bottom: 10px;
 }
 
 .tree-node-content {
@@ -593,12 +583,6 @@ onMounted(loadAll)
 .node-level { font-size: 12px; color: #909399; }
 
 .detail-panel {
-  flex: 1;
-  min-width: 0;
-  background: #fff;
-  border: 1px solid #ebeef5;
-  border-radius: 6px;
-  padding: 16px;
   min-height: 420px;
 }
 
@@ -618,6 +602,6 @@ onMounted(loadAll)
   color: #303133;
   margin-bottom: 10px;
   padding-left: 8px;
-  border-left: 3px solid #409eff;
+  border-left: 3px solid var(--el-color-primary);
 }
 </style>

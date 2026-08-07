@@ -1,6 +1,10 @@
 <template>
   <div v-if="isLoginPage" class="app-plain">
-    <router-view />
+    <router-view v-slot="{ Component }">
+      <transition name="page" mode="out-in">
+        <component :is="Component" :key="route.path" />
+      </transition>
+    </router-view>
   </div>
   <el-container v-else class="app-layout">
     <!-- Sidebar -->
@@ -14,9 +18,6 @@
         :collapse="isCollapsed"
         :collapse-transition="false"
         router
-        background-color="#304156"
-        text-color="#bfcbd9"
-        active-text-color="#409EFF"
       >
         <el-menu-item index="/">
           <el-icon><Odometer /></el-icon>
@@ -88,6 +89,7 @@
               <Expand v-else />
             </el-icon>
           </el-button>
+          <span class="app-crumb">{{ route.meta.title || '' }}</span>
         </div>
         <div class="header-right">
           <!-- Notification bell with floating popover -->
@@ -98,9 +100,11 @@
             @show="fetchNotifications"
           >
             <template #reference>
-              <el-badge :value="unreadCount" :hidden="unreadCount === 0">
-                <el-icon :size="20" style="cursor:pointer"><Bell /></el-icon>
-              </el-badge>
+              <span class="bell-btn" :class="{ 'bell-pulse': unreadCount > 0 }">
+                <el-badge :value="unreadCount" :hidden="unreadCount === 0">
+                  <el-icon :size="20" style="cursor:pointer"><Bell /></el-icon>
+                </el-badge>
+              </span>
             </template>
             <div class="notif-panel">
               <div class="notif-header">
@@ -125,7 +129,9 @@
           </el-popover>
           <el-dropdown trigger="click">
             <span class="user-dropdown">
-              <el-avatar :size="32" icon="UserFilled" />
+              <el-avatar :size="32">
+                <el-icon><UserFilled /></el-icon>
+              </el-avatar>
               <span class="username">{{ authStore.user?.account || authStore.user?.username || '管理员' }}</span>
               <el-icon><ArrowDown /></el-icon>
             </span>
@@ -145,7 +151,11 @@
 
       <!-- Main content -->
       <el-main class="app-main">
-        <router-view />
+        <router-view v-slot="{ Component }">
+          <transition name="page" mode="out-in">
+            <component :is="Component" :key="route.path" />
+          </transition>
+        </router-view>
       </el-main>
     </el-container>
   </el-container>
@@ -242,26 +252,21 @@ async function handleLogout() {
 }
 </script>
 
-<style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-html, body, #app {
-  height: 100%;
-  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
-}
-</style>
-
 <style scoped>
 .app-layout {
   height: 100vh;
 }
 
 .app-sidebar {
-  background-color: #304156;
+  background: var(--app-sidebar-bg);
   overflow: hidden;
+  transition: width var(--app-dur) var(--app-ease);
+  /* 侧栏作用域内的菜单换肤变量（只在侧栏生效） */
+  --el-menu-bg-color: transparent;
+  --el-menu-text-color: var(--app-sidebar-text);
+  --el-menu-active-color: #fff;
+  --el-menu-hover-text-color: #fff;
+  --el-menu-hover-bg-color: var(--app-sidebar-hover-bg);
 }
 
 .sidebar-logo {
@@ -269,7 +274,7 @@ html, body, #app {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #2b2f3a;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
   color: #fff;
   cursor: pointer;
   user-select: none;
@@ -286,14 +291,52 @@ html, body, #app {
   border-right: none;
 }
 
+/* 侧栏菜单：hover 过渡 + 图标微动 */
+.app-sidebar :deep(.el-menu-item) {
+  position: relative;
+  transition: background-color var(--app-dur-fast) var(--app-ease), color var(--app-dur-fast) var(--app-ease);
+}
+.app-sidebar :deep(.el-menu-item .el-icon) {
+  transition: transform var(--app-dur) var(--app-ease);
+}
+.app-sidebar :deep(.el-menu-item:not(.is-active):hover .el-icon) {
+  transform: translateX(3px);
+}
+
+/* 侧栏菜单激活指示条 */
+.app-sidebar :deep(.el-menu-item.is-active) {
+  background: var(--app-sidebar-active-bg);
+  color: #fff;
+}
+.app-sidebar :deep(.el-menu-item.is-active::before) {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  border-radius: 0 3px 3px 0;
+  background: var(--el-color-primary);
+}
+
 .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #fff;
-  border-bottom: 1px solid #e6e6e6;
+  background: var(--app-header-bg);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  border-bottom: 1px solid var(--app-border-color);
   height: 60px;
   padding: 0 20px;
+}
+
+.app-crumb {
+  margin-left: 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--app-text-primary);
 }
 
 .header-left {
@@ -320,7 +363,7 @@ html, body, #app {
 }
 
 .app-main {
-  background: #f0f2f5;
+  background: var(--app-bg-gradient);
   padding: 20px;
   overflow-y: auto;
 }

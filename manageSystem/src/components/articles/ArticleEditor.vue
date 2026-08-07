@@ -302,7 +302,7 @@ async function handleSave() {
   background: #f5f7fa;
   transition: border-color .2s, color .2s;
 }
-.cover-placeholder:hover { border-color: #409EFF; color: #409EFF; }
+.cover-placeholder:hover { border-color: var(--el-color-primary); color: var(--el-color-primary); }
 .cover-icon { font-size: 22px; }
 .cover-url-input { margin-top: 8px; }
 

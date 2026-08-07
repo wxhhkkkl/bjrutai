@@ -298,17 +298,10 @@ onMounted(loadAll)
 </script>
 
 <style scoped>
-.page-container { padding: 10px 0; }
-.page-title { font-size: 20px; font-weight: 600; color: #303133; margin: 0; }
-.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-
 .pr-layout { display: flex; gap: 14px; align-items: flex-start; }
-.tree-panel { width: 280px; flex-shrink: 0; border: 1px solid #e4e7ed; border-radius: 6px; padding: 10px; background: #fff; min-height: 480px; }
-.panel-title { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #303133; }
 .tree-node-content { display: flex; align-items: center; gap: 8px; }
-.node-level { color: #909399; font-size: 12px; }
+.node-level { color: var(--app-text-secondary); font-size: 12px; }
 
-.detail-panel { flex: 1; min-width: 0; background: #fff; border: 1px solid #e4e7ed; border-radius: 6px; padding: 14px; }
 .org-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
 .org-title { font-size: 16px; font-weight: 600; color: #303133; }
 .header-actions { margin-left: auto; }

@@ -25,24 +25,22 @@
     </el-card>
 
     <!-- 统计数据 -->
-    <el-row :gutter="16" class="stats-row" v-if="stats">
-      <el-col v-for="s in statCards" :key="s.key" :span="6">
-        <div class="stat-card" :style="{ borderTopColor: s.color }">
-          <div class="stat-label">{{ s.label }}</div>
-          <div class="stat-value" :style="{ color: s.color }">{{ s.format(stats[s.key]) }}</div>
-        </div>
-      </el-col>
-    </el-row>
+    <div class="stats-row" v-if="stats">
+      <div v-for="s in statCards" :key="s.key" class="stat-card" :style="{ borderTopColor: s.color }">
+        <div class="stat-label">{{ s.label }}</div>
+        <div class="stat-value" :style="{ color: s.color }">{{ s.format(stats[s.key]) }}</div>
+      </div>
+    </div>
 
     <!-- 月度趋势 -->
     <el-card class="chart-card" shadow="never">
       <template #header><span>总体消费月度趋势</span></template>
       <div class="trend-bars" v-if="trend.length">
         <div v-for="t in trend" :key="t.month" class="trend-bar-wrapper">
-          <div class="trend-bar-label">{{ t.month.substring(5) }}月</div>
           <div class="trend-bar" :style="{ height: barHeight(t.amountCent) + 'px' }" :title="`${t.month}: ¥${fmtYuan(t.amountCent)}`">
             <span class="trend-bar-value">¥{{ fmtYuan(t.amountCent) }}</span>
           </div>
+          <div class="trend-bar-label">{{ t.month.substring(5) }}月</div>
         </div>
       </div>
       <el-empty v-else description="暂无数据" :image-size="60" />
@@ -118,7 +116,7 @@ function fmtYuan(cent) {
 }
 
 const statCards = computed(() => [
-  { key: 'monthlyAmountCent', label: '当月总消费', color: '#409eff', format: (v) => `¥${fmtYuan(v)}` },
+  { key: 'monthlyAmountCent', label: '当月总消费', color: 'var(--el-color-primary)', format: (v) => `¥${fmtYuan(v)}` },
   { key: 'totalAmountCent', label: '累计消费', color: '#67c23a', format: (v) => `¥${fmtYuan(v)}` },
   { key: 'personCount', label: '人员数', color: '#f56c6c', format: (v) => v ?? 0 },
   { key: 'boundUserCount', label: '绑定用户数', color: '#909399', format: (v) => v ?? 0 },
@@ -202,20 +200,16 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.page-container { padding: 10px 0; }
-.page-title { font-size: 20px; font-weight: 600; color: #303133; margin: 0; }
-.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .filter-card { margin-bottom: 14px; }
 .filter-row { display: flex; gap: 12px; align-items: center; }
-.stats-row { margin-bottom: 14px; }
-.stat-card { border: 1px solid #ebeef5; border-top: 3px solid; border-radius: 8px; padding: 14px 16px; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04); }
-.stat-label { font-size: 13px; color: #909399; margin-bottom: 6px; }
-.stat-value { font-size: 26px; font-weight: 700; line-height: 1.2; }
 .chart-card { margin-bottom: 14px; }
+/* 本页 stat-card 为 label 在上、value 在下 */
+.stats-row .stat-label { margin-top: 0; margin-bottom: 6px; }
+.stats-row .stat-value { font-size: 26px; }
 .trend-bars { display: flex; align-items: flex-end; gap: 4px; height: 200px; padding: 16px 4px 0; }
 .trend-bar-wrapper { flex: 1; min-width: 24px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
-.trend-bar-label { font-size: 12px; color: #909399; margin-top: 4px; }
-.trend-bar { width: 60%; max-width: 40px; background: linear-gradient(180deg, #409eff, #66b1ff); border-radius: 3px 3px 0 0; position: relative; }
-.trend-bar-value { position: absolute; top: -16px; left: 0; right: 0; font-size: 10px; color: #606266; text-align: center; white-space: nowrap; }
+.trend-bar-label { font-size: 12px; color: var(--app-text-secondary); margin-top: 6px; }
+.trend-bar { width: 60%; max-width: 40px; background: linear-gradient(180deg, var(--el-color-primary), var(--el-color-primary-light-5)); border-radius: 3px 3px 0 0; position: relative; }
+.trend-bar-value { position: absolute; top: -16px; left: 0; right: 0; font-size: 10px; color: var(--app-text-regular); text-align: center; white-space: nowrap; }
 .bindings-toolbar { margin-bottom: 10px; }
 </style>

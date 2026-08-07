@@ -249,19 +249,6 @@ onMounted(() => {
   padding: 0;
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.page-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #303133;
-}
-
 .filter-bar {
   display: flex;
   align-items: center;
@@ -282,7 +269,7 @@ onMounted(() => {
 }
 
 .article-title-link {
-  color: #409EFF;
+  color: var(--el-color-primary);
   cursor: pointer;
 }
 

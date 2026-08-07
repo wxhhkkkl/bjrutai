@@ -218,20 +218,6 @@ onMounted(() => {
 <style scoped>
 .promotions-page { padding: 10px 0; }
 
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.page-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #303133;
-  margin: 0;
-}
-
 .header-actions {
   display: flex;
   gap: 8px;
@@ -242,35 +228,6 @@ onMounted(() => {
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   margin-bottom: 16px;
-}
-
-.stat-card {
-  background: #fff;
-  border: 1px solid #ebeef5;
-  border-radius: 4px;
-  padding: 20px;
-  text-align: center;
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: #303133;
-  line-height: 1.2;
-}
-
-.stat-value.stat-success {
-  color: #67c23a;
-}
-
-.stat-value.stat-primary {
-  color: #409eff;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #909399;
-  margin-top: 8px;
 }
 
 .table-container {

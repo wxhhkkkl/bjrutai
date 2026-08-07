@@ -486,10 +486,6 @@ function formatTime(t) {
 </script>
 
 <style scoped>
-.page-container { padding: 10px 0; }
-.page-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-.page-title { font-size: 20px; font-weight: 600; color: #303133; margin: 0; }
-
 .detail-card { min-height: 350px; }
 .form-actions { margin-top: 16px; }
 
