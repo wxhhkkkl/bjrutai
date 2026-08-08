@@ -64,6 +64,7 @@ async def _to_dict(db: AsyncSession, d: Distributor) -> dict:
         "orgRole": d.org_role.value if hasattr(d.org_role, "value") else str(d.org_role),
         "status": d.status.value if hasattr(d.status, "value") else str(d.status),
         "wechatBound": bool(user and user.wechat_bound),
+        "sourceChannel": d.source_channel or "admin_create",
         "createdAt": d.created_at.isoformat() if d.created_at else None,
     }
 
@@ -220,3 +221,30 @@ async def set_role(
     await db.flush()
     await db.refresh(d)
     return await _to_dict(db, d)
+
+
+# ---------------------------------------------------------------------------
+# Registration helper (012-register-default-dept)
+# ---------------------------------------------------------------------------
+async def register_distributor(
+    db: AsyncSession,
+    user_id: int,
+    org_id: int,
+    source_channel: str,
+) -> Distributor:
+    """Create a bare Distributor record for a newly registered user (FR-002/FR-003).
+
+    The caller is responsible for ensuring the User and Organization exist.
+    No extra validation — the auth service guards against duplicates.
+    """
+    distributor = Distributor(
+        user_id=user_id,
+        org_id=org_id,
+        org_role=OrgRole.MEMBER,
+        status=DistributorStatus.ACTIVE,
+        source_channel=source_channel,
+    )
+    db.add(distributor)
+    await db.flush()
+    await db.refresh(distributor)
+    return distributor

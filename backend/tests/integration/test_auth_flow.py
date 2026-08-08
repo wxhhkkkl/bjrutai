@@ -220,3 +220,118 @@ class TestAdminLoginFlow:
         )
         logout_resp = await mock_client.post("/api/v1/auth/logout", headers=auth_headers)
         assert logout_resp.status_code == 200
+
+
+# ──────────────────────────────────────────────────────────────────────
+# 012-register-default-dept: auto-mount integration tests
+# ──────────────────────────────────────────────────────────────────────
+class TestWechatRegisterAutoMount:
+    """T009: WeChat login auto-creates Distributor under default org."""
+
+    async def test_wechat_register_creates_distributor(self, mock_client):
+        """New WeChat user → Distributor record created with source_channel=wechat_register."""
+        new_user = make_mock_user(user_id=101, openid="o_auto_mount", user_type="promoter")
+        default_org = MagicMock()
+        default_org.id = 1
+        default_org.name = "北京鲁泰服务有限公司"
+        default_org.parent_id = None
+        default_org.sort_order = 0
+
+        with patch(
+            "src.integrations.wechat_client.WechatClient.jscode2session",
+            new_callable=AsyncMock,
+            return_value={"openid": "o_auto_mount", "session_key": "sk", "unionid": None},
+        ):
+            mock_client._mock_db.execute = AsyncMock()
+            mock_client._mock_db.execute.side_effect = [
+                mock_scalar_result(first_value=None),       # User lookup → new user
+                mock_scalar_result(first_value=default_org),  # Default org lookup
+            ]
+
+            login_resp = await mock_client.post(
+                "/api/v1/auth/wechat-login",
+                json={"code": "auto_mount_code"},
+            )
+
+        assert login_resp.status_code == 200
+        body = login_resp.json()
+        assert body["code"] == 0
+        assert body["data"]["user"]["isNewUser"] is True
+        assert body["data"]["distributor"] is not None
+        assert body["data"]["distributor"]["orgId"] == "1"
+        assert body["data"]["distributor"]["orgRole"] == "member"
+        assert body["data"]["distributor"]["sourceChannel"] == "wechat_register"
+
+
+class TestPhoneRegisterAutoMount:
+    """T010: Phone+password registration auto-creates Distributor."""
+
+    async def test_phone_register_creates_distributor(self, mock_client):
+        """New phone registration → Distributor created with source_channel=phone_register."""
+        default_org = MagicMock()
+        default_org.id = 1
+        default_org.name = "北京鲁泰服务有限公司"
+
+        mock_client._mock_db.execute = AsyncMock()
+        mock_client._mock_db.execute.side_effect = [
+            mock_scalar_result(first_value=None),       # Phone duplicate check
+            mock_scalar_result(first_value=default_org),  # Default org lookup
+        ]
+
+        register_resp = await mock_client.post(
+            "/api/v1/auth/distributor-register",
+            json={"phone": "13800001234", "password": "password123", "name": "新用户"},
+        )
+
+        assert register_resp.status_code == 201
+        body = register_resp.json()
+        assert body["code"] == 0
+        assert body["data"]["distributor"] is not None
+        assert body["data"]["distributor"]["sourceChannel"] == "phone_register"
+        assert body["data"]["distributor"]["orgRole"] == "member"
+
+
+class TestExistingDistributorWechatBind:
+    """T025: Existing distributor binds WeChat — no duplicate, org unchanged."""
+
+    async def test_existing_phone_match_wechat_bind_preserves_org(self, mock_client):
+        """Phone matches existing Distributor → only bind WeChat, org unchanged."""
+        from tests.conftest import make_mock_user
+
+        existing_user = make_mock_user(
+            user_id=200, openid=None, user_type="distributor", phone="138****8888"
+        )
+        existing_dist = MagicMock()
+        existing_dist.id = 200
+        existing_dist.org_id = 5
+        existing_dist.org_role = MagicMock()
+        existing_dist.org_role.value = "member"
+        existing_dist.source_channel = "admin_create"
+
+        with patch(
+            "src.integrations.wechat_client.WechatClient.jscode2session",
+            new_callable=AsyncMock,
+            return_value={"openid": "o_bind_existing", "session_key": "sk", "unionid": None},
+        ), patch(
+            "src.integrations.wechat_client.WechatClient.get_phone_number",
+            new_callable=AsyncMock,
+            return_value="138****8888",
+        ):
+            mock_client._mock_db.execute = AsyncMock()
+            mock_client._mock_db.execute.side_effect = [
+                mock_scalar_result(first_value=existing_user),   # Phone lookup
+                mock_scalar_result(first_value=None),             # OpenID lookup → new
+            ]
+
+            login_resp = await mock_client.post(
+                "/api/v1/auth/wechat-login",
+                json={"code": "bind_code", "phoneCode": "phone_auth_code"},
+            )
+
+        assert login_resp.status_code == 200
+        body = login_resp.json()
+        assert body["code"] == 0
+        assert body["data"]["user"]["isNewUser"] is False
+        assert body["data"]["distributor"] is not None
+        assert body["data"]["distributor"]["sourceChannel"] == "admin_create"
+        assert body["data"]["distributor"]["orgId"] == "5"

@@ -16,6 +16,8 @@ from ...core.exceptions import UnauthorizedException
 from ...schemas.auth import (
     AdminLoginRequest,
     AdminLoginResponse,
+    DistributorRegisterRequest,
+    DistributorRegisterResponse,
     PhoneBindRequest,
     PhoneBindResponse,
     RefreshRequest,
@@ -59,7 +61,7 @@ async def wechat_login(
 ) -> dict:
     """WeChat Mini-Program login via ``wx.login()`` code."""
     svc = get_auth_service()
-    result = await svc.wechat_login(db, body.code)
+    result = await svc.wechat_login(db, body.code, phone_code=body.phoneCode)
     return _ok(result)
 
 
@@ -74,6 +76,26 @@ async def distributor_login(
     """Distributor login via phone + password."""
     svc = get_auth_service()
     result = await svc.distributor_login(db, body.phone, body.password)
+    return _ok(result)
+
+
+# ──────────────────────────────────────────────────────────────────
+# POST /auth/distributor-register (012-register-default-dept)
+# ──────────────────────────────────────────────────────────────────
+@router.post("/distributor-register", status_code=201)
+async def distributor_register(
+    body: DistributorRegisterRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Self-registration for new distributors (phone + password).
+
+    Creates a User + Distributor auto-mounted to the default org.
+    """
+    svc = get_auth_service()
+    result = await svc.distributor_register(
+        db, body.phone, body.password, body.name
+    )
+    await db.commit()
     return _ok(result)
 
 

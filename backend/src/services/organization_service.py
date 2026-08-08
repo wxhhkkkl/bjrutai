@@ -452,3 +452,20 @@ async def get_history(db: AsyncSession, org_id: int) -> list[dict]:
         }
         for h in result.scalars().all()
     ]
+
+
+# ---------------------------------------------------------------------------
+# Default organization (012-register-default-dept)
+# ---------------------------------------------------------------------------
+async def get_default_org(db: AsyncSession) -> Optional[Organization]:
+    """Return the root org with the smallest sort_order (FR-001).
+
+    Returns None when no root orgs exist (treated as "default org not configured").
+    """
+    result = await db.execute(
+        select(Organization)
+        .where(Organization.parent_id.is_(None))
+        .order_by(Organization.sort_order.asc())
+        .limit(1)
+    )
+    return result.scalars().first()

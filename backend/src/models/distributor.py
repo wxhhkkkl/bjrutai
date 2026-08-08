@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Integer
+from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.database import Base
@@ -33,6 +33,10 @@ class Distributor(Base):
     status: Mapped[DistributorStatus] = mapped_column(
         SAEnum(DistributorStatus, name="distributor_status_enum", values_callable=lambda x: [e.value for e in x]),
         default=DistributorStatus.ACTIVE,
+    )
+    source_channel: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="admin_create", server_default="admin_create",
+        comment="人员来源渠道: wechat_register / phone_register / admin_create",
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

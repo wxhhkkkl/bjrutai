@@ -106,8 +106,14 @@ class AuthService:
         code: str,
         client_version: Optional[str] = None,
         device_id: Optional[str] = None,
+        phone_code: Optional[str] = None,
     ) -> dict:
-        """Exchange a WeChat code for tokens.  Creates the User row on first login."""
+        """Exchange a WeChat code for tokens.  Creates the User row on first login.
+
+        If ``phone_code`` is provided (WeChat phone auth), the phone is resolved
+        BEFORE user lookup.  An existing User with that phone gets the WeChat
+        openid bound to it instead of a duplicate being created (US2).
+        """
         wechat = get_wechat_client()
 
         try:
@@ -127,21 +133,106 @@ class AuthService:
         openid = wx_data["openid"]
         unionid = wx_data.get("unionid")
 
+        # ── US2: phone-based dedup BEFORE creating a new user ──────
+        phone_user: Optional[User] = None
+        resolved_phone: Optional[str] = None
+        if phone_code:
+            try:
+                resolved_phone = await wechat.get_phone_number(phone_code)
+            except Exception:
+                logger.warning("Failed to resolve phone_code during wechat_login", exc_info=True)
+            if resolved_phone:
+                phone_result = await db.execute(
+                    select(User).where(
+                        (User.phone == resolved_phone) | (User.phone_masked == resolved_phone)
+                    )
+                )
+                phone_user = phone_result.scalars().first()
+
         # Find or create user
         result = await db.execute(select(User).where(User.openid == openid))
         user = result.scalars().first()
 
         is_new_user = False
+        distributor_info = None
         if user is None:
-            is_new_user = True
-            user = User(
-                openid=openid,
-                user_type=UserType.PROMOTER,
-                wechat_bound=True,
+            if phone_user is not None:
+                # Existing distributor binding WeChat for the first time (US2)
+                user = phone_user
+                user.openid = openid
+                user.wechat_bound = True
+                db.add(user)
+                await db.flush()
+                await db.refresh(user)
+
+                # Don't create a new Distributor — use the existing one
+                from ..services import distributor_service as dist_svc
+                existing_dist = await dist_svc.get_distributor_by_user(db, user.id)
+                if existing_dist is not None:
+                    org_name = await dist_svc._org_name(db, existing_dist.org_id)
+                    distributor_info = {
+                        "distributorId": str(existing_dist.id),
+                        "orgId": str(existing_dist.org_id),
+                        "orgName": org_name or "",
+                        "orgRole": existing_dist.org_role.value if hasattr(existing_dist.org_role, "value") else str(existing_dist.org_role),
+                        "sourceChannel": existing_dist.source_channel,
+                    }
+            else:
+                is_new_user = True
+                user = User(
+                    openid=openid,
+                    user_type=UserType.PROMOTER,
+                    wechat_bound=True,
+                )
+                db.add(user)
+                await db.flush()
+                await db.refresh(user)
+
+                # 012-register-default-dept: auto-mount to default org (FR-002/FR-003)
+                from ..services import organization_service, distributor_service as dist_svc
+
+                default_org = await organization_service.get_default_org(db)
+                if default_org is not None:
+                    distributor = await dist_svc.register_distributor(
+                        db, user.id, default_org.id, "wechat_register"
+                    )
+                    distributor_info = {
+                        "distributorId": str(distributor.id),
+                        "orgId": str(distributor.org_id),
+                        "orgName": default_org.name,
+                        "orgRole": distributor.org_role.value,
+                        "sourceChannel": distributor.source_channel,
+                    }
+                else:
+                    logger.warning(
+                        "No default org configured; user %s registered without Distributor", user.id
+                    )
+        elif phone_user is not None and phone_user.id != user.id:
+            # Edge case: different WeChat account, same phone → bind phone's openid
+            # to the existing phone_user instead.
+            logger.info(
+                "OpenID %s already bound to user %s; phone %s belongs to user %s",
+                openid, user.id, resolved_phone, phone_user.id,
             )
+            user = phone_user
+            user.openid = openid
+            user.wechat_bound = True
             db.add(user)
             await db.flush()
             await db.refresh(user)
+
+            from ..services import distributor_service as dist_svc
+            existing_dist = await dist_svc.get_distributor_by_user(db, user.id)
+            if existing_dist is not None:
+                from ..services import organization_service
+                org_name = await organization_service._get_org_name(db, existing_dist.org_id)
+                distributor_info = {
+                    "distributorId": str(existing_dist.id),
+                    "orgId": str(existing_dist.org_id),
+                    "orgName": org_name or "",
+                    "orgRole": existing_dist.org_role.value if hasattr(existing_dist.org_role, "value") else str(existing_dist.org_role),
+                    "sourceChannel": existing_dist.source_channel,
+                }
 
         # Issue token pair
         user_type_str = user.user_type.value if isinstance(user.user_type, UserType) else str(user.user_type)
@@ -173,13 +264,16 @@ class AuthService:
             "isNewUser": is_new_user,
         }
 
-        return {
+        result = {
             "accessToken": token_pair["accessToken"],
             "refreshToken": token_pair["refreshToken"],
             "expiresIn": token_pair["expiresIn"],
             "tokenType": token_pair["tokenType"],
             "user": user_info,
         }
+        if distributor_info is not None:
+            result["distributor"] = distributor_info
+        return result
 
     # ── Distributor Login (phone + password) ─────────────────────
     async def distributor_login(
@@ -247,6 +341,94 @@ class AuthService:
                 "status": dist.status.value if hasattr(dist.status, "value") else str(dist.status),
             },
         }
+
+    # ── Distributor Self-Register (phone + password) ──────────────
+    async def distributor_register(
+        self,
+        db: AsyncSession,
+        phone: str,
+        password: str,
+        name: Optional[str] = None,
+    ) -> dict:
+        """Self-registration for new distributors (FR-002, phone+password path).
+
+        Creates User + Distributor with org_role=MEMBER, auto-mounted to the
+        default org. Rejects if phone already linked to a Distributor.
+        """
+        from ..core.security import get_password_hash as _hash
+        from ..services import distributor_service as dist_svc, organization_service
+
+        # Phone uniqueness for self-registration (FR-004 duplicate check)
+        existing = await db.execute(
+            select(User).where(User.phone == phone)
+        )
+        if existing.scalars().first() is not None:
+            raise AppException(
+                code=40901, message="该手机号已注册",
+                status_code=409, error_type="conflict",
+            )
+
+        user = User(
+            name=name,
+            phone=phone,
+            phone_masked=phone[:3] + "****" + phone[-4:],
+            password_hash=_hash(password),
+            user_type=UserType.DISTRIBUTOR,
+            wechat_bound=False,
+        )
+        db.add(user)
+        await db.flush()
+        await db.refresh(user)
+
+        # Auto-mount to default org (FR-002/FR-003)
+        default_org = await organization_service.get_default_org(db)
+        distributor_info = None
+        if default_org is not None:
+            distributor = await dist_svc.register_distributor(
+                db, user.id, default_org.id, "phone_register"
+            )
+            distributor_info = {
+                "distributorId": str(distributor.id),
+                "orgId": str(distributor.org_id),
+                "orgName": default_org.name,
+                "orgRole": distributor.org_role.value,
+                "sourceChannel": distributor.source_channel,
+            }
+        else:
+            logger.warning(
+                "No default org configured; phone-registered user %s without Distributor", user.id
+            )
+
+        # Issue token pair
+        token_pair = _issue_token_pair(user.id, "distributor")
+        token_record = UserToken(
+            user_id=user.id,
+            token_type=TokenType.REFRESH,
+            token_hash=token_pair["token_hash"],
+            family=token_pair["family"],
+            expires_at=datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days),
+        )
+        db.add(token_record)
+
+        user_info = {
+            "userId": str(user.id),
+            "openId": None,
+            "nickname": user.name,
+            "phone": user.phone_masked or user.phone,
+            "role": "distributor",
+            "isNewUser": True,
+        }
+
+        result = {
+            "accessToken": token_pair["accessToken"],
+            "refreshToken": token_pair["refreshToken"],
+            "expiresIn": token_pair["expiresIn"],
+            "tokenType": token_pair["tokenType"],
+            "user": user_info,
+        }
+        if distributor_info is not None:
+            result["distributor"] = distributor_info
+        return result
 
     # ── First-Login WeChat Binding ───────────────────────────────
     async def bind_wechat(self, db: AsyncSession, user_id: int, code: str) -> dict:
@@ -641,6 +823,16 @@ class AuthService:
                 "orgNodeId": None,
                 "orgNodeName": None,
             }
+
+            # 012-register-default-dept: include distributor info in session
+            from ..services import distributor_service
+            dist = await distributor_service.get_distributor_by_user(db, user.id)
+            if dist is not None:
+                user_data["orgNodeId"] = str(dist.org_id)
+                user_data["orgNodeName"] = await distributor_service._org_name(db, dist.org_id)
+                user_data["distributorId"] = str(dist.id)
+                user_data["orgRole"] = dist.org_role.value if hasattr(dist.org_role, "value") else str(dist.org_role)
+                user_data["sourceChannel"] = dist.source_channel
 
         token_expires_at = datetime.fromtimestamp(token_exp, tz=timezone.utc).strftime(
             "%Y-%m-%dT%H:%M:%S%z"

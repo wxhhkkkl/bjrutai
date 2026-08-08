@@ -94,3 +94,68 @@ async def test_bind_wechat(db_session, mock_wechat_client):
 async def test_missing_distributor_not_found(db_session):
     with pytest.raises(NotFoundException):
         await distributor_service.get_distributor_or_404(db_session, 99999)
+
+
+# ── register_distributor (012-register-default-dept) ──────────────────
+
+
+@pytest.mark.asyncio
+async def test_register_distributor_creates_active_member(db_session):
+    """register_distributor creates a Distributor with MEMBER role and ACTIVE status."""
+    from src.models.user import User, UserType
+    from src.core.security import get_password_hash
+
+    org = await organization_service.create_org(db_session, OrgCreate(name="默认组织", orgType=None))
+    user = User(
+        openid="o_test_new_001",
+        user_type=UserType.PROMOTER,
+        wechat_bound=True,
+    )
+    db_session.add(user)
+    await db_session.flush()
+    await db_session.refresh(user)
+
+    dist = await distributor_service.register_distributor(
+        db_session, user.id, org.id, "wechat_register"
+    )
+    assert dist is not None
+    assert dist.org_id == org.id
+    assert dist.org_role.value == "member"
+    assert dist.status.value == "active"
+    assert dist.source_channel == "wechat_register"
+
+
+@pytest.mark.asyncio
+async def test_register_distributor_source_channel_values(db_session):
+    """register_distributor stores the correct source_channel per registration method."""
+    from src.models.user import User, UserType
+
+    org = await organization_service.create_org(db_session, OrgCreate(name="默认组织", orgType=None))
+    user_wx = User(openid="o_wx_001", user_type=UserType.PROMOTER)
+    user_ph = User(phone="13811110002", user_type=UserType.DISTRIBUTOR)
+    db_session.add_all([user_wx, user_ph])
+    await db_session.flush()
+
+    d1 = await distributor_service.register_distributor(db_session, user_wx.id, org.id, "wechat_register")
+    d2 = await distributor_service.register_distributor(db_session, user_ph.id, org.id, "phone_register")
+
+    assert d1.source_channel == "wechat_register"
+    assert d2.source_channel == "phone_register"
+
+
+# ── US3: source_channel in list response ──────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_list_distributors_includes_source_channel(db_session):
+    """T029: distributor list items include sourceChannel field."""
+    org = await organization_service.create_org(db_session, OrgCreate(name="测试组织", orgType=None))
+    await distributor_service.create_distributor(
+        db_session, org.id,
+        DistributorCreate(name="微信用户", phone="13800009999", initialPassword="password123"),
+    )
+    items = await distributor_service.list_distributors(db_session, org.id)
+    assert items["total"] >= 1
+    assert items["items"][0]["sourceChannel"] is not None
+    # admin-created distributors default to 'admin_create'
+    assert items["items"][0]["sourceChannel"] == "admin_create"

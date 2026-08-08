@@ -14,6 +14,7 @@ class WechatLoginRequest(BaseModel):
     encryptedData: Optional[str] = Field(None, max_length=4096)
     iv: Optional[str] = Field(None, max_length=256)
     promoterCode: Optional[str] = Field(None, min_length=6, max_length=32)
+    phoneCode: Optional[str] = Field(None, max_length=256)
 
 
 class WechatUserInfo(BaseModel):
@@ -118,6 +119,32 @@ class BootstrapResponse(BaseModel):
     privacyAgreementVersion: Optional[str] = None
     workbenchSummary: Optional[dict] = None
     featureFlags: dict[str, Any] = {}
+
+
+# ──────────────────────────────────────────────
+# Distributor Self-Registration (012-register-default-dept)
+# ──────────────────────────────────────────────
+class DistributorRegisterRequest(BaseModel):
+    phone: str = Field(..., pattern=r"^\d{11}$")
+    password: str = Field(..., min_length=8, max_length=128)
+    name: Optional[str] = Field(None, max_length=64)
+
+
+class DistributorInfo(BaseModel):
+    distributorId: str
+    orgId: str
+    orgName: Optional[str] = None
+    orgRole: str
+    sourceChannel: str
+
+
+class DistributorRegisterResponse(BaseModel):
+    accessToken: str
+    refreshToken: str
+    expiresIn: int
+    tokenType: str = "Bearer"
+    user: WechatUserInfo
+    distributor: Optional[DistributorInfo] = None
 
 
 # ──────────────────────────────────────────────
