@@ -5,6 +5,7 @@ Bill.paid_amount_cent 汇总，无需额外贡献记录。
 """
 
 import asyncio
+import logging
 import threading
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -21,6 +22,7 @@ from ..models.organization import Organization
 from ..models.notification import Notification, NotificationCategory
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -77,19 +79,22 @@ class SyncService:
     ) -> None:
         """Send an alert notification to admin users about sync failures."""
         try:
-            from ..models.user import AdminAccount, User, UserType
+            from ..models.user import User, UserType
 
-            # Find admin users
+            # Notifications belong to users, while the admin console has a
+            # separate AdminAccount table.  Resolve actual user records by
+            # admin role instead of reusing an unrelated admin_account id.
             admin_result = await db.execute(
-                select(AdminAccount).where(AdminAccount.status == "active")
+                select(User).where(
+                    User.user_type.in_([UserType.ADMIN, UserType.FINANCE, UserType.OPS]),
+                    User.activation_status == "active",
+                )
             )
             admins = admin_result.scalars().all()
 
             for admin in admins:
-                # Find the User record linked to this admin (if any)
-                # For now, create a system notification
                 notification = Notification(
-                    user_id=admin.id,  # admin account id as user_id
+                    user_id=admin.id,
                     category=NotificationCategory.SYSTEM,
                     title=title,
                     summary=summary,
@@ -375,6 +380,17 @@ class SyncService:
         )
         customer = cust_result.scalars().first()
 
+        # Do not create a bill that cannot be attributed to a customer and
+        # distributor. The next scheduled sync can retry after bind-user sync
+        # imports the corresponding customer.
+        if customer is None:
+            logger.warning(
+                "Skip bill %s: no local customer for Rutai user %s",
+                transaction_id,
+                hrb_user_id,
+            )
+            return "skipped"
+
         # Parse transaction_time
         tx_time_str = item.get("transaction_time")
         tx_time = datetime.now(timezone.utc)
@@ -397,7 +413,7 @@ class SyncService:
             tx_status = TransactionStatus.PAID
 
         bill = Bill(
-            customer_id=customer.id if customer else 0,
+            customer_id=customer.id,
             rutai_user_id=hrb_user_id,
             transaction_id=transaction_id,
             transaction_time=tx_time,
@@ -412,6 +428,23 @@ class SyncService:
         db.add(bill)
         await db.flush()
         await db.refresh(bill)
+
+        # Notify the distributor who owns the customer when a new bill is
+        # imported.  The notification is tied to the same local bill view so
+        # it can be opened directly from the message center.
+        owner_result = await db.execute(
+            select(Distributor.user_id).where(Distributor.id == customer.distributor_id)
+        )
+        owner_user_id = owner_result.scalar()
+        if owner_user_id:
+            status_label = "消费退款" if is_refund else "新增消费记录"
+            db.add(Notification(
+                user_id=owner_user_id,
+                category=NotificationCategory.BILL,
+                title=status_label,
+                summary=f"客户{customer.name or '客户'}有一笔消费记录已同步",
+                target="/pages/contribution-detail/index",
+            ))
 
         if is_refund:
             return "refund_processed"

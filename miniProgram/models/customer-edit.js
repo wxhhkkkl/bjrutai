@@ -106,9 +106,22 @@ function validateCustomerEditForm(form) {
   };
 }
 
+function adaptCustomerEditResponse(payload = {}) {
+  return {
+    id: String(payload.id || ''),
+    name: String(payload.name || ''),
+    phone: String(payload.phone || ''),
+    note: String(payload.note || ''),
+    familyPhone: String(payload.familyPhone || ''),
+    version: Number.isSafeInteger(payload.version) ? payload.version : 0,
+    reviewRequired: payload.reviewRequired === true
+  }
+}
+
 module.exports = {
   EDITABLE_CUSTOMER_FIELDS,
   createCustomerEditForm,
   validateEditField,
-  validateCustomerEditForm
+  validateCustomerEditForm,
+  adaptCustomerEditResponse
 };

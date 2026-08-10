@@ -1,6 +1,7 @@
 <flow-navigation title="消费明细" bind:back="handleBack" />
 
 <view class="contribution-detail-page">
+  <page-state state="{{state}}" message="{{blockedMessage}}" bind:retry="retry" />
   <view class="contribution-summary">
     <picker
       class="contribution-summary__picker"

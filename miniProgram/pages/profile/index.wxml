@@ -2,14 +2,14 @@
 
 <view class="profile-screen tab-screen">
     <view class="profile-hero">
-        <image class="profile-hero__visual" src="/assets/images/profile-hero-visual.png" mode="aspectFill"
-            aria-role="img" aria-label="个人资料视觉" />
-        <image class="profile-hero__avatar" src="{{session.avatar || '/assets/images/profile-avatar.png'}}" mode="aspectFill" aria-role="img"
-            aria-label="用户头像" />
+        <!-- <image class="profile-hero__visual" src="/assets/images/profile-hero-visual.png" mode="aspectFill"
+            aria-role="img" aria-label="个人资料视觉" /> -->
+        <image class="profile-hero__avatar" src="{{session.avatar || '/assets/images/profile-avatar.png'}}"
+            mode="aspectFill" aria-role="img" aria-label="用户头像" />
 
         <view class="profile-hero__identity">
             <text class="profile-hero__name">
-                {{session.name || '张小明'}}
+                {{session.name || '未设置姓名'}}
             </text>
             <text class="profile-hero__role">北京鲁泰{{identityLabel}}</text>
         </view>
@@ -28,7 +28,7 @@
         </view>
     </view>
 
-    <page-state state="{{state}}" bind:retry="retry" />
+    <page-state state="{{state}}" message="{{stateMessage}}" bind:retry="retry" />
 
     <block wx:if="{{state === 'success'}}">
         <text class="profile-section-title">我的服务</text>

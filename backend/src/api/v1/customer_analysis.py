@@ -8,12 +8,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_current_user, get_db
-from ...models.binding import BindingRequest, BindingRequestStatus, BindingStatus, Customer, OperationType, SourceType
+from ...models.binding import BindingRequest, BindingStatus, Customer
 from ...models.distributor import Distributor
+from ...models.followup import FollowupRecord, ReminderStatus
 
 router = APIRouter(prefix="/customer-analysis", tags=["customer-analysis"])
 
@@ -75,7 +76,14 @@ async def get_customer_analysis(
         if promoter is None:
             return _ok({
                 "period": period,
-                "overview": {"totalCustomers": 0, "boundCustomers": 0, "newCustomers": 0},
+                "overview": {
+                    "totalCustomers": 0,
+                    "boundCustomers": 0,
+                    "pendingCustomers": 0,
+                    "unboundCustomers": 0,
+                    "followupCustomers": 0,
+                    "newCustomers": 0,
+                },
                 "trend": [],
                 "sourceDistribution": [],
             })
@@ -89,11 +97,32 @@ async def get_customer_analysis(
     total_result = await db.execute(customer_base)
     total_customers = total_result.scalar() or 0
 
-    bound_base = select(func.count(Customer.id)).where(Customer.binding_status == BindingStatus.BOUND)
+    status_base = select(
+        Customer.binding_status,
+        func.count(Customer.id),
+    ).group_by(Customer.binding_status)
     if promoter_filter is not None:
-        bound_base = bound_base.where(Customer.distributor_id == promoter_filter)
-    bound_result = await db.execute(bound_base)
-    bound_customers = bound_result.scalar() or 0
+        status_base = status_base.where(Customer.distributor_id == promoter_filter)
+    status_result = await db.execute(status_base)
+    status_counts = {
+        (status.value if hasattr(status, "value") else str(status)): count or 0
+        for status, count in status_result
+    }
+    bound_customers = status_counts.get(BindingStatus.BOUND.value, 0)
+    pending_customers = status_counts.get(BindingStatus.PENDING.value, 0)
+    unbound_customers = status_counts.get(BindingStatus.UNBOUND.value, 0)
+
+    # “待跟进”按尚未完成的提醒统计，且同一客户有多条提醒时只计一次。
+    followup_base = select(func.count(func.distinct(FollowupRecord.customer_id))).join(
+        Customer, Customer.id == FollowupRecord.customer_id
+    ).where(
+        FollowupRecord.reminder_enabled.is_(True),
+        FollowupRecord.reminder_status == ReminderStatus.PENDING,
+    )
+    if promoter_filter is not None:
+        followup_base = followup_base.where(Customer.distributor_id == promoter_filter)
+    followup_result = await db.execute(followup_base)
+    followup_customers = followup_result.scalar() or 0
 
     new_base = select(func.count(Customer.id)).where(Customer.created_at >= start_date)
     if promoter_filter is not None:
@@ -177,6 +206,9 @@ async def get_customer_analysis(
         "overview": {
             "totalCustomers": total_customers,
             "boundCustomers": bound_customers,
+            "pendingCustomers": pending_customers,
+            "unboundCustomers": unbound_customers,
+            "followupCustomers": followup_customers,
             "newCustomers": new_customers,
         },
         "trend": trend,

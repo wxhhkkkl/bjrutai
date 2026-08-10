@@ -53,6 +53,43 @@ const CUSTOMER_DETAILS = {
   }
 };
 
+const DETAIL_STATUS_LABELS = {
+  bound: '已绑定',
+  pending: '待匹配',
+  unbound: '未绑定'
+}
+
+function adaptCustomerDetail(payload = {}) {
+  const statusCode = String(payload.bindingStatus || '')
+  const cents = (value) => Number.isSafeInteger(value) ? value : 0
+  const yuan = (value) => {
+    const absolute = Math.abs(value)
+    const text = `${Math.floor(absolute / 100).toLocaleString('en-US')}.${String(absolute % 100).padStart(2, '0')}`
+    return value < 0 ? `-${text}` : text
+  }
+  return {
+    id: String(payload.id || ''),
+    name: String(payload.name || ''),
+    phone: String(payload.phoneMasked || payload.phone || ''),
+    idCard: String(payload.idCardMasked || ''),
+    medicalAccount: '',
+    familyPhone: String(payload.familyPhone || ''),
+    boundAt: payload.boundAt ? String(payload.boundAt).replace('T', ' ').slice(0, 16) : '',
+    owner: String(payload.promoterName || ''),
+    userId: String(payload.rutaiUserId || ''),
+    totalContribution: yuan(cents(payload.totalConsumptionCent)),
+    monthlyContribution: yuan(cents(payload.monthlyConsumptionCent)),
+    serviceCount: Number.isSafeInteger(payload.serviceCount) ? payload.serviceCount : 0,
+    followupCount: Number.isSafeInteger(payload.followupCount) ? payload.followupCount : 0,
+    status: DETAIL_STATUS_LABELS[statusCode] || '处理中',
+    statusCode,
+    version: Number.isSafeInteger(payload.version) ? payload.version : 0,
+    avatar: '/assets/images/customer-avatar-purple.png',
+    contributionAvatar: '/assets/images/customer-avatar-blue.png',
+    note: String(payload.note || '')
+  }
+}
+
 const SERVICE_RECORDS = [
   {
     id: 'service-001',
@@ -153,5 +190,6 @@ module.exports = {
   CONTRIBUTION_RECORDS,
   normalizeCustomerDetailTab,
   getCustomerDetail,
-  filterContributionRecords
+  filterContributionRecords,
+  adaptCustomerDetail
 };

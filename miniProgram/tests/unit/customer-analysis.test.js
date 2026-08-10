@@ -17,8 +17,9 @@ test('binding distribution is derived from period metrics', () => {
 
   assert.deepEqual(
     distribution.map((item) => item.value),
-    [36, 3]
+    [36, 3, 0]
   );
   assert.equal(distribution[0].percent, 92);
   assert.equal(distribution[1].percent, 8);
+  assert.equal(distribution[2].percent, 0);
 });

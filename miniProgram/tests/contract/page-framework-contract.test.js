@@ -54,13 +54,16 @@ test('custom tab bar keeps content and safe area in separate layers', () => {
   assert.match(styles, /\.tabbar-safe-area[\s\S]*env\(safe-area-inset-bottom\)/);
 });
 
-test('customer tab uses the approved overview slice and real controls', () => {
+test('customer tab uses a live overview card and real controls', () => {
   const source = fs.readFileSync(
     path.join(projectRoot, 'pages/customers/index.wxml'),
     'utf8'
   );
 
-  assert.match(source, /customer-overview-card\.png/);
+  assert.match(source, /class="customer-overview-card"/);
+  assert.match(source, /\{\{overview\.bound\}\}/);
+  assert.match(source, /\{\{overview\.matching\}\}/);
+  assert.match(source, /\{\{overview\.followup\}\}/);
   assert.match(source, /bindinput="onSearch"/);
   assert.match(source, /bindtap="selectFilter"/);
   assert.match(source, /bindtap="bindCustomer"/);
@@ -157,7 +160,7 @@ test('customer analysis uses two echarts and real period controls', () => {
   assert.match(source, /class="analysis-update"/);
 });
 
-test('contribution detail uses approved summary and grouped filters', () => {
+test('consumption detail uses month and payment-status filters without legacy categories', () => {
   const source = fs.readFileSync(
     path.join(projectRoot, 'pages/contribution-detail/index.wxml'),
     'utf8'
@@ -171,7 +174,7 @@ test('contribution detail uses approved summary and grouped filters', () => {
   assert.match(source, /contribution-detail-hero\.png/);
   assert.match(source, /fields="month"/);
   assert.match(source, /bindtap="selectStatus"/);
-  assert.match(source, /bindtap="openCategoryFilter"/);
+  assert.doesNotMatch(source, /bindtap="openCategoryFilter"/);
   assert.match(source, /bindtap="openContribution"/);
   assert.match(source, /class="contribution-detail-notice"/);
   assert.ok(
@@ -216,11 +219,24 @@ test('login offers phone+password and WeChat quick login with agreement', () => 
   assert.match(source, /<app-header\b/);
   assert.match(source, /login-security-hero\.png/);
   assert.match(source, /bindtap="login"/);
-  assert.match(source, /bindtap="wechatLogin"/);
+  assert.match(source, /open-type="getPhoneNumber"/);
+  assert.match(source, /bindgetphonenumber="wechatLogin"/);
   assert.match(source, /bindinput="onPhoneInput"/);
   assert.match(source, /bindinput="onPasswordInput"/);
   assert.match(source, /bindtap="toggleAgreement"/);
   assert.match(source, /bindtap="openDocument"/);
+  assert.match(source, /data-type="agreement"/);
+  assert.match(source, /data-type="privacy"/);
+  const appConfig = JSON.parse(
+    fs.readFileSync(path.join(projectRoot, 'app.json'), 'utf8')
+  );
+  assert.ok(appConfig.pages.includes('pages/legal-document/index'));
+  const legalPage = fs.readFileSync(
+    path.join(projectRoot, 'pages/legal-document/index.wxml'),
+    'utf8'
+  );
+  assert.match(legalPage, /<flow-navigation\b/);
+  assert.match(legalPage, /document\.sections/);
   assert.ok(
     fs.existsSync(
       path.join(projectRoot, 'assets/images/login-security-hero.png')
@@ -265,7 +281,11 @@ test('account profile matches the approved editable account design', () => {
   assert.match(source, /bindtap="chooseAvatar"/);
   assert.match(source, /open-type="getPhoneNumber"/);
   assert.match(source, /bindgetphonenumber="authorizePhone"/);
+  assert.match(fs.readFileSync(path.join(projectRoot, 'pages/account-profile/index.js'), 'utf8'), /authService\.phoneBind\(code\)/);
   assert.match(source, /bindtap="saveProfile"/);
+  assert.match(fs.readFileSync(path.join(projectRoot, 'pages/account-profile/index.js'), 'utf8'), /资料保存成功/);
+  assert.match(fs.readFileSync(path.join(projectRoot, 'pages/account-profile/index.js'), 'utf8'), /setTimeout\(\(\) => this\.handleBack\(\)/);
+  assert.match(fs.readFileSync(path.join(projectRoot, 'pages/account-profile/index.js'), 'utf8'), /Object\.assign\(\{\}, sessionService\.getCurrentSession\(\), profile/);
   assert.match(source, /class="account-save-bar"/);
   assert.match(styles, /\.account-save-bar[\s\S]*env\(safe-area-inset-bottom\)/);
   assert.doesNotMatch(source, /<input\b[^>]*\bfocus=/s);
@@ -292,15 +312,18 @@ test('help feedback matches the approved functional design', () => {
   assert.match(source, /bindtap="chooseScreenshots"/);
   assert.match(source, /bindtap="previewScreenshot"/);
   assert.match(source, /catchtap="removeScreenshot"/);
-  assert.match(source, /open-type="contact"/);
-  assert.match(source, /bindcontact="handleContact"/);
+  assert.doesNotMatch(source, /open-type="contact"/);
+  assert.doesNotMatch(source, /bindcontact="handleContact"/);
   assert.match(source, /bindtap="submitFeedback"/);
+  const pageScript = fs.readFileSync(path.join(projectRoot, 'pages/help-feedback/index.js'), 'utf8');
+  assert.match(pageScript, /profileService\.uploadAvatar/);
+  assert.match(pageScript, /imageFiles: this\.data\.imageFiles/);
   assert.match(source, /class="help-submit-bar"/);
   assert.match(styles, /\.help-submit-bar[\s\S]*env\(safe-area-inset-bottom\)/);
   assert.doesNotMatch(source, /<textarea\b[^>]*\bfocus=/s);
 });
 
-test('contribution tab uses approved assets and echarts-for-weixin', () => {
+test('consumption tab uses trend and bill details without legacy composition', () => {
   const markup = fs.readFileSync(
     path.join(projectRoot, 'pages/contribution/index.wxml'),
     'utf8'
@@ -315,7 +338,10 @@ test('contribution tab uses approved assets and echarts-for-weixin', () => {
   assert.match(markup, /contribution-banner-visual\.png/);
   assert.match(markup, /<ec-canvas\b/);
   assert.match(markup, /bindtap="selectPeriod"/);
-  assert.match(markup, /class="composition-card"/);
+  assert.doesNotMatch(markup, /class="composition-card"/);
+  assert.match(markup, /class="trend-card"/);
+  assert.match(markup, /class="contribution-empty contribution-empty--trend"/);
+  assert.match(markup, /class="contribution-empty contribution-empty--details"/);
   assert.match(markup, /class="detail-row\b/);
   assert.equal(
     pageConfig.usingComponents['ec-canvas'],
@@ -359,6 +385,23 @@ test('profile tab uses approved assets and complete service controls', () => {
       file
     );
   }
+});
+
+test('notification page registers state handling and functional notification controls', () => {
+  const source = fs.readFileSync(
+    path.join(projectRoot, 'pages/notifications/index.wxml'),
+    'utf8'
+  );
+  const config = JSON.parse(
+    fs.readFileSync(path.join(projectRoot, 'pages/notifications/index.json'), 'utf8')
+  );
+
+  assert.equal(config.usingComponents['page-state'], '/components/page-state/index');
+  assert.equal(config.usingComponents['flow-navigation'], '/components/flow-navigation/index');
+  assert.match(source, /bindtap="markAllRead"/);
+  assert.match(source, /bindtap="selectFilter"/);
+  assert.match(source, /bindtap="loadMore"/);
+  assert.match(source, /bindtap="openNotification"/);
 });
 
 test('customer binding is a single stateful three-step flow', () => {

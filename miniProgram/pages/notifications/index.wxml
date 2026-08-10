@@ -1,0 +1,28 @@
+<flow-navigation title="消息通知" bind:back="handleBack" />
+
+<view class="notifications-page">
+  <view class="notification-toolbar">
+    <text class="notification-toolbar__count">未读 {{unreadCount}} 条</text>
+    <view class="notification-toolbar__read-all tap-target" bindtap="markAllRead" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" aria-role="button" aria-label="全部标记为已读">全部已读</view>
+  </view>
+
+  <scroll-view class="notification-filters" scroll-x="true" show-scrollbar="false">
+    <view wx:for="{{filters}}" wx:key="id" class="notification-filter tap-target {{selectedFilter === item.id ? 'notification-filter--active' : ''}}" data-id="{{item.id}}" bindtap="selectFilter" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">{{item.label}}</view>
+  </scroll-view>
+
+  <page-state state="{{state}}" message="{{stateMessage}}" bind:retry="retry" />
+
+  <view wx:if="{{state === 'success'}}" class="notification-list">
+    <view wx:for="{{items}}" wx:key="id" class="notification-item tap-target {{item.isRead ? '' : 'notification-item--unread'}}" data-index="{{index}}" bindtap="openNotification" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+      <view class="notification-item__dot"></view>
+      <view class="notification-item__copy">
+        <view class="notification-item__heading"><text class="notification-item__title">{{item.title}}</text><text class="notification-item__category">{{item.categoryLabel}}</text></view>
+        <text wx:if="{{item.summary}}" class="notification-item__summary">{{item.summary}}</text>
+        <text class="notification-item__time">{{item.createdAt}}</text>
+      </view>
+      <text wx:if="{{item.targetPath}}" class="notification-item__arrow">›</text>
+    </view>
+  </view>
+
+  <view wx:if="{{state === 'success' && hasMore}}" class="notification-load-more tap-target" bindtap="loadMore" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">{{loadingMore ? '加载中…' : '加载更多'}}</view>
+</view>

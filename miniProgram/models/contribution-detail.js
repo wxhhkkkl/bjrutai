@@ -177,11 +177,42 @@ function groupContributionDetails(records) {
   return groups;
 }
 
+const STATUS_LABELS = { paid: '已支付', partially_refunded: '部分退款', refunded: '已退款', cancelled: '已取消' }
+function formatCents(cents) { const value = Number.isSafeInteger(cents) ? cents : 0; return `¥${Math.floor(Math.abs(value) / 100).toLocaleString('en-US')}.${String(Math.abs(value) % 100).padStart(2, '0')}` }
+function adaptContributionOverview(payload = {}) {
+  const rate = Number(payload.growthRate)
+  return { amount: formatCents(payload.monthlyAmountCent), growth: Number.isFinite(rate) ? `${rate >= 0 ? '+' : ''}${rate}%` : '—', total: formatCents(payload.totalAmountCent) }
+}
+function adaptContributionTrend(payload = {}) {
+  const categories = Array.isArray(payload.categories) ? payload.categories.map((item) => String(item).slice(5) + '月') : []
+  const values = Array.isArray(payload.values) ? payload.values.map((value) => Number.isSafeInteger(value) ? value : 0) : []
+  const max = Math.max(10, ...values)
+  return { categories, values, max: Math.ceil(max / 10) * 10, interval: Math.max(1, Math.ceil(max / 10)) }
+}
+function adaptBillList(payload = {}) {
+  const items = Array.isArray(payload.items) ? payload.items : []
+  return { items: items.map((item) => {
+    const status = String(item.status || '')
+    const occurredAt = String(item.occurredAt || '')
+    const value = formatCents(item.amountCent)
+    return {
+      id: String(item.id || ''), title: String(item.title || '消费记录'),
+      customer: String(item.customerName || '未知客户'), phone: String(item.phoneMasked || ''),
+      occurredAt, meta: `${String(item.customerName || '未知客户')} · ${occurredAt.replace('T', ' ').slice(0, 16)}`,
+      value, points: value.replace(/^¥/, ''), status,
+      statusLabel: STATUS_LABELS[status] || '处理中', icon: 'certificate'
+    }
+  }), nextCursor: payload.nextCursor ? String(payload.nextCursor) : '', hasMore: payload.hasMore === true }
+}
+
 module.exports = {
   CONTRIBUTION_MONTHS,
   CONTRIBUTION_RECORDS,
   getContributionMonth,
   getStatusFilters,
   filterContributionDetails,
-  groupContributionDetails
+  groupContributionDetails,
+  adaptContributionOverview,
+  adaptContributionTrend,
+  adaptBillList
 };

@@ -1,11 +1,49 @@
 <app-header title="客户" />
 
 <view class="customer-screen tab-screen">
-    <view class="overview-visual">
-        <image class="overview-image" src="/assets/images/customer-overview-card.png" mode="widthFix" aria-role="img"
-            aria-label="客户概览：已绑定36，待匹配3，待跟进8" />
-        <view class="overview-analysis-hotspot tap-target" bindtap="openAnalysis" hover-class="tap-feedback"
-            hover-start-time="0" hover-stay-time="80" aria-role="button" aria-label="查看客户分析"></view>
+    <view class="customer-overview-card">
+        <view class="customer-overview-card__header">
+            <view>
+                <text class="customer-overview-card__title">客户概览</text>
+                <text class="customer-overview-card__subtitle">持续服务，让每一位客户都被看见</text>
+            </view>
+            <view class="customer-overview-card__visual">
+                <van-icon name="friends-o" size="52rpx" color="#5c9dff" />
+            </view>
+        </view>
+        <view class="customer-overview-metrics">
+            <view class="customer-overview-metric">
+                <view class="customer-overview-metric__icon customer-overview-metric__icon--blue">
+                    <van-icon name="friends-o" size="38rpx" color="#1677ff" />
+                </view>
+                <view class="customer-overview-metric__copy">
+                    <text>已绑定</text>
+                    <text>{{overview.bound}}</text>
+                </view>
+            </view>
+            <view class="customer-overview-metric">
+                <view class="customer-overview-metric__icon customer-overview-metric__icon--purple">
+                    <van-icon name="clock-o" size="38rpx" color="#5137ba" />
+                </view>
+                <view class="customer-overview-metric__copy">
+                    <text>待匹配</text>
+                    <text>{{overview.matching}}</text>
+                </view>
+            </view>
+            <view class="customer-overview-metric">
+                <view class="customer-overview-metric__icon customer-overview-metric__icon--orange">
+                    <van-icon name="like-o" size="38rpx" color="#ec8400" />
+                </view>
+                <view class="customer-overview-metric__copy">
+                    <text>待跟进</text>
+                    <text>{{overview.followup}}</text>
+                </view>
+            </view>
+        </view>
+        <view class="customer-overview-analysis tap-target" bindtap="openAnalysis" hover-class="tap-feedback"
+            hover-start-time="0" hover-stay-time="80" aria-role="button" aria-label="查看客户分析">
+            查看客户分析 <van-icon name="arrow" size="25rpx" color="#1677ff" />
+        </view>
     </view>
 
     <page-state state="{{state}}" bind:retry="retry" />

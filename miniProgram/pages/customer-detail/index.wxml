@@ -1,6 +1,8 @@
 <flow-navigation title="客户详情" bind:back="handleBack" />
 
 <view class="detail-page">
+  <page-state state="{{state}}" message="{{stateMessage}}" bind:retry="retry" />
+  <block wx:if="{{state === 'success'}}">
   <view class="customer-hero">
     <view class="customer-hero__arc customer-hero__arc--outer"></view>
     <view class="customer-hero__arc customer-hero__arc--inner"></view>
@@ -16,7 +18,7 @@
       <text class="customer-hero__phone">{{customer.phone}}</text>
       <view class="customer-hero__status">
         <van-icon name="passed" size="15px" color="#1677ff" />
-        <text>已绑定</text>
+        <text>{{customer.status}}</text>
       </view>
       <text class="customer-hero__date">绑定时间：{{customer.boundAt}}</text>
     </view>
@@ -153,10 +155,10 @@
         <van-icon name="calendar-o" size="40px" color="#139d35" />
       </view>
       <view class="followup-card__copy">
-        <text class="followup-card__title">健康随访待完成</text>
-        <text class="followup-card__time">计划时间：今天 16:00</text>
+        <text class="followup-card__title">跟进信息</text>
+        <text class="followup-card__time">{{blockedMessage}}</text>
       </view>
-      <view class="followup-card__status">待跟进</view>
+      <view class="followup-card__status">暂不可用</view>
       <van-icon name="arrow" size="21px" color="#7d838d" />
     </view>
   </block>
@@ -264,6 +266,8 @@
       <van-icon name="info-o" size="20px" color="#1677ff" />
       <text>消费数据由系统同步，以实际账单为准</text>
     </view>
+  </block>
+
   </block>
 </view>
 

@@ -57,7 +57,7 @@ const ACTION_TARGETS = {
     },
     notification: {
         title: '消息通知',
-        path: '/pages/common/feature-placeholder/index?title=消息通知'
+        path: '/pages/notifications/index'
     },
     profile: {
         title: '账号信息',

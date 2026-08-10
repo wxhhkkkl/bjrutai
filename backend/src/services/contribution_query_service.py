@@ -86,7 +86,7 @@ class ConsumptionQueryService:
             conditions.append(Bill.id < int(cursor))
 
         query = (
-            select(Bill, Customer.name)
+            select(Bill, Customer.name, Customer.phone_masked)
             .join(Customer, Customer.id == Bill.customer_id)
             .where(and_(*conditions))
             .order_by(Bill.id.desc())
@@ -98,26 +98,27 @@ class ConsumptionQueryService:
             rows = rows[:page_size]
 
         items = []
-        for bill, cust_name in rows:
-            items.append(_serialize_bill(bill, cust_name))
+        for bill, cust_name, phone_masked in rows:
+            items.append(_serialize_bill(bill, cust_name, phone_masked))
         next_cursor = str(rows[-1][0].id) if has_more and rows else None
         return {"items": items, "nextCursor": next_cursor, "hasMore": has_more}
 
     # ------------------------------------------------------------------
     # Detail (bill)
     # ------------------------------------------------------------------
-    async def get_detail(self, db: AsyncSession, bill_id: int) -> dict:
+    async def get_detail(self, db: AsyncSession, bill_id: int, user_id: int) -> dict:
+        promoter = await self._get_promoter(db, user_id)
         row = (
             await db.execute(
-                select(Bill, Customer.name)
+                select(Bill, Customer.name, Customer.phone_masked)
                 .join(Customer, Customer.id == Bill.customer_id)
-                .where(Bill.id == bill_id)
+                .where(Bill.id == bill_id, Customer.distributor_id == promoter.id)
             )
         ).first()
         if row is None:
             raise NotFoundException(message="消费记录不存在")
-        bill, cust_name = row
-        detail = _serialize_bill(bill, cust_name)
+        bill, cust_name, phone_masked = row
+        detail = _serialize_bill(bill, cust_name, phone_masked)
         detail["refundAmountCent"] = bill.refund_amount_cent
         return detail
 
@@ -125,7 +126,11 @@ class ConsumptionQueryService:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-def _serialize_bill(bill: Bill, customer_name: Optional[str]) -> dict:
+def _serialize_bill(
+    bill: Bill,
+    customer_name: Optional[str],
+    phone_masked: Optional[str] = None,
+) -> dict:
     return {
         "id": bill.id,
         "title": bill.transaction_id,
@@ -133,6 +138,7 @@ def _serialize_bill(bill: Bill, customer_name: Optional[str]) -> dict:
         "status": bill.transaction_status.value if hasattr(bill.transaction_status, "value") else str(bill.transaction_status),
         "occurredAt": bill.transaction_time.isoformat() if bill.transaction_time else None,
         "customerName": customer_name,
+        "phoneMasked": phone_masked,
     }
 
 

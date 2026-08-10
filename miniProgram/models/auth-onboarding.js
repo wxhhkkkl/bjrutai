@@ -22,6 +22,22 @@ function validateLoginAuthorization(state) {
   return { ok: true };
 }
 
+// Login credentials are already supplied by the user. WeChat phone access is
+// a separate binding capability and must not block phone + password login.
+function validateLoginConsent(state) {
+  const value = state || {};
+
+  if (!value.agreed) {
+    return {
+      ok: false,
+      field: 'agreement',
+      message: '请先阅读并同意用户协议和隐私政策'
+    };
+  }
+
+  return { ok: true };
+}
+
 function createPendingProfileSession(phone) {
   return {
     userId: 'wx-promoter-001',
@@ -93,6 +109,7 @@ function completeProfileSession(session, form) {
 module.exports = {
   DEFAULT_ORGANIZATION,
   validateLoginAuthorization,
+  validateLoginConsent,
   createPendingProfileSession,
   createProfileForm,
   validateProfileForm,

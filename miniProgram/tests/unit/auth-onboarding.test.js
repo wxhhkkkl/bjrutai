@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   validateLoginAuthorization,
+  validateLoginConsent,
   createPendingProfileSession,
   createProfileForm,
   validateProfileForm,
@@ -30,6 +31,11 @@ test('login authorization requires agreement and phone access', () => {
     }).ok,
     true
   );
+});
+
+test('credential login requires agreement but not prior WeChat phone access', () => {
+  assert.equal(validateLoginConsent({ agreed: false, phoneAuthorized: false }).field, 'agreement');
+  assert.equal(validateLoginConsent({ agreed: true, phoneAuthorized: false }).ok, true);
 });
 
 test('pending login session enters profile setup', () => {

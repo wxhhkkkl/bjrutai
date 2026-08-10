@@ -26,7 +26,44 @@ function sortCustomers(list, sortMode) {
   return result;
 }
 
+const STATUS_LABELS = {
+  bound: { label: '已绑定', tone: 'blue' },
+  pending: { label: '待匹配', tone: 'orange' },
+  unbound: { label: '待跟进', tone: 'green' }
+}
+
+const DEFAULT_AVATARS = {
+  bound: '/assets/images/customer-avatar-blue.png',
+  pending: '/assets/images/customer-avatar-purple.png',
+  unbound: '/assets/images/customer-avatar-green.png',
+  fallback: '/assets/images/customer-avatar-blue.png'
+}
+
+function adaptCustomerList(payload = {}) {
+  const items = Array.isArray(payload.items) ? payload.items : []
+  return {
+    items: items.map((item) => {
+      const status = STATUS_LABELS[item.bindingStatus] || { label: '处理中', tone: 'orange' }
+      return {
+        id: String(item.id || ''),
+        name: String(item.name || '未命名客户'),
+        phone: String(item.phoneMasked || item.phone || ''),
+        note: String(item.note || ''),
+        status: status.label,
+        statusCode: String(item.bindingStatus || ''),
+        tone: status.tone,
+        avatar: String(item.avatar || DEFAULT_AVATARS[item.bindingStatus] || DEFAULT_AVATARS.fallback),
+        promoterName: String(item.promoterName || ''),
+        updatedAt: item.updatedAt || ''
+      }
+    }),
+    nextCursor: payload.nextCursor ? String(payload.nextCursor) : '',
+    hasMore: payload.hasMore === true
+  }
+}
+
 module.exports = {
   filterCustomers,
-  sortCustomers
+  sortCustomers,
+  adaptCustomerList
 };

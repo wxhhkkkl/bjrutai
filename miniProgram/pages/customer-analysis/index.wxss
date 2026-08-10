@@ -261,6 +261,10 @@ page {
   background: #ffb44b;
 }
 
+.status-legend__dot--2 {
+  background: #8b9bb4;
+}
+
 .status-legend__copy {
   min-width: 0;
   display: flex;

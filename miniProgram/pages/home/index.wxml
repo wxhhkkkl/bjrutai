@@ -10,7 +10,7 @@
             <text class="greeting-title">上午好，{{session.name}}</text>
         </view>
 
-        <page-state state="{{state}}" message="请稍后再试" bind:retry="retry" />
+        <page-state state="{{state}}" message="{{stateMessage}}" bind:retry="retry" />
 
         <view wx:if="{{state === 'success'}}">
             <view class="hero">
@@ -40,32 +40,47 @@
                     <view class="quick-content">
                         <text class="quick-title">我的消费</text>
                         <text class="muted quick-description">本月消费金额</text>
-                        <view class="quick-number"><text>¥12,680</text></view>
+                        <view class="quick-number"><text>{{summary.monthlyConsumption}}</text></view>
                     </view>
                 </view>
             </view>
 
             <view class="heading-row">
-                <text class="section-title">团队概览</text>
-                <text class="muted heading-link">查看全部 ›</text>
+                <text class="section-title">业务概览</text>
             </view>
             <view class="team-card">
                 <view class="team-item">
                     <image src="/assets/images/team-members-icon.png" mode="aspectFit" />
-                    <text>直属下级</text>
-                    <text class="team-number">18</text>
+                    <text>{{summary.firstMetricLabel}}</text>
+                    <text class="team-number">{{summary.firstMetricValue}}</text>
                 </view>
                 <view class="team-item">
                     <image src="/assets/images/team-contribution-icon.png" mode="aspectFit" />
-                    <text>本月消费</text>
-                    <text class="team-number">¥86,420</text>
+                    <text>{{summary.secondMetricLabel}}</text>
+                    <text class="team-number">{{summary.secondMetricValue}}</text>
                 </view>
                 <view class="team-item">
                     <image src="/assets/images/team-pending-icon.png" mode="aspectFit" />
-                    <text>待处理</text>
-                    <text class="team-number">3</text>
+                    <text>{{summary.thirdMetricLabel}}</text>
+                    <text class="team-number">{{summary.thirdMetricValue}}</text>
                 </view>
             </view>
+
+            <block wx:if="{{notices.length}}">
+                <text class="section-title">最新通知</text>
+                <view class="qualification">
+                    <text>{{notices[0].title}}</text>
+                    <text class="status">{{notices.length}} 条</text>
+                </view>
+            </block>
+
+            <block wx:if="{{records.length}}">
+                <text class="section-title">最近绑定</text>
+                <view wx:for="{{records}}" wx:key="id" class="qualification">
+                    <text>{{item.name}}</text>
+                    <text class="status">{{item.status}}</text>
+                </view>
+            </block>
 
         </view>
     </view>

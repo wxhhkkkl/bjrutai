@@ -1,64 +1,20 @@
-const { BINDING_RECORDS } = require('../../models/binding-records');
-const {
-  normalizeResultState,
-  getResultStateForRecord,
-  getBindingResultViewModel
-} = require('../../models/binding-result');
+const { getBindingResultViewModel } = require('../../models/binding-result')
 
 Page({
   data: {
-    state: 'matching',
-    record: BINDING_RECORDS[1],
-    viewModel: getBindingResultViewModel('matching')
+    state: 'blocked',
+    record: {},
+    viewModel: getBindingResultViewModel('matching'),
+    blockedMessage: '绑定详情、重试和审计事件暂不可用，请以绑定记录列表状态为准。'
   },
 
   onLoad(options = {}) {
-    const record = BINDING_RECORDS.find(
-      (item) => item.id === options.id
-    ) || BINDING_RECORDS[1];
-    const state = options.state
-      ? normalizeResultState(options.state)
-      : getResultStateForRecord(record);
-
-    this.setData({
-      state,
-      record,
-      viewModel: getBindingResultViewModel(state)
-    });
+    this.setData({ record: { id: options.id || '' } })
   },
 
-  handleBack() {
-    wx.navigateBack();
-  },
-
-  returnToRecords() {
-    const pages = getCurrentPages();
-    const previous = pages[pages.length - 2];
-
-    if (previous && previous.route === 'pages/binding-records/index') {
-      wx.navigateBack();
-      return;
-    }
-
-    wx.redirectTo({ url: '/pages/binding-records/index' });
-  },
-
-  modifyCustomer() {
-    wx.redirectTo({
-      url: `/pages/customer-edit/index?recordId=${this.data.record.id}`
-    });
-  },
-
-  continueBinding() {
-    wx.navigateTo({ url: '/pages/customer-binding/index' });
-  },
-
-  contactAdmin() {
-    wx.showModal({
-      title: '联系管理员',
-      content: '请联系儒泰业务管理员协助核对客户信息及匹配状态。',
-      showCancel: false,
-      confirmText: '我知道了'
-    });
-  }
-});
+  handleBack() { wx.navigateBack() },
+  returnToRecords() { wx.redirectTo({ url: '/pages/binding-records/index' }) },
+  modifyCustomer() { wx.showToast({ title: this.data.blockedMessage, icon: 'none' }) },
+  continueBinding() { wx.navigateTo({ url: '/pages/customer-binding/index' }) },
+  contactAdmin() { wx.showModal({ title: '联系管理员', content: this.data.blockedMessage, showCancel: false, confirmText: '我知道了' }) }
+})

@@ -82,5 +82,5 @@ async def get_detail(
 ) -> dict:
     """账单明细。"""
     svc = ConsumptionQueryService()
-    result = await svc.get_detail(db, bill_id)
+    result = await svc.get_detail(db, bill_id, int(payload["sub"]))
     return _ok(result)

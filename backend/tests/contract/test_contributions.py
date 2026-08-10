@@ -231,6 +231,20 @@ class TestContributionDetail:
         resp = await client.get("/api/v1/contributions/99999", headers=_auth_headers(user_id))
         assert resp.status_code == 404
 
+    async def test_detail_is_scoped_to_current_distributor(self, client: AsyncClient, db_session: AsyncSession):
+        owner_id, _node_id, owner_distributor_id = await setup_promoter_with_hierarchy(
+            db_session, openid="wx_bill_owner", name="账单所属人"
+        )
+        other_id, _node_id, _other_distributor_id = await setup_promoter_with_hierarchy(
+            db_session, openid="wx_bill_other", name="其他推广员"
+        )
+        bill_id = await seed_customer_bill(
+            db_session, distributor_id=owner_distributor_id, paid_cent=50000, txn_id="txn_scope_001"
+        )
+
+        resp = await client.get(f"/api/v1/contributions/{bill_id}", headers=_auth_headers(other_id))
+        assert resp.status_code == 404
+
     async def test_detail_requires_auth(self, client: AsyncClient, db_session: AsyncSession):
         resp = await client.get("/api/v1/contributions/1")
         assert resp.status_code == 401

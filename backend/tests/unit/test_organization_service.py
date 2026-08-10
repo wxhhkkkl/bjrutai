@@ -201,3 +201,35 @@ async def test_tree_retrieval_returns_all_roots(db_session):
     root_ids = {t["orgId"] for t in tree["tree"]}
     assert root_ids == {str(a.id), str(b.id)}
     assert tree["totalNodes"] == 3
+
+
+# ── get_default_org (012-register-default-dept) ──────────────────────
+
+
+@pytest.mark.asyncio
+async def test_get_default_org_returns_min_sort_root(db_session):
+    """get_default_org returns the root node with the smallest sort_order."""
+    a = await organization_service.create_org(
+        db_session, OrgCreate(name="第二组织", orgType=None)
+    )
+    b = await organization_service.create_org(
+        db_session, OrgCreate(name="第一组织", orgType=None)
+    )
+    # Manually set sort_order so a < b (lower sort = first)
+    from sqlalchemy import update
+    from src.models.organization import Organization as OrgModel
+    await db_session.execute(update(OrgModel).where(OrgModel.id == a.id).values(sort_order=2))
+    await db_session.execute(update(OrgModel).where(OrgModel.id == b.id).values(sort_order=1))
+    await db_session.flush()
+
+    default = await organization_service.get_default_org(db_session)
+    assert default is not None
+    assert default.id == b.id  # b has sort_order=1 (smallest)
+    assert default.name == "第一组织"
+
+
+@pytest.mark.asyncio
+async def test_get_default_org_returns_none_when_no_roots(db_session):
+    """get_default_org returns None when there are no root orgs."""
+    default = await organization_service.get_default_org(db_session)
+    assert default is None

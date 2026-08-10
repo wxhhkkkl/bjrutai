@@ -15,6 +15,10 @@ function normalizeIdentityType(session) {
     return value.role;
   }
 
+  if (value.role === 'distributor') {
+    return 'promoter';
+  }
+
   return 'unknown';
 }
 
@@ -24,7 +28,8 @@ function normalizeCollaboratorRole(session) {
   if (
     role === 'collaborator' ||
     role === 'doctor' ||
-    role === 'promoter'
+    role === 'promoter' ||
+    role === 'distributor'
   ) {
     return 'collaborator';
   }

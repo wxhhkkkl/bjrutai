@@ -97,6 +97,15 @@
     <van-icon wx:if="{{!saving}}" name="checked" size="29px" color="#ffffff" />
     <text>{{saving ? '正在提交' : '提交并继续'}}</text>
   </button>
+  <button
+    class="profile-skip-button tap-target"
+    bindtap="skipProfile"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+  >
+    <text>跳过</text>
+  </button>
   <text class="profile-submit-bar__hint">资料仅用于账户管理与业务协作</text>
   <view class="profile-submit-bar__safe"></view>
 </view>

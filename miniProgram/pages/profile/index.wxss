@@ -78,7 +78,7 @@ page {
 
 .profile-hero__edit {
     position: absolute;
-    top: 207rpx;
+    top: 160rpx;
     right: 23rpx;
     z-index: 2;
     width: 143rpx;

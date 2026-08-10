@@ -55,6 +55,7 @@ class DistributorResponse(BaseModel):
     org_role: str = Field(..., alias="orgRole")
     status: str
     wechat_bound: bool = Field(False, alias="wechatBound")
+    source_channel: Optional[str] = Field(None, alias="sourceChannel")
     created_at: Optional[str] = Field(None, alias="createdAt")
 
     class Config:
