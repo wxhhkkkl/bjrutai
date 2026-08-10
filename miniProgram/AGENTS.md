@@ -1,9 +1,9 @@
 <!-- SPECKIT START -->
 Current Spec Kit feature:
 
-- Plan: `../specs/014-article-reading/plan.md`
-- Specification: `../specs/014-article-reading/spec.md`
-- Tasks: `../specs/014-article-reading/tasks.md`
+- Plan: `../specs/015-promotion-code-completion/plan.md`
+- Specification: `../specs/015-promotion-code-completion/spec.md`
+- Tasks: `../specs/015-promotion-code-completion/tasks.md`
 - Project constitution: `.specify/memory/constitution.md`
 
 Read the constitution and current feature artifacts before implementing work.

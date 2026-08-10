@@ -37,10 +37,11 @@ function getPromotionProfile(session = {}) {
 
 function createPromotionShare(profile) {
   const value = profile || getPromotionProfile();
+  const fallbackPath = `/pages/home/index?sourceId=${encodeURIComponent(value.id || '')}`;
 
   return {
-    title: `${value.name}邀请你进入儒泰小程序`,
-    path: `/pages/home/index?sourceId=${value.id}`,
+    title: value.shareTitle || `${value.name}邀请你进入儒泰小程序`,
+    path: value.sharePath || fallbackPath,
     imageUrl: value.qrImage
   };
 }

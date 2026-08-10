@@ -4,15 +4,14 @@ const {
   formatFollowupDate,
   validateFollowupRecord
 } = require('../../models/followup-record')
-
-const BLOCKED_MESSAGE = '跟进接口当前缺少可确认的客户归属权限，暂不能提交。'
+const customerService = require('../../services/customer-service')
 
 Page({
   data: {
     customer: {},
     methods: FOLLOWUP_METHODS,
     results: FOLLOWUP_RESULTS,
-    blockedMessage: BLOCKED_MESSAGE,
+    saving: false,
     form: {
       method: 'phone', result: 'connected', content: '', reminderEnabled: true,
       reminderDate: '', reminderTime: ''
@@ -21,8 +20,14 @@ Page({
     reminderDateText: ''
   },
 
-  onLoad(options = {}) {
-    this.setData({ customer: { id: options.id || '' } })
+  async onLoad(options = {}) {
+    const id = options.id || ''
+    this.setData({ customer: { id } })
+    if (!id) return
+    try {
+      const customer = await customerService.getCustomer(id)
+      this.setData({ customer: { id, name: customer.name || '', phone: customer.phoneMasked || customer.phone || '', contributionAvatar: '/assets/images/customer-avatar-blue.png' } })
+    } catch (error) { wx.showToast({ title: error.message || '客户信息加载失败', icon: 'none' }) }
   },
 
   selectMethod(e) {
@@ -51,17 +56,31 @@ Page({
     this.setData({ 'form.reminderTime': e.detail.value })
   },
 
-  saveDraft() {
-    wx.showToast({ title: this.data.blockedMessage, icon: 'none' })
+  async saveDraft() {
+    if (this.data.saving || !this.data.customer.id) return
+    this.setData({ saving: true })
+    try {
+      await customerService.saveFollowupDraft(this.data.customer.id, { method: this.data.form.method, content: String(this.data.form.content || '').trim() })
+      wx.showToast({ title: '草稿已保存', icon: 'success' })
+    } catch (error) { wx.showToast({ title: error.message || '草稿保存失败', icon: 'none' }) } finally { this.setData({ saving: false }) }
   },
 
-  saveFollowup() {
+  async saveFollowup() {
     const result = validateFollowupRecord(this.data.form)
     if (!result.valid) {
       wx.showToast({ title: result.message, icon: 'none' })
       return
     }
-    wx.showToast({ title: this.data.blockedMessage, icon: 'none' })
+    if (this.data.saving || !this.data.customer.id) return
+    this.setData({ saving: true })
+    try {
+      const reminderAt = result.value.reminderEnabled ? `${result.value.reminderDate}T${result.value.reminderTime}:00` : null
+      const method = result.value.method === 'in-person' ? 'visit' : result.value.method
+      const resultMap = { connected: 'successful', waiting: 'pending', unanswered: 'no_answer' }
+      await customerService.createFollowup(this.data.customer.id, { method, result: resultMap[result.value.result], content: result.value.content, reminderAt })
+      wx.showToast({ title: '跟进已保存', icon: 'success' })
+      setTimeout(() => wx.navigateBack(), 500)
+    } catch (error) { wx.showToast({ title: error.message || '跟进保存失败', icon: 'none' }) } finally { this.setData({ saving: false }) }
   },
 
   handleBack() {

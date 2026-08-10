@@ -2,6 +2,7 @@ const {
   getCurrentSession
 } = require('../../../services/session-service');
 const authService = require('../../../services/auth-service');
+const profileService = require('../../../services/profile-service');
 const {
   createProfileForm,
   validateProfileForm
@@ -72,13 +73,18 @@ Page({
     this.setData({ saving: true });
 
     try {
-      // Mark profile as completed and proceed to home
       const sessionService = require('../../../services/session-service');
       const session = sessionService.getCurrentSession();
+      const profile = await profileService.getProfile();
+      const result = await profileService.updateProfile({
+        name: this.data.form.name.trim(),
+        organization: this.data.form.organization.trim(),
+        version: profile.version
+      });
       sessionService.setSession(Object.assign({}, session, {
         profileCompleted: true,
-        name: this.data.form.name || session.name,
-        organization: this.data.form.organization || session.organization
+        name: result.name || this.data.form.name,
+        organization: result.organization || this.data.form.organization
       }));
       wx.switchTab({ url: '/pages/home/index' });
     } catch (error) {

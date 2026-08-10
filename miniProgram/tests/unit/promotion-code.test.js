@@ -37,3 +37,10 @@ test('promotion share carries the promoter source', () => {
   );
   assert.equal(share.imageUrl, '/assets/images/promotion-qr.png');
 });
+
+test('promotion share prefers the server-issued title and path', () => {
+  const share = createPromotionShare({ name: '张小明', shareTitle: '进入儒泰', sharePath: '/pages/index/index?source=BJTR&ref_token=token', qrImage: '/qr.png' });
+  assert.equal(share.title, '进入儒泰');
+  assert.equal(share.path, '/pages/index/index?source=BJTR&ref_token=token');
+  assert.equal(share.imageUrl, '/qr.png');
+});

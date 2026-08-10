@@ -40,9 +40,18 @@ function getCustomerAnalysis(period = '30d') {
   return request('/api/v1/customer-analysis', { data: { period } })
 }
 
+function getServiceRecords(customerId, options = {}) { return request(`/api/v1/customers/${encodeURIComponent(String(customerId))}/service-records`, { data: cleanQuery(options) }) }
+function getCustomerContributions(customerId, options = {}) { return request(`/api/v1/customers/${encodeURIComponent(String(customerId))}/contributions`, { data: cleanQuery(options) }) }
+function createFollowup(customerId, data) { return request(`/api/v1/customers/${encodeURIComponent(String(customerId))}/followups`, { method: 'POST', data }) }
+function saveFollowupDraft(customerId, data) { return request(`/api/v1/customers/${encodeURIComponent(String(customerId))}/followup-drafts`, { method: 'POST', data }) }
+
 module.exports = {
   listCustomers,
   getCustomer,
   patchCustomer,
-  getCustomerAnalysis
+  getCustomerAnalysis,
+  getServiceRecords,
+  getCustomerContributions,
+  createFollowup,
+  saveFollowupDraft
 }
