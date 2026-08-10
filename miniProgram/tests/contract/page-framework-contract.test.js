@@ -375,6 +375,7 @@ test('profile tab uses approved assets and complete service controls', () => {
     'profile-promo-icon.png',
     'profile-records-icon.png',
     'profile-contribution-icon.png',
+    'profile-article-icon.png',
     'profile-notification-icon.png',
     'profile-account-icon.png',
     'profile-help-icon.png',
@@ -554,4 +555,54 @@ test('shared press feedback is available to pages and interactive components', (
 
     assert.match(source, /styles\/interactions\.wxss/, component);
   }
+});
+
+test('article detail uses the secondary-page framework and native safe rich text', () => {
+  const appConfig = JSON.parse(fs.readFileSync(path.join(projectRoot, 'app.json'), 'utf8'));
+  const config = JSON.parse(fs.readFileSync(path.join(projectRoot, 'pages/article-detail/index.json'), 'utf8'));
+  const source = fs.readFileSync(path.join(projectRoot, 'pages/article-detail/index.wxml'), 'utf8');
+  const script = fs.readFileSync(path.join(projectRoot, 'pages/article-detail/index.js'), 'utf8');
+  const styles = fs.readFileSync(path.join(projectRoot, 'pages/article-detail/index.wxss'), 'utf8');
+
+  assert.ok(appConfig.pages.includes('pages/article-detail/index'));
+  assert.equal(config.usingComponents['flow-navigation'], '/components/flow-navigation/index');
+  assert.equal(config.usingComponents['page-state'], '/components/page-state/index');
+  assert.match(source, /<flow-navigation\b/);
+  assert.match(source, /<rich-text\b[^>]*nodes="\{\{article\.content\}\}"/s);
+  assert.doesNotMatch(source, /<web-view\b/);
+  assert.doesNotMatch(script, /onShow\s*\([^)]*\)[\s\S]*getArticle/);
+  assert.match(styles, /env\(safe-area-inset-bottom\)/);
+  assert.match(styles, /max-width:\s*100%/);
+});
+
+test('article list registers refresh, states, pagination and complete-card navigation', () => {
+  const appConfig = JSON.parse(fs.readFileSync(path.join(projectRoot, 'app.json'), 'utf8'));
+  const config = JSON.parse(fs.readFileSync(path.join(projectRoot, 'pages/articles/index.json'), 'utf8'));
+  const source = fs.readFileSync(path.join(projectRoot, 'pages/articles/index.wxml'), 'utf8');
+  const script = fs.readFileSync(path.join(projectRoot, 'pages/articles/index.js'), 'utf8');
+
+  assert.ok(appConfig.pages.includes('pages/articles/index'));
+  assert.equal(config.enablePullDownRefresh, true);
+  assert.equal(config.usingComponents['flow-navigation'], '/components/flow-navigation/index');
+  assert.equal(config.usingComponents['page-state'], '/components/page-state/index');
+  assert.match(source, /<flow-navigation\b/);
+  assert.match(source, /bindtap="openArticle"/);
+  assert.match(source, /loadMoreError/);
+  assert.match(source, /loadingMore/);
+  assert.match(source, /暂无更多文章/);
+  assert.match(script, /onPullDownRefresh/);
+  assert.match(script, /onReachBottom/);
+  assert.match(script, /requestVersion/);
+});
+
+test('homepage article block sits after overview and before notices', () => {
+  const source = fs.readFileSync(path.join(projectRoot, 'pages/home/index.wxml'), 'utf8');
+  const overviewIndex = source.indexOf('class="team-card"');
+  const articlesIndex = source.indexOf('class="home-articles"');
+  const noticesIndex = source.indexOf('最新通知');
+
+  assert.ok(overviewIndex >= 0 && articlesIndex > overviewIndex && noticesIndex > articlesIndex);
+  assert.match(source, /data-id="article-list"/);
+  assert.match(source, /bindtap="openArticle"/);
+  assert.match(source, /articleState === 'recoverable-error'/);
 });

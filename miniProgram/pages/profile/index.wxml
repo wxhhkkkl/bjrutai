@@ -32,7 +32,7 @@
 
     <block wx:if="{{state === 'success'}}">
         <text class="profile-section-title">我的服务</text>
-        <view class="profile-service-grid">
+        <view class="profile-service-grid" data-multirow="{{serviceItems.length > 4}}">
             <view wx:for="{{serviceItems}}" wx:key="id" class="profile-service-item tap-target" data-id="{{item.id}}"
                 bindtap="action" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
                 <image class="profile-service-icon" src="{{item.icon}}" mode="aspectFill" />

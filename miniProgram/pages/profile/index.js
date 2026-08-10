@@ -38,6 +38,11 @@ const SERVICE_ITEMS = [{
   title: '消费明细',
   description: '查看每笔消费来源',
   icon: '/assets/images/profile-contribution-icon.png'
+}, {
+  id: 'article-list',
+  title: '文章资讯',
+  description: '阅读最新内容',
+  icon: '/assets/images/profile-article-icon.png'
 }]
 
 const ACCOUNT_ITEMS = [{

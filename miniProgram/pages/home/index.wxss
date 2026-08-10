@@ -230,6 +230,135 @@ page {
     font-weight: 700;
 }
 
+.home-articles__heading .section-title {
+    margin-bottom: 24rpx;
+}
+
+.home-articles__heading .heading-link {
+    padding: 16rpx 0 12rpx 24rpx;
+    color: #1677ff;
+}
+
+.home-article-list {
+    overflow: hidden;
+    background: #ffffff;
+    border: 1rpx solid #eef0f4;
+    border-radius: 30rpx;
+    box-shadow: 0 12rpx 28rpx rgba(32, 61, 104, 0.08);
+}
+
+.home-article-item {
+    min-height: 154rpx;
+    padding: 22rpx 24rpx;
+    display: flex;
+    align-items: center;
+    gap: 20rpx;
+}
+
+.home-article-item:not(:last-child) {
+    border-bottom: 1rpx solid #e8ebf0;
+}
+
+.home-article-item__cover,
+.home-article-item__placeholder {
+    width: 116rpx;
+    height: 92rpx;
+    flex: none;
+    border-radius: 16rpx;
+}
+
+.home-article-item__cover {
+    background: #edf2f8;
+}
+
+.home-article-item__placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #538eea;
+    font-size: 38rpx;
+    font-weight: 700;
+    background: linear-gradient(145deg, #edf6ff, #e4ecff);
+}
+
+.home-article-item__copy {
+    min-width: 0;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 7rpx;
+}
+
+.home-article-item__title {
+    overflow: hidden;
+    color: #111722;
+    font-size: 29rpx;
+    font-weight: 650;
+    line-height: 1.35;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.home-article-item__summary {
+    overflow: hidden;
+    color: #687383;
+    font-size: 23rpx;
+    line-height: 1.4;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.home-article-item__meta {
+    overflow: hidden;
+    color: #929aa7;
+    font-size: 21rpx;
+    line-height: 1.35;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.home-article-item__arrow {
+    flex: none;
+    color: #8b95a6;
+    font-size: 42rpx;
+    line-height: 1;
+}
+
+.home-articles__state {
+    min-height: 126rpx;
+    padding: 24rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18rpx;
+    color: #7d8795;
+    font-size: 26rpx;
+    line-height: 1.45;
+    text-align: center;
+    background: #f7f9fc;
+    border: 1rpx solid #edf0f4;
+    border-radius: 24rpx;
+    box-sizing: border-box;
+}
+
+.home-articles__state--error {
+    color: #9a6260;
+}
+
+.home-articles__retry {
+    height: 54rpx;
+    margin: 0;
+    padding: 0 22rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1677ff;
+    font-size: 23rpx;
+    background: #eaf3ff;
+    border: 0;
+    border-radius: 999rpx;
+}
+
 .qualification {
     margin-top: 30rpx;
     display: flex;

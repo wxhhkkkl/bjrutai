@@ -8,6 +8,8 @@
         "pages/customer-analysis/index",
         "pages/contribution/index",
         "pages/contribution-detail/index",
+        "pages/articles/index",
+        "pages/article-detail/index",
         "pages/profile/index",
         "pages/account-profile/index",
         "pages/help-feedback/index",

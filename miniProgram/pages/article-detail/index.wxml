@@ -1,0 +1,26 @@
+<flow-navigation title="文章详情" bind:back="handleBack" />
+
+<view class="article-detail-page">
+  <page-state wx:if="{{state === 'loading' || state === 'recoverable-error'}}" state="{{state}}" message="{{stateMessage}}" bind:retry="retry" />
+
+  <view wx:if="{{state === 'not-found'}}" class="article-detail-state">
+    <text class="article-detail-state__symbol">○</text>
+    <text class="article-detail-state__title">无法查看文章</text>
+    <text class="article-detail-state__message">{{stateMessage}}</text>
+    <button class="article-detail-state__action tap-target" bindtap="handleBack" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">返回</button>
+  </view>
+
+  <view wx:if="{{state === 'success'}}" class="article-detail-card">
+    <text class="article-detail-title">{{article.title}}</text>
+    <view class="article-detail-meta">
+      <text wx:if="{{article.category}}" class="article-detail-category">{{article.category}}</text>
+      <text wx:if="{{article.author}}">{{article.author}}</text>
+      <text wx:if="{{article.publishedAtDisplay}}">{{article.publishedAtDisplay}}</text>
+      <text>阅读 {{article.viewCount}}</text>
+    </view>
+    <image wx:if="{{article.coverImageUrl}}" class="article-detail-cover" src="{{article.coverImageUrl}}" mode="widthFix" />
+    <text wx:if="{{article.summary}}" class="article-detail-summary">{{article.summary}}</text>
+    <rich-text wx:if="{{article.content}}" class="article-rich-text" nodes="{{article.content}}"></rich-text>
+    <view wx:else class="article-empty-content">暂无正文内容</view>
+  </view>
+</view>
