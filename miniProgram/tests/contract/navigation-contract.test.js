@@ -70,3 +70,12 @@ test('help and feedback action opens the real feedback form', () => {
     '/pages/help-feedback/index'
   );
 });
+
+test('article list is a public action shared by homepage and profile', () => {
+  assert.deepEqual(ACTION_TARGETS['article-list'], {
+    title: '文章资讯',
+    path: '/pages/articles/index'
+  });
+  assert.ok(appConfig.pages.includes('pages/articles/index'));
+  assert.ok(appConfig.pages.includes('pages/article-detail/index'));
+});

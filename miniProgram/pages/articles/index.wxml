@@ -1,0 +1,32 @@
+<flow-navigation title="文章资讯" bind:back="handleBack" />
+
+<view class="articles-page">
+  <view class="articles-heading">
+    <text class="articles-heading__title">最新文章</text>
+    <text class="articles-heading__note">下拉可刷新最新内容</text>
+  </view>
+
+  <page-state wx:if="{{state !== 'success'}}" state="{{state}}" message="{{stateMessage}}" bind:retry="retry" />
+
+  <view wx:if="{{state === 'success'}}" class="article-list">
+    <view wx:for="{{items}}" wx:key="articleId" class="article-card tap-target" data-id="{{item.articleId}}" bindtap="openArticle" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+      <image wx:if="{{item.coverImageUrl}}" class="article-card__cover" src="{{item.coverImageUrl}}" mode="aspectFill" />
+      <view wx:else class="article-card__placeholder"><text>文</text></view>
+      <view class="article-card__copy">
+        <text class="article-card__title">{{item.title}}</text>
+        <text wx:if="{{item.summary}}" class="article-card__summary">{{item.summary}}</text>
+        <view class="article-card__meta">
+          <text wx:if="{{item.category}}" class="article-card__category">{{item.category}}</text>
+          <text wx:if="{{item.publishedAtDisplay}}">{{item.publishedAtDisplay}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{loadingMore}}" class="article-pagination">正在加载更多…</view>
+    <view wx:if="{{loadMoreError}}" class="article-pagination article-pagination--error">
+      <text>{{loadMoreError}}</text>
+      <button wx:if="{{hasMore}}" class="article-pagination__retry tap-target" bindtap="retryLoadMore" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">重试</button>
+    </view>
+    <view wx:if="{{!hasMore && !loadingMore && !loadMoreError}}" class="article-pagination">暂无更多文章</view>
+  </view>
+</view>

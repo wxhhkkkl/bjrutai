@@ -66,6 +66,32 @@
                 </view>
             </view>
 
+            <view class="home-articles">
+                <view class="heading-row home-articles__heading">
+                    <text class="section-title">文章资讯</text>
+                    <view class="heading-link tap-target" data-id="article-list" bindtap="action" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">查看全部 ›</view>
+                </view>
+
+                <view wx:if="{{articleState === 'loading'}}" class="home-articles__state">文章加载中…</view>
+                <view wx:elif="{{articleState === 'empty'}}" class="home-articles__state">暂无文章，可稍后查看</view>
+                <view wx:elif="{{articleState === 'recoverable-error'}}" class="home-articles__state home-articles__state--error">
+                    <text>{{articleStateMessage}}</text>
+                    <button class="home-articles__retry tap-target" bindtap="retryArticles" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">重试</button>
+                </view>
+                <view wx:else class="home-article-list">
+                    <view wx:for="{{articleItems}}" wx:key="articleId" class="home-article-item tap-target" data-id="{{item.articleId}}" bindtap="openArticle" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+                        <image wx:if="{{item.coverImageUrl}}" class="home-article-item__cover" src="{{item.coverImageUrl}}" mode="aspectFill" />
+                        <view wx:else class="home-article-item__placeholder">文</view>
+                        <view class="home-article-item__copy">
+                            <text class="home-article-item__title">{{item.title}}</text>
+                            <text wx:if="{{item.summary}}" class="home-article-item__summary">{{item.summary}}</text>
+                            <text class="home-article-item__meta">{{item.category || item.publishedAtDisplay || '文章资讯'}}</text>
+                        </view>
+                        <text class="home-article-item__arrow">›</text>
+                    </view>
+                </view>
+            </view>
+
             <block wx:if="{{notices.length}}">
                 <text class="section-title">最新通知</text>
                 <view class="qualification">

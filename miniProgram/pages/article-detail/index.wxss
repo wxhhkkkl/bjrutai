@@ -1,0 +1,17 @@
+page { min-height: 100%; background: #f6f8fb; }
+.article-detail-page { min-height: 100vh; padding: 24rpx 28rpx calc(56rpx + constant(safe-area-inset-bottom)); padding: 24rpx 28rpx calc(56rpx + env(safe-area-inset-bottom)); box-sizing: border-box; }
+.article-detail-card { display: block; max-width: 100%; padding: 38rpx 32rpx 48rpx; overflow: hidden; background: #ffffff; border: 1rpx solid #e9edf3; border-radius: 28rpx; box-shadow: 0 12rpx 30rpx rgba(31, 61, 105, 0.06); box-sizing: border-box; }
+.article-detail-title { display: block; color: #111722; font-size: 46rpx; font-weight: 700; line-height: 1.38; word-break: break-all; }
+.article-detail-meta { margin-top: 22rpx; display: flex; align-items: center; flex-wrap: wrap; gap: 12rpx 18rpx; color: #818a98; font-size: 23rpx; line-height: 1.5; }
+.article-detail-category { padding: 5rpx 12rpx; color: #1677ff; background: #edf5ff; border-radius: 8rpx; }
+.article-detail-cover { display: block; width: 100%; max-width: 100%; margin-top: 30rpx; border-radius: 20rpx; }
+.article-detail-summary { display: block; margin-top: 30rpx; padding: 22rpx 24rpx; color: #536173; font-size: 28rpx; line-height: 1.75; background: #f5f8fc; border-radius: 16rpx; }
+.article-rich-text { display: block; width: 100%; max-width: 100%; margin-top: 34rpx; overflow: hidden; color: #252d38; font-size: 30rpx; line-height: 1.9; word-break: break-word; }
+.article-rich-text img { max-width: 100% !important; height: auto !important; }
+.article-empty-content { margin-top: 34rpx; padding: 56rpx 20rpx; color: #8a93a0; font-size: 27rpx; line-height: 1.5; text-align: center; background: #f8fafc; border-radius: 18rpx; }
+.article-detail-state { min-height: 560rpx; display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 60rpx 30rpx; text-align: center; }
+.article-detail-state__symbol { color: #a7afbb; font-size: 92rpx; line-height: 1; }
+.article-detail-state__title { margin-top: 24rpx; color: #222b37; font-size: 34rpx; font-weight: 600; }
+.article-detail-state__message { margin-top: 14rpx; color: #7b8492; font-size: 27rpx; line-height: 1.6; }
+.article-detail-state__action { min-width: 190rpx; height: 76rpx; margin-top: 34rpx; display: flex; align-items: center; justify-content: center; color: #ffffff; font-size: 27rpx; background: #1677ff; border: 0; border-radius: 999rpx; }
+@media (max-width: 350px) { .article-detail-page { padding-right: 22rpx; padding-left: 22rpx; } .article-detail-card { padding-right: 26rpx; padding-left: 26rpx; } .article-detail-title { font-size: 41rpx; } }

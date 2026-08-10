@@ -179,6 +179,11 @@ page {
     border-bottom: 1rpx solid #e7eaee;
 }
 
+.profile-service-grid[data-multirow="true"] .profile-service-item:nth-child(3),
+.profile-service-grid[data-multirow="true"] .profile-service-item:nth-child(4) {
+    border-bottom: 1rpx solid #e7eaee;
+}
+
 .profile-service-icon {
     width: 94rpx;
     height: 100rpx;

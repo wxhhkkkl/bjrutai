@@ -45,6 +45,10 @@ const ACTION_TARGETS = {
         path: '/pages/contribution-detail/index',
         capability: 'contribution'
     },
+    'article-list': {
+        title: '文章资讯',
+        path: '/pages/articles/index'
+    },
     'org-performance': {
         title: '组织业绩',
         path: '/pages/org-performance/index',
