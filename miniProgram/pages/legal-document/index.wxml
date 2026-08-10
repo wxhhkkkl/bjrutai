@@ -1,0 +1,20 @@
+<flow-navigation title="{{document.title || '协议与政策'}}" bind:back="handleBack" />
+
+<scroll-view class="legal-page" scroll-y="true" enhanced="true" show-scrollbar="false">
+  <view wx:if="{{document}}" class="legal-card">
+    <text class="legal-title">{{document.title}}</text>
+    <text class="legal-meta">版本 {{document.version}} · 生效日期：{{document.effectiveDate}}</text>
+    <text class="legal-intro">{{document.intro}}</text>
+
+    <view wx:for="{{document.sections}}" wx:key="title" class="legal-section">
+      <text class="legal-section__title">{{item.title}}</text>
+      <text wx:for="{{item.paragraphs}}" wx:for-item="paragraph" wx:key="*this" class="legal-paragraph">{{paragraph}}</text>
+    </view>
+
+    <view class="legal-footer">
+      <van-icon name="shield-o" size="18px" color="#1677ff" />
+      <text>如需帮助，请前往“我的—帮助与反馈”联系我们</text>
+    </view>
+  </view>
+  <view wx:else class="legal-empty">协议内容暂不可用，请返回后重试</view>
+</scroll-view>

@@ -1,16 +1,22 @@
-const { getCustomerDetail } = require('../../models/customer-detail');
-const { BINDING_RECORDS } = require('../../models/binding-records');
+const customerService = require('../../services/customer-service')
+const { adaptCustomerDetail } = require('../../models/customer-detail')
 const {
   EDITABLE_CUSTOMER_FIELDS,
   createCustomerEditForm,
   validateEditField,
-  validateCustomerEditForm
-} = require('../../models/customer-edit');
+  validateCustomerEditForm,
+  adaptCustomerEditResponse
+} = require('../../models/customer-edit')
+
+const BLOCKED_FIELDS = new Set(['idCard', 'medicalAccount'])
 
 Page({
   data: {
-    customer: getCustomerDetail('customer-001'),
-    form: createCustomerEditForm(getCustomerDetail('customer-001')),
+    state: 'loading',
+    stateMessage: '',
+    customer: {},
+    form: createCustomerEditForm({}),
+    originalForm: createCustomerEditForm({}),
     noteLength: 0,
     editorVisible: false,
     editorField: '',
@@ -22,36 +28,35 @@ Page({
   },
 
   onLoad(options = {}) {
-    let customer = getCustomerDetail(options.id);
+    this.customerId = options.id || ''
+    this.loadCustomer()
+  },
 
-    if (options.recordId) {
-      const record = BINDING_RECORDS.find(
-        (item) => item.id === options.recordId
-      );
-
-      if (record) {
-        customer = {
-          ...customer,
-          name: record.name,
-          phone: record.phone,
-          idCard: record.idCard
-        };
-      }
+  async loadCustomer() {
+    this.setData({ state: 'loading', stateMessage: '' })
+    try {
+      const customer = adaptCustomerDetail(await customerService.getCustomer(this.customerId))
+      const form = createCustomerEditForm(customer)
+      this.setData({
+        state: 'success', customer, form, originalForm: Object.assign({}, form), noteLength: String(form.note || '').length
+      })
+    } catch (error) {
+      this.setData({ state: error.kind === 'FORBIDDEN' ? 'forbidden' : 'recoverable-error', stateMessage: error.message || '请稍后再试' })
     }
+  },
 
-    this.setData({
-      customer,
-      form: createCustomerEditForm(customer),
-      noteLength: String(customer.note || '').length
-    });
+  retry() {
+    this.loadCustomer()
   },
 
   openEditor(e) {
-    const field = e.currentTarget.dataset.field;
-    const config = EDITABLE_CUSTOMER_FIELDS[field];
-
-    if (!config) return;
-
+    const field = e.currentTarget.dataset.field
+    if (BLOCKED_FIELDS.has(field)) {
+      wx.showToast({ title: '该敏感字段暂不支持前端修改', icon: 'none' })
+      return
+    }
+    const config = EDITABLE_CUSTOMER_FIELDS[field]
+    if (!config) return
     this.setData({
       editorVisible: true,
       editorField: field,
@@ -60,63 +65,67 @@ Page({
       editorType: config.type,
       editorMaxlength: config.maxlength,
       editorSensitive: config.sensitive
-    });
+    })
   },
 
   onEditorInput(e) {
-    this.setData({ editorValue: e.detail.value });
+    this.setData({ editorValue: e.detail.value })
   },
 
   confirmEditor() {
-    const result = validateEditField(
-      this.data.editorField,
-      this.data.editorValue
-    );
-
+    const result = validateEditField(this.data.editorField, this.data.editorValue)
     if (!result.valid) {
-      wx.showToast({ title: result.message, icon: 'none' });
-      return;
+      wx.showToast({ title: result.message, icon: 'none' })
+      return
     }
-
-    this.setData({
-      [`form.${this.data.editorField}`]: result.value,
-      editorVisible: false
-    });
+    this.setData({ [`form.${this.data.editorField}`]: result.value, editorVisible: false })
   },
 
   closeEditor() {
-    this.setData({ editorVisible: false });
+    this.setData({ editorVisible: false })
   },
 
   onNoteInput(e) {
-    const note = e.detail.value;
-
-    this.setData({
-      'form.note': note,
-      noteLength: note.length
-    });
+    const note = e.detail.value
+    this.setData({ 'form.note': note, noteLength: note.length })
   },
 
-  saveChanges() {
-    const result = validateCustomerEditForm(this.data.form);
-
+  async saveChanges() {
+    const result = validateCustomerEditForm(this.data.form)
     if (!result.valid) {
-      wx.showToast({ title: result.message, icon: 'none' });
-      return;
+      wx.showToast({ title: result.message, icon: 'none' })
+      return
+    }
+    const original = this.data.originalForm
+    if (result.value.phone !== original.phone) {
+      wx.showToast({ title: '修改手机号需要后端 changeReason，当前页面暂不提交', icon: 'none' })
+      return
     }
 
-    this.setData({ form: result.value });
-    wx.showToast({
-      title: '资料已更新',
-      icon: 'success'
-    });
+    const payload = {
+      name: result.value.name,
+      note: result.value.note,
+      familyPhone: result.value.familyPhone
+    }
+    try {
+      const response = await customerService.patchCustomer(this.customerId, payload)
+      const updated = adaptCustomerEditResponse(response)
+      this.setData({
+        form: Object.assign({}, this.data.form, updated),
+        originalForm: Object.assign({}, this.data.form, updated),
+        customer: Object.assign({}, this.data.customer, updated)
+      })
+      wx.showToast({ title: '资料已更新', icon: 'success' })
+    } catch (error) {
+      wx.showToast({ title: error.message || '保存失败，请稍后重试', icon: 'none' })
+    }
   },
 
   cancelEdit() {
-    wx.navigateBack();
+    wx.navigateBack()
   },
 
   handleBack() {
-    wx.navigateBack();
+    wx.navigateBack()
   }
-});
+})

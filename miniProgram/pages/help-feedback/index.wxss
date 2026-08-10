@@ -4,39 +4,39 @@ page {
 
 .help-feedback-page {
   min-height: 100vh;
-  padding: 37rpx 42rpx calc(205rpx + constant(safe-area-inset-bottom));
-  padding: 37rpx 42rpx calc(205rpx + env(safe-area-inset-bottom));
+  padding: 42rpx 32rpx calc(218rpx + constant(safe-area-inset-bottom));
+  padding: 42rpx 32rpx calc(218rpx + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, #ffffff 0%, #fbfdff 69%, #f8fbff 100%);
 }
 
 .help-title {
   display: block;
   color: #050505;
-  font-size: 43rpx;
+  font-size: 44rpx;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.25;
 }
 
 .help-description {
   display: block;
-  margin-top: 22rpx;
+  margin-top: 16rpx;
   color: #69717d;
-  font-size: 24rpx;
-  line-height: 1;
+  font-size: 27rpx;
+  line-height: 1.55;
 }
 
 .help-section-title {
   display: block;
-  margin-top: 43rpx;
+  margin-top: 44rpx;
   color: #050505;
-  font-size: 31rpx;
+  font-size: 32rpx;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.25;
 }
 
 .help-faq-card {
-  margin-top: 23rpx;
-  padding: 0 27rpx;
+  margin-top: 22rpx;
+  padding: 0 24rpx;
   background: #ffffff;
   border: 1rpx solid #e7ebf1;
   border-radius: 26rpx;
@@ -44,10 +44,11 @@ page {
 }
 
 .help-faq-row {
-  min-height: 87rpx;
+  min-height: 108rpx;
+  padding: 14rpx 0;
   display: flex;
   align-items: center;
-  gap: 25rpx;
+  gap: 18rpx;
   border-bottom: 1rpx solid #e2e6ec;
   border-radius: 6rpx;
 }
@@ -57,8 +58,8 @@ page {
 }
 
 .help-faq-row__icon {
-  width: 59rpx;
-  height: 59rpx;
+  width: 62rpx;
+  height: 62rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -71,28 +72,29 @@ page {
   min-width: 0;
   flex: 1;
   color: #101419;
-  font-size: 25rpx;
+  font-size: 27rpx;
   font-weight: 500;
+  line-height: 1.4;
 }
 
 .help-section-title--feedback {
-  margin-top: 42rpx;
+  margin-top: 46rpx;
 }
 
 .help-field-label {
   display: block;
-  margin-top: 29rpx;
+  margin-top: 32rpx;
   color: #11151a;
-  font-size: 25rpx;
+  font-size: 27rpx;
   font-weight: 500;
-  line-height: 1;
+  line-height: 1.35;
 }
 
 .help-type-list {
   margin-top: 20rpx;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 17rpx;
+  gap: 16rpx;
   border-radius: 15rpx;
 }
 
@@ -101,15 +103,16 @@ page {
 }
 
 .help-type-option {
-  height: 60rpx;
+  min-height: 76rpx;
+  padding: 0 10rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #1677ff;
-  font-size: 23rpx;
+  font-size: 25rpx;
   background: #ffffff;
   border: 2rpx solid #1677ff;
-  border-radius: 15rpx;
+  border-radius: 18rpx;
 }
 
 .help-type-option--active {
@@ -119,17 +122,17 @@ page {
 }
 
 .help-field-label--description {
-  margin-top: 33rpx;
+  margin-top: 38rpx;
 }
 
 .help-textarea-wrap {
   position: relative;
-  height: 168rpx;
+  height: 220rpx;
   margin-top: 20rpx;
   overflow: hidden;
   background: #ffffff;
   border: 1rpx solid #dfe4eb;
-  border-radius: 19rpx;
+  border-radius: 22rpx;
 }
 
 .help-textarea-wrap--invalid {
@@ -140,10 +143,10 @@ page {
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  padding: 23rpx 23rpx 48rpx;
+  padding: 26rpx 25rpx 52rpx;
   color: #101419;
-  font-size: 23rpx;
-  line-height: 1.5;
+  font-size: 25rpx;
+  line-height: 1.55;
 }
 
 .help-textarea__placeholder {
@@ -152,14 +155,14 @@ page {
 
 .help-textarea__counter {
   position: absolute;
-  right: 22rpx;
-  bottom: 18rpx;
+  right: 24rpx;
+  bottom: 20rpx;
   color: #737b87;
-  font-size: 20rpx;
+  font-size: 22rpx;
 }
 
 .help-upload-heading {
-  margin-top: 31rpx;
+  margin-top: 38rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -171,15 +174,15 @@ page {
 
 .help-upload-heading__limit {
   color: #7a828e;
-  font-size: 20rpx;
+  font-size: 23rpx;
 }
 
 .help-upload-area {
-  min-height: 111rpx;
-  margin-top: 19rpx;
+  min-height: 136rpx;
+  margin-top: 22rpx;
   display: flex;
   align-items: center;
-  gap: 17rpx;
+  gap: 18rpx;
   border-radius: 14rpx;
 }
 
@@ -190,10 +193,10 @@ page {
 .help-upload-button,
 .help-screenshot {
   position: relative;
-  width: 109rpx;
-  height: 109rpx;
+  width: 128rpx;
+  height: 128rpx;
   flex: none;
-  border-radius: 14rpx;
+  border-radius: 18rpx;
 }
 
 .help-upload-button {
@@ -203,7 +206,7 @@ page {
   flex-direction: column;
   gap: 8rpx;
   color: #1677ff;
-  font-size: 19rpx;
+  font-size: 23rpx;
   background: #f7fbff;
   border: 2rpx dashed #8fc1ff;
 }
@@ -237,63 +240,8 @@ page {
 
 .help-upload-hint {
   color: #7a828e;
-  font-size: 20rpx;
-  white-space: nowrap;
-}
-
-.help-support-card {
-  min-height: 103rpx;
-  margin-top: 27rpx;
-  padding: 15rpx 28rpx;
-  display: flex;
-  align-items: center;
-  background: linear-gradient(105deg, #f1f7ff 0%, #ffffff 50%, #edf6ff 100%);
-  border: 1rpx solid #b7d6ff;
-  border-radius: 20rpx;
-}
-
-.help-support-card__icon {
-  width: 76rpx;
-  height: 72rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-}
-
-.help-support-card__copy {
-  min-width: 0;
-  margin-left: 17rpx;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 11rpx;
-}
-
-.help-support-card__title {
-  color: #101419;
-  font-size: 25rpx;
-  font-weight: 600;
-}
-
-.help-support-card__time {
-  color: #68717d;
-  font-size: 20rpx;
-}
-
-.help-support-card__action {
-  width: auto;
-  min-width: 132rpx;
-  height: 60rpx;
-  margin: 0;
-  padding: 0 16rpx;
-  color: #1677ff;
   font-size: 22rpx;
-  line-height: 58rpx;
   white-space: nowrap;
-  background: #ffffff;
-  border: 2rpx solid #1677ff;
-  border-radius: 14rpx;
 }
 
 .help-submit-bar {
@@ -302,8 +250,8 @@ page {
   bottom: 0;
   left: 0;
   z-index: 30;
-  padding: 20rpx 42rpx calc(22rpx + constant(safe-area-inset-bottom));
-  padding: 20rpx 42rpx calc(22rpx + env(safe-area-inset-bottom));
+  padding: 20rpx 32rpx calc(24rpx + constant(safe-area-inset-bottom));
+  padding: 20rpx 32rpx calc(24rpx + env(safe-area-inset-bottom));
   background: rgba(255, 255, 255, 0.98);
   border-top: 1rpx solid #edf0f4;
 }
@@ -337,22 +285,22 @@ page {
 
 .help-submit-bar__hint {
   display: block;
-  margin-top: 20rpx;
+  margin-top: 14rpx;
   color: #8c939e;
-  font-size: 20rpx;
-  line-height: 1;
+  font-size: 22rpx;
+  line-height: 1.4;
   text-align: center;
 }
 
 @media (max-width: 350px) {
   .help-feedback-page {
-    padding-right: 33rpx;
-    padding-left: 33rpx;
+    padding-right: 24rpx;
+    padding-left: 24rpx;
   }
 
   .help-faq-card {
-    padding-right: 21rpx;
-    padding-left: 21rpx;
+    padding-right: 17rpx;
+    padding-left: 17rpx;
   }
 
   .help-type-list {
@@ -360,15 +308,11 @@ page {
   }
 
   .help-type-option {
-    font-size: 21rpx;
+    font-size: 23rpx;
   }
 
   .help-upload-area {
-    gap: 12rpx;
+    gap: 10rpx;
   }
 
-  .help-support-card {
-    padding-right: 20rpx;
-    padding-left: 20rpx;
-  }
 }

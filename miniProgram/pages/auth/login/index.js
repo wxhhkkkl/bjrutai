@@ -1,6 +1,6 @@
 const authService = require('../../../services/auth-service');
 const sessionService = require('../../../services/session-service');
-const { validateLoginAuthorization } = require('../../../models/auth-onboarding');
+const { validateLoginConsent } = require('../../../models/auth-onboarding');
 
 Page({
   data: {
@@ -24,19 +24,13 @@ Page({
 
   openDocument(event) {
     const type = event.currentTarget.dataset.type;
-    const title = type === 'privacy' ? '隐私政策' : '用户协议';
-
-    wx.showModal({
-      title,
-      content: `${title}演示文本，正式环境将展示完整协议内容。`,
-      showCancel: false,
-      confirmText: '知道了'
-    });
+    if (type !== 'agreement' && type !== 'privacy') return;
+    wx.navigateTo({ url: `/pages/legal-document/index?type=${type}` });
   },
 
   // ── Distributor phone + password login (T052 / FR-027) ─────────
   async login() {
-    const validation = validateLoginAuthorization(this.data);
+    const validation = validateLoginConsent(this.data);
     if (!validation.ok) {
       wx.showToast({ title: validation.message, icon: 'none' });
       return;
@@ -64,11 +58,16 @@ Page({
     }
   },
 
-  // ── WeChat quick login (existing flow, wired to real API) ──────
-  wechatLogin() {
-    const validation = validateLoginAuthorization(this.data);
+  // ── WeChat phone authorization + login ─────────────────────────
+  wechatLogin(event) {
+    const validation = validateLoginConsent(this.data);
     if (!validation.ok) {
       wx.showToast({ title: validation.message, icon: 'none' });
+      return;
+    }
+    const phoneCode = event && event.detail && event.detail.code;
+    if (!phoneCode) {
+      wx.showToast({ title: '请授权手机号后继续登录', icon: 'none' });
       return;
     }
     if (this.data.loggingIn) return;
@@ -77,7 +76,7 @@ Page({
     wx.login({
       success: async ({ code }) => {
         try {
-          const result = await authService.wechatLogin(code);
+          const result = await authService.wechatLogin(code, phoneCode);
           await this.completeLogin(result);
         } catch (err) {
           wx.showToast({ title: (err && err.message) || '登录失败，请重试', icon: 'none' });
@@ -90,29 +89,14 @@ Page({
 
   // Share token storage + session building + routing between both paths.
   async completeLogin(result) {
-    const accessToken = result.accessToken;
-    const refreshToken = result.refreshToken;
-    authService.setTokens(accessToken, refreshToken);
+    const established = await authService.establishSession(result);
 
-    let user = {};
-    if (result.user) {
-      user = result.user;
-    } else if (accessToken) {
-      try {
-        const session = await authService.getSession(accessToken);
-        user = session.user || {};
-      } catch {
-        // session fetch optional — fall back to the login payload
-      }
-    }
-
-    const distributor = result.distributor || {};
-    sessionService.setSession(
-      sessionService.buildDistributorSession(user, distributor)
-    );
-
-    if (result.requiresWechatBinding) {
+    if (established.requiresWechatBinding) {
       wx.redirectTo({ url: '/pages/auth/bind-wechat/index' });
+      return;
+    }
+    if (established.isNewUser || !established.session.profileCompleted) {
+      wx.redirectTo({ url: '/pages/auth/profile-setup/index' });
       return;
     }
     wx.switchTab({ url: '/pages/home/index' });

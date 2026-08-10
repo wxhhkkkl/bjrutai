@@ -1,94 +1,89 @@
+const customerService = require('../../services/customer-service')
 const {
   CUSTOMER_DETAIL_TABS,
   CONTRIBUTION_FILTERS,
-  SERVICE_RECORDS,
-  CONTRIBUTION_RECORDS,
   normalizeCustomerDetailTab,
-  getCustomerDetail,
-  filterContributionRecords
-} = require('../../models/customer-detail');
+  filterContributionRecords,
+  adaptCustomerDetail
+} = require('../../models/customer-detail')
+
+function errorState(error) {
+  return error && error.kind === 'FORBIDDEN' ? 'forbidden' : 'recoverable-error'
+}
 
 Page({
+  requestVersion: 0,
   data: {
+    state: 'loading',
+    stateMessage: '',
     tabs: CUSTOMER_DETAIL_TABS,
     currentTab: 'info',
-    customer: getCustomerDetail('customer-001'),
+    customer: {},
     heroAvatar: '/assets/images/customer-avatar-purple.png',
-    services: SERVICE_RECORDS,
+    services: [],
     contributionFilters: CONTRIBUTION_FILTERS,
     selectedContributionFilter: 'all',
-    contributions: CONTRIBUTION_RECORDS
+    contributions: [],
+    blockedMessage: '服务记录、消费明细和跟进功能暂不可用，请以后端权限校验为准。'
   },
 
   onLoad(options = {}) {
-    const currentTab = normalizeCustomerDetailTab(options.tab);
-    const customer = getCustomerDetail(options.id);
+    this.customerId = options.id || ''
+    this.requestDetail(options.tab)
+  },
 
-    this.setData({
-      currentTab,
-      customer,
-      heroAvatar: currentTab === 'contribution'
-        ? customer.contributionAvatar
-        : customer.avatar
-    });
+  onUnload() {
+    this.requestVersion += 1
+  },
+
+  async requestDetail(tab) {
+    const version = ++this.requestVersion
+    this.setData({ state: 'loading', stateMessage: '' })
+    try {
+      const payload = await customerService.getCustomer(this.customerId)
+      if (version !== this.requestVersion) return
+      const customer = adaptCustomerDetail(payload)
+      this.setData({
+        state: 'success',
+        currentTab: normalizeCustomerDetailTab(tab) === 'info' ? 'info' : 'info',
+        customer,
+        heroAvatar: customer.avatar
+      })
+    } catch (error) {
+      if (version !== this.requestVersion) return
+      this.setData({ state: errorState(error), stateMessage: error.message || '请稍后再试' })
+    }
+  },
+
+  retry() {
+    this.requestDetail(this.data.currentTab)
   },
 
   selectTab(e) {
-    const currentTab = normalizeCustomerDetailTab(
-      e.currentTarget.dataset.id
-    );
-
-    this.setData({
-      currentTab,
-      heroAvatar: currentTab === 'contribution'
-        ? this.data.customer.contributionAvatar
-        : this.data.customer.avatar
-    });
-
-    wx.pageScrollTo({
-      scrollTop: 0,
-      duration: 180
-    });
+    const currentTab = normalizeCustomerDetailTab(e.currentTarget.dataset.id)
+    if (currentTab !== 'info') {
+      wx.showToast({ title: this.data.blockedMessage, icon: 'none' })
+      return
+    }
+    this.setData({ currentTab, heroAvatar: this.data.customer.avatar })
+    wx.pageScrollTo({ scrollTop: 0, duration: 180 })
   },
 
   selectContributionFilter(e) {
-    const selectedContributionFilter = e.currentTarget.dataset.id;
-
-    this.setData({
-      selectedContributionFilter,
-      contributions: filterContributionRecords(
-        CONTRIBUTION_RECORDS,
-        selectedContributionFilter
-      )
-    });
+    this.setData({ selectedContributionFilter: e.currentTarget.dataset.id, contributions: [] })
+    wx.showToast({ title: this.data.blockedMessage, icon: 'none' })
   },
 
   editCustomer() {
-    wx.navigateTo({
-      url: `/pages/customer-edit/index?id=${this.data.customer.id}`
-    });
+    wx.navigateTo({ url: `/pages/customer-edit/index?id=${this.data.customer.id}` })
   },
 
   openBindingRecords() {
-    wx.navigateTo({ url: '/pages/binding-records/index' });
+    wx.navigateTo({ url: '/pages/binding-records/index' })
   },
 
-  openService(e) {
-    const service = this.data.services.find(
-      (item) => item.id === e.currentTarget.dataset.id
-    );
-
-    if (!service) return;
-
-    if (service.status === '待跟进') {
-      this.openFollowupRecord();
-      return;
-    }
-
-    wx.showToast({
-      title: '该服务已完成',
-      icon: 'none'
-    });
+  openService() {
+    wx.showToast({ title: this.data.blockedMessage, icon: 'none' })
   },
 
   contactCustomer() {
@@ -97,20 +92,14 @@ Page({
       content: `客户手机号：${this.data.customer.phone}`,
       showCancel: false,
       confirmText: '我知道了'
-    });
+    })
   },
 
   recordFollowup() {
-    this.openFollowupRecord();
-  },
-
-  openFollowupRecord() {
-    wx.navigateTo({
-      url: `/pages/followup-record/index?id=${this.data.customer.id}`
-    });
+    wx.showToast({ title: this.data.blockedMessage, icon: 'none' })
   },
 
   handleBack() {
-    wx.navigateBack();
+    wx.navigateBack()
   }
-});
+})

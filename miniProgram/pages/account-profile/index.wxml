@@ -18,7 +18,7 @@
       </view>
     </view>
     <view class="account-identity-copy">
-      <text class="account-identity-name">{{form.name || '张小明'}}</text>
+      <text class="account-identity-name">{{form.name || '未设置姓名'}}</text>
       <text class="account-identity-role">{{view.identityDisplay}}</text>
     </view>
     <view
@@ -72,10 +72,12 @@
         class="account-phone-action tap-target"
         open-type="getPhoneNumber"
         bindgetphonenumber="authorizePhone"
+        loading="{{phoneBinding}}"
+        disabled="{{phoneBinding}}"
         hover-class="tap-feedback"
         hover-start-time="0"
         hover-stay-time="80"
-      >更换</button>
+      >{{phoneBinding ? '授权中' : '授权/更换'}}</button>
       <van-icon name="arrow" size="21px" color="#858c98" />
     </view>
   </view>

@@ -36,6 +36,7 @@ from ...models.binding import (
 from ...models.bill import Bill
 from ...models.followup import FollowupMethod, FollowupRecord, FollowupResult, ReminderStatus
 from ...models.distributor import Distributor
+from ...models.notification import Notification, NotificationCategory
 from ...models.user import User, UserType
 
 router = APIRouter(prefix="/customers", tags=["customers"])
@@ -601,6 +602,13 @@ async def create_followup(
         version=1,
     )
     db.add(followup)
+    db.add(Notification(
+        user_id=user_id,
+        category=NotificationCategory.FOLLOWUP,
+        title="客户跟进已记录",
+        summary=f"{customer.name or '客户'}的跟进记录已保存",
+        target=f"/pages/customer-detail/index?id={customer_id}",
+    ))
     await db.commit()
     await db.refresh(followup)
 

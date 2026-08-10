@@ -1,6 +1,7 @@
 const { getCurrentSession } = require('../../services/session-service');
 const { requestOrgPerformance } = require('../../services/org-performance-service');
 const { requestOrgCommission } = require('../../services/commission-service');
+const { formatYuan } = require('../../utils/money');
 
 const MONTHS = ['2026-07', '2026-08', '2026-09'];
 
@@ -10,8 +11,7 @@ function formatNumber(value) {
 }
 
 function fmtYuan(cent) {
-  const num = Number(cent) || 0;
-  return (num / 100).toFixed(2);
+  return formatYuan(Number.isSafeInteger(cent) ? cent : 0, { symbol: false });
 }
 function fmtRatio(ratio) {
   return `${(Number(ratio) * 100).toFixed(2)}%`;

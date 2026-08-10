@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import desc, select, update
+from sqlalchemy import desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_current_user, get_db
@@ -86,12 +86,12 @@ async def list_notifications(
 
     # Count unread
     unread_result = await db.execute(
-        select(Notification).where(
+        select(func.count(Notification.id)).where(
             Notification.user_id == user_id,
             Notification.is_read == False,
         )
     )
-    unread_count = len(unread_result.scalars().all())
+    unread_count = unread_result.scalar() or 0
 
     return _ok({
         "items": data_items,
@@ -102,6 +102,25 @@ async def list_notifications(
 
 
 # ──────────────────────────────────────────────────────────────────
+# POST /notifications/read-all
+# ──────────────────────────────────────────────────────────────────
+@router.post("/read-all")
+async def mark_all_as_read(
+    db: AsyncSession = Depends(get_db),
+    payload: dict = Depends(get_current_user),
+) -> dict:
+    """Mark every unread notification belonging to the current user as read."""
+    user_id = int(payload["sub"])
+    now = datetime.now(timezone.utc)
+    result = await db.execute(
+        update(Notification)
+        .where(Notification.user_id == user_id, Notification.is_read == False)
+        .values(is_read=True, read_at=now)
+    )
+    await db.commit()
+    return _ok({"updatedCount": result.rowcount or 0, "isRead": True, "readAt": now.isoformat()})
+
+
 # POST /notifications/{id}/read
 # ──────────────────────────────────────────────────────────────────
 @router.post("/{notification_id}/read")

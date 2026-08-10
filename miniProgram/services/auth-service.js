@@ -1,105 +1,197 @@
-/**
- * Auth API service (T052 / FR-027).
- *
- * Distributor phone+password login and first-login WeChat binding. Backend
- * endpoints live under /api/v1/auth/. Set USE_MOCK = true to run the demo
- * without a backend.
- */
-const USE_MOCK = false;
-
-const TOKEN_KEY = 'lutai_access_token';
-const REFRESH_KEY = 'lutai_refresh_token';
-
-const MOCK_LOGIN = {
-  accessToken: 'mock-access-token',
-  refreshToken: 'mock-refresh-token',
-  expiresIn: 7200,
-  tokenType: 'Bearer',
-  requiresWechatBinding: false,
-  distributor: {
-    distributorId: '1001',
-    orgId: '1001',
-    orgName: '北京儒泰总部',
-    orgRole: 'admin',
-    name: '张小明',
-    phone: '138****1028',
-    status: 'active',
-  },
-};
-
-function getApiBase() {
-  return getApp().globalData.apiBase || 'http://127.0.0.1:8000';
-}
-
-function request(path, { method = 'GET', data, token } = {}) {
-  return new Promise((resolve, reject) => {
-    wx.request({
-      url: `${getApiBase()}${path}`,
-      method,
-      data,
-      header: token ? { Authorization: `Bearer ${token}` } : {},
-      success: (res) => {
-        const body = res.data || {};
-        if (res.statusCode >= 400 || (body.code !== undefined && body.code !== 0)) {
-          reject(new Error(body.message || `请求失败 (${res.statusCode})`));
-          return;
-        }
-        resolve(body.data !== undefined ? body.data : body);
-      },
-      fail: () => reject(new Error('网络异常，请检查后端服务是否启动')),
-    });
-  });
-}
+const sessionService = require('./session-service')
+const {
+  request,
+  setAuthHandlers
+} = require('./request-service')
 
 function distributorLogin(phone, password) {
-  if (USE_MOCK) {
-    return Promise.resolve({ ...MOCK_LOGIN });
-  }
   return request('/api/v1/auth/distributor-login', {
     method: 'POST',
-    data: { phone, password },
-  });
+    auth: false,
+    retryAfterRefresh: false,
+    data: { phone, password }
+  })
 }
 
-function bindWechat(code, token) {
-  if (USE_MOCK) {
-    return Promise.resolve({ bound: true, openId: 'mock-openid' });
-  }
+function bindWechat(code) {
   return request('/api/v1/auth/bind-wechat', {
     method: 'POST',
-    data: { code },
-    token,
-  });
+    data: { code }
+  })
 }
 
-function wechatLogin(code) {
-  if (USE_MOCK) {
-    return Promise.resolve({ ...MOCK_LOGIN });
-  }
+function distributorRegister(phone, password, name) {
+  return request('/api/v1/auth/distributor-register', {
+    method: 'POST',
+    auth: false,
+    retryAfterRefresh: false,
+    data: { phone, password, name }
+  })
+}
+
+function wechatLogin(code, phoneCode) {
+  const data = { code }
+  if (phoneCode) data.phoneCode = phoneCode
   return request('/api/v1/auth/wechat-login', {
     method: 'POST',
-    data: { code },
-  });
+    auth: false,
+    retryAfterRefresh: false,
+    data
+  })
 }
 
-function getSession(token) {
-  return request('/api/v1/auth/session', { token });
+function getSession() {
+  return request('/api/v1/auth/session')
+}
+
+function phoneBind(code) {
+  return request('/api/v1/auth/phone-bind', {
+    method: 'POST',
+    data: { code }
+  })
+}
+
+function refreshTokens() {
+  const refreshToken = sessionService.getRefreshToken()
+  if (!refreshToken) return Promise.reject(new Error('刷新凭证不存在'))
+
+  return request('/api/v1/auth/refresh', {
+    method: 'POST',
+    auth: false,
+    retryAfterRefresh: false,
+    data: { refreshToken }
+  }).then((result) => {
+    sessionService.setTokens(result.accessToken, result.refreshToken)
+    return result
+  })
+}
+
+function logout() {
+  return request('/api/v1/auth/logout', {
+    method: 'POST',
+    retryAfterRefresh: false
+  })
 }
 
 function setTokens(accessToken, refreshToken) {
-  wx.setStorageSync(TOKEN_KEY, accessToken || '');
-  wx.setStorageSync(REFRESH_KEY, refreshToken || '');
+  sessionService.setTokens(accessToken, refreshToken)
 }
 
 function getAccessToken() {
-  return wx.getStorageSync(TOKEN_KEY) || '';
+  return sessionService.getAccessToken()
 }
+
+function sessionFromPayload(payload, preserveSession, wechatBound) {
+  const value = payload || {}
+  const user = Object.assign({}, value.user, {
+    permissions: value.permissions || []
+  })
+  const preserved = preserveSession || {}
+  const distributor = {
+    distributorId: preserved.distributorId,
+    orgId: preserved.orgId,
+    orgName: preserved.orgName || preserved.organization,
+    orgRole: preserved.orgRole,
+    status: preserved.activationStatus === 'inactive' ? 'disabled' : 'active'
+  }
+  const session = sessionService.buildDistributorSession(user, distributor)
+
+  session.permissions = Array.isArray(value.permissions)
+    ? value.permissions.slice()
+    : []
+  session.wechatBound = wechatBound === undefined
+    ? Boolean(user.openId || preserved.wechatBound)
+    : wechatBound === true
+  return session
+}
+
+function restoreSession(options = {}) {
+  return getSession().then((payload) => {
+    const session = sessionFromPayload(
+      payload,
+      options.preserveSession,
+      options.wechatBound
+    )
+    sessionService.setSession(session)
+    return session
+  })
+}
+
+async function establishSession(result = {}) {
+  if (!result.accessToken || !result.refreshToken) {
+    throw new Error('登录响应缺少访问凭证')
+  }
+
+  setTokens(result.accessToken, result.refreshToken)
+  const seedSession = sessionService.buildDistributorSession(
+    result.user,
+    result.distributor
+  )
+
+  if (result.requiresWechatBinding) {
+    seedSession.wechatBound = false
+    sessionService.setSession(seedSession)
+    return {
+      requiresWechatBinding: true,
+      isNewUser: false,
+      session: seedSession
+    }
+  }
+
+  if (result.user && result.user.isNewUser === true) {
+    seedSession.profileCompleted = false
+    seedSession.wechatBound = true
+    sessionService.setSession(seedSession)
+    return {
+      requiresWechatBinding: false,
+      isNewUser: true,
+      session: seedSession
+    }
+  }
+
+  const session = await restoreSession({
+    preserveSession: seedSession,
+    wechatBound: true
+  })
+  return {
+    requiresWechatBinding: false,
+    isNewUser: false,
+    session
+  }
+}
+
+async function logoutAndClear() {
+  try {
+    await logout()
+  } finally {
+    sessionService.clearAuthenticatedSession()
+  }
+}
+
+function clearSessionAndReturnToLogin() {
+  sessionService.clearAuthenticatedSession()
+  if (typeof wx !== 'undefined' && wx.reLaunch) {
+    wx.reLaunch({ url: '/pages/auth/login/index' })
+  }
+}
+
+setAuthHandlers({
+  refreshAccessToken: refreshTokens,
+  onAuthExpired: clearSessionAndReturnToLogin
+})
 
 module.exports = {
   distributorLogin,
+  distributorRegister,
   bindWechat,
   wechatLogin,
   getSession,
+  phoneBind,
+  refreshTokens,
+  logout,
+  logoutAndClear,
+  establishSession,
+  restoreSession,
   setTokens,
-  getAccessToken,
-};
+  getAccessToken
+}

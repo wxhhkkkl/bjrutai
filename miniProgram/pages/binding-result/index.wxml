@@ -67,7 +67,7 @@
       </view>
       <view class="info-row">
         <text>归属拓展人</text>
-        <text class="info-row__value">张小明</text>
+        <text class="info-row__value">暂不可用</text>
       </view>
       <view class="info-row">
         <text>提交时间</text>

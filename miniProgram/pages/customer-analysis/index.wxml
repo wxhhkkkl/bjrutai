@@ -28,6 +28,10 @@
     </picker>
   </view>
 
+  <page-state state="{{state}}" message="{{stateMessage}}" bind:retry="retry" />
+
+  <block wx:if="{{state === 'success'}}">
+
   <view class="analysis-card overview-card">
     <text class="analysis-title">客户概览</text>
     <view class="overview-metrics">
@@ -208,4 +212,5 @@
     <van-icon name="replay" size="18px" color="#1677ff" />
     <text>统计数据更新于今天 09:30</text>
   </view>
+  </block>
 </view>

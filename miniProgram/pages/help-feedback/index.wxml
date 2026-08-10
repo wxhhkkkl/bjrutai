@@ -105,23 +105,6 @@
     <text class="help-upload-hint">支持 JPG、PNG</text>
   </view>
 
-  <view class="help-support-card">
-    <view class="help-support-card__icon">
-      <van-icon name="service-o" size="39px" color="#1677ff" />
-    </view>
-    <view class="help-support-card__copy">
-      <text class="help-support-card__title">仍未解决？</text>
-      <text class="help-support-card__time">工作日 9:00-18:00</text>
-    </view>
-    <button
-      class="help-support-card__action tap-target"
-      open-type="contact"
-      bindcontact="handleContact"
-      hover-class="tap-feedback"
-      hover-start-time="0"
-      hover-stay-time="80"
-    >联系客服</button>
-  </view>
 </view>
 
 <view class="help-submit-bar">

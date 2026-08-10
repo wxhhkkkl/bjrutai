@@ -30,9 +30,40 @@ $speckit-constitution
 
 - 微信原生小程序
 - WXML / WXSS / JavaScript
-- Skyline renderer
+- WebView renderer
 - Glass-easel component framework
 - Vant Weapp（`@vant/weapp`，按功能需要引入）
+
+## Local Development
+
+1. 使用微信开发者工具导入本目录 `miniProgram/`，不要导入仓库根目录。
+2. 在本目录安装依赖并使用开发者工具的“工具 → 构建 npm”。生成的 `miniprogram_npm/` 和 `project.private.config.json` 只保留在本机，不提交。
+3. 当前开发联调后端地址为 `http://192.168.110.24:8000`，本地联调可在开发者工具中勾选“不校验合法域名”；如果后端 IP 变化，只需同步修改 `config/env.js`。
+4. 体验版和正式版必须在 `config/env.js` 配置已备案 HTTPS API 地址；未配置时小程序会报告环境配置错误，且不会回退到 Mock。
+5. Mock 默认关闭。只有开发版显式设置本地 `lutai_dev_use_mock=true` 才允许启用，体验版和正式版始终禁用。
+
+## Tests
+
+测试使用 Node 内置的 `node:test`，要求 Node.js 18 或更高版本：
+
+```bash
+node --test tests/unit/*.test.js tests/contract/*.test.js
+```
+
+联调功能增加集成测试后运行：
+
+```bash
+node --test tests/unit/*.test.js tests/contract/*.test.js tests/integration/*.test.js
+```
+
+不要使用本机 Node 12 运行测试；它不支持 `node --test`。
+
+## API Integration Boundary
+
+- 小程序只访问北京后端 `/api/v1`，不直连数据库、哈尔滨儒泰接口或腾讯云密钥。
+- 金额从后端接收整数分，只在展示时格式化为元。
+- 手机号、身份证号、医保账户等敏感字段只展示后端脱敏值，不写入日志或测试快照。
+- 发现前后端契约不一致时记录在 `../specs/011-miniprogram-api-integration/contracts/page-api-matrix.md`，不得通过页面假数据掩盖。
 
 ## Development Rules
 

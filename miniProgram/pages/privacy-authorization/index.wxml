@@ -46,8 +46,10 @@
       <view class="privacy-authorization-row__icon">
         <van-icon name="phone-o" size="25px" color="#1677ff" />
       </view>
-      <text class="privacy-authorization-row__title">授权手机号</text>
-      <text class="privacy-authorization-row__phone">{{authorization.phone}}</text>
+      <view class="privacy-authorization-row__copy">
+        <text class="privacy-authorization-row__title">授权手机号</text>
+        <text class="privacy-authorization-row__phone">{{authorization.phone}}</text>
+      </view>
       <text class="privacy-authorization-row__status privacy-authorization-row__status--green">{{authorization.phoneLabel}}</text>
     </view>
 

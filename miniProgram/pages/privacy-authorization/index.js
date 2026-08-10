@@ -7,8 +7,42 @@ const {
   getAuthorizationView,
   getPrivacyDocument
 } = require('../../models/privacy-authorization');
+const complianceService = require('../../services/compliance-service');
 
 const PRIVACY_SETTINGS_KEY = 'lutai_privacy_settings';
+
+function isLegacyVersionValidation(error) {
+  return Boolean(error && (
+    error.httpStatus === 422 ||
+    error.code === 422 ||
+    error.code === 42200
+  ));
+}
+
+async function savePrivacySettingsCompat(settings) {
+  try {
+    return await complianceService.updatePrivacySettings(settings);
+  } catch (error) {
+    if (!isLegacyVersionValidation(error)) throw error;
+
+    const latest = await complianceService.getLatestAgreements();
+    const items = Array.isArray(latest && latest.items) ? latest.items : [];
+    const privacy = items.find((item) => {
+      const type = String(item.type || '').toLowerCase();
+      const title = String(item.title || '');
+      return type === 'privacy' ||
+        type === 'privacy_policy' ||
+        type.includes('privacy') ||
+        /隐私|privacy/i.test(title);
+    });
+    const versions = items
+      .map((item) => Number(item.version))
+      .filter((value) => Number.isInteger(value) && value >= 1);
+    const version = Number(privacy && privacy.version) || Math.max(...versions, 1);
+
+    return complianceService.updatePrivacySettings(Object.assign({}, settings, { version }));
+  }
+}
 
 Page({
   data: {
@@ -25,10 +59,20 @@ Page({
       )
     });
     this.refreshAuthorization();
+    this.loadConsents();
   },
 
   onShow() {
     this.refreshAuthorization();
+  },
+
+  async loadConsents() {
+    try {
+      const result = await complianceService.getConsents();
+      this.setData({ consents: result.items || [] });
+    } catch (error) {
+      this.setData({ consents: [] });
+    }
   },
 
   handleBack() {
@@ -111,15 +155,20 @@ Page({
   },
 
   openDocument(event) {
-    const document = getPrivacyDocument(event.currentTarget.dataset.id);
-
-    if (!document) return;
-    wx.showModal({
-      title: document.title,
-      content: document.content,
-      showCancel: false,
-      confirmText: '知道了'
-    });
+    const type = event.currentTarget.dataset.id;
+    if (type === 'agreement' || type === 'privacy') {
+      wx.navigateTo({ url: `/pages/legal-document/index?type=${type}` });
+      return;
+    }
+    const document = getPrivacyDocument(type);
+    if (document) {
+      wx.showModal({
+        title: document.title,
+        content: document.content,
+        showCancel: false,
+        confirmText: '知道了'
+      });
+    }
   },
 
   revokeNonEssentialAuthorization() {
@@ -138,19 +187,23 @@ Page({
     });
   },
 
-  saveSettings() {
+  async saveSettings() {
     if (this.data.saving) return;
     this.setData({ saving: true });
-    wx.setStorageSync(PRIVACY_SETTINGS_KEY, this.data.settings);
-    wx.showToast({
-      title: '设置已保存',
-      icon: 'success',
-      duration: 900
-    });
+    const settings = createPrivacySettings(this.data.settings);
 
-    setTimeout(() => {
+    try {
+      await savePrivacySettingsCompat({
+        maskSensitive: settings.maskSensitive,
+        personalized: settings.personalized
+      });
+      wx.setStorageSync(PRIVACY_SETTINGS_KEY, settings);
+      wx.showToast({ title: '设置已保存', icon: 'success' });
+      setTimeout(() => this.handleBack(), 700);
+    } catch (error) {
+      wx.showToast({ title: error.message || '保存失败，请稍后重试', icon: 'none' });
+    } finally {
       this.setData({ saving: false });
-      this.handleBack();
-    }, 500);
+    }
   }
 });

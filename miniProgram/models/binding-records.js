@@ -112,10 +112,29 @@ function sortBindingRecords(records, mode) {
   return result;
 }
 
+function adaptBindingRecords(payload = {}) {
+  const items = Array.isArray(payload.items) ? payload.items : []
+  const labels = { pending_match: '待匹配', matching: '匹配中', bound: '已绑定', retrying: '处理中', abnormal: '异常', rejected: '已拒绝', expired: '已过期' }
+  return {
+    items: items.map((item) => {
+      const code = String(item.status || '')
+      const status = code === 'bound' ? 'bound' : code === 'pending_match' || code === 'matching' ? 'matching' : 'processing'
+      return { id: String(item.requestId || ''), name: String(item.customerInfo && item.customerInfo.name || '未命名客户'), phone: String(item.customerInfo && item.customerInfo.phone || ''), idCard: String(item.customerInfo && item.customerInfo.idCard || ''), status, statusCode: code, statusLabel: String(item.statusLabel || labels[code] || '处理中'), statusIcon: status === 'bound' ? 'link-o' : status === 'matching' ? 'clock-o' : 'replay', tone: status === 'bound' ? 'green' : status === 'matching' ? 'blue' : 'orange', note: status === 'matching' ? '已提交，系统持续匹配' : '', detail: String(item.failureReason || ''), submittedAt: String(item.submittedAt || '') }
+    }),
+    nextCursor: payload.nextCursor ? String(payload.nextCursor) : '', hasMore: payload.hasMore === true
+  }
+}
+
+function adaptBindingSummary(payload = {}) {
+  return { total: Number.isSafeInteger(payload.totalBindings) ? payload.totalBindings : 0, bound: Number.isSafeInteger(payload.activeBindings) ? payload.activeBindings : 0, pending: Number.isSafeInteger(payload.pendingRequests) ? payload.pendingRequests : 0, rejected: Number.isSafeInteger(payload.rejectedRequests) ? payload.rejectedRequests : 0, expired: Number.isSafeInteger(payload.expiredRequests) ? payload.expiredRequests : 0 }
+}
+
 module.exports = {
   BINDING_SUMMARY,
   BINDING_FILTERS,
   BINDING_RECORDS,
   filterBindingRecords,
-  sortBindingRecords
+  sortBindingRecords,
+  adaptBindingRecords,
+  adaptBindingSummary
 };

@@ -50,12 +50,19 @@
           <text class="trend-card__total-number">{{chartSummary.total}}</text>
         </view>
       </view>
-      <view class="trend-chart" aria-label="{{chartSummary.label}} {{chartSummary.total}}">
+      <view hidden="{{!hasTrendData}}" class="trend-chart" aria-label="{{chartSummary.label}} {{chartSummary.total}}">
         <ec-canvas
           id="contribution-trend-chart"
           canvas-id="contribution-trend-chart"
           ec="{{ec}}"
         ></ec-canvas>
+      </view>
+      <view wx:if="{{!hasTrendData}}" class="contribution-empty contribution-empty--trend" aria-label="暂无消费趋势数据">
+        <view class="contribution-empty__icon contribution-empty__icon--trend">
+          <van-icon name="bar-chart-o" size="44px" color="#8bb4ed" />
+        </view>
+        <text class="contribution-empty__title">暂无消费趋势</text>
+        <text class="contribution-empty__hint">有消费记录后，趋势将在这里展示</text>
       </view>
     </view>
 
@@ -76,7 +83,7 @@
         </view>
       </view>
 
-      <view class="detail-list">
+      <view wx:if="{{hasDetails}}" class="detail-list">
         <view
           wx:for="{{details}}"
           wx:key="title"
@@ -97,6 +104,13 @@
           </view>
           <van-icon name="arrow" size="22px" color="#8a8f98" />
         </view>
+      </view>
+      <view wx:else class="contribution-empty contribution-empty--details" aria-label="暂无消费明细">
+        <view class="contribution-empty__icon contribution-empty__icon--details">
+          <van-icon name="records-o" size="40px" color="#9aaed0" />
+        </view>
+        <text class="contribution-empty__title">暂无消费明细</text>
+        <text class="contribution-empty__hint">产生消费记录后，会显示在这里</text>
       </view>
     </view>
   </block>

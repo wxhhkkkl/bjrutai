@@ -8,7 +8,7 @@ GET  /me/account-summary   – lightweight account status data
 
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Union
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_current_user, get_db
 from ...core.exceptions import BadRequestException, ConflictException, NotFoundException
-from ...integrations.cos_client import COSClient, get_cos_client
+from ...integrations.cos_client import ALLOWED_CONTENT_TYPES, COSClient, get_cos_client
 from ...models.user import User
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -40,7 +40,9 @@ class ProfileUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     organization: Optional[str] = Field(None, max_length=200)
     avatar: Optional[str] = Field(None, max_length=500)
-    version: int = Field(..., ge=1, description="Client's current profile version for optimistic locking")
+    # User has no integer version column; updated_at is the optimistic-lock version.
+    # Accept int for backwards compatibility, but the current client sends the ISO string from GET /profile.
+    version: Union[str, int] = Field(..., description="Client's current profile version for optimistic locking")
 
 
 class AvatarUploadTokenRequest(BaseModel):
@@ -99,7 +101,7 @@ async def update_profile(
     # Optimistic locking: compare versions
     if user.updated_at is not None:
         current_version = user.updated_at.isoformat()
-        if body.version is not None and str(body.version) != current_version:
+        if str(body.version) != current_version:
             raise ConflictException(
                 message="Profile has been modified by another session. Please refresh and retry.",
                 code=40901,
@@ -137,12 +139,16 @@ async def get_avatar_upload_token(
     user_id = int(payload["sub"])
     cos: COSClient = get_cos_client()
 
+    if body.contentType not in {content_type for content_type in ALLOWED_CONTENT_TYPES if content_type.startswith("image/")}:
+        raise BadRequestException(message="头像仅支持 JPG、PNG、GIF 或 WEBP 图片")
+
     try:
         upload_info = cos.generate_upload_token(
             user_id=user_id,
             file_name=body.fileName,
             content_type=body.contentType,
             file_size=body.fileSize,
+            key_prefix="avatars/",
         )
     except ValueError as exc:
         raise BadRequestException(message=str(exc))

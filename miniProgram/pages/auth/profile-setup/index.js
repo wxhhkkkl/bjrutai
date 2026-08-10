@@ -1,11 +1,10 @@
-const demo = require('../../../mock/demo-control');
 const {
   getCurrentSession
 } = require('../../../services/session-service');
+const authService = require('../../../services/auth-service');
 const {
   createProfileForm,
-  validateProfileForm,
-  completeProfileSession
+  validateProfileForm
 } = require('../../../models/auth-onboarding');
 
 Page({
@@ -54,7 +53,7 @@ Page({
     });
   },
 
-  submitProfile() {
+  async submitProfile() {
     const validation = validateProfileForm(
       this.data.form,
       this.data.confirmed
@@ -72,22 +71,24 @@ Page({
     if (this.data.saving) return;
     this.setData({ saving: true });
 
-    const session = completeProfileSession(
-      demo.getDemoSession(),
-      this.data.form
-    );
-    demo.setDemoSession(session);
+    try {
+      // Mark profile as completed and proceed to home
+      const sessionService = require('../../../services/session-service');
+      const session = sessionService.getCurrentSession();
+      sessionService.setSession(Object.assign({}, session, {
+        profileCompleted: true,
+        name: this.data.form.name || session.name,
+        organization: this.data.form.organization || session.organization
+      }));
+      wx.switchTab({ url: '/pages/home/index' });
+    } catch (error) {
+      wx.showToast({ title: '保存失败，请重试', icon: 'none' });
+    } finally {
+      this.setData({ saving: false });
+    }
+  },
 
-    wx.showToast({
-      title: '资料已提交',
-      icon: 'success',
-      duration: 900
-    });
-
-    setTimeout(() => {
-      wx.switchTab({
-        url: '/pages/home/index'
-      });
-    }, 500);
+  skipProfile() {
+    wx.switchTab({ url: '/pages/home/index' });
   }
 });

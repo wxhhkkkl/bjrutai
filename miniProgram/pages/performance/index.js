@@ -3,10 +3,10 @@
  * 展示当月提成预估 + 历史已确认月份（审核确认后冻结）。
  */
 const { requestMyCommission } = require('../../services/commission-service');
+const { formatYuan } = require('../../utils/money');
 
 function fmtYuan(cent) {
-  const num = Number(cent) || 0;
-  return (num / 100).toFixed(2);
+  return formatYuan(Number.isSafeInteger(cent) ? cent : 0, { symbol: false });
 }
 function fmtRatio(ratio) {
   return `${(Number(ratio) * 100).toFixed(2)}%`;

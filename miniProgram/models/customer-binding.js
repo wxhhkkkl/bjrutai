@@ -78,9 +78,18 @@ function formatBindingTime(date = new Date()) {
   ].join('');
 }
 
+function adaptSelectablePromoters(payload = {}) {
+  const items = Array.isArray(payload.items) ? payload.items : []
+  return {
+    items: items.map((item) => ({ id: String(item.promoterId || ''), name: String(item.displayName || '未命名推广人'), orgName: String(item.orgNodeName || ''), avatar: String(item.avatarUrl || ''), code: String(item.promoterCode || ''), bindingCount: Number.isSafeInteger(item.bindingCount) ? item.bindingCount : 0 })),
+    nextCursor: payload.nextCursor ? String(payload.nextCursor) : '', hasMore: payload.hasMore === true
+  }
+}
+
 module.exports = {
   validateCustomerForm,
   maskPhone,
   maskIdCard,
-  formatBindingTime
+  formatBindingTime,
+  adaptSelectablePromoters
 };

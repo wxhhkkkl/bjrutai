@@ -25,6 +25,7 @@ from ...schemas.binding import (
     UnbindRequest,
     TransferRequest,
 )
+from ...models.notification import Notification, NotificationCategory
 from ...services.binding_service import get_binding_service
 
 router = APIRouter(tags=["binding"])
@@ -87,6 +88,32 @@ async def submit_binding_request(
         submitted_by=user_id,
         idempotency_key=idempotency_key,
     )
+
+    # Keep the initiator and the selected promoter informed of the resulting
+    # binding state.  Notification delivery is best-effort and is committed
+    # together with the binding request so the two records cannot diverge.
+    status = str(result.get("status") or "processing")
+    status_label = str(result.get("statusLabel") or "处理中")
+    target_filter = "bound" if status == "bound" else "matching" if status == "matching" else "processing"
+    customer_info = data.customerInfo.model_dump() if data.customerInfo else {}
+    customer_name = str(customer_info.get("name") or "客户")
+    target = f"/pages/binding-records/index?filter={target_filter}"
+    db.add(Notification(
+        user_id=user_id,
+        category=NotificationCategory.BINDING,
+        title="客户绑定状态更新",
+        summary=f"{customer_name}的绑定状态：{status_label}",
+        target=target,
+    ))
+    promoter_user_id = str(result.get("promoterId") or "")
+    if promoter_user_id and promoter_user_id != str(user_id):
+        db.add(Notification(
+            user_id=int(promoter_user_id),
+            category=NotificationCategory.BINDING,
+            title="收到新的客户绑定请求",
+            summary=f"{customer_name}的绑定状态：{status_label}",
+            target=target,
+        ))
     await db.commit()
     return _ok(result)
 

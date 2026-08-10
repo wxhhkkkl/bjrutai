@@ -21,9 +21,10 @@ Page({
           if (result.accessToken) {
             authService.setTokens(result.accessToken, result.refreshToken);
           }
-          // 绑定成功后刷新 session 的微信绑定态
-          const session = sessionService.getCurrentSession();
-          sessionService.setSession({ ...session, wechatBound: true });
+          await authService.restoreSession({
+            preserveSession: sessionService.getCurrentSession(),
+            wechatBound: true
+          });
           wx.showToast({ title: '微信绑定成功', icon: 'success', duration: 900 });
           setTimeout(() => {
             wx.switchTab({ url: '/pages/home/index' });

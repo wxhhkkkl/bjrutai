@@ -1,0 +1,20 @@
+page { background: #f7f9fc; }
+.notifications-page { min-height: 100vh; padding: 20rpx 32rpx calc(48rpx + env(safe-area-inset-bottom)); background: #f7f9fc; box-sizing: border-box; }
+.notification-toolbar { min-height: 46rpx; display: flex; align-items: center; justify-content: space-between; }
+.notification-toolbar__count { color: #697382; font-size: 24rpx; }
+.notification-toolbar__read-all { padding: 10rpx 0 10rpx 20rpx; color: #1677ff; font-size: 24rpx; }
+.notification-filters { width: 100%; margin: 16rpx 0 8rpx; white-space: nowrap; }
+.notification-filter { min-width: 92rpx; height: 58rpx; margin-right: 14rpx; padding: 0 22rpx; display: inline-flex; align-items: center; justify-content: center; color: #697382; font-size: 23rpx; background: #ffffff; border: 1rpx solid #e4e8ef; border-radius: 999rpx; box-sizing: border-box; }
+.notification-filter--active { color: #ffffff; background: #1677ff; border-color: #1677ff; }
+.notification-list { margin-top: 12rpx; }
+.notification-item { display: flex; align-items: flex-start; gap: 18rpx; margin-bottom: 18rpx; padding: 26rpx 24rpx; background: #ffffff; border: 1rpx solid #e8ebf1; border-radius: 22rpx; box-shadow: 0 6rpx 18rpx rgba(31, 61, 105, 0.04); box-sizing: border-box; }
+.notification-item__dot { width: 14rpx; height: 14rpx; margin-top: 10rpx; flex: none; border-radius: 50%; background: transparent; }
+.notification-item--unread .notification-item__dot { background: #1677ff; }
+.notification-item__copy { min-width: 0; display: flex; flex: 1; flex-direction: column; gap: 10rpx; }
+.notification-item__heading { display: flex; align-items: center; gap: 12rpx; }
+.notification-item__title { min-width: 0; overflow: hidden; color: #121722; font-size: 29rpx; font-weight: 600; line-height: 1.4; white-space: nowrap; text-overflow: ellipsis; }
+.notification-item__category { flex: none; padding: 4rpx 10rpx; color: #1677ff; font-size: 19rpx; line-height: 1.2; background: #eef5ff; border-radius: 6rpx; }
+.notification-item__summary { color: #616b7a; font-size: 24rpx; line-height: 1.55; }
+.notification-item__time { color: #929aa7; font-size: 21rpx; line-height: 1.4; }
+.notification-item__arrow { margin-top: 22rpx; color: #8a93a0; font-size: 38rpx; line-height: 1; }
+.notification-load-more { height: 76rpx; margin: 6rpx 0 18rpx; display: flex; align-items: center; justify-content: center; color: #1677ff; font-size: 24rpx; background: #ffffff; border-radius: 18rpx; }

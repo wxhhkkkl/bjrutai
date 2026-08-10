@@ -99,6 +99,49 @@ def _issue_token_pair(
 class AuthService:
     """Stateless auth service.  Each method accepts a DB session."""
 
+    async def _ensure_wechat_distributor(
+        self,
+        db: AsyncSession,
+        user: User,
+    ) -> Optional[dict]:
+        """Ensure a WeChat user is mounted under the default root organization.
+
+        Older WeChat users may have a ``users`` row but no corresponding
+        ``distributors`` row.  Treat that state the same as first registration
+        and repair it during login so the user becomes visible in the admin
+        organization personnel list.
+        """
+        from ..services import distributor_service as dist_svc
+        from ..services import organization_service
+
+        distributor = await dist_svc.get_distributor_by_user(db, user.id)
+        default_org = None
+        if distributor is None:
+            default_org = await organization_service.get_default_org(db)
+            if default_org is None:
+                logger.warning(
+                    "No default org configured; user %s registered without Distributor",
+                    user.id,
+                )
+                return None
+            distributor = await dist_svc.register_distributor(
+                db, user.id, default_org.id, "wechat_register"
+            )
+
+        org_name = default_org.name if default_org and isinstance(default_org.name, str) else None
+        if org_name is None:
+            org_name = await dist_svc._org_name(db, distributor.org_id) or ""
+
+        return {
+            "distributorId": str(distributor.id),
+            "orgId": str(distributor.org_id),
+            "orgName": org_name,
+            "orgRole": distributor.org_role.value
+            if hasattr(distributor.org_role, "value")
+            else str(distributor.org_role),
+            "sourceChannel": distributor.source_channel or "wechat_register",
+        }
+
     # ── WeChat Login ──────────────────────────────────────────────
     async def wechat_login(
         self,
@@ -139,8 +182,14 @@ class AuthService:
         if phone_code:
             try:
                 resolved_phone = await wechat.get_phone_number(phone_code)
-            except Exception:
+            except Exception as exc:
                 logger.warning("Failed to resolve phone_code during wechat_login", exc_info=True)
+                raise AppException(
+                    code=40005,
+                    message="Invalid phone auth code",
+                    status_code=400,
+                    error_type="bad_request",
+                ) from exc
             if resolved_phone:
                 phone_result = await db.execute(
                     select(User).where(
@@ -189,7 +238,8 @@ class AuthService:
                 await db.refresh(user)
 
                 # 012-register-default-dept: auto-mount to default org (FR-002/FR-003)
-                from ..services import organization_service, distributor_service as dist_svc
+                from ..services import distributor_service as dist_svc
+                from ..services import organization_service
 
                 default_org = await organization_service.get_default_org(db)
                 if default_org is not None:
@@ -233,6 +283,20 @@ class AuthService:
                     "orgRole": existing_dist.org_role.value if hasattr(existing_dist.org_role, "value") else str(existing_dist.org_role),
                     "sourceChannel": existing_dist.source_channel,
                 }
+
+        # The phone authorization code is single-use.  Persist the phone here
+        # while resolving it during WeChat login so the mini program does not
+        # need to call /phone-bind a second time with the same code.
+        if resolved_phone:
+            user.phone = resolved_phone
+            user.phone_masked = resolved_phone
+            user.phone_authorized = True
+            db.add(user)
+
+        # Repair users created by an earlier login flow that have an openid but
+        # were never mounted into the organization personnel tree.
+        if distributor_info is None:
+            distributor_info = await self._ensure_wechat_distributor(db, user)
 
         # Issue token pair
         user_type_str = user.user_type.value if isinstance(user.user_type, UserType) else str(user.user_type)

@@ -4,31 +4,31 @@ page {
 
 .privacy-page {
   min-height: 100vh;
-  padding: 38rpx 46rpx calc(202rpx + constant(safe-area-inset-bottom));
-  padding: 38rpx 46rpx calc(202rpx + env(safe-area-inset-bottom));
+  padding: 42rpx 32rpx calc(218rpx + constant(safe-area-inset-bottom));
+  padding: 42rpx 32rpx calc(218rpx + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, #ffffff 0%, #fbfdff 70%, #f8fbff 100%);
 }
 
 .privacy-title {
   display: block;
   color: #050505;
-  font-size: 43rpx;
+  font-size: 44rpx;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.25;
 }
 
 .privacy-description {
   display: block;
-  margin-top: 22rpx;
+  margin-top: 16rpx;
   color: #69717d;
-  font-size: 24rpx;
-  line-height: 1;
+  font-size: 27rpx;
+  line-height: 1.55;
 }
 
 .privacy-hero {
-  min-height: 174rpx;
-  margin-top: 35rpx;
-  padding: 24rpx 30rpx;
+  min-height: 202rpx;
+  margin-top: 32rpx;
+  padding: 28rpx 26rpx;
   display: flex;
   align-items: center;
   background: linear-gradient(105deg, #f2f8ff 0%, #ffffff 53%, #edf6ff 100%);
@@ -38,8 +38,8 @@ page {
 
 .privacy-hero__icon {
   position: relative;
-  width: 190rpx;
-  height: 124rpx;
+  width: 174rpx;
+  height: 142rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -59,8 +59,8 @@ page {
 
 .privacy-hero__lock {
   position: absolute;
-  top: 46rpx;
-  left: 84rpx;
+  top: 54rpx;
+  left: 76rpx;
   width: 42rpx;
   height: 47rpx;
   display: flex;
@@ -72,43 +72,43 @@ page {
 
 .privacy-hero__copy {
   min-width: 0;
-  margin-left: 20rpx;
+  margin-left: 18rpx;
   display: flex;
   flex-direction: column;
 }
 
 .privacy-hero__title {
   color: #101419;
-  font-size: 28rpx;
+  font-size: 30rpx;
   font-weight: 700;
 }
 
 .privacy-hero__description {
-  margin-top: 17rpx;
+  margin-top: 13rpx;
   color: #68717d;
-  font-size: 20rpx;
-  line-height: 1.4;
+  font-size: 24rpx;
+  line-height: 1.55;
 }
 
 .privacy-hero__badge {
   width: fit-content;
-  min-height: 38rpx;
-  margin-top: 16rpx;
-  padding: 0 12rpx;
+  min-height: 42rpx;
+  margin-top: 15rpx;
+  padding: 0 14rpx;
   display: flex;
   align-items: center;
   gap: 7rpx;
   color: #0a9e30;
-  font-size: 19rpx;
+  font-size: 22rpx;
   border: 2rpx solid currentColor;
   border-radius: 999rpx;
 }
 
 .privacy-section-title {
   display: block;
-  margin-top: 34rpx;
+  margin-top: 44rpx;
   color: #050505;
-  font-size: 30rpx;
+  font-size: 32rpx;
   font-weight: 700;
   line-height: 1;
 }
@@ -116,19 +116,20 @@ page {
 .privacy-authorization-card,
 .privacy-settings-card,
 .privacy-document-card {
-  margin-top: 20rpx;
-  padding: 0 27rpx;
+  margin-top: 22rpx;
+  padding: 0 24rpx;
   background: #ffffff;
   border: 1rpx solid #e7ebf1;
-  border-radius: 24rpx;
-  box-shadow: 0 9rpx 25rpx rgba(31, 61, 105, 0.06);
+  border-radius: 26rpx;
+  box-shadow: 0 10rpx 28rpx rgba(31, 61, 105, 0.07);
 }
 
 .privacy-authorization-row {
-  min-height: 77rpx;
+  min-height: 108rpx;
+  padding: 14rpx 0;
   display: flex;
   align-items: center;
-  gap: 15rpx;
+  gap: 18rpx;
   border-bottom: 1rpx solid #e2e6ec;
   border-radius: 6rpx;
 }
@@ -138,8 +139,8 @@ page {
 }
 
 .privacy-authorization-row__icon {
-  width: 46rpx;
-  height: 50rpx;
+  width: 54rpx;
+  height: 58rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -148,8 +149,9 @@ page {
 
 .privacy-authorization-row__title {
   color: #101419;
-  font-size: 23rpx;
+  font-size: 27rpx;
   font-weight: 500;
+  line-height: 1.35;
 }
 
 .privacy-authorization-row__copy {
@@ -157,24 +159,25 @@ page {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 8rpx;
+  gap: 7rpx;
 }
 
 .privacy-authorization-row__copy .privacy-authorization-row__title {
-  line-height: 1;
+  line-height: 1.35;
 }
 
 .privacy-authorization-row__description {
   color: #78818d;
-  font-size: 18rpx;
-  line-height: 1;
+  font-size: 23rpx;
+  line-height: 1.45;
 }
 
 .privacy-authorization-row__phone {
-  margin-left: auto;
+  display: block;
   color: #101419;
-  font-size: 22rpx;
+  font-size: 24rpx;
   font-weight: 500;
+  line-height: 1.35;
 }
 
 .privacy-authorization-row__status {
@@ -182,7 +185,7 @@ page {
   display: flex;
   align-items: center;
   gap: 8rpx;
-  font-size: 21rpx;
+  font-size: 23rpx;
   white-space: nowrap;
 }
 
@@ -199,11 +202,12 @@ page {
 }
 
 .privacy-section-title--settings {
-  margin-top: 31rpx;
+  margin-top: 44rpx;
 }
 
 .privacy-setting-row {
-  min-height: 85rpx;
+  min-height: 118rpx;
+  padding: 12rpx 0;
   display: flex;
   align-items: center;
   border-bottom: 1rpx solid #e2e6ec;
@@ -215,8 +219,8 @@ page {
 
 .privacy-setting-row__icon {
   position: relative;
-  width: 60rpx;
-  height: 60rpx;
+  width: 64rpx;
+  height: 64rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -234,41 +238,42 @@ page {
 
 .privacy-setting-row__copy {
   min-width: 0;
-  margin-left: 15rpx;
+  margin-left: 18rpx;
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 10rpx;
+  gap: 9rpx;
 }
 
 .privacy-setting-row__title {
   color: #101419;
-  font-size: 23rpx;
+  font-size: 27rpx;
   font-weight: 500;
   line-height: 1;
 }
 
 .privacy-setting-row__description {
   color: #78818d;
-  font-size: 18rpx;
-  line-height: 1;
+  font-size: 23rpx;
+  line-height: 1.45;
 }
 
 .privacy-switch {
   flex: none;
-  transform: scale(0.82);
+  transform: scale(0.9);
   transform-origin: right center;
 }
 
 .privacy-section-title--documents {
-  margin-top: 29rpx;
+  margin-top: 44rpx;
 }
 
 .privacy-document-row {
-  min-height: 59rpx;
+  min-height: 88rpx;
+  padding: 10rpx 0;
   display: flex;
   align-items: center;
-  gap: 17rpx;
+  gap: 18rpx;
   border-bottom: 1rpx solid #e2e6ec;
   border-radius: 6rpx;
 }
@@ -289,26 +294,28 @@ page {
   min-width: 0;
   flex: 1;
   color: #101419;
-  font-size: 22rpx;
+  font-size: 26rpx;
+  line-height: 1.4;
 }
 
 .privacy-revoke {
-  min-height: 56rpx;
-  margin-top: 19rpx;
-  padding: 10rpx 25rpx;
+  min-height: 76rpx;
+  margin-top: 26rpx;
+  padding: 12rpx 22rpx;
   display: flex;
   align-items: center;
-  gap: 20rpx;
+  gap: 16rpx;
   color: #1677ff;
-  font-size: 20rpx;
+  font-size: 24rpx;
+  line-height: 1.45;
   background: #eff6ff;
   border: 1rpx solid #b7d6ff;
   border-radius: 15rpx;
 }
 
 .privacy-revoke__icon {
-  width: 31rpx;
-  height: 31rpx;
+  width: 36rpx;
+  height: 36rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -323,8 +330,8 @@ page {
   bottom: 0;
   left: 0;
   z-index: 30;
-  padding: 20rpx 46rpx calc(22rpx + constant(safe-area-inset-bottom));
-  padding: 20rpx 46rpx calc(22rpx + env(safe-area-inset-bottom));
+  padding: 20rpx 32rpx calc(24rpx + constant(safe-area-inset-bottom));
+  padding: 20rpx 32rpx calc(24rpx + env(safe-area-inset-bottom));
   background: rgba(255, 255, 255, 0.98);
   border-top: 1rpx solid #edf0f4;
 }
@@ -358,26 +365,26 @@ page {
 
 .privacy-save-bar__hint {
   display: block;
-  margin-top: 20rpx;
+  margin-top: 14rpx;
   color: #8c939e;
-  font-size: 20rpx;
-  line-height: 1;
+  font-size: 22rpx;
+  line-height: 1.4;
   text-align: center;
 }
 
 @media (max-width: 350px) {
   .privacy-page {
-    padding-right: 35rpx;
-    padding-left: 35rpx;
+    padding-right: 24rpx;
+    padding-left: 24rpx;
   }
 
   .privacy-hero {
-    padding-right: 21rpx;
-    padding-left: 21rpx;
+    padding-right: 18rpx;
+    padding-left: 18rpx;
   }
 
   .privacy-hero__icon {
-    width: 155rpx;
+    width: 138rpx;
   }
 
   .privacy-hero__copy {
@@ -387,7 +394,7 @@ page {
   .privacy-authorization-card,
   .privacy-settings-card,
   .privacy-document-card {
-    padding-right: 21rpx;
-    padding-left: 21rpx;
+    padding-right: 17rpx;
+    padding-left: 17rpx;
   }
 }

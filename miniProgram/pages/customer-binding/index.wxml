@@ -143,7 +143,7 @@
     <view class="binding-intro">
       <text class="binding-intro__title">确认客户归属</text>
       <text class="binding-intro__description">
-        请核对信息并完成客户授权
+        请核对信息并提交绑定
       </text>
     </view>
 
@@ -187,47 +187,6 @@
           <text class="confirm-owner__name">{{owner.name}}</text>
           <text class="confirm-owner__meta">{{owner.roleLabel}} · 已激活</text>
         </view>
-      </view>
-    </view>
-
-    <view class="authorization-card">
-      <view class="authorization-card__content">
-        <view class="authorization-icon">
-          <van-icon name="shield-o" size="54px" color="#1677ff" />
-          <view class="authorization-icon__check">
-            <van-icon name="success" size="12px" color="#ffffff" />
-          </view>
-        </view>
-        <view class="authorization-copy">
-          <text class="authorization-title">客户数据共享授权</text>
-          <text class="authorization-description">
-            客户已知悉其必要信息将与哈尔滨儒泰互联网医院共享，用于身份匹配与客户归属确认
-          </text>
-          <view
-            class="authorization-policy tap-target"
-            bindtap="openPrivacy"
-            hover-class="tap-feedback"
-            hover-start-time="0"
-            hover-stay-time="80"
-          >
-            <text>查看隐私政策</text>
-            <van-icon name="arrow" size="17px" color="#1677ff" />
-          </view>
-        </view>
-      </view>
-      <view
-        class="authorization-check tap-target"
-        bindtap="toggleAuthorization"
-        hover-class="tap-feedback"
-        hover-start-time="0"
-        hover-stay-time="80"
-        aria-role="checkbox"
-        aria-label="确认获得客户明确授权"
-      >
-        <view class="authorization-checkbox {{authorized ? 'authorization-checkbox--checked' : ''}}">
-          <van-icon wx:if="{{authorized}}" name="success" size="16px" color="#ffffff" />
-        </view>
-        <text>我已确认获得客户明确授权</text>
       </view>
     </view>
 

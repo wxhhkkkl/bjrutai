@@ -37,9 +37,15 @@ function getBindingResultViewModel(state) {
   return { ...RESULT_STATES[normalizeResultState(state)] };
 }
 
+function adaptBindingResult(payload = {}) {
+  const state = payload.status === 'bound' ? 'bound' : payload.status === 'failed' ? 'failed' : 'matching'
+  return { requestId: String(payload.requestId || ''), state, statusLabel: String(payload.statusLabel || '') }
+}
+
 module.exports = {
   RESULT_STATES,
   normalizeResultState,
   getResultStateForRecord,
-  getBindingResultViewModel
+  getBindingResultViewModel,
+  adaptBindingResult
 };
