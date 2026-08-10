@@ -1,7 +1,7 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-specs/012-register-default-dept/plan.md
+specs/013-feedback-management/plan.md
 <!-- SPECKIT END -->
 
 # CLAUDE.md

@@ -84,6 +84,14 @@ export const PERMISSION_MODULES = [
     ],
   },
   {
+    module: 'feedbacks',
+    label: '意见与反馈',
+    permissions: [
+      { key: 'feedbacks.read', label: '查看全部用户反馈' },
+      { key: 'feedbacks.write', label: '处理用户反馈' },
+    ],
+  },
+  {
     module: 'sharing_rules',
     label: '绩效规则',
     permissions: [

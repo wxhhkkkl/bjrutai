@@ -13,6 +13,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import quote
 
+import httpx
+
 from ..core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -31,6 +33,9 @@ ALLOWED_CONTENT_TYPES = {
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf"}
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_FEEDBACK_IMAGE_SIZE = 5 * 1024 * 1024
+FEEDBACK_IMAGE_TYPES = {"image/jpeg", "image/png"}
+FEEDBACK_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 UPLOAD_TOKEN_TTL_MINUTES = 10
 
 
@@ -112,6 +117,70 @@ class COSClient:
             "contentType": content_type,
         }
 
+    def generate_feedback_upload_token(
+        self,
+        *,
+        user_id: int,
+        file_name: str,
+        content_type: str,
+        file_size: int,
+    ) -> dict:
+        """Issue a private, feedback-only screenshot upload token."""
+        ext = self._extract_extension(file_name)
+        if content_type not in FEEDBACK_IMAGE_TYPES or ext not in FEEDBACK_IMAGE_EXTENSIONS:
+            raise ValueError("反馈截图仅支持 JPG 或 PNG 格式")
+        if file_size <= 0 or file_size > MAX_FEEDBACK_IMAGE_SIZE:
+            raise ValueError("反馈截图单张不得超过 5 MiB")
+        if (content_type == "image/png" and ext != ".png") or (
+            content_type == "image/jpeg" and ext not in {".jpg", ".jpeg"}
+        ):
+            raise ValueError("图片扩展名与 contentType 不一致")
+        token = self.generate_upload_token(
+            user_id=user_id,
+            file_name=file_name,
+            content_type=content_type,
+            file_size=file_size,
+            key_prefix="feedbacks/",
+        )
+        # Private objects must never be exposed as a durable public URL.
+        token.pop("fileUrl", None)
+        return token
+
+    def belongs_to_feedback_user(self, object_key: str, user_id: int) -> bool:
+        return str(object_key).startswith(f"feedbacks/{user_id}/")
+
+    async def feedback_object_exists(self, object_key: str) -> bool:
+        """Verify an uploaded private object before attaching it to feedback.
+
+        Local/unit-test installations often have no COS credentials. In that
+        explicitly unconfigured state no remote request can be made; real
+        configured deployments always perform a signed HEAD request.
+        """
+        if not self._bucket or not self._secret_id or not self._secret_key:
+            return True
+        url = self._build_presigned_put_url(
+            object_key=object_key,
+            content_type="image/jpeg",
+            expire_seconds=60,
+            method="HEAD",
+        )
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                response = await client.head(url)
+            return 200 <= response.status_code < 300
+        except httpx.HTTPError:
+            logger.warning("feedback COS object HEAD failed")
+            return False
+
+    def generate_preview_url(self, object_key: str, expires_seconds: int = 600) -> str:
+        """Return a short-lived signed GET URL for a private attachment."""
+        return self._build_presigned_put_url(
+            object_key=object_key,
+            content_type="image/jpeg",
+            expire_seconds=expires_seconds,
+            method="GET",
+        )
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
@@ -143,6 +212,7 @@ class COSClient:
         object_key: str,
         content_type: str,
         expire_seconds: int,
+        method: str = "PUT",
     ) -> str:
         """Build a pre-signed PUT URL for uploading to COS.
 
@@ -169,7 +239,7 @@ class COSClient:
         # 只签 host，不签 content-type：浏览器对 File 的 Content-Type 处理不可控，
         # 若实际发送的与签名不一致会 SignatureDoesNotMatch。签名 host 则任意
         # Content-Type 均可上传。
-        http_method = "put"
+        http_method = method.lower()
         http_uri = quote(path, safe="/")
         http_headers = f"host={host}"
         http_string = f"{http_method}\n{http_uri}\n\n{http_headers}\n"

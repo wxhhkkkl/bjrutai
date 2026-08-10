@@ -29,6 +29,13 @@ class Notification(Base):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     target: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    feedback_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("feedbacks.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+        index=True,
+    )
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
     read_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

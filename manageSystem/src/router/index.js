@@ -111,6 +111,12 @@ const routes = [
     meta: { title: '消息通知', icon: 'Bell' },
   },
   {
+    path: '/feedbacks',
+    name: 'Feedbacks',
+    component: () => import('@/pages/feedbacks/index.vue'),
+    meta: { title: '意见与反馈', icon: 'ChatDotRound', permission: 'feedbacks.read' },
+  },
+  {
     path: '/promotions',
     name: 'Promotions',
     component: () => import('@/pages/promotions/index.vue'),
@@ -124,7 +130,7 @@ const router = createRouter({
 })
 
 // Navigation guard — check auth + permissions
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   if (to.meta.public) {
     return next()
   }
@@ -132,6 +138,22 @@ router.beforeEach((to, from, next) => {
   if (!authStore.token) {
     return next({ name: 'Login', query: { redirect: to.fullPath } })
   }
+
+  // On a full-page refresh Pinia restores the token from localStorage, but
+  // the user and permissions are populated asynchronously. Wait for the
+  // session before checking route permissions; otherwise a permitted deep
+  // route (for example /feedbacks) is incorrectly redirected to '/'.
+  if (!authStore.user) {
+    try {
+      await authStore.fetchSession()
+    } catch {
+      // Keep the requested route on a transient session/network failure.
+      // The page/API layer can surface the error and the interceptor will
+      // handle an actually expired token.
+      return next()
+    }
+  }
+
   // Permission check for routes that declare required permission
   if (to.meta.permission && !authStore.hasPermission(to.meta.permission)) {
     return next({ name: 'Dashboard' })

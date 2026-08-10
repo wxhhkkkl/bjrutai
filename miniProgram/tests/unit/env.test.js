@@ -8,7 +8,7 @@ test('develop environment defaults to the current LAN backend and enables mock o
 
   assert.deepEqual(resolveEnvironment({ envVersion: 'develop' }), {
     envVersion: 'develop',
-    apiBase: 'http://192.168.110.24:8000',
+    apiBase: 'http://192.168.110.24:8001',
     useMock: false
   })
   assert.equal(resolveEnvironment({
