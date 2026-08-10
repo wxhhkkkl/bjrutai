@@ -1,6 +1,7 @@
 import logging
 import time
 import uuid
+import hashlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -39,7 +40,17 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         if idempotency_key is None or request.method not in ("POST", "PATCH", "PUT"):
             return await call_next(request)
 
-        cached = self._store.get(idempotency_key)
+        # Feedback has a persistent `(user_id, idempotency_key)` constraint
+        # and must distinguish an identical retry from a reused key carrying a
+        # different payload (40911). Do not let this process-local cache hide
+        # that domain-level decision.
+        if request.method == "POST" and request.url.path == "/api/v1/feedbacks":
+            return await call_next(request)
+
+        bearer = request.headers.get("Authorization", "")
+        subject = hashlib.sha256(bearer.encode("utf-8")).hexdigest()[:24]
+        cache_key = f"{request.method}:{request.url.path}:{subject}:{idempotency_key}"
+        cached = self._store.get(cache_key)
         if cached is not None:
             from starlette.responses import Response
 
@@ -57,7 +68,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
             async for chunk in response.body_iterator:
                 body += chunk
 
-            self._store[idempotency_key] = {
+            self._store[cache_key] = {
                 "body": body,
                 "status_code": response.status_code,
                 "headers": list(response.headers.items()),
@@ -195,6 +206,20 @@ async def lifespan(app: FastAPI):
             max_instances=1,
             replace_existing=True,
         )
+
+        # Feedback resolution notifications retry independently from the
+        # feedback transaction, so an intermittent notification failure never
+        # rolls back an already-resolved feedback record.
+        from .tasks.feedback_tasks import retry_feedback_notifications_job
+        scheduler.add_job(
+            retry_feedback_notifications_job,
+            trigger=IntervalTrigger(seconds=60),
+            id="retry_feedback_notifications",
+            name="Retry feedback resolution notifications",
+            coalesce=True,
+            max_instances=1,
+            replace_existing=True,
+        )
     except ImportError:
         app.state.scheduler = None
 
@@ -256,6 +281,7 @@ from .api.v1.admin_categories import router as admin_categories_router
 from .api.v1.admin_articles import router as admin_articles_router
 from .api.v1.cos_upload import router as cos_upload_router
 from .api.v1.admin_sync import router as admin_sync_router
+from .api.v1.admin_feedbacks import router as admin_feedbacks_router
 from .api.v1.articles import router as articles_router
 from .api.v1.auth import router as auth_router
 from .api.v1.app import router as app_router
@@ -281,6 +307,7 @@ app.include_router(admin_categories_router, prefix="/api/v1")
 app.include_router(admin_articles_router, prefix="/api/v1")
 app.include_router(cos_upload_router, prefix="/api/v1")
 app.include_router(admin_sync_router, prefix="/api/v1")
+app.include_router(admin_feedbacks_router, prefix="/api/v1")
 app.include_router(admin_accounts_router, prefix="/api/v1")
 app.include_router(admin_roles_router, prefix="/api/v1")
 app.include_router(admin_organizations_router, prefix="/api/v1")

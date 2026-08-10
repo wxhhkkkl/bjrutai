@@ -51,6 +51,10 @@
           <el-icon><Document /></el-icon>
           <span>文章管理</span>
         </el-menu-item>
+        <el-menu-item v-if="authStore.hasPermission('feedbacks.read')" index="/feedbacks">
+          <el-icon><Document /></el-icon>
+          <span>意见与反馈</span>
+        </el-menu-item>
         <el-sub-menu
           v-if="authStore.hasPermission('accounts.read') || authStore.hasPermission('roles.read')"
           index="/accounts"

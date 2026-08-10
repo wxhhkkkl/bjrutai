@@ -25,6 +25,7 @@ from .article import Article  # noqa: F401
 from .followup import FollowupRecord  # noqa: F401
 from .consent import Agreement, ConsentRecord  # noqa: F401
 from .notification import Notification  # noqa: F401
+from .feedback import Feedback, FeedbackAction  # noqa: F401
 from .audit import ApiCallLog, AuditLog  # noqa: F401
 from .idempotency import IdempotencyKey  # noqa: F401
 from .session import UserToken  # noqa: F401
