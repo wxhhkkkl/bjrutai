@@ -24,7 +24,7 @@ Page({
     contributionFilters: CONTRIBUTION_FILTERS,
     selectedContributionFilter: 'all',
     contributions: [],
-    blockedMessage: '服务记录、消费明细和跟进功能暂不可用，请以后端权限校验为准。'
+    blockedMessage: ''
   },
 
   onLoad(options = {}) {
@@ -45,7 +45,7 @@ Page({
       const customer = adaptCustomerDetail(payload)
       this.setData({
         state: 'success',
-        currentTab: normalizeCustomerDetailTab(tab) === 'info' ? 'info' : 'info',
+        currentTab: normalizeCustomerDetailTab(tab),
         customer,
         heroAvatar: customer.avatar
       })
@@ -59,19 +59,24 @@ Page({
     this.requestDetail(this.data.currentTab)
   },
 
-  selectTab(e) {
+  async selectTab(e) {
     const currentTab = normalizeCustomerDetailTab(e.currentTarget.dataset.id)
-    if (currentTab !== 'info') {
-      wx.showToast({ title: this.data.blockedMessage, icon: 'none' })
-      return
-    }
     this.setData({ currentTab, heroAvatar: this.data.customer.avatar })
+    try {
+      if (currentTab === 'service') {
+        const payload = await customerService.getServiceRecords(this.customerId)
+        this.setData({ services: (payload.items || []).map((item) => ({ id: item.id, title: item.title || item.billNo || '服务记录', time: String(item.serviceDate || item.createdAt || '').replace('T', ' ').slice(0, 16), status: item.status || '已完成', statusTone: 'blue', tone: 'blue', icon: 'records' })) })
+      }
+      if (currentTab === 'contribution') {
+        const payload = await customerService.getCustomerContributions(this.customerId)
+        this.setData({ contributions: (payload.items || []).map((item) => ({ id: item.id, category: 'service', title: item.title || '消费记录', time: String(item.occurredAt || '').replace('T', ' ').slice(0, 16), points: (Number(item.amountCent || 0) / 100).toFixed(2), tone: 'blue', icon: 'bill-o' })) })
+      }
+    } catch (error) { wx.showToast({ title: error.message || '记录加载失败', icon: 'none' }) }
     wx.pageScrollTo({ scrollTop: 0, duration: 180 })
   },
 
   selectContributionFilter(e) {
-    this.setData({ selectedContributionFilter: e.currentTarget.dataset.id, contributions: [] })
-    wx.showToast({ title: this.data.blockedMessage, icon: 'none' })
+    this.setData({ selectedContributionFilter: e.currentTarget.dataset.id })
   },
 
   editCustomer() {
@@ -83,7 +88,7 @@ Page({
   },
 
   openService() {
-    wx.showToast({ title: this.data.blockedMessage, icon: 'none' })
+    wx.showToast({ title: '服务详情以儒泰侧记录为准', icon: 'none' })
   },
 
   contactCustomer() {
@@ -96,7 +101,7 @@ Page({
   },
 
   recordFollowup() {
-    wx.showToast({ title: this.data.blockedMessage, icon: 'none' })
+    wx.navigateTo({ url: `/pages/followup-record/index?id=${this.customerId}` })
   },
 
   handleBack() {

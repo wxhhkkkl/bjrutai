@@ -28,7 +28,27 @@ Page({
   selectFilter(e) { this.setData({ selectedFilter: e.currentTarget.dataset.id, records: [], visibleRecords: [] }); this.loadRecords(true) },
   openSort() { wx.showActionSheet({ itemList: ['按最近提交排序', '按客户姓名排序', '优先显示处理中'], success: ({ tapIndex }) => { const sortMode = ['recent', 'name', 'status'][tapIndex] || 'recent'; this.setData({ sortMode, visibleRecords: this.getVisibleRecords(this.data.records, { sortMode }) }) } }) },
   showStatusDescription() { wx.showModal({ title: '状态说明', content: '绑定状态由后端匹配服务更新。', showCancel: false }) },
-  openRecord() { wx.showToast({ title: '详情重试和审计信息暂不可用', icon: 'none' }) },
+  async openRecord(e) {
+    const id = e.currentTarget.dataset.id
+    try {
+      const detail = await bindingService.getBindingRequest(id)
+      const retryable = ['rejected', 'expired'].includes(detail.status)
+      wx.showModal({
+        title: detail.statusLabel || '绑定详情',
+        content: `${detail.customerInfo && detail.customerInfo.name || '客户'}\n${detail.failureReason || '暂无异常信息'}`,
+        confirmText: retryable ? '重新匹配' : '知道了',
+        showCancel: retryable,
+        success: async (result) => {
+          if (!result.confirm || !retryable) return
+          try {
+            await bindingService.retryBindingRequest(id, `binding-retry-${id}-${Date.now()}`)
+            wx.showToast({ title: '已提交重新匹配', icon: 'success' })
+            this.loadRecords(true)
+          } catch (error) { wx.showToast({ title: error.message || '重新匹配失败', icon: 'none' }) }
+        }
+      })
+    } catch (error) { wx.showToast({ title: error.message || '绑定详情加载失败', icon: 'none' }) }
+  },
   continueBinding() { wx.navigateTo({ url: '/pages/customer-binding/index' }) },
   handleBack() { wx.navigateBack() }
 })

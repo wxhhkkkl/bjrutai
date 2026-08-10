@@ -583,6 +583,11 @@ async def create_followup(
     except (AttributeError, KeyError):
         raise BadRequestException(message=f"Invalid method: {body.method}. Valid: phone, wechat, visit, other")
 
+    try:
+        result = getattr(FollowupResult, (body.result or "pending").upper())
+    except (AttributeError, KeyError):
+        raise BadRequestException(message="Invalid followup result")
+
     reminder_at = None
     if body.reminderAt:
         try:
@@ -594,7 +599,7 @@ async def create_followup(
         customer_id=customer_id,
         doctor_id=user_id,
         method=method,
-        result=FollowupResult.PENDING,
+        result=result,
         content=body.content,
         reminder_enabled=body.reminderAt is not None,
         reminder_at=reminder_at,

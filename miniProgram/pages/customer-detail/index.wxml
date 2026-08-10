@@ -156,9 +156,9 @@
       </view>
       <view class="followup-card__copy">
         <text class="followup-card__title">跟进信息</text>
-        <text class="followup-card__time">{{blockedMessage}}</text>
+        <text class="followup-card__time">记录客户沟通与后续提醒</text>
       </view>
-      <view class="followup-card__status">暂不可用</view>
+      <view class="followup-card__status">去记录</view>
       <van-icon name="arrow" size="21px" color="#7d838d" />
     </view>
   </block>

@@ -20,7 +20,7 @@
 
   <view class="promotion-card">
     <text class="promotion-card__title">专属推广二维码</text>
-    <image
+    <image wx:if="{{profile.qrImage}}"
       class="promotion-card__qr"
       src="{{profile.qrImage}}"
       mode="aspectFit"
@@ -28,6 +28,10 @@
       aria-role="img"
       aria-label="专属推广二维码"
     />
+    <view wx:else class="promotion-card__empty">
+      <van-icon name="photo-o" size="40px" color="#8b95a6" />
+      <text>推广二维码暂未生成，请稍后重试</text>
+    </view>
     <text class="promotion-card__hint">邀请客户扫码进入儒泰小程序</text>
     <text class="promotion-card__source">来源将标记为{{profile.sourceCity}}</text>
   </view>
@@ -56,6 +60,7 @@
       <text>分享推广码</text>
     </button>
   </view>
+  <view class="promotion-refresh tap-target" bindtap="refreshPromotionCode" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">推广码失效或泄露？点击刷新</view>
 
   <text class="promotion-section-title">使用说明</text>
   <view class="promotion-steps">

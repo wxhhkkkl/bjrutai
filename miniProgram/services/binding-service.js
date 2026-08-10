@@ -20,5 +20,7 @@ function listBindingRequests(options = {}) {
   return request('/api/v1/binding-requests', { data: clean({ status: options.status, role: options.role || 'initiator', cursor: options.cursor, limit: options.limit, submittedByMe: options.submittedByMe, keyword: options.keyword, sortBy: options.sortBy || 'created_at', sortOrder: options.sortOrder || 'desc' }) })
 }
 function getBindingSummary() { return request('/api/v1/binding-summary') }
+function getBindingRequest(id) { return request(`/api/v1/binding-requests/${encodeURIComponent(String(id))}`) }
+function retryBindingRequest(id, idempotencyKey) { return request(`/api/v1/binding-requests/${encodeURIComponent(String(id))}/retry`, { method: 'POST', idempotencyKey }) }
 
-module.exports = { getSelectablePromoters, getLatestAgreements, recordConsent, submitBinding, listBindingRequests, getBindingSummary }
+module.exports = { getSelectablePromoters, getLatestAgreements, recordConsent, submitBinding, listBindingRequests, getBindingSummary, getBindingRequest, retryBindingRequest }

@@ -55,13 +55,18 @@ def _generate_ref_token() -> str:
 
 def _code_to_response(code: PromotionCode) -> dict:
     """Serialize a PromotionCode model to a response dict."""
+    status = code.status.value if hasattr(code.status, "value") else str(code.status)
     return {
+        "promotionCodeId": str(code.id),
         "refToken": code.ref_token,
         "sourceCode": code.source_code,
         "qrImageUrl": code.qr_image_url,
         "shareTitle": code.share_title,
         "sharePath": code.share_path,
-        "status": code.status.value if hasattr(code.status, "value") else str(code.status),
+        "status": status,
+        "statusLabel": "推广码可用" if status == PromotionCodeStatus.AVAILABLE.value else "推广码不可用",
+        "expiresAt": code.expires_at.isoformat() if code.expires_at else None,
+        "disabledReason": code.disabled_reason,
         "scanCount": code.scan_count,
         "leadCount": code.lead_count,
         "bindCount": code.bind_count,
@@ -106,6 +111,7 @@ async def get_promotion_code(
         ref_token=ref_token,
         source_code=SOURCE_CODE,
         status=PromotionCodeStatus.AVAILABLE,
+        share_path=f"/pages/index/index?source={SOURCE_CODE}&ref_token={ref_token}",
     )
     db.add(code)
     await db.flush()
@@ -145,6 +151,7 @@ async def refresh_code(
     if code is not None:
         old_ref_token = code.ref_token
         code.ref_token = new_ref_token
+        code.share_path = f"/pages/index/index?source={SOURCE_CODE}&ref_token={new_ref_token}"
         code.status = PromotionCodeStatus.AVAILABLE
         code.disabled_reason = None
         code.updated_at = now
@@ -156,6 +163,7 @@ async def refresh_code(
             ref_token=new_ref_token,
             source_code=SOURCE_CODE,
             status=PromotionCodeStatus.AVAILABLE,
+            share_path=f"/pages/index/index?source={SOURCE_CODE}&ref_token={new_ref_token}",
         )
         db.add(code)
 

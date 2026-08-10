@@ -109,6 +109,28 @@ page {
   flex: none;
 }
 
+.promotion-card__empty {
+  width: 378rpx;
+  height: 378rpx;
+  margin-top: 25rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 18rpx;
+  color: #8b95a6;
+  font-size: 24rpx;
+  background: #f7f9fc;
+  border-radius: 16rpx;
+}
+
+.promotion-refresh {
+  margin-top: 22rpx;
+  color: #687383;
+  font-size: 23rpx;
+  text-align: center;
+}
+
 .promotion-card__hint {
   margin-top: 20rpx;
   color: #20242a;

@@ -212,13 +212,9 @@ class SyncService:
                 distributor_id = promotion_code.distributor_id
 
         if distributor_id is None:
-            # Find the first available promoter or a default one
-            promoter_result = await db.execute(select(Distributor).limit(1))
-            default_promoter = promoter_result.scalars().first()
-            if default_promoter is not None:
-                distributor_id = default_promoter.id
-            else:
-                return False
+            # A missing/unknown external ref_token must remain unassigned instead of
+            # being incorrectly attributed to an arbitrary promoter.
+            return False
 
         customer = Customer(
             distributor_id=distributor_id,

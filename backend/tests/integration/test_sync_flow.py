@@ -22,6 +22,7 @@ from src.models.hierarchy import NodeType
 from src.models.user import User, UserType, ActivationStatus
 from tests.conftest import (
     seed_hierarchy_node,
+    seed_promotion_code,
     seed_promoter,
     seed_user,
 )
@@ -48,6 +49,9 @@ class TestBindUserPolling:
         distributor_id = await seed_promoter(
             db_session, user_id=user_id, node_id=node_id
         )
+        await seed_promotion_code(
+            db_session, distributor_id=distributor_id, ref_token="ref_token_abc"
+        )
 
         svc = SyncService()
 
@@ -68,7 +72,7 @@ class TestBindUserPolling:
                     "phone_masked": "139****5678",
                     "marked_status": "bound",
                     "bind_method": "fuzzy",
-                    "ref_token": "ref_token_def",
+                    "ref_token": "unknown_ref_token",
                     "marked_at": "2026-07-15T11:00:00Z",
                 },
             ],
@@ -81,13 +85,13 @@ class TestBindUserPolling:
         result = await svc.poll_bind_users(db_session)
 
         assert result["processed"] == 2
-        assert result["imported"] == 2
+        assert result["imported"] == 1
 
         # Verify customers were created
         q = select(Customer).where(Customer.rutai_user_id.in_(["hrb_001", "hrb_002"]))
         exec_result = await db_session.execute(q)
         customers = exec_result.scalars().all()
-        assert len(customers) == 2
+        assert len(customers) == 1
 
     @pytest.mark.asyncio
     async def test_bind_user_polling_pagination(self, db_session):
@@ -137,6 +141,9 @@ class TestBindUserPolling:
         )
         user_id = await seed_user(db_session, openid="wx_promo2", user_type="promoter")
         distributor_id = await seed_promoter(db_session, user_id=user_id, node_id=node_id)
+        await seed_promotion_code(
+            db_session, distributor_id=distributor_id, ref_token="rt_new"
+        )
 
         # Pre-create a customer
         from src.models.binding import BindingStatus, Customer
