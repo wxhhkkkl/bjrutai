@@ -42,3 +42,7 @@ htmlcov/
 # Docker
 docker-compose.override.yml
 manageSystem/.vite/
+
+# WeChat Mini Program local/generated files
+/miniprogram_npm/
+/project.private.config.json
