@@ -3,9 +3,12 @@ const { PROMOTION_STEPS, createPromotionShare } = require('../../models/promotio
 const { getCurrentSession } = require('../../services/session-service')
 
 Page({
-  data: { state: 'loading', stateMessage: '', profile: {}, statistics: {}, steps: PROMOTION_STEPS, saving: false },
+  data: { state: 'loading', stateMessage: '', profile: {}, statistics: {}, steps: PROMOTION_STEPS, saving: false, phoneDialogVisible: true, phoneInput: '', phoneError: '', demoGenerated: false },
   onLoad() { this.loadPromotion() },
   async loadPromotion() { try { this.setData({ state: 'loading', stateMessage: '' }); const code = await promotionService.getPromotionCode(); const [statistics, poster] = await Promise.all([promotionService.getStatistics('30d'), promotionService.getPoster()]); const value = { ...code, ...(poster || {}), id: code.promotionCodeId, name: code.name || getCurrentSession().name || '', roleLabel: '市场拓展人', statusLabel: code.statusLabel || '推广码可用', sourceCity: '北京', qrImage: (poster && (poster.posterUrl || poster.qrImageUrl)) || code.qrImageUrl || '' }; this.setData({ state: 'success', profile: value, statistics: statistics || {} }) } catch (error) { this.setData({ state: error.kind === 'FORBIDDEN' ? 'forbidden' : 'recoverable-error', stateMessage: error.message || '推广码暂不可用' }) } },
+  onPhoneInput(event) { this.setData({ phoneInput: event.detail.value, phoneError: '' }) },
+  confirmPhone() { const phone = String(this.data.phoneInput || '').trim(); if (!/^1\d{10}$/.test(phone)) { this.setData({ phoneError: '请输入正确的11位手机号' }); return } const profile = { name: getCurrentSession().name || '推广员', roleLabel: '市场拓展人', statusLabel: '演示推广码', sourceCity: '北京', ...this.data.profile, qrImage: '/assets/images/promotion-qr.jpg' }; this.setData({ phoneDialogVisible: false, phoneError: '', demoGenerated: true, state: 'success', profile }); wx.showToast({ title: '演示二维码已生成', icon: 'success' }) },
+  closePhoneDialog() { if (getCurrentPages().length > 1) wx.navigateBack({ delta: 1 }); else wx.switchTab({ url: '/pages/profile/index' }) },
   retry() { this.loadPromotion() },
   async refreshPromotionCode() { if (this.data.saving) return; this.setData({ saving: true }); try { await promotionService.refreshPromotionCode(); wx.showToast({ title: '推广码已刷新', icon: 'success' }); await this.loadPromotion() } catch (error) { wx.showToast({ title: error.message || '推广码刷新失败', icon: 'none' }) } finally { this.setData({ saving: false }) } },
   handleBack() { if (getCurrentPages().length > 1) wx.navigateBack({ delta: 1 }); else wx.switchTab({ url: '/pages/profile/index' }) },

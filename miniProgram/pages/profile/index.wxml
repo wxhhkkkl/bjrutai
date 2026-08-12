@@ -2,8 +2,6 @@
 
 <view class="profile-screen tab-screen">
     <view class="profile-hero">
-        <!-- <image class="profile-hero__visual" src="/assets/images/profile-hero-visual.png" mode="aspectFill"
-            aria-role="img" aria-label="个人资料视觉" /> -->
         <image class="profile-hero__avatar" src="{{session.avatar || '/assets/images/profile-avatar.png'}}"
             mode="aspectFill" aria-role="img" aria-label="用户头像" />
 

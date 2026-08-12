@@ -9,12 +9,10 @@ project.private.config.json
 tmp/
 temp/
 
-# Package output
-miniprogram_npm/
+# Package output (the slimmed Vant runtime in miniprogram_npm is versioned for release builds)
 node_modules/
 
 # Local environment and credentials
 .env
 .env.*
 !.env.example
-

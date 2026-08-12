@@ -1,0 +1,1 @@
+<canvas id="chart" type="2d" class="donut-chart__canvas" aria-label="绑定状态分布图"></canvas>

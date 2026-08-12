@@ -35,7 +35,7 @@ test('promotion share carries the promoter source', () => {
     share.path,
     '/pages/home/index?sourceId=demo-collaborator-001'
   );
-  assert.equal(share.imageUrl, '/assets/images/promotion-qr.png');
+  assert.equal(share.imageUrl, '/assets/images/promotion-qr.jpg');
 });
 
 test('promotion share prefers the server-issued title and path', () => {

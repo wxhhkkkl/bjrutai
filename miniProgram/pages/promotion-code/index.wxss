@@ -2,6 +2,17 @@ page {
   background: #ffffff;
 }
 
+.promotion-dialog-mask { position: fixed; z-index: 20; inset: 0; display: flex; align-items: center; justify-content: center; padding: 40rpx; background: rgba(10, 18, 32, 0.48); }
+.promotion-dialog { width: 100%; padding: 42rpx 34rpx 30rpx; background: #ffffff; border-radius: 28rpx; box-sizing: border-box; }
+.promotion-dialog__title { display: block; color: #111318; font-size: 34rpx; font-weight: 700; text-align: center; }
+.promotion-dialog__hint { display: block; margin-top: 18rpx; color: #687383; font-size: 24rpx; line-height: 1.5; text-align: center; }
+.promotion-dialog__input { height: 88rpx; margin-top: 28rpx; padding: 0 24rpx; color: #111318; font-size: 29rpx; background: #f6f8fb; border-radius: 14rpx; box-sizing: border-box; }
+.promotion-dialog__error { display: block; margin-top: 12rpx; color: #d94b42; font-size: 22rpx; }
+.promotion-dialog__actions { margin-top: 28rpx; display: flex; gap: 18rpx; }
+.promotion-dialog__actions button { flex: 1; height: 78rpx; padding: 0; font-size: 27rpx; line-height: 78rpx; border-radius: 999rpx; }
+.promotion-dialog__cancel { color: #4c5665; background: #f1f3f6; }
+.promotion-dialog__confirm { color: #ffffff; background: #111318; }
+
 .promotion-page {
   min-height: 100vh;
   padding: 29rpx 36rpx calc(34rpx + constant(safe-area-inset-bottom));
