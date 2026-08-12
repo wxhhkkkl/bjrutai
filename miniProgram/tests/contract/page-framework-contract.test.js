@@ -132,7 +132,7 @@ test('customer edit page keeps display rows and real edit controls', () => {
   assert.doesNotMatch(source, /<input\b[^>]*\bfocus=/s);
 });
 
-test('customer analysis uses two echarts and real period controls', () => {
+test('customer analysis uses lightweight native charts and real period controls', () => {
   const source = fs.readFileSync(
     path.join(projectRoot, 'pages/customer-analysis/index.wxml'),
     'utf8'
@@ -148,12 +148,11 @@ test('customer analysis uses two echarts and real period controls', () => {
   );
 
   assert.ok(appConfig.pages.includes('pages/customer-analysis/index'));
-  assert.equal(
-    pageConfig.usingComponents['ec-canvas'],
-    '/ec-canvas/ec-canvas'
-  );
+  assert.equal(pageConfig.usingComponents['trend-chart'], '/components/trend-chart/index');
+  assert.equal(pageConfig.usingComponents['donut-chart'], '/components/donut-chart/index');
   assert.match(source, /<flow-navigation\b/);
-  assert.equal((source.match(/<ec-canvas\b/g) || []).length, 2);
+  assert.equal((source.match(/<trend-chart\b/g) || []).length, 1);
+  assert.equal((source.match(/<donut-chart\b/g) || []).length, 1);
   assert.match(source, /bindtap="selectPeriod"/);
   assert.match(source, /bindchange="onDateChange"/);
   assert.match(source, /bindtap="openAttention"/);
@@ -205,7 +204,7 @@ test('promotion code page uses the approved QR and real sharing controls', () =>
   assert.match(source, /class="promotion-notice"/);
   assert.ok(
     fs.existsSync(
-      path.join(projectRoot, 'assets/images/promotion-qr.png')
+      path.join(projectRoot, 'assets/images/promotion-qr.jpg')
     )
   );
 });
@@ -217,7 +216,7 @@ test('login offers phone+password and WeChat quick login with agreement', () => 
   );
 
   assert.match(source, /<app-header\b/);
-  assert.match(source, /login-security-hero\.png/);
+  assert.match(source, /login-security-hero\.jpg/);
   assert.match(source, /bindtap="login"/);
   assert.match(source, /open-type="getPhoneNumber"/);
   assert.match(source, /bindgetphonenumber="wechatLogin"/);
@@ -239,7 +238,7 @@ test('login offers phone+password and WeChat quick login with agreement', () => 
   assert.match(legalPage, /document\.sections/);
   assert.ok(
     fs.existsSync(
-      path.join(projectRoot, 'assets/images/login-security-hero.png')
+      path.join(projectRoot, 'assets/images/login-security-hero.jpg')
     )
   );
 });
@@ -316,7 +315,7 @@ test('help feedback matches the approved functional design', () => {
   assert.doesNotMatch(source, /bindcontact="handleContact"/);
   assert.match(source, /bindtap="submitFeedback"/);
   const pageScript = fs.readFileSync(path.join(projectRoot, 'pages/help-feedback/index.js'), 'utf8');
-  assert.match(pageScript, /profileService\.uploadAvatar/);
+  assert.match(pageScript, /feedbackService\.uploadFeedbackImage/);
   assert.match(pageScript, /imageFiles: this\.data\.imageFiles/);
   assert.match(source, /class="help-submit-bar"/);
   assert.match(styles, /\.help-submit-bar[\s\S]*env\(safe-area-inset-bottom\)/);
@@ -335,27 +334,15 @@ test('consumption tab uses trend and bill details without legacy composition', (
     )
   );
 
-  assert.match(markup, /contribution-banner-visual\.png/);
-  assert.match(markup, /<ec-canvas\b/);
+  assert.match(markup, /contribution-banner-visual\.jpg/);
+  assert.match(markup, /<trend-chart\b/);
   assert.match(markup, /bindtap="selectPeriod"/);
   assert.doesNotMatch(markup, /class="composition-card"/);
   assert.match(markup, /class="trend-card"/);
   assert.match(markup, /class="contribution-empty contribution-empty--trend"/);
   assert.match(markup, /class="contribution-empty contribution-empty--details"/);
   assert.match(markup, /class="detail-row\b/);
-  assert.equal(
-    pageConfig.usingComponents['ec-canvas'],
-    '/ec-canvas/ec-canvas'
-  );
-
-  for (const file of [
-    'ec-canvas/ec-canvas.js',
-    'ec-canvas/ec-canvas.wxml',
-    'ec-canvas/echarts.js',
-    'ec-canvas/LICENSE'
-  ]) {
-    assert.ok(fs.existsSync(path.join(projectRoot, file)), file);
-  }
+  assert.equal(pageConfig.usingComponents['trend-chart'], '/components/trend-chart/index');
 });
 
 test('profile tab uses approved assets and complete service controls', () => {
@@ -364,7 +351,7 @@ test('profile tab uses approved assets and complete service controls', () => {
     'utf8'
   );
 
-  assert.match(source, /profile-hero-visual\.png/);
+  assert.doesNotMatch(source, /profile-hero-visual\.png/);
   assert.match(source, /profile-avatar\.png/);
   assert.match(source, /class="profile-service-grid"/);
   assert.match(source, /class="profile-account-card"/);

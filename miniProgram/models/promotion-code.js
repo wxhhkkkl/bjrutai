@@ -1,7 +1,7 @@
 const PROMOTION_CODE = Object.freeze({
   sourceCity: '北京',
   available: true,
-  qrImage: '/assets/images/promotion-qr.png'
+  qrImage: '/assets/images/promotion-qr.jpg'
 });
 const {
   getIdentityLabel

@@ -4,7 +4,7 @@
   <view class="contribution-banner">
     <image
       class="contribution-banner__visual"
-      src="/assets/images/contribution-banner-visual.png"
+      src="/assets/images/contribution-banner-visual.jpg"
       mode="aspectFill"
       aria-role="img"
       aria-label="消费增长数据视觉"
@@ -51,11 +51,13 @@
         </view>
       </view>
       <view hidden="{{!hasTrendData}}" class="trend-chart" aria-label="{{chartSummary.label}} {{chartSummary.total}}">
-        <ec-canvas
-          id="contribution-trend-chart"
-          canvas-id="contribution-trend-chart"
-          ec="{{ec}}"
-        ></ec-canvas>
+        <trend-chart
+          categories="{{trend.categories}}"
+          values="{{trend.values}}"
+          max="{{trend.max}}"
+          interval="{{trend.interval}}"
+          show-y-axis
+        ></trend-chart>
       </view>
       <view wx:if="{{!hasTrendData}}" class="contribution-empty contribution-empty--trend" aria-label="暂无消费趋势数据">
         <view class="contribution-empty__icon contribution-empty__icon--trend">

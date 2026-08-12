@@ -76,11 +76,12 @@
       </view>
     </view>
     <view class="analysis-trend-chart">
-      <ec-canvas
-        id="customer-trend-chart"
-        canvas-id="customer-trend-chart"
-        ec="{{ec}}"
-      ></ec-canvas>
+      <trend-chart
+        categories="{{period.trend.categories}}"
+        values="{{period.trend.values}}"
+        max="{{period.trend.max}}"
+        interval="{{period.trend.interval}}"
+      ></trend-chart>
     </view>
   </view>
 
@@ -89,11 +90,7 @@
       <text class="analysis-title">绑定状态</text>
       <view class="status-card__content">
         <view class="status-chart">
-          <ec-canvas
-            id="binding-status-chart"
-            canvas-id="binding-status-chart"
-            ec="{{ec}}"
-          ></ec-canvas>
+          <donut-chart items="{{distribution}}"></donut-chart>
         </view>
         <view class="status-legend">
           <view wx:for="{{distribution}}" wx:key="name" class="status-legend__item">

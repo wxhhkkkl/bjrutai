@@ -14,7 +14,7 @@
 
         <view wx:if="{{state === 'success'}}">
             <view class="hero">
-                <image class="hero-background" src="/assets/images/home-banner-visual-v2.png" mode="aspectFill" />
+                <image class="hero-background" src="/assets/images/home-banner-visual-v2.jpg" mode="aspectFill" />
                 <view class="hero-copy">
                     <text class="hero-title">推广客户，贡献可见</text>
                     <text class="hero-sub">专属二维码已就绪</text>

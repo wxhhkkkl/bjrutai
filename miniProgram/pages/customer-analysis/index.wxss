@@ -200,8 +200,8 @@ page {
   height: 285rpx;
 }
 
-.analysis-trend-chart ec-canvas,
-.status-chart ec-canvas {
+.analysis-trend-chart trend-chart,
+.status-chart donut-chart {
   width: 100%;
   height: 100%;
 }
