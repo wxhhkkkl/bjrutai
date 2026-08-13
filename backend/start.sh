@@ -30,13 +30,24 @@ if [ ! -f ".env" ]; then
     exit 1
 fi
 
-# 启动
-echo "[4/4] 启动服务..."
+# 检查是否已在运行
+if pgrep -f "uvicorn src.main:app" > /dev/null; then
+    echo "[!] 服务已在运行，无需重复启动"
+    echo "    停止服务: pkill -f 'uvicorn src.main:app'"
+    exit 1
+fi
+
+# 后台启动服务
+LOG_FILE="app.log"
+PID_FILE="app.pid"
+echo "[4/4] 启动服务 (后台运行)..."
+nohup uvicorn src.main:app --host 0.0.0.0 --port 8000 </dev/null > "$LOG_FILE" 2>&1 &
+echo $! > "$PID_FILE"
+
 echo ""
+echo "   日志: tail -f $LOG_FILE"
+echo "   停止: kill \$(cat $PID_FILE)"
 echo "   接口文档: http://localhost:8000/docs"
 echo "   健康检查: http://localhost:8000/api/v1/health"
-echo ""
 echo "========================================"
 echo ""
-
-uvicorn src.main:app --reload --host 0.0.0.0 --port 8000

@@ -44,7 +44,7 @@ docker-compose.override.yml
 manageSystem/.vite/
 
 # WeChat Mini Program local/generated files
-/miniprogram_npm/
+miniprogram_npm/
 /project.private.config.json
 
 # Admin app uses npm; ignore pnpm files generated locally

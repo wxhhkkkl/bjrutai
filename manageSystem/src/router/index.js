@@ -125,7 +125,8 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  // 部署在 /admin/ 子路径下
+  history: createWebHistory('/admin/'),
   routes,
 })
 
