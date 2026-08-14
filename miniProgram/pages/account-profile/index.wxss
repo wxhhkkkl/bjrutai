@@ -200,8 +200,8 @@ page {
   box-sizing: border-box;
 }
 
-.account-field__input--organization {
-  font-size: 22rpx;
+.account-field__value--organization {
+    font-size: 22rpx;
 }
 
 .account-field__placeholder {

@@ -1,7 +1,7 @@
 """Current user profile endpoints (T169).
 
 GET  /me/profile           – user profile with editableFields, version
-PUT  /me/profile           – update name, organization, avatar (optimistic locking via version)
+PUT  /me/profile           – update name, avatar (optimistic locking via version)
 POST /me/avatar/upload-token – file upload token via COS client
 GET  /me/account-summary   – lightweight account status data
 """
@@ -18,6 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_current_user, get_db
 from ...core.exceptions import BadRequestException, ConflictException, NotFoundException
 from ...integrations.cos_client import ALLOWED_CONTENT_TYPES, COSClient, get_cos_client
+from ...models.distributor import Distributor
+from ...models.organization import Organization
 from ...models.user import User
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -31,6 +33,16 @@ def _ok(data=None) -> dict:
         "requestId": uuid.uuid4().hex,
         "serverTime": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
+
+
+async def _organization_name(db: AsyncSession, user: User) -> Optional[str]:
+    """Prefer the distributor's assigned organization over legacy profile text."""
+    result = await db.execute(
+        select(Organization.name)
+        .join(Distributor, Distributor.org_id == Organization.id)
+        .where(Distributor.user_id == user.id)
+    )
+    return result.scalars().first() or user.organization
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -66,12 +78,13 @@ async def get_profile(
     if user is None:
         raise NotFoundException(message="User not found")
 
-    editable_fields = ["name", "organization", "avatar"]
+    editable_fields = ["name", "avatar"]
+    organization = await _organization_name(db, user)
     return _ok({
         "userId": str(user.id),
         "name": user.name,
         "phone": user.phone_masked or user.phone,
-        "organization": user.organization,
+        "organization": organization,
         "avatar": user.avatar_url,
         "userType": user.user_type.value if hasattr(user.user_type, "value") else str(user.user_type),
         "activationStatus": user.activation_status.value if hasattr(user.activation_status, "value") else str(user.activation_status),
@@ -110,7 +123,7 @@ async def update_profile(
     if body.name is not None:
         user.name = body.name
     if body.organization is not None:
-        user.organization = body.organization
+        raise BadRequestException(message="所属机构由系统维护，无法手动修改")
     if body.avatar is not None:
         user.avatar_url = body.avatar
 
@@ -118,10 +131,11 @@ async def update_profile(
     await db.commit()
     await db.refresh(user)
 
+    organization = await _organization_name(db, user)
     return _ok({
         "userId": str(user.id),
         "name": user.name,
-        "organization": user.organization,
+        "organization": organization,
         "avatar": user.avatar_url,
         "version": user.updated_at.isoformat() if user.updated_at else None,
     })

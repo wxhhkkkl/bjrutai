@@ -20,7 +20,7 @@ test('professional identity only changes the display label', () => {
       role: 'collaborator',
       identityType: 'doctor'
     }),
-    '鲁泰医生'
+    '儒泰医生'
   );
   assert.equal(
     getIdentityLabel({

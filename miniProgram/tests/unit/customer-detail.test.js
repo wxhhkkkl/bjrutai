@@ -8,8 +8,9 @@ const {
 } = require('../../models/customer-detail');
 
 test('customer detail normalizes tab and customer selection', () => {
-  assert.equal(normalizeCustomerDetailTab('service'), 'service');
-  assert.equal(normalizeCustomerDetailTab('unknown'), 'info');
+  assert.equal(normalizeCustomerDetailTab('contribution'), 'contribution');
+  assert.equal(normalizeCustomerDetailTab('service'), 'contribution');
+  assert.equal(normalizeCustomerDetailTab('unknown'), 'contribution');
   assert.equal(getCustomerDetail('customer-001').name, '王女士');
 });
 

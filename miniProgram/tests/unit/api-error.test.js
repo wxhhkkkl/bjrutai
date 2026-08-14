@@ -52,3 +52,11 @@ test('keeps an existing ApiError unchanged', () => {
   const original = new ApiError({ kind: 'NETWORK', message: '网络异常' })
   assert.equal(normalizeApiError(original), original)
 })
+
+test('localizes known English backend messages for end users', () => {
+  const error = normalizeApiError({
+    httpStatus: 409,
+    body: { code: 40022, message: 'You are already bound to this promoter', requestId: 'req-bound' }
+  })
+  assert.equal(error.message, '该拓展人已有绑定客户，不能重复绑定')
+})

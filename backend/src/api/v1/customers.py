@@ -20,7 +20,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import desc, func, select
+from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -136,7 +136,10 @@ class FollowupDraftRequest(BaseModel):
 # ──────────────────────────────────────────────────────────────────
 @router.get("")
 async def list_customers(
-    status: Optional[str] = Query(None, description="binding status: bound, unbound, pending"),
+    status: Optional[str] = Query(
+        None,
+        description="binding status: bound, unbound, pending; followup filters pending reminders",
+    ),
     keyword: Optional[str] = Query(None, description="Search by name or phone"),
     cursor: Optional[str] = Query(None, description="Pagination cursor (last ID)"),
     pageSize: int = Query(20, ge=1, le=100),
@@ -155,9 +158,19 @@ async def list_customers(
         promoter = await _get_promoter(db, user_id)
         query = query.where(Customer.distributor_id == promoter.id)
 
-    if status:
+    status_value = str(status or "").strip().lower()
+    if status_value == "followup":
+        query = query.where(
+            Customer.followup_records.any(
+                and_(
+                    FollowupRecord.reminder_enabled.is_(True),
+                    FollowupRecord.reminder_status == ReminderStatus.PENDING,
+                )
+            )
+        )
+    elif status_value:
         try:
-            bs = getattr(BindingStatus, status.upper(), None)
+            bs = getattr(BindingStatus, status_value.upper(), None)
             if bs:
                 query = query.where(Customer.binding_status == bs)
         except (AttributeError, KeyError):
@@ -189,6 +202,7 @@ async def list_customers(
     next_cursor = str(items[-1].id) if has_more and items else None
 
     data_items = []
+    has_pending_followup_filter = status_value == "followup"
     for c in items:
         p = c.distributor
         promoter_name = ""
@@ -205,6 +219,10 @@ async def list_customers(
             "promoterId": str(c.distributor_id) if c.distributor_id else None,
             "note": c.note,
             "updatedAt": c.updated_at.isoformat() if c.updated_at else None,
+            # The followup filter is backed by the reminder query above. This
+            # flag lets the mini program retain the real binding status while
+            # filtering the returned list by pending followup reminders.
+            "hasPendingFollowup": has_pending_followup_filter,
         })
 
     return _ok({
@@ -311,6 +329,12 @@ async def update_customer(
         promoter = await _get_promoter(db, user_id)
         if customer.distributor_id != promoter.id:
             raise ForbiddenException(message="Forbidden")
+
+        if customer.binding_status == BindingStatus.BOUND and any(
+            value is not None
+            for value in (body.phone, body.note, body.familyPhone)
+        ):
+            raise BadRequestException(message="客户绑定后仅允许修改姓名")
 
     review_required = False
 

@@ -1,4 +1,4 @@
-const DEFAULT_ORGANIZATION = '北京鲁泰服务有限公司';
+const DEFAULT_ORGANIZATION = '北京儒泰服务有限公司';
 
 function validateLoginAuthorization(state) {
   const value = state || {};
@@ -74,14 +74,6 @@ function validateProfileForm(form, confirmed) {
     };
   }
 
-  if (!String(value.organization || '').trim()) {
-    return {
-      ok: false,
-      field: 'organization',
-      message: '请输入所属机构'
-    };
-  }
-
   if (!confirmed) {
     return {
       ok: false,
@@ -94,7 +86,9 @@ function validateProfileForm(form, confirmed) {
 }
 
 function completeProfileSession(session, form) {
-  return Object.assign({}, session || {}, {
+  const value = session || {};
+
+  return Object.assign({}, value, {
     role: 'collaborator',
     identityType: session && session.identityType
       ? session.identityType
@@ -102,7 +96,7 @@ function completeProfileSession(session, form) {
     activationStatus: 'active',
     profileCompleted: true,
     name: String(form.name).trim(),
-    organization: String(form.organization).trim()
+    organization: value.organization || DEFAULT_ORGANIZATION
   });
 }
 

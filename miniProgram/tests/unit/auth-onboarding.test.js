@@ -50,7 +50,7 @@ test('profile form validates required values and confirmation', () => {
   assert.equal(
     validateProfileForm({
       name: '',
-      organization: '北京鲁泰服务有限公司'
+      organization: '北京儒泰服务有限公司'
     }, true).field,
     'name'
   );
@@ -62,6 +62,10 @@ test('profile form validates required values and confirmation', () => {
     validateProfileForm(createProfileForm(), true).ok,
     true
   );
+  assert.equal(
+    validateProfileForm({ name: '张小明', organization: '' }, true).ok,
+    true
+  );
 });
 
 test('completed onboarding persists business identity', () => {
@@ -69,11 +73,11 @@ test('completed onboarding persists business identity', () => {
     createPendingProfileSession(),
     {
       name: ' 张小明 ',
-      organization: ' 北京鲁泰服务有限公司 '
+      organization: ' 北京儒泰服务有限公司 '
     }
   );
 
   assert.equal(session.profileCompleted, true);
   assert.equal(session.name, '张小明');
-  assert.equal(session.organization, '北京鲁泰服务有限公司');
+  assert.equal(session.organization, '北京儒泰服务有限公司');
 });

@@ -233,7 +233,7 @@ class TestWechatRegisterAutoMount:
         new_user = make_mock_user(user_id=101, openid="o_auto_mount", user_type="promoter")
         default_org = MagicMock()
         default_org.id = 1
-        default_org.name = "北京鲁泰服务有限公司"
+        default_org.name = "北京儒泰服务有限公司"
         default_org.parent_id = None
         default_org.sort_order = 0
 
@@ -270,7 +270,7 @@ class TestPhoneRegisterAutoMount:
         """New phone registration → Distributor created with source_channel=phone_register."""
         default_org = MagicMock()
         default_org.id = 1
-        default_org.name = "北京鲁泰服务有限公司"
+        default_org.name = "北京儒泰服务有限公司"
 
         mock_client._mock_db.execute = AsyncMock()
         mock_client._mock_db.execute.side_effect = [

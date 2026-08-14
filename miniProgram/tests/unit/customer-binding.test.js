@@ -7,20 +7,21 @@ const {
   formatBindingTime
 } = require('../../models/customer-binding');
 
-test('customer binding validates required identity fields', () => {
+test('customer binding validates required name and phone fields', () => {
   assert.equal(validateCustomerForm({}).field, 'name');
   assert.equal(
     validateCustomerForm({ name: '王女士', phone: '123' }).field,
     'phone'
   );
-  assert.equal(
-    validateCustomerForm({
-      name: '王女士',
-      phone: '13812349283',
-      idCard: '123'
-    }).field,
-    'idCard'
-  );
+  assert.equal(validateCustomerForm({
+    name: '王女士',
+    phone: '13812349283'
+  }).valid, true);
+  assert.equal(validateCustomerForm({
+    name: '王女士',
+    phone: '13812349283',
+    idCard: '123'
+  }).field, 'idCard');
 });
 
 test('customer binding normalizes and masks submitted identity data', () => {

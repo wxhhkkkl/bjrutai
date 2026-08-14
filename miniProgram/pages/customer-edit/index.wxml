@@ -54,7 +54,7 @@
         <text class="edit-field__required">*</text>
       </view>
       <text class="edit-field__value">{{form.phone}}</text>
-      <view
+      <view wx:if="{{!isBound}}"
         class="edit-field__action tap-target"
         data-field="phone"
         bindtap="openEditor"
@@ -73,7 +73,7 @@
       <text class="edit-field__label">身份证号</text>
       <text class="edit-field__value">{{form.idCard}}</text>
       <van-icon name="lock" size="20px" color="#656c77" />
-      <view
+      <view wx:if="{{!isBound}}"
         class="edit-field__action tap-target"
         data-field="idCard"
         bindtap="openEditor"
@@ -92,7 +92,7 @@
       <text class="edit-field__label">医保账户</text>
       <text class="edit-field__value">{{form.medicalAccount}}</text>
       <van-icon name="lock" size="20px" color="#656c77" />
-      <view
+      <view wx:if="{{!isBound}}"
         class="edit-field__action tap-target"
         data-field="medicalAccount"
         bindtap="openEditor"
@@ -110,7 +110,7 @@
       </view>
       <text class="edit-field__label">家属手机号</text>
       <text class="edit-field__value">{{form.familyPhone}}</text>
-      <view
+      <view wx:if="{{!isBound}}"
         class="edit-field__action tap-target"
         data-field="familyPhone"
         bindtap="openEditor"
@@ -133,6 +133,7 @@
       placeholder="填写客户沟通偏好或服务注意事项"
       placeholder-class="edit-note__placeholder"
       bindinput="onNoteInput"
+      disabled="{{isBound}}"
     ></textarea>
     <text class="edit-note__count">{{noteLength}}/200</text>
   </view>
@@ -174,7 +175,8 @@
   </view>
   <view class="edit-notice edit-notice--authorization">
     <van-icon name="lock" size="24px" color="#1677ff" />
-    <text>修改敏感信息需重新确认客户授权</text>
+    <text wx:if="{{isBound}}">客户已绑定，仅允许修改姓名</text>
+    <text wx:else>修改敏感信息需重新确认客户授权</text>
   </view>
 </view>
 

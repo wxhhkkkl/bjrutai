@@ -15,6 +15,7 @@ Page({
     state: 'loading',
     stateMessage: '',
     customer: {},
+    isBound: false,
     form: createCustomerEditForm({}),
     originalForm: createCustomerEditForm({}),
     noteLength: 0,
@@ -38,7 +39,12 @@ Page({
       const customer = adaptCustomerDetail(await customerService.getCustomer(this.customerId))
       const form = createCustomerEditForm(customer)
       this.setData({
-        state: 'success', customer, form, originalForm: Object.assign({}, form), noteLength: String(form.note || '').length
+        state: 'success',
+        customer,
+        form,
+        originalForm: Object.assign({}, form),
+        isBound: customer.statusCode === 'bound',
+        noteLength: String(form.note || '').length
       })
     } catch (error) {
       this.setData({ state: error.kind === 'FORBIDDEN' ? 'forbidden' : 'recoverable-error', stateMessage: error.message || '请稍后再试' })
@@ -51,6 +57,10 @@ Page({
 
   openEditor(e) {
     const field = e.currentTarget.dataset.field
+    if (this.data.isBound && field !== 'name') {
+      wx.showToast({ title: '客户绑定后仅允许修改姓名', icon: 'none' })
+      return
+    }
     if (BLOCKED_FIELDS.has(field)) {
       wx.showToast({ title: '该敏感字段暂不支持前端修改', icon: 'none' })
       return
@@ -86,6 +96,7 @@ Page({
   },
 
   onNoteInput(e) {
+    if (this.data.isBound) return
     const note = e.detail.value
     this.setData({ 'form.note': note, noteLength: note.length })
   },
@@ -102,11 +113,13 @@ Page({
       return
     }
 
-    const payload = {
-      name: result.value.name,
-      note: result.value.note,
-      familyPhone: result.value.familyPhone
-    }
+    const payload = this.data.isBound
+      ? { name: result.value.name }
+      : {
+        name: result.value.name,
+        note: result.value.note,
+        familyPhone: result.value.familyPhone
+      }
     try {
       const response = await customerService.patchCustomer(this.customerId, payload)
       const updated = adaptCustomerEditResponse(response)

@@ -1,10 +1,5 @@
 <scroll-view class="home-scroll" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
-    <app-header
-        title="鲁泰协作"
-        show-logo="{{true}}"
-        show-scan="{{true}}"
-        bind:scan="handleScan"
-    />
+    <app-header title="儒泰协作" show-logo="{{true}}" />
     <view class="screen tab-screen">
         <view class="greeting">
             <text class="greeting-title">上午好，{{session.name}}</text>
@@ -18,7 +13,8 @@
                 <view class="hero-copy">
                     <text class="hero-title">推广客户，贡献可见</text>
                     <text class="hero-sub">专属二维码已就绪</text>
-                    <button class="primary-button hero-button tap-target" data-id="promote-code" bindtap="action" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+                    <button class="primary-button hero-button tap-target" data-id="promote-code" bindtap="action"
+                        hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
                         <van-icon name="qr" />
                         <text>我的推广码</text>
                     </button>
@@ -27,7 +23,8 @@
 
             <text class="section-title">快捷服务</text>
             <view class="quick-row">
-                <view class="quick-card tap-target" data-id="bind-client" bindtap="action" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+                <view class="quick-card tap-target" data-id="bind-client" bindtap="action" hover-class="tap-feedback"
+                    hover-start-time="0" hover-stay-time="80">
                     <image src="/assets/images/customer-bind-icon.png" mode="aspectFit" />
                     <view class="quick-content">
                         <text class="quick-title">客户绑定</text>
@@ -35,7 +32,8 @@
                         <text class="quick-link">去绑定 ›</text>
                     </view>
                 </view>
-                <view class="quick-card tap-target" data-id="contribution-detail" bindtap="action" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+                <view class="quick-card tap-target" data-id="contribution-detail" bindtap="action"
+                    hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
                     <image src="/assets/images/contribution-icon.png" mode="aspectFit" />
                     <view class="quick-content">
                         <text class="quick-title">我的消费</text>
@@ -69,44 +67,51 @@
             <view class="home-articles">
                 <view class="heading-row home-articles__heading">
                     <text class="section-title">文章资讯</text>
-                    <view class="heading-link tap-target" data-id="article-list" bindtap="action" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">查看全部 ›</view>
+                    <view class="heading-link tap-target" data-id="article-list" bindtap="action"
+                        hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">查看全部 ›</view>
                 </view>
 
                 <view wx:if="{{articleState === 'loading'}}" class="home-articles__state">文章加载中…</view>
                 <view wx:elif="{{articleState === 'empty'}}" class="home-articles__state">暂无文章，可稍后查看</view>
-                <view wx:elif="{{articleState === 'recoverable-error'}}" class="home-articles__state home-articles__state--error">
+                <view wx:elif="{{articleState === 'recoverable-error'}}"
+                    class="home-articles__state home-articles__state--error">
                     <text>{{articleStateMessage}}</text>
-                    <button class="home-articles__retry tap-target" bindtap="retryArticles" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">重试</button>
+                    <button class="home-articles__retry tap-target" bindtap="retryArticles" hover-class="tap-feedback"
+                        hover-start-time="0" hover-stay-time="80">重试</button>
                 </view>
                 <view wx:else class="home-article-list">
-                    <view wx:for="{{articleItems}}" wx:key="articleId" class="home-article-item tap-target" data-id="{{item.articleId}}" bindtap="openArticle" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
-                        <image wx:if="{{item.coverImageUrl}}" class="home-article-item__cover" src="{{item.coverImageUrl}}" mode="aspectFill" />
+                    <view wx:for="{{articleItems}}" wx:key="articleId" class="home-article-item tap-target"
+                        data-id="{{item.articleId}}" bindtap="openArticle" hover-class="tap-feedback"
+                        hover-start-time="0" hover-stay-time="80">
+                        <image wx:if="{{item.coverImageUrl}}" class="home-article-item__cover"
+                            src="{{item.coverImageUrl}}" mode="aspectFill" />
                         <view wx:else class="home-article-item__placeholder">文</view>
                         <view class="home-article-item__copy">
                             <text class="home-article-item__title">{{item.title}}</text>
                             <text wx:if="{{item.summary}}" class="home-article-item__summary">{{item.summary}}</text>
-                            <text class="home-article-item__meta">{{item.category || item.publishedAtDisplay || '文章资讯'}}</text>
+                            <text
+                                class="home-article-item__meta">{{item.category || item.publishedAtDisplay || '文章资讯'}}</text>
                         </view>
                         <text class="home-article-item__arrow">›</text>
                     </view>
                 </view>
             </view>
-
+            <!-- 
             <block wx:if="{{notices.length}}">
                 <text class="section-title">最新通知</text>
                 <view class="qualification">
                     <text>{{notices[0].title}}</text>
                     <text class="status">{{notices.length}} 条</text>
                 </view>
-            </block>
+            </block> -->
 
-            <block wx:if="{{records.length}}">
+            <!-- <block wx:if="{{records.length}}">
                 <text class="section-title">最近绑定</text>
                 <view wx:for="{{records}}" wx:key="id" class="qualification">
                     <text>{{item.name}}</text>
                     <text class="status">{{item.status}}</text>
                 </view>
-            </block>
+            </block> -->
 
         </view>
     </view>

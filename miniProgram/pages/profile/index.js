@@ -74,7 +74,7 @@ Page({
     state: 'loading',
     stateMessage: '',
     session: {},
-    identityLabel: '鲁泰协作人员',
+    identityLabel: '儒泰协作人员',
     metrics: [],
     serviceItems: SERVICE_ITEMS,
     accountItems: ACCOUNT_ITEMS

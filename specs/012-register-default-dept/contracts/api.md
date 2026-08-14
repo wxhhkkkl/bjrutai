@@ -35,7 +35,7 @@
     "distributor": {
       "distributorId": "15",
       "orgId": "1",
-      "orgName": "北京鲁泰服务有限公司",
+      "orgName": "北京儒泰服务有限公司",
       "orgRole": "member",
       "sourceChannel": "wechat_register"
     }
@@ -107,7 +107,7 @@
     "distributor": {
       "distributorId": "16",
       "orgId": "1",
-      "orgName": "北京鲁泰服务有限公司",
+      "orgName": "北京儒泰服务有限公司",
       "orgRole": "member",
       "sourceChannel": "phone_register"
     }
@@ -146,7 +146,7 @@ session 响应中的 `user` 对象新增 distributor 关联信息，使小程序
       "phone": "138****1111",
       "role": "promoter",
       "orgNodeId": "1",
-      "orgNodeName": "北京鲁泰服务有限公司",
+      "orgNodeName": "北京儒泰服务有限公司",
       "distributorId": "15",
       "orgRole": "member",
       "sourceChannel": "wechat_register"

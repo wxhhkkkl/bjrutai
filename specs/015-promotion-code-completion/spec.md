@@ -3,7 +3,7 @@
 **Feature Branch**: `015-promotion-code-completion`  
 **Created**: 2026-08-10  
 **Status**: Draft  
-**Input**: 完善“我的推广码”链路中可在北京鲁泰仓库内实现的缺失部分。
+**Input**: 完善“我的推广码”链路中可在北京儒泰仓库内实现的缺失部分。
 
 ## User Scenarios & Testing
 

@@ -138,13 +138,17 @@ page {
   font-size: 26rpx;
 }
 
-.profile-field__input {
+.profile-field__input,
+.profile-field__value {
   min-width: 0;
-  height: 90rpx;
   flex: 1;
   color: #101419;
   font-size: 27rpx;
   font-weight: 500;
+}
+
+.profile-field__input {
+  height: 90rpx;
 }
 
 .profile-field__placeholder {

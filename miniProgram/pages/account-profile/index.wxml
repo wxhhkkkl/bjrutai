@@ -47,18 +47,10 @@
       />
       <van-icon name="edit" size="21px" color="#858c98" />
     </view>
-    <view class="account-field {{invalidField === 'organization' ? 'account-field--invalid' : ''}}">
+    <view class="account-field">
       <text class="account-field__label">所属机构</text>
-      <input
-        class="account-field__input account-field__input--organization"
-        value="{{form.organization}}"
-        data-field="organization"
-        bindinput="onFieldInput"
-        maxlength="40"
-        placeholder="请输入所属机构"
-        placeholder-class="account-field__placeholder"
-      />
-      <van-icon name="edit" size="21px" color="#858c98" />
+      <text class="account-field__value account-field__value--organization">{{form.organization}}</text>
+      <van-icon name="lock" size="21px" color="#858c98" />
     </view>
     <view class="account-field">
       <text class="account-field__label">身份类型</text>
@@ -81,7 +73,7 @@
       <van-icon name="arrow" size="21px" color="#858c98" />
     </view>
   </view>
-  <text class="account-form-hint">身份类型由系统识别，无法手动修改</text>
+  <text class="account-form-hint">身份类型和所属机构由系统维护，无法手动修改</text>
 
   <text class="account-section-title account-section-title--status">账号状态</text>
   <view class="account-status-card">

@@ -1,7 +1,7 @@
 const DEFAULT_API_BASES = Object.freeze({
-  develop: 'http://192.168.110.21:8001',
-  trial: '',
-  release: ''
+  develop: 'https://bjrutai.com',
+  trial: 'https://bjrutai.com',
+  release: 'https://bjrutai.com'
 })
 
 function normalizeEnvVersion(value) {

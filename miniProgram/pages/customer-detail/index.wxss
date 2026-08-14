@@ -4,8 +4,8 @@ page {
 
 .detail-page {
     min-height: 100vh;
-    padding: 20rpx 30rpx calc(154rpx + constant(safe-area-inset-bottom));
-    padding: 20rpx 30rpx calc(154rpx + env(safe-area-inset-bottom));
+    padding: 20rpx 30rpx calc(40rpx + constant(safe-area-inset-bottom));
+    padding: 20rpx 30rpx calc(40rpx + env(safe-area-inset-bottom));
     background: linear-gradient(180deg, #ffffff 0%, #fbfdff 62%, #ffffff 100%);
 }
 

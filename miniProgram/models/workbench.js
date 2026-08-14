@@ -24,7 +24,7 @@ function amountCent(value) {
 }
 
 function normalizeRole(value) {
-  if (value === 'promoter' || value === 'doctor') return 'collaborator'
+  if (value === 'promoter' || value === 'doctor' || value === 'distributor') return 'collaborator'
   if (value === 'admin' || value === 'finance' || value === 'ops') return 'admin'
   return 'unknown'
 }

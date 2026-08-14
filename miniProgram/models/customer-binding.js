@@ -20,7 +20,7 @@ function validateCustomerForm(form) {
     return { valid: false, field: 'phone', message: '请输入正确的客户手机号' };
   }
 
-  if (!ID_CARD_PATTERN.test(idCard)) {
+  if (idCard && !ID_CARD_PATTERN.test(idCard)) {
     return { valid: false, field: 'idCard', message: '请输入正确的身份证号' };
   }
 

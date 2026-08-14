@@ -39,6 +39,7 @@ Page({
 
   onFieldInput(event) {
     const field = event.currentTarget.dataset.field;
+    if (field !== 'name') return;
     const value = event.detail.value;
     const patch = {};
 
@@ -78,13 +79,12 @@ Page({
       const profile = await profileService.getProfile();
       const result = await profileService.updateProfile({
         name: this.data.form.name.trim(),
-        organization: this.data.form.organization.trim(),
         version: profile.version
       });
       sessionService.setSession(Object.assign({}, session, {
         profileCompleted: true,
         name: result.name || this.data.form.name,
-        organization: result.organization || this.data.form.organization
+        organization: result.organization || session.organization || this.data.form.organization
       }));
       wx.switchTab({ url: '/pages/home/index' });
     } catch (error) {

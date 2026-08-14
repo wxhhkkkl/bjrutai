@@ -1,7 +1,7 @@
 const IDENTITY_LABELS = {
-  doctor: '鲁泰医生',
+  doctor: '儒泰医生',
   promoter: '市场拓展人',
-  unknown: '鲁泰协作人员'
+  unknown: '儒泰协作人员'
 };
 
 function normalizeIdentityType(session) {

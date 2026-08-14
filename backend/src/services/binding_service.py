@@ -271,7 +271,7 @@ class BindingService:
         )
         if existing_bound.scalars().first() is not None:
             raise AppException(
-                code=40022, message="You are already bound to this promoter", status_code=409,
+                code=40022, message="该拓展人已有绑定客户，不能重复绑定", status_code=409,
             )
 
         # Check for pending request to same promoter

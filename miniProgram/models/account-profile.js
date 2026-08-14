@@ -20,17 +20,17 @@ function createAccountProfileForm(session) {
 function getIdentityDisplay(session) {
   const identityType = normalizeIdentityType(session);
 
-  if (identityType === 'doctor') return '北京鲁泰合作医生';
-  if (identityType === 'promoter') return '北京鲁泰市场拓展人';
-  return '北京鲁泰协作人员';
+  if (identityType === 'doctor') return '北京儒泰合作医生';
+  if (identityType === 'promoter') return '北京儒泰市场拓展人';
+  return '北京儒泰协作人员';
 }
 
 function getIdentityLabel(session) {
   const identityType = normalizeIdentityType(session);
 
-  if (identityType === 'doctor') return '鲁泰医生';
+  if (identityType === 'doctor') return '儒泰医生';
   if (identityType === 'promoter') return '市场拓展人';
-  return '鲁泰协作人员';
+  return '儒泰协作人员';
 }
 
 function getAccountProfileView(session) {
@@ -56,14 +56,6 @@ function validateAccountProfile(form) {
     };
   }
 
-  if (!String(value.organization || '').trim()) {
-    return {
-      valid: false,
-      field: 'organization',
-      message: '请输入所属机构'
-    };
-  }
-
   return {
     valid: true
   };
@@ -74,7 +66,7 @@ function saveAccountProfile(session, form, phone) {
 
   return Object.assign({}, value, {
     name: String(form.name).trim(),
-    organization: String(form.organization).trim(),
+    organization: value.organization || DEFAULT_ORGANIZATION,
     avatar: form.avatar || DEFAULT_AVATAR,
     phone: phone || value.phone || '138****1028',
     phoneAuthorized: true,

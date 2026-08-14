@@ -1,5 +1,8 @@
 const { getRuntimeEnvironment } = require('./config/env')
 const sessionService = require('./services/session-service')
+// 首页是小程序的首个页面，启动时先注册认证刷新处理器，
+// 确保访问令牌过期后 request-service 能自动刷新或跳转登录。
+require('./services/auth-service')
 
 const SESSION_API_BASE_KEY = 'lutai_session_api_base'
 

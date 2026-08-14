@@ -3,12 +3,12 @@ const assert = require('node:assert/strict')
 
 const ENV_MODULE = '../../config/env'
 
-test('develop environment defaults to the current LAN backend and enables mock only when explicit', () => {
+test('develop environment defaults to the deployed backend and enables mock only when explicit', () => {
   const { resolveEnvironment } = require(ENV_MODULE)
 
   assert.deepEqual(resolveEnvironment({ envVersion: 'develop' }), {
     envVersion: 'develop',
-    apiBase: 'http://192.168.110.24:8001',
+    apiBase: 'https://bjrutai.com',
     useMock: false
   })
   assert.equal(resolveEnvironment({
@@ -17,13 +17,11 @@ test('develop environment defaults to the current LAN backend and enables mock o
   }).useMock, true)
 })
 
-test('trial and release require an explicit HTTPS API base', () => {
+test('trial and release use the configured production HTTPS API base', () => {
   const { resolveEnvironment } = require(ENV_MODULE)
 
-  assert.throws(
-    () => resolveEnvironment({ envVersion: 'trial' }),
-    /HTTPS API 地址/
-  )
+  assert.equal(resolveEnvironment({ envVersion: 'trial' }).apiBase, 'https://bjrutai.com')
+  assert.equal(resolveEnvironment({ envVersion: 'release' }).apiBase, 'https://bjrutai.com')
   assert.throws(
     () => resolveEnvironment({
       envVersion: 'release',

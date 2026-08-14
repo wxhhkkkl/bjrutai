@@ -82,6 +82,11 @@ async def submit_binding_request(
     svc = get_binding_service()
 
     req_data = data.model_dump(exclude_none=False)
+    # Distributor self-service bindings always belong to the logged-in account.
+    # Keep the selectable-promoter flow for doctor/admin integrations.
+    if payload.get("user_type") == "distributor":
+        req_data["promoterId"] = str(user_id)
+        req_data["promoterCode"] = None
     result = await svc.submit_binding_request(
         db,
         data=req_data,

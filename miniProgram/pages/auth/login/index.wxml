@@ -1,8 +1,8 @@
-<app-header title="鲁泰协作" showLogo="{{true}}" />
+<app-header title="儒泰协作" showLogo="{{true}}" />
 
 <view class="login-page">
     <view class="login-welcome">
-        <text class="login-welcome__title">欢迎使用鲁泰协作</text>
+        <text class="login-welcome__title">欢迎使用儒泰协作</text>
         <text class="login-welcome__description">推广协作，贡献可见</text>
     </view>
 
@@ -38,8 +38,7 @@
         <button class="login-wechat-button tap-target" open-type="getPhoneNumber" bindgetphonenumber="wechatLogin"
             hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" loading="{{loggingIn}}"
             disabled="{{loggingIn}}">
-            <van-icon wx:if="{{!loggingIn}}" name="wechat" size="31px" color="#050505" />
-            <text>{{loggingIn ? '正在登录' : '微信一键登录'}}</text>
+            <text>{{loggingIn ? '正在登录' : '手机号快捷登录'}}</text>
         </button>
     </view>
 

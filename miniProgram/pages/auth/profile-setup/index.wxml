@@ -42,18 +42,10 @@
       />
       <van-icon name="edit" size="22px" color="#858c98" />
     </view>
-    <view class="profile-field {{invalidField === 'organization' ? 'profile-field--invalid' : ''}}">
+    <view class="profile-field">
       <text class="profile-field__label">所属机构</text>
-      <input
-        class="profile-field__input"
-        value="{{form.organization}}"
-        data-field="organization"
-        bindinput="onFieldInput"
-        maxlength="40"
-        placeholder="请输入所属机构"
-        placeholder-class="profile-field__placeholder"
-      />
-      <van-icon name="edit" size="22px" color="#858c98" />
+      <text class="profile-field__value">{{form.organization}}</text>
+      <van-icon name="lock" size="22px" color="#858c98" />
     </view>
   </view>
 
@@ -64,7 +56,7 @@
     </view>
     <view class="profile-role-card__copy">
       <text class="profile-role-card__title">角色由系统识别</text>
-      <text class="profile-role-card__description">提交资料后，系统将识别您的专业身份，推广与贡献能力保持一致</text>
+      <text class="profile-role-card__description">所属机构和专业身份由系统维护，推广与贡献能力保持一致</text>
     </view>
   </view>
 

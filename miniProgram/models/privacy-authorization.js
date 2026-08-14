@@ -7,7 +7,7 @@ const PRIVACY_DOCUMENTS = Object.freeze([
   {
     id: 'agreement',
     title: '用户协议',
-    content: '本协议用于说明鲁泰协作服务的使用规则、账号责任及双方权利义务。使用服务前，请确认您已阅读并理解相关条款。'
+    content: '本协议用于说明儒泰协作服务的使用规则、账号责任及双方权利义务。使用服务前，请确认您已阅读并理解相关条款。'
   },
   {
     id: 'privacy',

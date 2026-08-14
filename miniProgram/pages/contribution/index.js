@@ -27,6 +27,5 @@ Page({
   retry() { this.loadData(this.data.selectedPeriod) },
   selectPeriod(e) { const id = e.currentTarget.dataset.id; if (id !== this.data.selectedPeriod) this.loadData(id) },
   openAllDetails() { this.openActionPage('contribution-detail') },
-  openDetail() { wx.showToast({ title: '账单详情暂不可用，请以消费列表为准', icon: 'none' }) },
   openActionPage(actionId) { const result = openAction(actionId, getCurrentSession()); if (result.ok) wx.navigateTo({ url: result.url }); else wx.showToast({ title: result.message, icon: 'none' }) }
 })

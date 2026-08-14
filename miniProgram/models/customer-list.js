@@ -4,7 +4,8 @@ function filterCustomers(list, selectedFilter, keyword) {
   return list.filter((customer) => {
     const matchesStatus = selectedFilter === 'all'
       || (selectedFilter === 'matching' && customer.status === '待匹配')
-      || (selectedFilter === 'followup' && customer.status === '待跟进');
+      || (selectedFilter === 'followup'
+        && (customer.hasPendingFollowup === true || customer.status === '待跟进'));
     const searchableText = [
       customer.name,
       customer.phone,
@@ -51,6 +52,7 @@ function adaptCustomerList(payload = {}) {
         note: String(item.note || ''),
         status: status.label,
         statusCode: String(item.bindingStatus || ''),
+        hasPendingFollowup: item.hasPendingFollowup === true,
         tone: status.tone,
         avatar: String(item.avatar || DEFAULT_AVATARS[item.bindingStatus] || DEFAULT_AVATARS.fallback),
         promoterName: String(item.promoterName || ''),

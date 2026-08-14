@@ -31,10 +31,12 @@ test('customer pages include request-version protection and API error states', (
   }
 })
 
-test('customer detail keeps blocked service/followup operations local and does not call endpoints', () => {
+test('customer detail only renders the customer summary and consumption overview', () => {
   const source = fs.readFileSync(path.join(root, 'pages/customer-detail/index.js'), 'utf8')
   assert.doesNotMatch(source, /getServiceRecords|getFollowups|postFollowup|\/service-records|\/followups/)
-  assert.match(source, /暂不可用|权限|blocked|B-003|B-005/)
+  assert.doesNotMatch(source, /getCustomerContributions/)
+  assert.doesNotMatch(source, /selectTab|currentTab/)
+  assert.doesNotMatch(source, /contactCustomer|recordFollowup/)
 })
 
 test('followup page keeps draft and submit actions blocked without fake success', () => {

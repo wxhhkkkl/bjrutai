@@ -36,6 +36,10 @@ test('adapts promoter metrics and formats integer cents for existing page view m
 })
 
 test('normalizes admin and unknown role variants without borrowing promoter fields', () => {
+  assert.equal(adaptWorkbench({
+    role: 'distributor',
+    metrics: { myCustomers: 1, myBindings: 2, myMonthlyConsumption: 300, pendingFollowups: 0 }
+  }).role, 'collaborator')
   assert.deepEqual(adaptWorkbench({
     role: 'admin',
     metrics: { totalPromoters: 8, totalCustomers: 30, abnormalBindings: 4 }

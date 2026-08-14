@@ -9,7 +9,7 @@
             <text class="profile-hero__name">
                 {{session.name || '未设置姓名'}}
             </text>
-            <text class="profile-hero__role">北京鲁泰{{identityLabel}}</text>
+            <text class="profile-hero__role">北京儒泰{{identityLabel}}</text>
         </view>
 
         <view class="profile-hero__edit tap-target" data-id="profile" bindtap="action" hover-class="tap-feedback"
@@ -47,10 +47,9 @@
                 bindtap="action" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
                 <image class="profile-account-icon" src="{{item.icon}}" mode="aspectFill" />
                 <text class="profile-account-name">{{item.title}}</text>
-                <text wx:if="{{item.badge}}" class="profile-account-badge">
-                    {{item.badge}}
-                </text>
-                <van-icon name="arrow" size="21px" color="#8a8f98" />
+                <view class="profile-account-action">
+                    <van-icon class="profile-account-arrow" name="arrow" size="21px" color="#8a8f98" />
+                </view>
             </view>
         </view>
 

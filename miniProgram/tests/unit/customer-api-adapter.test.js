@@ -61,3 +61,15 @@ test('existing customer filters continue to work with adapted list items', () =>
   assert.equal(filterCustomers(list, 'matching', '186').length, 1)
   assert.equal(sortCustomers(list, 'name')[0].id, '1')
 })
+
+test('followup filter keeps the customer binding status and uses the backend reminder flag', () => {
+  const list = adaptCustomerList({
+    items: [{
+      id: '2', name: '王女士', phoneMasked: '138****1028', bindingStatus: 'bound',
+      hasPendingFollowup: true
+    }]
+  }).items
+
+  assert.equal(list[0].status, '已绑定')
+  assert.equal(filterCustomers(list, 'followup', '王').length, 1)
+})

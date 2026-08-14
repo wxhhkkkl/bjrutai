@@ -89,12 +89,7 @@
         <view
           wx:for="{{details}}"
           wx:key="title"
-          class="detail-row tap-target"
-          data-title="{{item.title}}"
-          bindtap="openDetail"
-          hover-class="tap-feedback"
-          hover-start-time="0"
-          hover-stay-time="80"
+          class="detail-row"
         >
           <image class="detail-icon" src="{{item.icon}}" mode="aspectFill" />
           <view class="detail-copy">
@@ -104,7 +99,6 @@
           <view class="detail-value">
             <text>{{item.value}}</text>
           </view>
-          <van-icon name="arrow" size="22px" color="#8a8f98" />
         </view>
       </view>
       <view wx:else class="contribution-empty contribution-empty--details" aria-label="暂无消费明细">

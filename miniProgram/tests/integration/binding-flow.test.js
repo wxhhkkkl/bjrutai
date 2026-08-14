@@ -12,6 +12,10 @@ test('binding pages use binding service and no fixture success path', () => {
   }
   const source = fs.readFileSync(path.join(root, 'pages/customer-binding/index.js'), 'utf8')
   assert.match(source, /Idempotency|idempotency|submitBinding/)
+  assert.doesNotMatch(source, /getSelectablePromoters|selectOwner/)
+  const markup = fs.readFileSync(path.join(root, 'pages/customer-binding/index.wxml'), 'utf8')
+  assert.doesNotMatch(markup, /bindtap="selectOwner"/)
+  assert.match(markup, /自动归属当前登录账号/)
 })
 
 test('binding result does not request unverified detail or retry endpoints', () => {

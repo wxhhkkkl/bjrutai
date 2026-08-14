@@ -11,7 +11,7 @@ const { getCurrentSession } = require('../../services/session-service')
 const FILTERS = [
   { id: 'all', label: '全部', status: undefined },
   { id: 'matching', label: '待匹配', status: 'pending' },
-  { id: 'followup', label: '待跟进', status: 'unbound' }
+  { id: 'followup', label: '待跟进', status: 'followup' }
 ]
 
 function errorState(error) {

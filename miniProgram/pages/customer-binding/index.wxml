@@ -1,308 +1,168 @@
 <flow-navigation title="{{navTitle}}" bind:back="handleBack" />
 
 <view class="binding-page binding-page--step-{{step}}">
-  <binding-progress step="{{step}}" />
+    <binding-progress step="{{step}}" />
 
-  <block wx:if="{{step === 1}}">
-    <view class="binding-intro">
-      <text class="binding-intro__title">录入客户信息</text>
-      <text class="binding-intro__description">
-        请填写用于儒泰用户匹配的必要信息
-      </text>
-    </view>
-
-    <view class="binding-form-card">
-      <text class="binding-card-title">客户基本信息</text>
-
-      <view class="binding-field {{invalidField === 'name' ? 'binding-field--invalid' : ''}}">
-        <view class="binding-icon-tile">
-          <van-icon name="contact-o" size="27px" color="#1677ff" />
+    <block wx:if="{{step === 1}}">
+        <view class="binding-intro">
+            <text class="binding-intro__title">录入客户信息</text>
+            <text class="binding-intro__description">
+                请填写用于儒泰用户匹配的必要信息
+            </text>
         </view>
-        <text class="binding-field__label">姓名</text>
-        <input
-          class="binding-field__input"
-          value="{{form.name}}"
-          placeholder="请输入客户姓名"
-          placeholder-class="binding-field__placeholder"
-          maxlength="20"
-          data-field="name"
-          bindinput="onInput"
-        />
-      </view>
 
-      <view class="binding-field {{invalidField === 'phone' ? 'binding-field--invalid' : ''}}">
-        <view class="binding-icon-tile">
-          <van-icon name="phone-o" size="27px" color="#1677ff" />
+        <view class="binding-form-card">
+            <text class="binding-card-title">客户基本信息</text>
+
+            <view class="binding-field {{invalidField === 'name' ? 'binding-field--invalid' : ''}}">
+                <view class="binding-icon-tile">
+                    <van-icon name="contact-o" size="27px" color="#1677ff" />
+                </view>
+                <text class="binding-field__label">姓名</text>
+                <input class="binding-field__input" value="{{form.name}}" placeholder="请输入客户姓名"
+                    placeholder-class="binding-field__placeholder" maxlength="20" data-field="name"
+                    bindinput="onInput" />
+            </view>
+
+            <view class="binding-field {{invalidField === 'phone' ? 'binding-field--invalid' : ''}}">
+                <view class="binding-icon-tile">
+                    <van-icon name="phone-o" size="27px" color="#1677ff" />
+                </view>
+                <text class="binding-field__label">手机号</text>
+                <input class="binding-field__input" value="{{form.phone}}" type="number" placeholder="请输入客户手机号"
+                    placeholder-class="binding-field__placeholder" maxlength="11" data-field="phone"
+                    bindinput="onInput" />
+            </view>
+
+            <view class="binding-field {{invalidField === 'idCard' ? 'binding-field--invalid' : ''}}">
+                <view class="binding-icon-tile">
+                    <van-icon name="idcard" size="27px" color="#1677ff" />
+                </view>
+                <text class="binding-field__label">身份证号</text>
+                <input class="binding-field__input" value="{{form.idCard}}" type="idcard" placeholder="选填"
+                    placeholder-class="binding-field__placeholder" maxlength="18" data-field="idCard"
+                    bindinput="onInput" />
+            </view>
+
+            <view class="binding-field">
+                <view class="binding-icon-tile">
+                    <van-icon name="card" size="27px" color="#1677ff" />
+                </view>
+                <text class="binding-field__label">医保账户</text>
+                <input class="binding-field__input" value="{{form.medicalAccount}}" placeholder="选填"
+                    placeholder-class="binding-field__placeholder" maxlength="30" data-field="medicalAccount"
+                    bindinput="onInput" />
+            </view>
+
+            <view
+                class="binding-field binding-field--last {{invalidField === 'familyPhone' ? 'binding-field--invalid' : ''}}">
+                <view class="binding-icon-tile">
+                    <van-icon name="friends-o" size="27px" color="#1677ff" />
+                </view>
+                <text class="binding-field__label">家属手机号</text>
+                <input class="binding-field__input" value="{{form.familyPhone}}" type="number" placeholder="选填"
+                    placeholder-class="binding-field__placeholder" maxlength="11" data-field="familyPhone"
+                    bindinput="onInput" />
+            </view>
         </view>
-        <text class="binding-field__label">手机号</text>
-        <input
-          class="binding-field__input"
-          value="{{form.phone}}"
-          type="number"
-          placeholder="请输入客户手机号"
-          placeholder-class="binding-field__placeholder"
-          maxlength="11"
-          data-field="phone"
-          bindinput="onInput"
-        />
-      </view>
 
-      <view class="binding-field {{invalidField === 'idCard' ? 'binding-field--invalid' : ''}}">
-        <view class="binding-icon-tile">
-          <van-icon name="idcard" size="27px" color="#1677ff" />
+        <text class="binding-section-title">归属拓展人</text>
+        <view class="owner-card">
+            <view class="binding-icon-tile binding-icon-tile--owner">
+                <van-icon name="manager-o" size="27px" color="#1677ff" />
+                <van-icon class="binding-icon-link" name="link-o" size="16px" color="#1677ff" />
+            </view>
+            <view class="owner-card__copy">
+                <text class="owner-card__name">{{owner.name}}</text>
+                <text class="owner-card__meta">{{owner.roleLabel}} · 已激活</text>
+            </view>
         </view>
-        <text class="binding-field__label">身份证号</text>
-        <input
-          class="binding-field__input"
-          value="{{form.idCard}}"
-          type="idcard"
-          placeholder="请输入身份证号"
-          placeholder-class="binding-field__placeholder"
-          maxlength="18"
-          data-field="idCard"
-          bindinput="onInput"
-        />
-      </view>
+        <text class="owner-hint">客户将自动归属当前登录账号</text>
 
-      <view class="binding-field">
-        <view class="binding-icon-tile">
-          <van-icon name="card" size="27px" color="#1677ff" />
+        <view class="binding-notice">
+            <van-icon name="shield-o" size="28px" color="#ff6a00" />
+            <text>请确认客户已知悉数据将与儒泰共享</text>
         </view>
-        <text class="binding-field__label">医保账户</text>
-        <input
-          class="binding-field__input"
-          value="{{form.medicalAccount}}"
-          placeholder="选填"
-          placeholder-class="binding-field__placeholder"
-          maxlength="30"
-          data-field="medicalAccount"
-          bindinput="onInput"
-        />
-      </view>
 
-      <view class="binding-field binding-field--last {{invalidField === 'familyPhone' ? 'binding-field--invalid' : ''}}">
-        <view class="binding-icon-tile">
-          <van-icon name="friends-o" size="27px" color="#1677ff" />
+        <view class="binding-primary tap-target" bindtap="nextStep" hover-class="tap-feedback" hover-start-time="0"
+            hover-stay-time="80" aria-role="button" aria-label="确认并提交">
+            <van-icon name="passed" size="25px" color="#ffffff" />
+            <text>{{submitting ? '提交中…' : '确认并提交'}}</text>
+            <van-icon name="arrow" size="25px" color="#ffffff" />
         </view>
-        <text class="binding-field__label">家属手机号</text>
-        <input
-          class="binding-field__input"
-          value="{{form.familyPhone}}"
-          type="number"
-          placeholder="选填"
-          placeholder-class="binding-field__placeholder"
-          maxlength="11"
-          data-field="familyPhone"
-          bindinput="onInput"
-        />
-      </view>
-    </view>
+    </block>
 
-    <text class="binding-section-title">归属拓展人</text>
-    <view
-      class="owner-card tap-target"
-      bindtap="selectOwner"
-      hover-class="tap-feedback"
-      hover-start-time="0"
-      hover-stay-time="80"
-      aria-role="button"
-      aria-label="选择归属拓展人"
-    >
-      <view class="binding-icon-tile binding-icon-tile--owner">
-        <van-icon name="manager-o" size="27px" color="#1677ff" />
-        <van-icon class="binding-icon-link" name="link-o" size="16px" color="#1677ff" />
-      </view>
-      <view class="owner-card__copy">
-        <text class="owner-card__name">{{owner.name}}</text>
-        <text class="owner-card__meta">{{owner.roleLabel}} · 已激活</text>
-      </view>
-      <van-icon name="arrow" size="22px" color="#8a8f98" />
-    </view>
-    <text class="owner-hint">请选择或确认客户归属的拓展人</text>
-
-    <view class="binding-notice">
-      <van-icon name="shield-o" size="28px" color="#ff6a00" />
-      <text>请确认客户已知悉数据将与儒泰共享</text>
-    </view>
-
-    <view
-      class="binding-primary tap-target"
-      bindtap="nextStep"
-      hover-class="tap-feedback"
-      hover-start-time="0"
-      hover-stay-time="80"
-      aria-role="button"
-      aria-label="下一步"
-    >
-      <text>下一步</text>
-      <van-icon name="arrow" size="25px" color="#ffffff" />
-    </view>
-  </block>
-
-  <block wx:elif="{{step === 2}}">
-    <view class="binding-intro">
-      <text class="binding-intro__title">确认客户归属</text>
-      <text class="binding-intro__description">
-        请核对信息并提交绑定
-      </text>
-    </view>
-
-    <view class="confirm-card">
-      <view class="confirm-card__header">
-        <text class="binding-card-title">客户信息</text>
-        <view
-          class="confirm-card__modify tap-target"
-          bindtap="goToStepOne"
-          hover-class="tap-feedback"
-          hover-start-time="0"
-          hover-stay-time="80"
-        >
-          <text>返回修改</text>
-          <van-icon name="arrow" size="19px" color="#1677ff" />
+    <block wx:else>
+        <view class="binding-success-hero">
+            <view class="binding-success-icon">
+                <van-icon name="manager-o" size="56px" color="#14a34a" />
+                <van-icon class="binding-success-icon__link" name="link-o" size="24px" color="#14a34a" />
+                <view class="binding-success-icon__check">
+                    <van-icon name="success" size="19px" color="#ffffff" />
+                </view>
+            </view>
+            <text class="binding-success-title">客户绑定成功</text>
+            <text class="binding-success-description">
+                已完成客户归属确认，可等待后续贡献数据同步
+            </text>
         </view>
-      </view>
-      <view class="confirm-customer">
-        <view class="confirm-customer__avatar">
-          <van-icon name="manager" size="52px" color="#ffffff" />
+
+        <view class="result-card">
+            <text class="binding-card-title">绑定信息</text>
+            <view class="result-row">
+                <text>客户</text>
+                <text class="result-row__value">{{form.name}}</text>
+            </view>
+            <view class="result-row">
+                <text>归属拓展人</text>
+                <text class="result-row__value">{{owner.name}}</text>
+            </view>
+            <view class="result-row result-row--last">
+                <text>绑定时间</text>
+                <text class="result-row__value">{{bindingTime}}</text>
+            </view>
         </view>
-        <view class="confirm-customer__copy">
-          <text class="confirm-customer__name">{{form.name}}</text>
-          <text class="confirm-customer__meta">{{maskedPhone}}</text>
-          <view class="confirm-customer__id">
-            <text>身份证号</text>
-            <text>{{maskedIdCard}}</text>
-          </view>
+
+        <view class="result-status-card tap-target" bindtap="openBindingRecords" hover-class="tap-feedback"
+            hover-start-time="0" hover-stay-time="80">
+            <text class="binding-card-title">后续状态</text>
+            <view class="result-status-card__content">
+                <view class="result-blue-icon">
+                    <van-icon name="bar-chart-o" size="42px" color="#ffffff" />
+                </view>
+                <view class="result-status-copy">
+                    <text class="result-status-title">账单数据将在消费后同步</text>
+                    <text class="result-status-description">
+                        您可在绑定记录中查看处理状态
+                    </text>
+                </view>
+                <van-icon name="arrow" size="22px" color="#8a8f98" />
+            </view>
         </view>
-      </view>
-    </view>
 
-    <view class="confirm-card confirm-owner-card">
-      <text class="binding-card-title">归属拓展人</text>
-      <view class="confirm-owner">
-        <view class="binding-icon-tile binding-icon-tile--confirm-owner">
-          <van-icon name="manager" size="30px" color="#1677ff" />
-          <van-icon class="binding-icon-link" name="link-o" size="16px" color="#1677ff" />
+        <view class="result-complete-card tap-target" bindtap="completeCustomerInfo" hover-class="tap-feedback"
+            hover-start-time="0" hover-stay-time="80">
+            <view class="result-document-icon">
+                <van-icon name="description-o" size="38px" color="#1677ff" />
+            </view>
+            <view class="result-status-copy">
+                <text class="result-status-title">继续完善客户信息</text>
+                <text class="result-status-description">
+                    如有补充信息，可在绑定记录中查看
+                </text>
+            </view>
+            <van-icon name="arrow" size="22px" color="#8a8f98" />
         </view>
-        <view class="confirm-owner__copy">
-          <text class="confirm-owner__name">{{owner.name}}</text>
-          <text class="confirm-owner__meta">{{owner.roleLabel}} · 已激活</text>
+
+        <view class="binding-primary binding-primary--continue tap-target" bindtap="continueBinding"
+            hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" aria-role="button" aria-label="继续绑定客户">
+            <van-icon name="friends-o" size="28px" color="#ffffff" />
+            <text>继续绑定客户</text>
         </view>
-      </view>
-    </view>
 
-    <view class="binding-warning">
-      <van-icon name="warning-o" size="19px" color="#ff5a16" />
-      <text>提交后如客户已绑定，将无法在前端修改归属</text>
-    </view>
-
-    <view
-      class="binding-primary tap-target"
-      bindtap="submitBinding"
-      hover-class="tap-feedback"
-      hover-start-time="0"
-      hover-stay-time="80"
-      aria-role="button"
-      aria-label="确认并提交"
-    >
-      <van-icon name="passed" size="25px" color="#ffffff" />
-      <text>确认并提交</text>
-    </view>
-    <text class="binding-submit-hint">提交后将进行儒泰用户匹配</text>
-  </block>
-
-  <block wx:else>
-    <view class="binding-success-hero">
-      <view class="binding-success-icon">
-        <van-icon name="manager-o" size="56px" color="#14a34a" />
-        <van-icon class="binding-success-icon__link" name="link-o" size="24px" color="#14a34a" />
-        <view class="binding-success-icon__check">
-          <van-icon name="success" size="19px" color="#ffffff" />
+        <view class="binding-record-link tap-target" bindtap="openBindingRecords" hover-class="tap-feedback"
+            hover-start-time="0" hover-stay-time="80">
+            查看绑定记录
         </view>
-      </view>
-      <text class="binding-success-title">客户绑定成功</text>
-      <text class="binding-success-description">
-        已完成客户归属确认，可等待后续贡献数据同步
-      </text>
-    </view>
-
-    <view class="result-card">
-      <text class="binding-card-title">绑定信息</text>
-      <view class="result-row">
-        <text>客户</text>
-        <text class="result-row__value">{{form.name}}</text>
-      </view>
-      <view class="result-row">
-        <text>归属拓展人</text>
-        <text class="result-row__value">{{owner.name}}</text>
-      </view>
-      <view class="result-row result-row--last">
-        <text>绑定时间</text>
-        <text class="result-row__value">{{bindingTime}}</text>
-      </view>
-    </view>
-
-    <view
-      class="result-status-card tap-target"
-      bindtap="openBindingRecords"
-      hover-class="tap-feedback"
-      hover-start-time="0"
-      hover-stay-time="80"
-    >
-      <text class="binding-card-title">后续状态</text>
-      <view class="result-status-card__content">
-        <view class="result-blue-icon">
-          <van-icon name="bar-chart-o" size="42px" color="#ffffff" />
-        </view>
-        <view class="result-status-copy">
-          <text class="result-status-title">账单数据将在消费后同步</text>
-          <text class="result-status-description">
-            您可在绑定记录中查看处理状态
-          </text>
-        </view>
-        <van-icon name="arrow" size="22px" color="#8a8f98" />
-      </view>
-    </view>
-
-    <view
-      class="result-complete-card tap-target"
-      bindtap="completeCustomerInfo"
-      hover-class="tap-feedback"
-      hover-start-time="0"
-      hover-stay-time="80"
-    >
-      <view class="result-document-icon">
-        <van-icon name="description-o" size="38px" color="#1677ff" />
-      </view>
-      <view class="result-status-copy">
-        <text class="result-status-title">继续完善客户信息</text>
-        <text class="result-status-description">
-          如有补充信息，可在绑定记录中查看
-        </text>
-      </view>
-      <van-icon name="arrow" size="22px" color="#8a8f98" />
-    </view>
-
-    <view
-      class="binding-primary binding-primary--continue tap-target"
-      bindtap="continueBinding"
-      hover-class="tap-feedback"
-      hover-start-time="0"
-      hover-stay-time="80"
-      aria-role="button"
-      aria-label="继续绑定客户"
-    >
-      <van-icon name="friends-o" size="28px" color="#ffffff" />
-      <text>继续绑定客户</text>
-    </view>
-
-    <view
-      class="binding-record-link tap-target"
-      bindtap="openBindingRecords"
-      hover-class="tap-feedback"
-      hover-start-time="0"
-      hover-stay-time="80"
-    >
-      查看绑定记录
-    </view>
-  </block>
+    </block>
 </view>

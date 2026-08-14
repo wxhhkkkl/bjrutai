@@ -10,6 +10,23 @@ const DEFAULT_MESSAGES = {
   MALFORMED: '服务响应异常，请稍后重试'
 }
 
+const ENGLISH_MESSAGES = [
+  [/you are already bound to this promoter/i, '该拓展人已有绑定客户，不能重复绑定'],
+  [/already bound to this promoter/i, '该拓展人已有绑定客户，不能重复绑定'],
+  [/you already have a pending binding request for this promoter/i, '该客户已有待处理的绑定申请'],
+  [/distributor not found or not selectable/i, '当前账号不可用于客户绑定'],
+  [/invalid promoterid/i, '绑定对象信息无效'],
+  [/promoterid is required/i, '缺少绑定对象信息'],
+  [/internal server error/i, '服务暂时不可用，请稍后重试']
+]
+
+function localizeMessage(message, fallback) {
+  const value = String(message || '')
+  if (!/[a-z]/i.test(value)) return value || fallback
+  const match = ENGLISH_MESSAGES.find(([pattern]) => pattern.test(value))
+  return match ? match[1] : fallback
+}
+
 class ApiError extends Error {
   constructor(options = {}) {
     const kind = options.kind || 'SERVER'
@@ -55,7 +72,7 @@ function normalizeApiError(value = {}) {
   return new ApiError({
     kind,
     code: body.code,
-    message: body.message || DEFAULT_MESSAGES[kind],
+    message: localizeMessage(body.message, DEFAULT_MESSAGES[kind]),
     requestId: body.requestId || value.requestId,
     httpStatus
   })

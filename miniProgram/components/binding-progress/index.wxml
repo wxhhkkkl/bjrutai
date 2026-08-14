@@ -1,10 +1,10 @@
 <view class="binding-progress">
   <view class="binding-progress__summary">
     <text>绑定流程</text>
-    <text class="binding-progress__count">{{step}}/3</text>
+    <text class="binding-progress__count">{{step}}/2</text>
   </view>
 
-  <view wx:if="{{step !== 3}}" class="binding-progress__bars">
+  <view wx:if="{{step === 1}}" class="binding-progress__bars">
     <view
       wx:for="{{steps}}"
       wx:key="*this"

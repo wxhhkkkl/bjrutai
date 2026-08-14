@@ -70,7 +70,7 @@ test('customer tab uses a live overview card and real controls', () => {
   assert.match(source, /class="customer-card\b/);
 });
 
-test('customer detail shares one functional structure across three tabs', () => {
+test('customer detail keeps the consumption record content only', () => {
   const source = fs.readFileSync(
     path.join(projectRoot, 'pages/customer-detail/index.wxml'),
     'utf8'
@@ -82,13 +82,11 @@ test('customer detail shares one functional structure across three tabs', () => 
   assert.ok(appConfig.pages.includes('pages/customer-detail/index'));
   assert.match(source, /<flow-navigation\b/);
   assert.match(source, /class="customer-hero"/);
-  assert.match(source, /currentTab === 'info'/);
-  assert.match(source, /currentTab === 'service'/);
-  assert.match(source, /bindtap="selectTab"/);
-  assert.match(source, /bindtap="selectContributionFilter"/);
-  assert.match(source, /bindtap="contactCustomer"/);
-  assert.match(source, /bindtap="recordFollowup"/);
-  assert.match(source, /class="customer-action-bar"/);
+  assert.doesNotMatch(source, /class="detail-tabs"/);
+  assert.match(source, /消费记录/);
+  assert.doesNotMatch(source, /contribution-filters|contribution-list|detail-notice--contribution/);
+  assert.doesNotMatch(source, /class="customer-action-bar"/);
+  assert.match(source, /bindtap="editCustomer"/);
 });
 
 test('followup record page uses the approved real form controls', () => {
@@ -128,6 +126,8 @@ test('customer edit page keeps display rows and real edit controls', () => {
   assert.match(source, /bindinput="onNoteInput"/);
   assert.match(source, /bindtap="saveChanges"/);
   assert.match(source, /bindtap="cancelEdit"/);
+  assert.match(source, /wx:if="\{\{!isBound\}\}"/);
+  assert.match(source, /disabled="\{\{isBound\}\}"/);
   assert.match(source, /class="edit-action-bar"/);
   assert.doesNotMatch(source, /<input\b[^>]*\bfocus=/s);
 });
@@ -174,7 +174,7 @@ test('consumption detail uses month and payment-status filters without legacy ca
   assert.match(source, /fields="month"/);
   assert.match(source, /bindtap="selectStatus"/);
   assert.doesNotMatch(source, /bindtap="openCategoryFilter"/);
-  assert.match(source, /bindtap="openContribution"/);
+  assert.doesNotMatch(source, /bindtap="openContribution"/);
   assert.match(source, /class="contribution-detail-notice"/);
   assert.ok(
     fs.existsSync(
@@ -253,7 +253,9 @@ test('profile setup uses stable inputs and submits the approved first step', () 
   assert.match(source, /账号初始化/);
   assert.match(source, /bindinput="onFieldInput"/);
   assert.match(source, /data-field="name"/);
-  assert.match(source, /data-field="organization"/);
+  assert.doesNotMatch(source, /data-field="organization"/);
+  assert.match(source, /所属机构/);
+  assert.match(source, /name="lock"/);
   assert.match(source, /bindtap="toggleConfirmation"/);
   assert.match(source, /bindtap="submitProfile"/);
   assert.match(source, /class="profile-submit-bar"/);
@@ -392,7 +394,7 @@ test('notification page registers state handling and functional notification con
   assert.match(source, /bindtap="openNotification"/);
 });
 
-test('customer binding is a single stateful three-step flow', () => {
+test('customer binding submits directly from the customer form to the result state', () => {
   const source = fs.readFileSync(
     path.join(projectRoot, 'pages/customer-binding/index.wxml'),
     'utf8'
@@ -405,11 +407,12 @@ test('customer binding is a single stateful three-step flow', () => {
   assert.match(source, /<flow-navigation\b/);
   assert.match(source, /<binding-progress\b/);
   assert.match(source, /step === 1/);
-  assert.match(source, /step === 2/);
+  assert.doesNotMatch(source, /step === 2/);
   assert.match(source, /bindtap="nextStep"/);
-  assert.match(source, /bindtap="submitBinding"/);
+  assert.doesNotMatch(source, /bindtap="submitBinding"/);
+  assert.match(source, /aria-label="确认并提交"/);
   assert.match(source, /bindtap="continueBinding"/);
-  assert.match(source, /bindtap="goToStepOne"/);
+  assert.doesNotMatch(source, /bindtap="goToStepOne"/);
   assert.doesNotMatch(
     source,
     /<input\b[^>]*\bfocus="\{\{invalidField ===/s,

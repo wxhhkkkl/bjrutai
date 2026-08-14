@@ -78,15 +78,5 @@ Page({
     const items = this.data.records
     const visible = selectedStatus === 'all' ? items : items.filter((record) => record.status === selectedStatus)
     this.setData({ selectedStatus, groups: buildGroups(visible) })
-  },
-  async openContribution(event) {
-    try {
-      const detail = await consumptionService.getBillDetail(event.currentTarget.dataset.id)
-      wx.showModal({
-        title: detail.title || '消费记录',
-        content: `客户：${detail.customerName || '未知客户'}\n金额：¥${(Number(detail.amountCent || 0) / 100).toFixed(2)}\n状态：${detail.status === 'paid' ? '已支付' : detail.status === 'partially_refunded' ? '部分退款' : detail.status === 'refunded' ? '已退款' : '已取消'}`,
-        showCancel: false, confirmText: '知道了'
-      })
-    } catch (error) { wx.showToast({ title: error.message || '消费详情加载失败', icon: 'none' }) }
   }
 })

@@ -45,7 +45,7 @@
         "summary": "关注高温天气下的日常健康管理。",
         "coverImageUrl": "https://example-cos-domain/articles/cover.jpg",
         "category": "健康科普",
-        "author": "鲁泰内容团队",
+        "author": "儒泰内容团队",
         "viewCount": 36,
         "publishedAt": "2026-08-10T07:30:00Z"
       }
@@ -107,7 +107,7 @@
     "coverImageUrl": "https://example-cos-domain/articles/cover.jpg",
     "category": "健康科普",
     "tags": ["夏季", "健康"],
-    "author": "鲁泰内容团队",
+    "author": "儒泰内容团队",
     "viewCount": 37,
     "status": "published",
     "publishedAt": "2026-08-10T07:30:00Z",

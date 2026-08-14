@@ -9,7 +9,7 @@ Page({
   async loadProfile() { try { const profile = await profileService.getProfile(); const session = Object.assign({}, sessionService.getCurrentSession(), profile, { userId: profile.userId, identityType: profile.userType === 'doctor' ? 'doctor' : 'promoter', phone: profile.phone, avatar: profile.avatar, organization: profile.organization }); this.setData({ state: 'success', session, view: getAccountProfileView(session), form: createAccountProfileForm(session), phone: profile.phone || '' }) } catch (error) { this.setData({ state: error.kind === 'FORBIDDEN' ? 'forbidden' : 'recoverable-error', stateMessage: error.message || '请稍后再试' }) } },
   retry() { this.loadProfile() },
   handleBack() { if (getCurrentPages().length > 1) wx.navigateBack({ delta: 1 }); else wx.switchTab({ url: '/pages/profile/index' }) },
-  onFieldInput(event) { const field = event.currentTarget.dataset.field; this.setData({ [`form.${field}`]: event.detail.value, invalidField: '' }) },
+  onFieldInput(event) { const field = event.currentTarget.dataset.field; if (field !== 'name') return; this.setData({ [`form.${field}`]: event.detail.value, invalidField: '' }) },
   chooseAvatar() {
     if (this.data.saving) return
     wx.chooseImage({
@@ -71,7 +71,6 @@ Page({
       let avatar = this.data.session.avatar || ''
       const payload = {
         name: String(this.data.form.name).trim(),
-        organization: String(this.data.form.organization).trim(),
         version
       }
       if (this.data.pendingAvatarPath) {

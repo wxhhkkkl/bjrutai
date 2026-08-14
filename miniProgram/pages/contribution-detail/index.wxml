@@ -62,12 +62,7 @@
           wx:for="{{item.items}}"
           wx:for-item="record"
           wx:key="id"
-          class="contribution-record tap-target"
-          data-id="{{record.id}}"
-          bindtap="openContribution"
-          hover-class="tap-feedback"
-          hover-start-time="0"
-          hover-stay-time="80"
+          class="contribution-record"
         >
           <view class="contribution-record__icon contribution-record__icon--{{record.tone}}">
             <van-icon
@@ -90,7 +85,6 @@
               {{record.statusLabel}}
             </text>
           </view>
-          <van-icon name="arrow" size="20px" color="#8a8f98" />
         </view>
       </view>
     </view>

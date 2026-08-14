@@ -4,7 +4,7 @@ const { CATEGORY_LABELS, adaptNotifications } = require('../../models/notificati
 const FILTERS = Object.freeze([
   { id: 'all', label: CATEGORY_LABELS.all },
   { id: 'unread', label: '未读' },
-  ...['system', 'binding', 'promotion', 'bill', 'followup', 'qualification'].map((id) => ({ id, label: CATEGORY_LABELS[id] }))
+  ...['system', 'binding', 'bill'].map((id) => ({ id, label: CATEGORY_LABELS[id] }))
 ])
 
 Page({

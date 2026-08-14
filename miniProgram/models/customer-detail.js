@@ -1,6 +1,4 @@
 const CUSTOMER_DETAIL_TABS = [
-  { id: 'info', label: '客户信息' },
-  { id: 'service', label: '服务记录' },
   { id: 'contribution', label: '消费记录' }
 ];
 
@@ -169,9 +167,7 @@ const CONTRIBUTION_RECORDS = [
 ];
 
 function normalizeCustomerDetailTab(tab) {
-  return CUSTOMER_DETAIL_TABS.some((item) => item.id === tab)
-    ? tab
-    : 'info';
+  return tab === 'contribution' ? tab : 'contribution';
 }
 
 function getCustomerDetail(id) {

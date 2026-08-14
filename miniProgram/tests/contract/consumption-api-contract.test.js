@@ -21,10 +21,10 @@ test('consumption service calls overview, trend and cursor bill list with exact 
   } finally { f.restore() }
 })
 
-test('bill detail uses the scoped backend endpoint', async () => {
+test('consumption service does not expose a single-bill detail request', async () => {
   const f = load()
   try {
-    await f.service.getBillDetail(7)
-    assert.deepEqual(f.calls[0], { pathname: '/api/v1/contributions/7', options: {} })
+    assert.equal(f.service.getBillDetail, undefined)
+    assert.equal(f.calls.length, 0)
   } finally { f.restore() }
 })
