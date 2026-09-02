@@ -18,11 +18,6 @@ const {
 } = require('../../models/collaborator')
 
 const SERVICE_ITEMS = [{
-  id: 'promote-code',
-  title: '我的推广码',
-  description: '邀请客户进入儒泰',
-  icon: '/assets/images/profile-promo-icon.png'
-}, {
   id: 'org-performance',
   title: '组织业绩',
   description: '查看组织消费汇总',

@@ -38,6 +38,24 @@ test('all tab pages use the shared app header', () => {
   }
 });
 
+test('home banner remains balanced after hiding the promotion-code entry', () => {
+  const markup = fs.readFileSync(
+    path.join(projectRoot, 'pages/home/index.wxml'),
+    'utf8'
+  );
+  const styles = fs.readFileSync(
+    path.join(projectRoot, 'pages/home/index.wxss'),
+    'utf8'
+  );
+
+  assert.match(markup, /home-banner-visual-v2\.jpg/);
+  assert.match(markup, /class="hero-sub"/);
+  assert.match(markup, /客户与消费数据，一站式查看/);
+  assert.doesNotMatch(markup, /data-id="promote-code"/);
+  assert.match(styles, /\.hero\s*\{[\s\S]*?height:\s*270rpx/);
+  assert.match(styles, /\.hero-copy\s*\{[\s\S]*?justify-content:\s*center/);
+});
+
 test('custom tab bar keeps content and safe area in separate layers', () => {
   const markup = fs.readFileSync(
     path.join(projectRoot, 'custom-tab-bar/index.wxml'),

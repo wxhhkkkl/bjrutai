@@ -32,9 +32,10 @@ test('workbench pages expose empty and forbidden state handling', () => {
   assert.match(profile, /forbidden/)
 })
 
-test('profile fills the regular-user 2 by 2 service grid with article reading', () => {
+test('profile temporarily hides the promotion-code entry and keeps other services', () => {
   const source = fs.readFileSync(path.join(root, 'pages/profile/index.js'), 'utf8')
-  assert.match(source, /id:\s*['"]article-list['"]/)
+  assert.doesNotMatch(source, /id:\s*['"]promote-code['"]/) // 入口暂时隐藏
+  assert.match(source, /id:\s*['"]article-list['"]/) // 其他服务保留
   assert.match(source, /title:\s*['"]文章资讯['"]/)
   assert.match(source, /description:\s*['"]阅读最新内容['"]/)
   assert.match(source, /profile-article-icon\.png/)

@@ -314,7 +314,7 @@ class TestSubmitBindingRequest:
 
     async def test_already_bound_customer(self, client: AsyncClient, db_session, mock_rutai):
         """Cannot bind a customer who is already bound to a promoter."""
-        from src.models.binding import BindingRequest, BindingRequestStatus, BindingStatus, Customer
+        from src.models.binding import BindingStatus, Customer
 
         prom = await _create_promoter(db_session, name="测试推广员3")
         doctor_id = await _create_doctor(db_session)
@@ -349,6 +349,96 @@ class TestSubmitBindingRequest:
 
         data = resp.json()
         assert data["code"] == 40022 or resp.status_code == 409
+
+    async def test_same_promoter_can_bind_a_different_customer(
+        self, client: AsyncClient, db_session, mock_rutai
+    ):
+        """A promoter with an existing customer can bind another customer."""
+        from src.models.binding import BindingStatus, Customer
+
+        prom = await _create_promoter(db_session, name="多客户推广员")
+        doctor_id = await _create_doctor(db_session)
+        token = make_access_token(user_id=doctor_id, user_type="doctor")
+
+        db_session.add(Customer(
+            distributor_id=prom["distributor_id"],
+            name="已绑定客户",
+            phone="13800138002",
+            id_card_encrypted="110101199001011234",
+            binding_status=BindingStatus.BOUND,
+        ))
+        await db_session.flush()
+
+        with patch(
+            "src.services.binding_service.get_rutai_client",
+            return_value=mock_rutai,
+        ):
+            resp = await client.post(
+                "/api/v1/binding-requests",
+                json={
+                    "promoterId": str(prom["user_id"]),
+                    "customerInfo": {
+                        "name": "新客户",
+                        "phone": "13900139003",
+                        "idCard": "110101199202022345",
+                    },
+                    "sourceType": "manual",
+                },
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Idempotency-Key": "ik_second_customer_test",
+                },
+            )
+
+        data = resp.json()
+        assert_response_envelope(data)
+        assert data["code"] == 0
+
+    async def test_pending_request_only_blocks_the_same_customer(
+        self, client: AsyncClient, db_session, mock_rutai
+    ):
+        """An active request for one customer does not block another customer."""
+        from src.models.binding import BindingRequest, BindingRequestStatus, SourceType
+
+        prom = await _create_promoter(db_session, name="并行申请推广员")
+        doctor_id = await _create_doctor(db_session)
+        token = make_access_token(user_id=doctor_id, user_type="doctor")
+
+        db_session.add(BindingRequest(
+            distributor_id=prom["distributor_id"],
+            submitted_by=doctor_id,
+            customer_name="待匹配客户",
+            phone_masked="138****8004",
+            id_card_masked="110***********3456",
+            source_type=SourceType.MANUAL,
+            status=BindingRequestStatus.MATCHING,
+        ))
+        await db_session.flush()
+
+        with patch(
+            "src.services.binding_service.get_rutai_client",
+            return_value=mock_rutai,
+        ):
+            resp = await client.post(
+                "/api/v1/binding-requests",
+                json={
+                    "promoterId": str(prom["user_id"]),
+                    "customerInfo": {
+                        "name": "另一客户",
+                        "phone": "13900139005",
+                        "idCard": "110101199303033567",
+                    },
+                    "sourceType": "manual",
+                },
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Idempotency-Key": "ik_parallel_customer_test",
+                },
+            )
+
+        data = resp.json()
+        assert_response_envelope(data)
+        assert data["code"] == 0
 
     async def test_missing_consent_record(self, client: AsyncClient, db_session, mock_rutai):
         """Binding with invalid consent record ID fails."""

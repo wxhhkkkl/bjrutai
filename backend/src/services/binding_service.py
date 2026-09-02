@@ -262,36 +262,68 @@ class BindingService:
                 code=40020, message="Distributor not found or not selectable", status_code=400,
             )
 
-        # Check if already bound to this promoter
-        existing_bound = await db.execute(
-            select(Customer).where(
-                Customer.distributor_id == promoter.id,
-                Customer.binding_status == BindingStatus.BOUND,
-            )
-        )
-        if existing_bound.scalars().first() is not None:
-            raise AppException(
-                code=40022, message="该拓展人已有绑定客户，不能重复绑定", status_code=409,
-            )
+        # Extract customer info before duplicate checks. A promoter may bind many
+        # customers; only the same customer (identified by phone or ID card) must
+        # be rejected as a duplicate.
+        customer_info = data.get("customerInfo") or {}
+        name = customer_info.get("name", "")
+        phone = customer_info.get("phone", "")
+        id_card = customer_info.get("idCard", "")
+        medical_account = customer_info.get("medicalAccount", "")
+        family_phone = customer_info.get("familyPhone", "")
+        remark = customer_info.get("remark", "")
+        source_type_str = data.get("sourceType", "manual")
 
-        # Check for pending request to same promoter
-        existing_pending = await db.execute(
-            select(BindingRequest).where(
-                BindingRequest.distributor_id == promoter.id,
-                BindingRequest.submitted_by == submitted_by,
-                BindingRequest.status.in_([
-                    BindingRequestStatus.PENDING_MATCH,
-                    BindingRequestStatus.MATCHING,
-                    BindingRequestStatus.RETRYING,
-                    BindingRequestStatus.MANUAL_REVIEW,
-                ]),
+        # Validate that at least one identifier is provided for matching
+        if not name and not phone and not id_card:
+            raise ValidationException(message="At least one of name, phone, or idCard is required for customer matching")
+
+        customer_identifiers = []
+        if phone:
+            customer_identifiers.append(Customer.phone == phone)
+        if id_card:
+            customer_identifiers.append(Customer.id_card_encrypted == id_card)
+
+        if customer_identifiers:
+            existing_bound = await db.execute(
+                select(Customer.id).where(
+                    Customer.distributor_id == promoter.id,
+                    Customer.binding_status == BindingStatus.BOUND,
+                    or_(*customer_identifiers),
+                )
             )
-        )
-        if existing_pending.scalars().first() is not None:
-            raise ConflictException(
-                code=40021,
-                message="You already have a pending binding request for this promoter",
+            if existing_bound.scalars().first() is not None:
+                raise AppException(
+                    code=40022, message="该客户已绑定当前拓展人，请勿重复提交", status_code=409,
+                )
+
+            # Binding requests contain masked identifiers only. Restrict the
+            # pending-request check to the submitted customer instead of blocking
+            # every request for the same promoter.
+            pending_identifiers = []
+            if phone:
+                pending_identifiers.append(BindingRequest.phone_masked == _mask_phone(phone))
+            if id_card:
+                pending_identifiers.append(BindingRequest.id_card_masked == _mask_id_card(id_card))
+
+            existing_pending = await db.execute(
+                select(BindingRequest.id).where(
+                    BindingRequest.distributor_id == promoter.id,
+                    BindingRequest.submitted_by == submitted_by,
+                    BindingRequest.status.in_([
+                        BindingRequestStatus.PENDING_MATCH,
+                        BindingRequestStatus.MATCHING,
+                        BindingRequestStatus.RETRYING,
+                        BindingRequestStatus.MANUAL_REVIEW,
+                    ]),
+                    or_(*pending_identifiers),
+                )
             )
+            if existing_pending.scalars().first() is not None:
+                raise ConflictException(
+                    code=40021,
+                    message="该客户已有待处理的绑定申请",
+                )
 
         # Get consent record if provided
         consent_record_id = data.get("consentRecordId")
@@ -308,20 +340,6 @@ class BindingService:
                     message="Consent record not found or not confirmed",
                 )
             consent_record_id = int(consent_record_id)
-
-        # Extract customer info
-        customer_info = data.get("customerInfo") or {}
-        name = customer_info.get("name", "")
-        phone = customer_info.get("phone", "")
-        id_card = customer_info.get("idCard", "")
-        medical_account = customer_info.get("medicalAccount", "")
-        family_phone = customer_info.get("familyPhone", "")
-        remark = customer_info.get("remark", "")
-        source_type_str = data.get("sourceType", "manual")
-
-        # Validate that at least one identifier is provided for matching
-        if not name and not phone and not id_card:
-            raise ValidationException(message="At least one of name, phone, or idCard is required for customer matching")
 
         # Create binding request
         ref_token = str(uuid.uuid4())
