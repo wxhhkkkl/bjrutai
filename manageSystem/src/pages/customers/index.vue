@@ -66,6 +66,25 @@
             >
               <template #prefix><el-icon><Search /></el-icon></template>
             </el-input>
+            <el-date-picker
+              v-model="exportDateRange"
+              type="daterange"
+              value-format="YYYY-MM-DD"
+              range-separator="至"
+              start-placeholder="创建开始日期"
+              end-placeholder="创建结束日期"
+              size="small"
+              class="export-date-range"
+              :clearable="true"
+            />
+            <el-button
+              size="small"
+              :loading="exporting"
+              :disabled="!exportDateRange?.length"
+              @click="exportCustomers"
+            >
+              <el-icon style="margin-right: 4px"><Download /></el-icon>导出客户
+            </el-button>
           </div>
 
           <!-- 客户表格 -->
@@ -115,7 +134,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Plus, Refresh, Search } from '@element-plus/icons-vue'
+import { Download, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { orgApi } from '@/api/org'
 import { adminCustomerApi } from '@/api/customers'
 import { useAuthStore } from '@/stores/auth'
@@ -132,6 +151,8 @@ const selected = ref(null)
 const items = ref([])
 const filterStatus = ref('')
 const keyword = ref('')
+const exportDateRange = ref([])
+const exporting = ref(false)
 const page = ref(1)
 const hasMore = ref(false)
 const createVisible = ref(false)
@@ -216,6 +237,37 @@ async function loadMore() {
   }
 }
 
+async function exportCustomers() {
+  if (!selected.value || exportDateRange.value?.length !== 2) {
+    ElMessage.warning('请先选择客户创建时间范围')
+    return
+  }
+  exporting.value = true
+  try {
+    const [startDate, endDate] = exportDateRange.value
+    const params = { startDate, endDate }
+    if (filterStatus.value) params.status = filterStatus.value
+    if (keyword.value.trim()) params.keyword = keyword.value.trim()
+    const response = await adminCustomerApi.export(selected.value.orgId, params)
+    const blob = response.data instanceof Blob
+      ? response.data
+      : new Blob([response.data], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `客户列表_${startDate}_${endDate}.csv`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    ElMessage.success('客户列表导出成功')
+  } catch (e) {
+    ElMessage.error(e.userMessage || e.response?.data?.message || '导出客户列表失败')
+  } finally {
+    exporting.value = false
+  }
+}
+
 function openCreate() {
   createVisible.value = true
 }
@@ -247,8 +299,9 @@ onMounted(loadAll)
 .org-title { font-size: 16px; font-weight: 600; color: #303133; }
 .header-actions { margin-left: auto; }
 
-.filter-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.filter-card { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .search-input { width: 240px; }
+.export-date-range { width: 260px; margin-left: auto; }
 
 .load-more { text-align: center; padding: 12px 0; }
 .all-loaded { color: #b0b4bb; font-size: 12px; }

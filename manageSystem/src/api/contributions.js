@@ -18,4 +18,12 @@ export const contributionDashboardApi = {
   bindingsRanking(params = {}) {
     return http.get('/admin/contributions/rankings/bindings', { params }).then(payload)
   },
+  searchCustomers(params = {}) {
+    return http.get('/admin/contributions/customers', { params }).then(payload)
+  },
+  createManual(data, idempotencyKey) {
+    return http.post('/admin/contributions/manual', data, {
+      headers: { 'Idempotency-Key': idempotencyKey },
+    }).then(payload)
+  },
 }

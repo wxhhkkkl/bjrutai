@@ -343,8 +343,9 @@ async def update_role(
         raise NotFoundException(message="Role not found")
 
     if body.name is not None:
-        # T009: System role name cannot be changed
-        if role.is_system:
+        # T009: System role name cannot be changed.  Re-submitting the
+        # unchanged name is valid when an administrator only edits permissions.
+        if role.is_system and body.name != role.name:
             raise BadRequestException(
                 message="系统管理员角色名称不可修改", code=40302
             )

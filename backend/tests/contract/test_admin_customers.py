@@ -4,6 +4,8 @@ Verifies the unified response envelope and documented behaviors from
 contracts/customers.md against the real SQLite test DB via the client fixture.
 """
 
+from datetime import datetime
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
@@ -126,6 +128,59 @@ async def test_list_customers_requires_read_permission(client: AsyncClient, db_s
     root_id, _ = await _seed_org_tree(db_session)
     resp = await client.get("/api/v1/admin/customers", params={"orgId": root_id}, headers=NO_PERM)
     assert _status_code(resp) == 40300
+
+
+@pytest.mark.asyncio
+async def test_export_customers_by_creation_date_with_masked_fields(
+    client: AsyncClient, db_session: AsyncSession
+):
+    root_id, child_id = await _seed_org_tree(db_session)
+    dist = await _seed_distributor(db_session, child_id)
+    included_id = await _seed_customer(
+        db_session, dist, name="范围内客户", phone="13800001234", status="bound"
+    )
+    excluded_id = await _seed_customer(
+        db_session, dist, name="范围外客户", phone="13800009999", status="pending"
+    )
+    included = await db_session.get(Customer, included_id)
+    excluded = await db_session.get(Customer, excluded_id)
+    included.created_at = datetime(2026, 9, 2, 10, 30)
+    included.note = "=1+1"
+    excluded.created_at = datetime(2026, 8, 31, 23, 59)
+    await db_session.flush()
+
+    resp = await client.get(
+        "/api/v1/admin/customers/export",
+        params={"orgId": root_id, "startDate": "2026-09-01", "endDate": "2026-09-03"},
+        headers=CUST_R,
+    )
+
+    assert resp.status_code == 200
+    assert "text/csv" in resp.headers["content-type"]
+    assert "attachment" in resp.headers["content-disposition"]
+    text = resp.content.decode("utf-8-sig")
+    assert "范围内客户" in text
+    assert "范围外客户" not in text
+    assert "138****1234" in text
+    assert "13800001234" not in text
+    assert "'=1+1" in text
+
+
+@pytest.mark.asyncio
+async def test_export_customers_validates_range_and_permission(
+    client: AsyncClient, db_session: AsyncSession
+):
+    root_id, _ = await _seed_org_tree(db_session)
+    params = {"orgId": root_id, "startDate": "2026-09-03", "endDate": "2026-09-01"}
+
+    invalid_range = await client.get(
+        "/api/v1/admin/customers/export", params=params, headers=CUST_R
+    )
+    assert _status_code(invalid_range) == 40000
+    assert invalid_range.json()["message"] == "开始日期不能晚于结束日期"
+
+    forbidden = await client.get("/api/v1/admin/customers/export", params=params, headers=NO_PERM)
+    assert _status_code(forbidden) == 40300
 
 
 # ──────────────────────────────────────────────────────────────────

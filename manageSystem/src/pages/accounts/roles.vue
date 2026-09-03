@@ -136,10 +136,7 @@ async function saveRole() {
 
   saving.value = true
   try {
-    const body = {
-      name: form.name,
-      permissions: { permissions: form.permList },
-    }
+    const body = { permissions: { permissions: form.permList } }
 
     if (isEditing.value) {
       if (!editingIsSystem.value) {
@@ -148,6 +145,7 @@ async function saveRole() {
       await store.updateRole(editingId.value, body)
       ElMessage.success('角色已更新')
     } else {
+      body.name = form.name
       await store.createRole(body)
       ElMessage.success('角色已创建')
     }

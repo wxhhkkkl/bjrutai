@@ -38,13 +38,20 @@ from .config import get_settings
 
 settings = get_settings()
 
+engine_options = {
+    "pool_pre_ping": True,
+    "echo": False,
+}
+if not settings.database_url.startswith("sqlite"):
+    engine_options.update(
+        pool_size=20,
+        max_overflow=10,
+        pool_recycle=3600,
+    )
+
 engine = create_async_engine(
     settings.database_url,
-    pool_size=20,
-    max_overflow=10,
-    pool_recycle=3600,
-    pool_pre_ping=True,
-    echo=False,
+    **engine_options,
     # Tencent Cloud MySQL TLS configuration (T187):
     # When connecting to TencentDB for MySQL with SSL/TLS enabled, add:
     #   connect_args={

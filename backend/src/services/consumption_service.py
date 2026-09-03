@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.bill import Bill, TransactionStatus
 from ..models.binding import Customer
+from ..models.distributor import Distributor
 
 
 def period_start_end(period: str) -> tuple[datetime, datetime]:
@@ -35,25 +36,65 @@ async def consumption_by_distributor(
     db: AsyncSession,
     distributor_ids: list[int],
     period: Optional[str] = None,
+    organization_ids: Optional[set[int]] = None,
 ) -> dict[int, int]:
     """{distributor_id: total paid consumption in cents} for a period
     (or all-time when period is None), excluding refunded/cancelled bills."""
     if not distributor_ids:
         return {}
     start, end = (period_start_end(period) if period else (None, None))
+    effective_distributor = func.coalesce(
+        Bill.attributed_distributor_id, Customer.distributor_id
+    )
+    effective_organization = func.coalesce(
+        Bill.attributed_org_id, Distributor.org_id
+    )
     stmt = (
-        select(Customer.distributor_id, func.coalesce(func.sum(Bill.paid_amount_cent), 0))
+        select(effective_distributor, func.coalesce(func.sum(Bill.paid_amount_cent), 0))
+        .select_from(Customer)
         .join(Bill, Bill.customer_id == Customer.id)
+        .join(Distributor, Distributor.id == Customer.distributor_id)
         .where(
-            Customer.distributor_id.in_(distributor_ids),
+            effective_distributor.in_(distributor_ids),
             Bill.transaction_status.notin_([TransactionStatus.REFUNDED, TransactionStatus.CANCELLED]),
+        )
+    )
+    if organization_ids is not None:
+        stmt = stmt.where(effective_organization.in_(organization_ids))
+    if start is not None:
+        stmt = stmt.where(Bill.transaction_time >= start, Bill.transaction_time < end)
+    stmt = stmt.group_by(effective_distributor)
+    result = await db.execute(stmt)
+    return {int(did): int(amount) for did, amount in result.all()}
+
+
+async def consumption_by_organization(
+    db: AsyncSession,
+    organization_ids: set[int],
+    period: Optional[str] = None,
+) -> dict[int, int]:
+    """Aggregate consumption by immutable manual snapshot or current sync owner org."""
+    if not organization_ids:
+        return {}
+    start, end = (period_start_end(period) if period else (None, None))
+    effective_organization = func.coalesce(Bill.attributed_org_id, Distributor.org_id)
+    stmt = (
+        select(effective_organization, func.coalesce(func.sum(Bill.paid_amount_cent), 0))
+        .select_from(Customer)
+        .join(Bill, Bill.customer_id == Customer.id)
+        .join(Distributor, Distributor.id == Customer.distributor_id)
+        .where(
+            effective_organization.in_(organization_ids),
+            Bill.transaction_status.notin_(
+                [TransactionStatus.REFUNDED, TransactionStatus.CANCELLED]
+            ),
         )
     )
     if start is not None:
         stmt = stmt.where(Bill.transaction_time >= start, Bill.transaction_time < end)
-    stmt = stmt.group_by(Customer.distributor_id)
+    stmt = stmt.group_by(effective_organization)
     result = await db.execute(stmt)
-    return {int(did): int(amount) for did, amount in result.all()}
+    return {int(org_id): int(amount) for org_id, amount in result.all()}
 
 
 async def consumption_by_customer(

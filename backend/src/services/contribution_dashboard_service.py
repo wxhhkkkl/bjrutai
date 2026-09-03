@@ -17,7 +17,7 @@ from ..models.distributor import Distributor, DistributorStatus
 from ..models.organization import Organization
 from ..models.user import User
 from . import distributor_service, organization_service
-from .consumption_service import consumption_by_distributor
+from .consumption_service import consumption_by_distributor, consumption_by_organization
 
 
 # ---------------------------------------------------------------------------
@@ -107,9 +107,13 @@ async def get_dashboard(
         dist_ids = await _all_distributor_ids(db)
     org_ids = await _subtree_org_ids(db, org_id)
 
-    # Stats（消费金额，分）
-    monthly = sum((await consumption_by_distributor(db, list(dist_ids), month)).values())
-    total = sum((await consumption_by_distributor(db, list(dist_ids), None)).values())
+    # Stats（消费金额，分）. 组织筛选按账单有效归属，确保人工快照不随客户转移。
+    if org_ids is None:
+        monthly = sum((await consumption_by_distributor(db, list(dist_ids), month)).values())
+        total = sum((await consumption_by_distributor(db, list(dist_ids), None)).values())
+    else:
+        monthly = sum((await consumption_by_organization(db, org_ids, month)).values())
+        total = sum((await consumption_by_organization(db, org_ids, None)).values())
 
     org_count_stmt = select(func.count(Organization.id))
     if org_ids is not None:
@@ -131,34 +135,52 @@ async def get_dashboard(
     trend_labels = _month_labels(num_months, month)
     trend = []
     for m in trend_labels:
-        per_dist = await consumption_by_distributor(db, list(dist_ids), m)
-        trend.append({"month": m, "amountCent": sum(per_dist.values())})
+        if org_ids is None:
+            amounts = await consumption_by_distributor(db, list(dist_ids), m)
+        else:
+            amounts = await consumption_by_organization(db, org_ids, m)
+        trend.append({"month": m, "amountCent": sum(amounts.values())})
 
     # Latest 30 paid bills
+    effective_distributor = func.coalesce(
+        Bill.attributed_distributor_id, Customer.distributor_id
+    )
+    effective_organization = func.coalesce(
+        Bill.attributed_org_id, Distributor.org_id
+    )
     latest_stmt = (
-        select(Bill, Customer.distributor_id)
+        select(Bill, Customer, effective_distributor, effective_organization)
+        .select_from(Bill)
         .join(Customer, Customer.id == Bill.customer_id)
+        .join(Distributor, Distributor.id == Customer.distributor_id)
         .where(
             Bill.transaction_status.notin_([TransactionStatus.REFUNDED, TransactionStatus.CANCELLED]),
-            Customer.distributor_id.in_(dist_ids),
         )
         .order_by(Bill.transaction_time.desc(), Bill.id.desc())
         .limit(30)
     )
+    if org_ids is None:
+        latest_stmt = latest_stmt.where(effective_distributor.in_(dist_ids))
+    else:
+        latest_stmt = latest_stmt.where(effective_organization.in_(org_ids))
     latest_rows = (await db.execute(latest_stmt)).all()
-    person_map = await _person_map(db, {did for _, did in latest_rows})
-    org_name_map = await _org_name_map(db, {o for _, o in person_map.values()})
+    person_map = await _person_map(db, {did for _, _, did, _ in latest_rows})
+    org_name_map = await _org_name_map(db, {oid for _, _, _, oid in latest_rows})
     latest = []
-    for bill, did in latest_rows:
+    for bill, customer, did, effective_org_id in latest_rows:
         name, c_org = person_map.get(did, (None, None))
         latest.append({
             "id": str(bill.id),
             "distributorId": str(did),
-            "personName": name,
-            "orgName": org_name_map.get(c_org),
+            "personName": bill.attributed_person_name or name,
+            "orgName": bill.attributed_org_name or org_name_map.get(effective_org_id or c_org),
+            "customerId": str(customer.id),
+            "customerName": customer.name,
+            "phoneMasked": customer.phone_masked,
             "title": bill.transaction_id,
             "amountCent": bill.paid_amount_cent,
             "status": bill.transaction_status.value if hasattr(bill.transaction_status, "value") else str(bill.transaction_status),
+            "source": bill.source,
             "occurredAt": bill.transaction_time.isoformat() if bill.transaction_time else None,
         })
 
@@ -176,23 +198,10 @@ async def get_dashboard(
 async def org_ranking(
     db: AsyncSession, month: str, org_id: Optional[int] = None, page: int = 1, page_size: int = 20
 ) -> dict:
-    dist_ids = await _scope_distributor_ids(db, org_id)
-    if dist_ids is None:
-        dist_ids = await _all_distributor_ids(db)
     org_ids = await _subtree_org_ids(db, org_id)
-
-    consumption = await consumption_by_distributor(db, list(dist_ids), month)
-    did_to_org = dict((await db.execute(
-        select(Distributor.id, Distributor.org_id).where(Distributor.id.in_(dist_ids))
-    )).all())
-    org_totals: dict[int, int] = {}
-    for did, cents in consumption.items():
-        oid = did_to_org.get(did)
-        if oid is None:
-            continue
-        if org_ids is not None and oid not in org_ids:
-            continue
-        org_totals[oid] = org_totals.get(oid, 0) + cents
+    if org_ids is None:
+        org_ids = set((await db.execute(select(Organization.id))).scalars().all())
+    org_totals = await consumption_by_organization(db, org_ids, month)
 
     pairs = sorted(((cents, oid) for oid, cents in org_totals.items()), key=lambda x: x[0], reverse=True)
     name_map = await _org_name_map(db, {oid for _, oid in pairs})
@@ -211,11 +220,11 @@ async def org_ranking(
 async def persons_ranking(
     db: AsyncSession, month: str, org_id: Optional[int] = None, page: int = 1, page_size: int = 20
 ) -> dict:
-    dist_ids = await _scope_distributor_ids(db, org_id)
-    if dist_ids is None:
-        dist_ids = await _all_distributor_ids(db)
-
-    consumption = await consumption_by_distributor(db, list(dist_ids), month)
+    dist_ids = await _all_distributor_ids(db)
+    org_ids = await _subtree_org_ids(db, org_id)
+    consumption = await consumption_by_distributor(
+        db, list(dist_ids), month, organization_ids=org_ids
+    )
     person_map = await _person_map(db, {did for did, cents in consumption.items() if cents > 0})
     org_name_map = await _org_name_map(db, {o for _, o in person_map.values()})
     pairs = sorted(((cents, did) for did, cents in consumption.items() if cents > 0),

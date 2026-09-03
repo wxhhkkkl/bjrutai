@@ -94,6 +94,9 @@ async def test_dashboard_stats_trend_latest(client: AsyncClient, db_session: Asy
     assert len(data["latest"]) == 3  # 含上月记录（最新 30 条不限当月）
     assert data["latest"][0]["amountCent"] == 5000   # transaction_time 倒序：07-15 最新
     assert data["latest"][2]["amountCent"] == 20000  # 06-20 最旧
+    assert data["latest"][0]["customerName"] == "患者"
+    assert data["latest"][0]["phoneMasked"] == "138****8000"
+    assert data["latest"][0]["source"] == "rutai_sync"
 
 
 @pytest.mark.asyncio
@@ -122,6 +125,15 @@ async def test_orgs_ranking(client: AsyncClient, db_session: AsyncSession):
     assert data["items"][0]["orgId"] == str(child)
     assert data["items"][0]["amountCent"] == 60000
     assert data["items"][1]["amountCent"] == 30000
+
+    child_only = _assert_envelope(await client.get(
+        "/api/v1/admin/contributions/rankings/orgs",
+        params={"month": "2026-07", "orgId": str(child)},
+        headers=R,
+    ))
+    assert child_only["total"] == 1
+    assert child_only["items"][0]["orgId"] == str(child)
+    assert child_only["items"][0]["amountCent"] == 60000
 
 
 @pytest.mark.asyncio

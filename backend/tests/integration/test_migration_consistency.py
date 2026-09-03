@@ -6,9 +6,26 @@ and asserts historical data is fully preserved.
 """
 
 from datetime import datetime, timedelta
+import importlib.util
+from pathlib import Path
 
 import pytest
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    UniqueConstraint,
+    create_engine,
+    inspect,
+    text,
+)
 
+from src.models.bill import Bill
 from src.models.hierarchy import HierarchyNode, NodeType, Promoter
 from src.models.org_qualification import OrgQualStatus
 from src.models.organization import Organization
@@ -104,3 +121,110 @@ async def test_org_qualifications_from_latest(db_session):
     statuses = {q.status for q in quals}
     assert OrgQualStatus.APPROVED in statuses
     assert OrgQualStatus.REJECTED in statuses
+
+
+def test_manual_consumption_migration_contract():
+    """Migration 016 and ORM metadata expose the manual-entry persistence contract."""
+    migration = Path(__file__).parents[2] / "migrations" / "versions" / "016_manual_consumption_entry.py"
+    assert migration.exists()
+
+    expected_columns = {
+        "source",
+        "attributed_distributor_id",
+        "attributed_person_name",
+        "attributed_org_id",
+        "attributed_org_name",
+        "entry_note",
+        "created_by_admin_id",
+        "idempotency_key",
+        "submission_fingerprint",
+    }
+    assert expected_columns <= set(Bill.__table__.columns.keys())
+
+    unique_column_sets = {
+        tuple(column.name for column in constraint.columns)
+        for constraint in Bill.__table__.constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
+    assert ("created_by_admin_id", "idempotency_key") in unique_column_sets
+
+
+def test_manual_consumption_migration_round_trip_preserves_legacy_bill(tmp_path, monkeypatch):
+    """Run 016 upgrade/downgrade/upgrade against an isolated 015-shaped DB."""
+    migration_path = (
+        Path(__file__).parents[2]
+        / "migrations"
+        / "versions"
+        / "016_manual_consumption_entry.py"
+    )
+    spec = importlib.util.spec_from_file_location("migration_016", migration_path)
+    assert spec and spec.loader
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'migration-016.db'}")
+    metadata = MetaData()
+    Table(
+        "admin_accounts",
+        metadata,
+        Column("id", Integer, primary_key=True),
+    )
+    Table(
+        "bills",
+        metadata,
+        Column("id", Integer, primary_key=True),
+        Column("transaction_id", String(100), nullable=False),
+        Column("paid_amount_cent", Integer, nullable=False),
+        Column("transaction_status", String(30), nullable=False),
+        Column("created_at", DateTime, nullable=False),
+    )
+
+    with engine.begin() as connection:
+        metadata.create_all(connection)
+        connection.execute(
+            text(
+                "INSERT INTO bills "
+                "(id, transaction_id, paid_amount_cent, transaction_status, created_at) "
+                "VALUES (1, 'legacy-001', 12880, 'paid', '2026-09-01 10:00:00')"
+            )
+        )
+        monkeypatch.setattr(
+            migration,
+            "op",
+            Operations(MigrationContext.configure(connection)),
+        )
+
+        migration.upgrade()
+        upgraded_columns = {column["name"] for column in inspect(connection).get_columns("bills")}
+        assert {"source", "created_by_admin_id", "idempotency_key"} <= upgraded_columns
+        legacy = connection.execute(
+            text(
+                "SELECT transaction_id, paid_amount_cent, transaction_status, source "
+                "FROM bills WHERE id = 1"
+            )
+        ).one()
+        assert tuple(legacy) == ("legacy-001", 12880, "paid", "rutai_sync")
+        unique_sets = {
+            tuple(constraint["column_names"])
+            for constraint in inspect(connection).get_unique_constraints("bills")
+        }
+        assert ("created_by_admin_id", "idempotency_key") in unique_sets
+
+        migration.downgrade()
+        downgraded_columns = {column["name"] for column in inspect(connection).get_columns("bills")}
+        assert "source" not in downgraded_columns
+        legacy_after_downgrade = connection.execute(
+            text(
+                "SELECT transaction_id, paid_amount_cent, transaction_status "
+                "FROM bills WHERE id = 1"
+            )
+        ).one()
+        assert tuple(legacy_after_downgrade) == ("legacy-001", 12880, "paid")
+
+        migration.upgrade()
+        reupgraded = connection.execute(
+            text("SELECT paid_amount_cent, source FROM bills WHERE id = 1")
+        ).one()
+        assert tuple(reupgraded) == (12880, "rutai_sync")
+
+    engine.dispose()

@@ -44,7 +44,11 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         # and must distinguish an identical retry from a reused key carrying a
         # different payload (40911). Do not let this process-local cache hide
         # that domain-level decision.
-        if request.method == "POST" and request.url.path == "/api/v1/feedbacks":
+        persistent_idempotency_paths = {
+            "/api/v1/feedbacks",
+            "/api/v1/admin/contributions/manual",
+        }
+        if request.method == "POST" and request.url.path in persistent_idempotency_paths:
             return await call_next(request)
 
         bearer = request.headers.get("Authorization", "")

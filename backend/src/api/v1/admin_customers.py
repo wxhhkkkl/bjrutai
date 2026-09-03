@@ -4,9 +4,11 @@ All endpoints require admin auth; read operations require ``customers.read``,
 write operations require ``customers.write``.
 """
 
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_admin_user, get_db, require_permission
@@ -49,6 +51,43 @@ async def list_customers(
         db, org_id_int, status=status, keyword=keyword, page=page, page_size=pageSize
     )
     return _build_response(0, "success", result)
+
+
+@router.get("/export")
+async def export_customers(
+    org_id: str = Query(
+        ..., alias="orgId", description="组织 ID，导出该组织及全部下级组织客户"
+    ),
+    start_date: date = Query(..., alias="startDate", description="客户创建日期起始值"),
+    end_date: date = Query(..., alias="endDate", description="客户创建日期结束值"),
+    status: Optional[str] = Query(None),
+    keyword: Optional[str] = Query(None, max_length=100),
+    db: AsyncSession = Depends(get_db),
+    _admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("customers.read")),
+):
+    """Export a creation-date-scoped, masked customer list as an Excel-friendly CSV."""
+    if start_date > end_date:
+        raise BadRequestException(message="开始日期不能晚于结束日期")
+    try:
+        org_id_int = int(org_id)
+    except (ValueError, TypeError):
+        raise BadRequestException(message="无效的组织 ID")
+
+    content = await customer_admin_service.export_customers_csv(
+        db,
+        org_id_int,
+        start_date=start_date,
+        end_date=end_date,
+        status=status,
+        keyword=keyword,
+    )
+    filename = f"customers_{start_date.isoformat()}_{end_date.isoformat()}.csv"
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("")

@@ -236,6 +236,67 @@ async def seed_admin(
     return admin.id
 
 
+async def seed_bound_customer_with_attribution(
+    db: AsyncSession,
+    *,
+    customer_name: str = "测试客户",
+    customer_phone: str = "13800138000",
+    id_card: str = "110101199001011234",
+    person_name: str = "测试拓展人",
+    person_phone: str = "13900139000",
+    binding_status: str = "bound",
+    distributor_status: str = "active",
+    org_status: str = "active",
+) -> dict:
+    """Create an organization, distributor and customer for admin feature tests."""
+    from src.models.binding import BindingStatus, Customer
+    from src.models.distributor import Distributor, DistributorStatus, OrgRole
+    from src.models.organization import Organization, OrgStatus
+
+    org = Organization(
+        name="测试机构",
+        level=1,
+        status=OrgStatus(org_status),
+    )
+    db.add(org)
+    await db.flush()
+
+    user_id = await seed_user(
+        db,
+        openid=f"openid-{uuid.uuid4().hex}",
+        user_type="distributor",
+        name=person_name,
+        phone=person_phone,
+    )
+    distributor = Distributor(
+        user_id=user_id,
+        org_id=org.id,
+        org_role=OrgRole.MEMBER,
+        status=DistributorStatus(distributor_status),
+    )
+    db.add(distributor)
+    await db.flush()
+
+    customer = Customer(
+        distributor_id=distributor.id,
+        name=customer_name,
+        phone=customer_phone,
+        phone_masked=customer_phone[:3] + "****" + customer_phone[-4:],
+        id_card_encrypted=id_card,
+        id_card_masked=id_card[:3] + "***********" + id_card[-4:],
+        binding_status=BindingStatus(binding_status),
+        version=1,
+    )
+    db.add(customer)
+    await db.flush()
+    await db.refresh(customer)
+    return {
+        "org": org,
+        "distributor": distributor,
+        "customer": customer,
+    }
+
+
 async def seed_role(db: AsyncSession, *, name: str = "admin", permissions: dict | None = None) -> int:
     """Insert a Role row and return its id."""
     from src.models.role import Role

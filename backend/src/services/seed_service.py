@@ -20,7 +20,7 @@ _ALL_PERMISSIONS = {
         "roles.read", "roles.write",
         "customers.read", "customers.write",
         "qualifications.read", "qualifications.write",
-        "contributions.read",
+        "contributions.read", "contributions.write",
         "reports.read",
         "articles.read", "articles.write",
         "promotions.read", "promotions.write",

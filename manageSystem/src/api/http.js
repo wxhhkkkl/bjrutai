@@ -43,7 +43,21 @@ http.interceptors.response.use(
 
     // Skip token refresh for login requests (they are expected to 401)
     const isAuthRequest = originalRequest.url?.includes('/auth/')
-    if (error.response?.status === 401 && !originalRequest._retry && !isAuthRequest) {
+    const isPermissionTokenStale =
+      error.response?.status === 403 &&
+      error.response?.data?.code === 40300 &&
+      String(error.response?.data?.message || '').startsWith('缺少权限:')
+    const retryFlag = isPermissionTokenStale ? '_permissionRetry' : '_retry'
+    const shouldRefreshToken =
+      (error.response?.status === 401 || isPermissionTokenStale) &&
+      !originalRequest[retryFlag] &&
+      !isAuthRequest
+
+    // Role permissions are embedded in the access token.  When an admin edits
+    // the current role, refresh once on a permission rejection so the next
+    // request uses the role's latest permission set.
+    if (shouldRefreshToken) {
+      originalRequest[retryFlag] = true
       if (isRefreshing) {
         // Queue this request while a refresh is in progress
         return new Promise((resolve, reject) => {
@@ -54,7 +68,6 @@ http.interceptors.response.use(
         })
       }
 
-      originalRequest._retry = true
       isRefreshing = true
 
       const authStore = useAuthStore()

@@ -2,7 +2,7 @@
  * RBAC Permission Definitions
  *
  * Each module groups one or more action permissions.
- * The full set of 22 permissions across 12 modules forms the seed data
+ * The full permission set across all modules forms the seed data
  * for the "系统管理员" (System Admin) role.
  *
  * Format: { module, label, permissions: [{ key, label }] }
@@ -50,6 +50,7 @@ export const PERMISSION_MODULES = [
     label: '消费业绩',
     permissions: [
       { key: 'contributions.read', label: '查看业绩数据' },
+      { key: 'contributions.write', label: '录入消费数据' },
     ],
   },
   {

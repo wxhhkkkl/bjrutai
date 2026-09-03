@@ -8,8 +8,10 @@ Output masking (宪法 IV v2.0.0): phone / id_card / medical_account are stored
 plaintext but every API response exposes only masked values.
 """
 
+import csv
+import io
 import uuid
-from datetime import datetime
+from datetime import date, datetime, time, timedelta
 from typing import Optional
 
 from sqlalchemy import or_, select
@@ -160,18 +162,15 @@ def _customer_summary(c: Customer, promoter_name, org_id, org_name) -> dict:
     }
 
 
-# ---------------------------------------------------------------------------
-# US1: Org-scoped customer list
-# ---------------------------------------------------------------------------
-async def list_customers_by_org(
+async def _customer_scope_filters(
     db: AsyncSession,
     org_id: int,
     status: Optional[str] = None,
     keyword: Optional[str] = None,
-    page: int = 1,
-    page_size: int = 20,
-) -> dict:
-    """Return customers whose promoter belongs to *org_id*'s subtree (FR-003)."""
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+) -> list:
+    """Build the shared organization and customer filters used by list/export."""
     org_ids = {org_id}
     subtree = await organization_service.get_subtree(db, org_id)
     org_ids |= distributor_service._collect_org_ids(subtree)
@@ -188,6 +187,27 @@ async def list_customers_by_org(
         filters.append(
             or_(Customer.name.ilike(kw), Customer.phone.ilike(kw), Customer.phone_masked.ilike(kw))
         )
+    if start_date:
+        filters.append(Customer.created_at >= datetime.combine(start_date, time.min))
+    if end_date:
+        next_day = end_date + timedelta(days=1)
+        filters.append(Customer.created_at < datetime.combine(next_day, time.min))
+    return filters
+
+
+# ---------------------------------------------------------------------------
+# US1: Org-scoped customer list
+# ---------------------------------------------------------------------------
+async def list_customers_by_org(
+    db: AsyncSession,
+    org_id: int,
+    status: Optional[str] = None,
+    keyword: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
+    """Return customers whose promoter belongs to *org_id*'s subtree (FR-003)."""
+    filters = await _customer_scope_filters(db, org_id, status=status, keyword=keyword)
 
     query = (
         select(Customer, Distributor.org_id)
@@ -214,6 +234,70 @@ async def list_customers_by_org(
         "pageSize": page_size,
         "hasMore": page * page_size < total,
     }
+
+
+def _csv_safe(value) -> str:
+    """Prevent spreadsheet formula execution for user-controlled CSV cells."""
+    text = "" if value is None else str(value)
+    if text.startswith(("=", "+", "-", "@", "\t", "\r")):
+        return "'" + text
+    return text
+
+
+async def export_customers_csv(
+    db: AsyncSession,
+    org_id: int,
+    start_date: date,
+    end_date: date,
+    status: Optional[str] = None,
+    keyword: Optional[str] = None,
+) -> bytes:
+    """Export masked customer data from an org subtree within a creation-date range."""
+    filters = await _customer_scope_filters(
+        db,
+        org_id,
+        status=status,
+        keyword=keyword,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    rows = (
+        await db.execute(
+            select(Customer, User.name, Organization.name)
+            .join(Distributor, Distributor.id == Customer.distributor_id)
+            .join(User, User.id == Distributor.user_id)
+            .join(Organization, Organization.id == Distributor.org_id)
+            .where(*filters)
+            .order_by(Customer.created_at.desc(), Customer.id.desc())
+        )
+    ).all()
+
+    status_labels = {
+        BindingStatus.BOUND.value: "已绑定",
+        BindingStatus.PENDING.value: "待绑定",
+        BindingStatus.UNBOUND.value: "已解绑",
+    }
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow([
+        "序号", "姓名", "手机号", "身份证号", "绑定状态", "归属人员",
+        "所属组织", "备注", "创建时间", "更新时间",
+    ])
+    for index, (customer, promoter_name, org_name) in enumerate(rows, start=1):
+        status_value = _binding_status_value(customer.binding_status)
+        writer.writerow([
+            index,
+            _csv_safe(customer.name),
+            _csv_safe(_mask_phone(customer.phone)),
+            _csv_safe(customer.id_card_masked or _mask_id_card(customer.id_card_encrypted)),
+            status_labels.get(status_value, status_value),
+            _csv_safe(promoter_name),
+            _csv_safe(org_name),
+            _csv_safe(customer.note),
+            customer.created_at.strftime("%Y-%m-%d %H:%M:%S") if customer.created_at else "",
+            customer.updated_at.strftime("%Y-%m-%d %H:%M:%S") if customer.updated_at else "",
+        ])
+    return output.getvalue().encode("utf-8-sig")
 
 
 # ---------------------------------------------------------------------------

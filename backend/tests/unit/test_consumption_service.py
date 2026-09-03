@@ -104,3 +104,43 @@ async def test_consumption_by_customer_groups(db_session: AsyncSession):
 
     result = await consumption_by_customer(db_session, [c1, c2])
     assert result == {c1: 300000, c2: 700000}
+
+
+@pytest.mark.asyncio
+async def test_manual_bill_keeps_snapshot_while_synced_bill_uses_current_owner(db_session: AsyncSession):
+    org_id = await _seed_org(db_session)
+    original_dist = await _seed_distributor(db_session, org_id)
+    current_user_id = await seed_user(
+        db_session,
+        openid="openid_current_owner",
+        user_type="distributor",
+        name="推广员B",
+    )
+    current_dist = Distributor(user_id=current_user_id, org_id=org_id, org_role=OrgRole.MEMBER)
+    db_session.add(current_dist)
+    await db_session.flush()
+
+    customer_id = await _seed_customer(db_session, original_dist)
+    db_session.add(Bill(
+        customer_id=customer_id,
+        transaction_id="manual_snapshot",
+        transaction_time=datetime(2026, 7, 10),
+        paid_amount_cent=50000,
+        total_amount_cent=50000,
+        transaction_status=TransactionStatus.PAID,
+        source="manual",
+        attributed_distributor_id=original_dist,
+        attributed_person_name="推广员A",
+        attributed_org_id=org_id,
+        attributed_org_name="总部",
+    ))
+    await _seed_bill(db_session, customer_id, 70000, "rutai_current_owner")
+
+    customer = await db_session.get(Customer, customer_id)
+    customer.distributor_id = current_dist.id
+    await db_session.flush()
+
+    result = await consumption_by_distributor(
+        db_session, [original_dist, current_dist.id], "2026-07"
+    )
+    assert result == {original_dist: 50000, current_dist.id: 70000}

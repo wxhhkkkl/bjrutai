@@ -2,7 +2,12 @@
   <div class="page-container">
     <div class="page-header">
       <h2 class="page-title">消费业绩</h2>
-      <el-button @click="loadAll"><el-icon style="margin-right: 4px"><Refresh /></el-icon>刷新</el-button>
+      <div class="header-actions">
+        <el-button v-if="canWrite" type="primary" @click="manualDialogVisible = true">
+          <el-icon style="margin-right: 4px"><Plus /></el-icon>录入消费
+        </el-button>
+        <el-button @click="loadAll"><el-icon style="margin-right: 4px"><Refresh /></el-icon>刷新</el-button>
+      </div>
     </div>
 
     <!-- 筛选栏：月份 + 组织树选择器 -->
@@ -68,8 +73,8 @@
         <el-tab-pane label="绑定数量排名" name="bindings">
           <div class="bindings-toolbar">
             <el-radio-group v-model="bindScope" size="small" @change="loadRankings">
-              <el-radio-button label="person">按个人</el-radio-button>
-              <el-radio-button label="org">按组织</el-radio-button>
+              <el-radio-button value="person">按个人</el-radio-button>
+              <el-radio-button value="org">按组织</el-radio-button>
             </el-radio-group>
           </div>
           <el-table :data="bindingsRanking.items" v-loading="rankLoading" stripe size="small">
@@ -85,23 +90,33 @@
     <el-card class="chart-card" shadow="never">
       <template #header><span>最新消费明细（30 条）</span></template>
       <el-table :data="latest" v-loading="loading" stripe size="small">
+        <el-table-column prop="customerName" label="客户" min-width="100" />
         <el-table-column prop="personName" label="人员" min-width="90" />
         <el-table-column prop="orgName" label="组织" min-width="110" />
-        <el-table-column prop="title" label="标题" min-width="150" show-overflow-tooltip />
+        <el-table-column label="来源" width="100"><template #default="{ row }">{{ sourceLabel(row.source) }}</template></el-table-column>
+        <el-table-column prop="title" label="记录编号" min-width="170" show-overflow-tooltip />
         <el-table-column label="消费金额" width="110" align="right"><template #default="{ row }">¥{{ fmtYuan(row.amountCent) }}</template></el-table-column>
         <el-table-column label="状态" width="100"><template #default="{ row }">{{ statusLabel(row.status) }}</template></el-table-column>
         <el-table-column label="时间" width="160"><template #default="{ row }">{{ formatTime(row.occurredAt) }}</template></el-table-column>
       </el-table>
     </el-card>
+
+    <ManualConsumptionDialog v-model="manualDialogVisible" @success="handleManualSuccess" />
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
+import { Plus, Refresh } from '@element-plus/icons-vue'
 import { orgApi } from '@/api/org'
 import { contributionDashboardApi } from '@/api/contributions'
+import ManualConsumptionDialog from '@/components/contributions/ManualConsumptionDialog.vue'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
+const canWrite = computed(() => authStore.hasPermission('contributions.write'))
+const manualDialogVisible = ref(false)
 
 const loading = ref(false)
 const rankLoading = ref(false)
@@ -131,6 +146,10 @@ const bindingsRanking = ref({ items: [] })
 
 function statusLabel(s) {
   return { paid: '已支付', partially_refunded: '部分退款', refunded: '已退款', cancelled: '已取消' }[s] || s
+}
+
+function sourceLabel(source) {
+  return { manual: '人工录入', rutai_sync: '儒泰同步' }[source] || '儒泰同步'
 }
 
 async function loadOrgTree() {
@@ -189,6 +208,11 @@ async function loadAll() {
   await Promise.all([loadDashboard(), loadRankings()])
 }
 
+async function handleManualSuccess() {
+  manualDialogVisible.value = false
+  await loadAll()
+}
+
 onMounted(async () => {
   if (!month.value) {
     const now = new Date()
@@ -201,6 +225,7 @@ onMounted(async () => {
 
 <style scoped>
 .filter-card { margin-bottom: 14px; }
+.header-actions { display: flex; gap: 8px; }
 .filter-row { display: flex; gap: 12px; align-items: center; }
 .chart-card { margin-bottom: 14px; }
 /* 本页 stat-card 为 label 在上、value 在下 */

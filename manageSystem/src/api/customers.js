@@ -9,6 +9,12 @@ export const adminCustomerApi = {
   list(orgId, params = {}) {
     return http.get('/admin/customers', { params: { orgId, ...params } }).then(payload)
   },
+  export(orgId, params = {}) {
+    return http.get('/admin/customers/export', {
+      params: { orgId, ...params },
+      responseType: 'blob',
+    })
+  },
   create(data) {
     return http.post('/admin/customers', data).then(payload)
   },

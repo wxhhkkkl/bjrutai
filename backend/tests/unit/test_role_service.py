@@ -109,3 +109,31 @@ async def test_update_system_role_name_returns_error(
     data = resp.json()
     assert resp.status_code == 400
     assert data.get("code") == 40302
+
+
+@pytest.mark.asyncio
+async def test_update_system_role_permissions_without_renaming_succeeds(
+    db_session: AsyncSession, client: AsyncClient
+):
+    """A system role can change permissions while retaining its fixed name."""
+    await seed_admin(db_session, username="admin")
+    role_id = await seed_role(db_session, name="系统管理员")
+    from src.models.role import Role
+    from sqlalchemy import update
+
+    await db_session.execute(
+        update(Role).where(Role.id == role_id).values(is_system=True)
+    )
+    await db_session.commit()
+
+    resp = await client.put(
+        f"/api/v1/admin/roles/{role_id}",
+        json={
+            "name": "系统管理员",
+            "permissions": {"permissions": ["contributions.write"]},
+        },
+        headers=_admin_auth(),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["data"]["name"] == "系统管理员"
+    assert resp.json()["data"]["permissions"] == {"permissions": ["contributions.write"]}
