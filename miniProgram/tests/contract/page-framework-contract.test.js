@@ -269,6 +269,7 @@ test('profile setup uses stable inputs and submits the approved first step', () 
 
   assert.match(source, /<flow-navigation\b/);
   assert.match(source, /账号初始化/);
+  assert.match(source, /profile-field__required/);
   assert.match(source, /bindinput="onFieldInput"/);
   assert.match(source, /data-field="name"/);
   assert.doesNotMatch(source, /data-field="organization"/);

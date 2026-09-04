@@ -138,6 +138,11 @@ page {
   font-size: 26rpx;
 }
 
+.profile-field__required {
+  margin-right: 6rpx;
+  color: #e63625;
+}
+
 .profile-field__input,
 .profile-field__value {
   min-width: 0;

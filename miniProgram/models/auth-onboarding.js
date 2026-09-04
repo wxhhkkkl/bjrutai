@@ -58,7 +58,7 @@ function createProfileForm(session) {
   return {
     name: value.name && value.name !== '微信用户'
       ? value.name
-      : '张小明',
+      : '',
     organization: value.organization || DEFAULT_ORGANIZATION
   };
 }

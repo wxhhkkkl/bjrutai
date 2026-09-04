@@ -30,7 +30,7 @@
   <text class="profile-section-title">基本信息</text>
   <view class="profile-form-card">
     <view class="profile-field {{invalidField === 'name' ? 'profile-field--invalid' : ''}}">
-      <text class="profile-field__label">真实姓名</text>
+      <text class="profile-field__label"><text class="profile-field__required">*</text>真实姓名</text>
       <input
         class="profile-field__input"
         value="{{form.name}}"
