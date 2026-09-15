@@ -217,15 +217,11 @@ function validateImage(file) {
 
 async function uploadImage({ file, onSuccess, onError }) {
   try {
-    const data = payload(await http.post('/admin/banners/upload-image', {
-      fileName: file.name,
-      contentType: file.type,
+    const uploadForm = new FormData()
+    uploadForm.append('file', file, file.name)
+    const data = payload(await http.post('/admin/banners/upload-image-file', uploadForm, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     }))
-    await fetch(data.uploadUrl, {
-      method: 'PUT',
-      body: file,
-      headers: { 'Content-Type': file.type },
-    })
     form.imageUrl = data.fileUrl
     ElMessage.success('图片上传成功')
     onSuccess?.()

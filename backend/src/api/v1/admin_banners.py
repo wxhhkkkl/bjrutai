@@ -1,5 +1,7 @@
 """Administrator endpoints for homepage banner management."""
-from fastapi import APIRouter, Depends, Query
+import httpx
+
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,7 +9,7 @@ from ...api.deps import get_admin_user
 from ...core.database import get_db
 from ...core.error_handler import _build_response
 from ...core.exceptions import BadRequestException
-from ...integrations.cos_client import get_cos_client
+from ...integrations.cos_client import MAX_FILE_SIZE, get_cos_client
 from ...models.banner import BannerStatus
 from ...schemas.banner import BannerCreate, BannerUpdate
 from ...services.banner_service import (
@@ -105,4 +107,47 @@ async def upload_banner_image(
         "uploadUrl": result["uploadUrl"],
         "fileUrl": result["fileUrl"],
         "expiresAt": result["expiresAt"],
+    })
+
+
+@router.post("/upload-image-file")
+async def upload_banner_image_file(
+    file: UploadFile = File(...),
+    _current_admin: dict = Depends(get_admin_user),
+):
+    """Upload a banner image through the API to avoid browser-to-COS CORS."""
+    content = await file.read()
+    if not content:
+        raise BadRequestException(message="请选择要上传的图片")
+    if len(content) > MAX_FILE_SIZE:
+        raise BadRequestException(message="图片大小不能超过 10MB")
+
+    content_type = file.content_type or "application/octet-stream"
+    try:
+        token = get_cos_client().generate_upload_token(
+            user_id=0,
+            file_name=file.filename or "homepage-banner.jpg",
+            content_type=content_type,
+            file_size=len(content),
+            key_prefix="banners/",
+        )
+    except ValueError as exc:
+        raise BadRequestException(message=str(exc)) from exc
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.put(
+                token["uploadUrl"],
+                content=content,
+                headers={"Content-Type": content_type},
+            )
+    except httpx.HTTPError as exc:
+        raise BadRequestException(message="COS 上传连接失败，请稍后重试") from exc
+
+    if response.status_code >= 300:
+        raise BadRequestException(message=f"COS 上传失败 (HTTP {response.status_code})")
+
+    return _build_response(0, "success", {
+        "fileUrl": token["fileUrl"],
+        "fileName": file.filename,
     })
