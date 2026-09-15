@@ -61,10 +61,12 @@ test('customer service uses exact list/detail/analysis routes and PATCH fields',
   }
 })
 
-test('customer list accepts only current-user scope and does not expose blocked subresources', () => {
+test('customer service keeps current-user scope and exposes supported followup actions', () => {
   const fixture = loadService()
   try {
-    assert.equal(typeof fixture.service.getServiceRecords, 'undefined')
+    assert.equal(typeof fixture.service.getServiceRecords, 'function')
+    assert.equal(typeof fixture.service.createFollowup, 'function')
+    assert.equal(typeof fixture.service.saveFollowupDraft, 'function')
     assert.equal(typeof fixture.service.getFollowups, 'undefined')
   } finally {
     fixture.restore()

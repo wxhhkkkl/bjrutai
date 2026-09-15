@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Header, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_current_user, get_db
+from ...api.deps import get_current_user, get_db, require_active_distributor_or_admin
 from ...core.error_handler import _build_response
 from ...core.exceptions import BadRequestException
 from ...schemas.binding import (
@@ -28,7 +28,7 @@ from ...schemas.binding import (
 from ...models.notification import Notification, NotificationCategory
 from ...services.binding_service import get_binding_service
 
-router = APIRouter(tags=["binding"])
+router = APIRouter(tags=["binding"], dependencies=[Depends(require_active_distributor_or_admin)])
 
 
 def _ok(data=None) -> dict:
@@ -76,7 +76,7 @@ async def submit_binding_request(
 ):
     """Submit a new customer binding request. Idempotency-Key header REQUIRED."""
     if not idempotency_key:
-        raise BadRequestException(message="Idempotency-Key header is required")
+        raise BadRequestException(message="缺少幂等请求标识，请重试")
 
     user_id = int(payload["sub"])
     svc = get_binding_service()
@@ -84,7 +84,7 @@ async def submit_binding_request(
     req_data = data.model_dump(exclude_none=False)
     # Distributor self-service bindings always belong to the logged-in account.
     # Keep the selectable-promoter flow for doctor/admin integrations.
-    if payload.get("user_type") == "distributor":
+    if payload.get("user_type") != "admin":
         req_data["promoterId"] = str(user_id)
         req_data["promoterCode"] = None
     result = await svc.submit_binding_request(
@@ -191,7 +191,7 @@ async def retry_binding_request(
 ):
     """Retry a failed binding request."""
     if not idempotency_key:
-        raise BadRequestException(message="Idempotency-Key header is required")
+        raise BadRequestException(message="缺少幂等请求标识，请重试")
 
     svc = get_binding_service()
     result = await svc.retry_binding(
@@ -218,7 +218,7 @@ async def update_customer_info(
 ):
     """Update customer info on a binding request."""
     if not idempotency_key:
-        raise BadRequestException(message="Idempotency-Key header is required")
+        raise BadRequestException(message="缺少幂等请求标识，请重试")
 
     svc = get_binding_service()
     result = await svc.update_customer_info(

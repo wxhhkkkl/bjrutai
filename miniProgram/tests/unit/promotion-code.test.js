@@ -15,7 +15,7 @@ test('promotion profile uses current promoter identity', () => {
   });
 
   assert.equal(profile.name, '测试推广人');
-  assert.equal(profile.statusLabel, '推广码可用');
+  assert.equal(profile.statusLabel, '客户绑定码可用');
   assert.equal(profile.sourceCity, '北京');
 });
 
@@ -26,16 +26,16 @@ test('promotion instructions preserve the approved three-step flow', () => {
   );
 });
 
-test('promotion share carries the promoter source', () => {
-  const profile = getPromotionProfile({ name: '张小明' });
+test('customer binding share carries the salesperson token', () => {
+  const profile = { name: '张小明', refToken: 'customer-token', qrImage: '/qr.png' };
   const share = createPromotionShare(profile);
 
   assert.match(share.title, /张小明/);
   assert.equal(
     share.path,
-    '/pages/home/index?sourceId=demo-collaborator-001'
+    '/pages/patient-binding/index?refToken=customer-token'
   );
-  assert.equal(share.imageUrl, '/assets/images/promotion-qr.jpg');
+  assert.equal(share.imageUrl, '/qr.png');
 });
 
 test('promotion share prefers the server-issued title and path', () => {

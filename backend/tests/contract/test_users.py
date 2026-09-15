@@ -40,6 +40,9 @@ async def test_profile_update_accepts_version_returned_by_get_profile(
     update_body = update_response.json()
     assert_response_envelope(update_body)
     assert update_body["data"]["name"] == "新姓名"
+    updated_user = await db_session.get(User, user_id)
+    await db_session.refresh(updated_user)
+    assert updated_user.profile_completed is True
 
 
 async def test_profile_update_rejects_manual_organization_change(

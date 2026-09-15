@@ -56,9 +56,13 @@ class Customer(Base):
     __tablename__ = "customers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id"), unique=True, nullable=True, index=True
+    )
     distributor_id: Mapped[int] = mapped_column(Integer, ForeignKey("distributors.id"), nullable=False, index=True)
     name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    phone_normalized: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
     phone_masked: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     id_card_encrypted: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     id_card_masked: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
@@ -75,6 +79,7 @@ class Customer(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     distributor: Mapped["Distributor"] = relationship("Distributor", back_populates="customers")
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="customer")
     bills: Mapped[list["Bill"]] = relationship("Bill", back_populates="customer")
     followup_records: Mapped[list["FollowupRecord"]] = relationship(
         "FollowupRecord", back_populates="customer"

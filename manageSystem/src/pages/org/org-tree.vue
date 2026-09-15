@@ -97,16 +97,16 @@
             <div class="section-title">
               <span>人员（{{ distributors.length }}）</span>
               <el-button size="small" type="primary" @click="openCreateDistributor">
-                <el-icon style="margin-right: 4px"><Plus /></el-icon>新建分销员
+                <el-icon style="margin-right: 4px"><Plus /></el-icon>添加人员
               </el-button>
             </div>
             <el-table :data="distributors" v-loading="distLoading" border stripe size="small" style="width: 100%">
               <el-table-column prop="name" label="姓名" min-width="100" />
               <el-table-column prop="phone" label="手机号" width="130" />
-              <el-table-column label="身份" width="110" align="center">
+              <el-table-column label="身份" width="180" align="center">
                 <template #default="{ row }">
                   <el-tag :type="row.orgRole === 'admin' ? 'warning' : 'info'">
-                    {{ row.orgRole === 'admin' ? '组织管理员' : '成员' }}
+                    {{ row.orgRole === 'admin' ? '推广员（组织管理员）' : '业务员' }}
                   </el-tag>
                 </template>
               </el-table-column>
@@ -143,7 +143,7 @@
                 </template>
               </el-table-column>
             </el-table>
-            <el-empty v-if="!distLoading && distributors.length === 0" description="该组织下暂无分销员" :image-size="60" />
+            <el-empty v-if="!distLoading && distributors.length === 0" description="该组织下暂无人员" :image-size="60" />
           </div>
         </template>
       </div>
@@ -205,19 +205,53 @@
       <el-empty v-else description="暂无操作记录" />
     </el-dialog>
 
-    <!-- 新建分销员 -->
-    <el-dialog v-model="distCreateVisible" title="新建分销员" width="460px">
+    <!-- 添加组织人员 -->
+    <el-dialog v-model="distCreateVisible" title="添加组织人员" width="500px">
       <el-form :model="distForm" label-width="100px">
         <el-form-item label="所属组织">
           <el-input :model-value="selected?.name" disabled />
         </el-form-item>
-        <el-form-item label="姓名" required><el-input v-model="distForm.name" maxlength="64" /></el-form-item>
-        <el-form-item label="手机号" required><el-input v-model="distForm.phone" maxlength="11" /></el-form-item>
-        <el-form-item label="初始密码" required><el-input v-model="distForm.initialPassword" type="password" show-password /></el-form-item>
+        <el-form-item label="账号来源">
+          <el-radio-group v-model="distMode" @change="handleDistModeChange">
+            <el-radio-button value="new">新建账号</el-radio-button>
+            <el-radio-button value="existing">已有个人账号</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <template v-if="distMode === 'new'">
+          <el-form-item label="姓名" required><el-input v-model="distForm.name" maxlength="64" /></el-form-item>
+          <el-form-item label="手机号" required><el-input v-model="distForm.phone" maxlength="11" /></el-form-item>
+          <el-form-item label="初始密码" required><el-input v-model="distForm.initialPassword" type="password" show-password /></el-form-item>
+        </template>
+        <el-form-item v-else label="选择账号" required>
+          <el-select
+            v-model="existingUserId"
+            filterable
+            remote
+            clearable
+            :remote-method="loadUnassignedUsers"
+            :loading="unassignedLoading"
+            placeholder="按姓名或手机号搜索未加入组织的账号"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="user in unassignedUsers"
+              :key="user.userId"
+              :value="user.userId"
+              :label="`${user.name || '未填写姓名'} · ${user.phone || '未绑定手机号'}`"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="组织身份" required>
+          <el-select v-model="distForm.orgRole" style="width: 100%">
+            <el-option label="业务员（组织成员）" value="member" />
+            <el-option label="推广员（组织管理员）" value="admin" :disabled="orgHasAdmin" />
+          </el-select>
+          <div v-if="orgHasAdmin" class="form-tip">该组织已有推广员，如需更换请先撤销原管理员身份。</div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="distCreateVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="submitCreateDistributor">创建</el-button>
+        <el-button type="primary" :loading="saving" @click="submitCreateDistributor">确认添加</el-button>
       </template>
     </el-dialog>
 
@@ -277,11 +311,15 @@ const migrateOrg = ref(null)
 const historyVisible = ref(false)
 const historyItems = ref([])
 
-// 分销员
+// 组织人员
 const distLoading = ref(false)
 const distributors = ref([])
 const distCreateVisible = ref(false)
-const distForm = ref({ name: '', phone: '', initialPassword: '' })
+const distMode = ref('new')
+const distForm = ref({ name: '', phone: '', initialPassword: '', orgRole: 'member' })
+const existingUserId = ref(null)
+const unassignedUsers = ref([])
+const unassignedLoading = ref(false)
 const resetVisible = ref(false)
 const newPassword = ref('')
 const activeRow = ref(null)
@@ -453,22 +491,62 @@ function actionLabel(a) {
   return { created: '创建', updated: '编辑', moved: '迁移', deleted: '删除' }[a] || a
 }
 
-// ── 分销员操作 ─────────────────────────────────────────────
+// ── 组织人员操作 ───────────────────────────────────────────
 function openCreateDistributor() {
-  distForm.value = { name: '', phone: '', initialPassword: '' }
+  distMode.value = 'new'
+  distForm.value = { name: '', phone: '', initialPassword: '', orgRole: 'member' }
+  existingUserId.value = null
+  unassignedUsers.value = []
   distCreateVisible.value = true
+}
+
+async function loadUnassignedUsers(keyword = '') {
+  unassignedLoading.value = true
+  try {
+    const data = await distributorApi.listUnassigned({ keyword: keyword || undefined, limit: 50 })
+    unassignedUsers.value = data.items || []
+  } catch (e) {
+    unassignedUsers.value = []
+    ElMessage.error(e.response?.data?.message || '加载个人账号失败')
+  } finally {
+    unassignedLoading.value = false
+  }
+}
+
+function handleDistModeChange(mode) {
+  if (mode === 'existing' && unassignedUsers.value.length === 0) loadUnassignedUsers()
 }
 
 async function submitCreateDistributor() {
   const f = distForm.value
-  if (!f.name || !/^\d{11}$/.test(f.phone) || f.initialPassword.length < 8) {
+  if (f.orgRole === 'admin' && orgHasAdmin.value) {
+    ElMessage.warning('该组织已有推广员，请先撤销原管理员身份')
+    return
+  }
+  if (distMode.value === 'existing' && !existingUserId.value) {
+    ElMessage.warning('请选择要加入组织的个人账号')
+    return
+  }
+  if (distMode.value === 'new' && (!f.name || !/^\d{11}$/.test(f.phone) || f.initialPassword.length < 8)) {
     ElMessage.warning('请填写完整信息（手机号11位、密码至少8位）')
     return
   }
   saving.value = true
   try {
-    await distributorApi.create(selected.value.orgId, f)
-    ElMessage.success('创建成功')
+    if (distMode.value === 'existing') {
+      await distributorApi.attach(selected.value.orgId, {
+        userId: Number(existingUserId.value),
+        orgRole: f.orgRole,
+      })
+    } else {
+      const created = await distributorApi.create(selected.value.orgId, {
+        name: f.name,
+        phone: f.phone,
+        initialPassword: f.initialPassword,
+      })
+      if (f.orgRole === 'admin') await distributorApi.setRole(created.distributorId, 'admin')
+    }
+    ElMessage.success('人员添加成功')
     distCreateVisible.value = false
     await loadDistributors(selected.value.orgId)
     await loadAll()
@@ -604,4 +682,5 @@ onMounted(loadAll)
   padding-left: 8px;
   border-left: 3px solid var(--el-color-primary);
 }
+.form-tip { margin-top: 6px; color: #909399; font-size: 12px; line-height: 1.5; }
 </style>

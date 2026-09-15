@@ -11,7 +11,7 @@ function createAccountProfileForm(session) {
   const value = session || {};
 
   return {
-    name: value.name || '张小明',
+    name: value.name || '',
     organization: value.organization || DEFAULT_ORGANIZATION,
     avatar: value.avatar || DEFAULT_AVATAR
   };
@@ -21,16 +21,18 @@ function getIdentityDisplay(session) {
   const identityType = normalizeIdentityType(session);
 
   if (identityType === 'doctor') return '北京儒泰合作医生';
-  if (identityType === 'promoter') return '北京儒泰市场拓展人';
-  return '北京儒泰协作人员';
+  if (identityType === 'orgAdmin') return '儒泰医联推广员（组织管理员）';
+  if (identityType === 'promoter') return '儒泰医联业务员';
+  return '儒泰医联个人账号';
 }
 
 function getIdentityLabel(session) {
   const identityType = normalizeIdentityType(session);
 
   if (identityType === 'doctor') return '儒泰医生';
-  if (identityType === 'promoter') return '市场拓展人';
-  return '儒泰协作人员';
+  if (identityType === 'orgAdmin') return '推广员（组织管理员）';
+  if (identityType === 'promoter') return '业务员';
+  return '个人账号';
 }
 
 function getAccountProfileView(session) {

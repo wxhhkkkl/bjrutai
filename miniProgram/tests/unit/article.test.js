@@ -6,6 +6,7 @@ const {
   adaptArticleListItem,
   adaptArticleDetail,
   adaptArticlePage,
+  adaptArticleCategories,
   mergeArticlePage
 } = require('../../models/article')
 
@@ -69,6 +70,21 @@ test('article page requires valid pagination data and treats cursor as opaque', 
   assert.throws(() => adaptArticlePage({ items: null, hasMore: false }), /items/)
   assert.throws(() => adaptArticlePage({ items: [], nextCursor: '', hasMore: true }), /游标/)
   assert.throws(() => adaptArticlePage({ items: [], hasMore: 'false' }), /hasMore/)
+})
+
+test('adapts only valid unique article categories for the public filter', () => {
+  assert.deepEqual(adaptArticleCategories({
+    items: [
+      { id: '1', name: ' 健康科普 ' },
+      { id: '2', name: '服务动态' },
+      { id: '2', name: '重复项' },
+      { id: 'bad', name: '无效项' }
+    ]
+  }), [
+    { id: '1', name: '健康科普' },
+    { id: '2', name: '服务动态' }
+  ])
+  assert.throws(() => adaptArticleCategories({}), /分类列表/)
 })
 
 test('merges cursor pages by articleId and stops pagination without progress', () => {

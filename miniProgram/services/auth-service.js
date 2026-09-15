@@ -88,11 +88,13 @@ function sessionFromPayload(payload, preserveSession, wechatBound) {
   })
   const preserved = preserveSession || {}
   const distributor = {
-    distributorId: preserved.distributorId,
-    orgId: preserved.orgId,
-    orgName: preserved.orgName || preserved.organization,
-    orgRole: preserved.orgRole,
-    status: preserved.activationStatus === 'inactive' ? 'disabled' : 'active'
+    distributorId: user.distributorId || preserved.distributorId,
+    orgId: user.orgNodeId || preserved.orgId,
+    orgName: user.orgNodeName || preserved.orgName || preserved.organization,
+    orgRole: user.orgRole || preserved.orgRole,
+    status: user.membershipStatus || value.membershipStatus || preserved.membershipStatus,
+    orgStatus: user.orgStatus || value.orgStatus || preserved.orgStatus,
+    hasBusinessMembership: value.hasBusinessMembership === true
   }
   const session = sessionService.buildDistributorSession(user, distributor)
 
@@ -102,6 +104,9 @@ function sessionFromPayload(payload, preserveSession, wechatBound) {
   session.wechatBound = wechatBound === undefined
     ? Boolean(user.openId || preserved.wechatBound)
     : wechatBound === true
+  session.hasBusinessMembership = value.hasBusinessMembership === true
+  session.membershipStatus = value.membershipStatus || session.membershipStatus
+  session.orgStatus = value.orgStatus || session.orgStatus
   return session
 }
 
@@ -124,7 +129,11 @@ async function establishSession(result = {}) {
 
   setTokens(result.accessToken, result.refreshToken)
   const seedSession = sessionService.buildDistributorSession(
-    result.user,
+    Object.assign({}, result.user, {
+      hasBusinessMembership: result.hasBusinessMembership,
+      membershipStatus: result.membershipStatus,
+      orgStatus: result.orgStatus
+    }),
     result.distributor
   )
 

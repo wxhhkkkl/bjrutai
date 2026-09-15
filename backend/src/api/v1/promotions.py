@@ -6,12 +6,11 @@ Promoter-facing endpoints for managing promotion codes, statistics, and posters.
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...core.database import get_db
 from ...core.error_handler import _build_response
-from ..deps import get_current_user
+from ..deps import get_current_user, get_db, require_active_distributor_or_admin
 from ...services import promotion_service
 
-router = APIRouter(tags=["promotions"])
+router = APIRouter(tags=["promotions"], dependencies=[Depends(require_active_distributor_or_admin)])
 
 
 # ──────────────────────────────────────────────────────────────────

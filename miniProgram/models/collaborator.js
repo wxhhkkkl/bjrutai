@@ -1,11 +1,19 @@
 const IDENTITY_LABELS = {
   doctor: '儒泰医生',
-  promoter: '市场拓展人',
-  unknown: '儒泰协作人员'
+  promoter: '业务员',
+  orgAdmin: '推广员（组织管理员）',
+  personal: '普通用户',
+  unknown: '儒泰医联人员'
 };
 
 function normalizeIdentityType(session) {
   const value = session || {};
+
+  if (value.hasBusinessMembership === false || value.role === 'personal') {
+    return 'personal';
+  }
+
+  if (value.orgRole === 'admin') return 'orgAdmin';
 
   if (value.identityType === 'doctor' || value.identityType === 'promoter') {
     return value.identityType;
@@ -24,6 +32,8 @@ function normalizeIdentityType(session) {
 
 function normalizeCollaboratorRole(session) {
   const role = session && session.role;
+
+  if (role === 'personal') return 'personal';
 
   if (
     role === 'collaborator' ||
@@ -47,15 +57,22 @@ function getCollaboratorCapabilities(session) {
   // collaborator role and account activation gate feature access.
   const value = session || {};
   const collaborator = normalizeCollaboratorRole(value) === 'collaborator';
-  const active = value.activationStatus === 'active';
+  const hasMembership = value.hasBusinessMembership === true || (
+    value.hasBusinessMembership !== false && collaborator
+  );
+  const active = value.activationStatus === 'active' &&
+    value.membershipStatus !== 'disabled' &&
+    value.orgStatus !== 'disabled';
+  const businessReady = collaborator && hasMembership && active;
 
   return {
-    promotion: collaborator && active,
-    customerBinding: collaborator && active,
-    contribution: collaborator && active,
-    customerAnalysis: collaborator && active,
+    promotion: businessReady,
+    customerBinding: businessReady,
+    contribution: businessReady,
+    customerAnalysis: businessReady,
     // US5: org performance is visible only to org admins (backend-authorized).
-    orgPerformance: collaborator && active && value.orgRole === 'admin'
+    orgPerformance: businessReady && value.orgRole === 'admin',
+    staffInvite: businessReady && value.orgRole === 'admin'
   };
 }
 

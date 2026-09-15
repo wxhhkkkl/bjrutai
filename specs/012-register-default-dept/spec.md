@@ -2,8 +2,10 @@
 
 **Feature Branch**: `012-register-default-dept`
 **Created**: 2026-08-08
-**Status**: Draft
+**Status**: Superseded by `019-role-customer-staff-invite` on 2026-09-14
 **Input**: User description: "用户通过微信小程序 注册 将该人员挂载到默认组织的顶级部门"
+
+> 产品规则变更：用户已明确患者是客户、业务员是组织成员、推广员是组织管理员。首次登录不得再自动创建组织人员。本规格中的自动挂载要求不再实施，历史实现由规格 019 迁移。
 
 ## Clarifications
 

@@ -6,6 +6,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.models.user import ActivationStatus, User, UserType
 from src.schemas.organization import OrgCreate
 from src.services import organization_service
 from tests.conftest import make_access_token
@@ -49,6 +50,96 @@ async def test_create_list_update_role_flow(client: AsyncClient, db_session: Asy
     )
     assert role.status_code == 200
     assert role.json()["data"]["orgRole"] == "admin"
+
+
+@pytest.mark.asyncio
+async def test_attach_existing_personal_account_to_org(
+    client: AsyncClient, db_session: AsyncSession
+):
+    org_id = await _seed_org(db_session)
+    user = User(
+        name="个人用户",
+        phone="13800000009",
+        phone_masked="138****0009",
+        user_type=UserType.PERSONAL,
+        activation_status=ActivationStatus.ACTIVE,
+    )
+    db_session.add(user)
+    await db_session.flush()
+
+    unassigned = await client.get(
+        "/api/v1/admin/users/unassigned?keyword=个人用户", headers=DIST_RW
+    )
+    item = unassigned.json()["data"]["items"][0]
+    assert item["phone"] == "138****0009"
+    assert "phoneValue" not in item
+
+    attached = await client.post(
+        f"/api/v1/admin/orgs/{org_id}/distributors/attach",
+        json={"userId": user.id, "orgRole": "admin"},
+        headers=DIST_RW,
+    )
+    assert attached.status_code == 200
+    assert attached.json()["data"]["orgRole"] == "admin"
+
+    repeated = await client.post(
+        f"/api/v1/admin/orgs/{org_id}/distributors/attach",
+        json={"userId": user.id, "orgRole": "member"},
+        headers=DIST_RW,
+    )
+    assert repeated.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_unassigned_search_and_attach_reject_non_personal_accounts(
+    client: AsyncClient, db_session: AsyncSession
+):
+    org_id = await _seed_org(db_session)
+    legacy_business_user = User(
+        name="历史业务账号",
+        phone="13800000019",
+        phone_masked="138****0019",
+        user_type=UserType.DISTRIBUTOR,
+        activation_status=ActivationStatus.ACTIVE,
+    )
+    db_session.add(legacy_business_user)
+    await db_session.flush()
+
+    unassigned = await client.get(
+        "/api/v1/admin/users/unassigned?keyword=历史业务账号", headers=DIST_RW
+    )
+    assert unassigned.json()["data"]["items"] == []
+
+    attached = await client.post(
+        f"/api/v1/admin/orgs/{org_id}/distributors/attach",
+        json={"userId": legacy_business_user.id, "orgRole": "member"},
+        headers=DIST_RW,
+    )
+    assert attached.status_code == 409
+    assert "个人账号" in attached.json()["message"]
+
+
+@pytest.mark.asyncio
+async def test_attach_as_org_admin_requires_org_admin_permission(
+    client: AsyncClient, db_session: AsyncSession
+):
+    org_id = await _seed_org(db_session)
+    user = User(
+        name="个人用户",
+        phone="13800000029",
+        phone_masked="138****0029",
+        user_type=UserType.PERSONAL,
+    )
+    db_session.add(user)
+    await db_session.flush()
+
+    response = await client.post(
+        f"/api/v1/admin/orgs/{org_id}/distributors/attach",
+        json={"userId": user.id, "orgRole": "admin"},
+        headers=NO_ADMIN_PERM,
+    )
+    assert response.status_code == 403
+    assert "org_admin.write" in response.json()["message"]
 
 
 @pytest.mark.asyncio

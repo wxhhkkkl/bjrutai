@@ -7,14 +7,13 @@ const {
   formatBindingTime
 } = require('../../models/customer-binding');
 
-test('customer binding validates required name and phone fields', () => {
-  assert.equal(validateCustomerForm({}).field, 'name');
+test('customer binding requires only a valid phone and keeps name optional', () => {
+  assert.equal(validateCustomerForm({}).field, 'phone');
   assert.equal(
-    validateCustomerForm({ name: '王女士', phone: '123' }).field,
+    validateCustomerForm({ phone: '123' }).field,
     'phone'
   );
   assert.equal(validateCustomerForm({
-    name: '王女士',
     phone: '13812349283'
   }).valid, true);
   assert.equal(validateCustomerForm({

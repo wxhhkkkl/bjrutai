@@ -11,7 +11,7 @@ function jsFiles(directory) {
   })
 }
 
-test('production pages and services only call wx.request through request-service', () => {
+test('production API calls use request-service except the presigned COS binary upload', () => {
   const root = path.resolve(__dirname, '../..')
   const files = [
     ...jsFiles(path.join(root, 'pages')),
@@ -22,5 +22,7 @@ test('production pages and services only call wx.request through request-service
     && /wx\.request\s*\(/.test(fs.readFileSync(file, 'utf8'))
   ))
 
-  assert.deepEqual(offenders.map((file) => path.relative(root, file)), [])
+  assert.deepEqual(offenders.map((file) => path.relative(root, file)), ['services/cos-upload.js'])
+  const cosUpload = fs.readFileSync(path.join(root, 'services/cos-upload.js'), 'utf8')
+  assert.match(cosUpload, /url:\s*uploadInfo\.uploadUrl/)
 })

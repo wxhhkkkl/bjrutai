@@ -8,13 +8,15 @@ const TAB_ITEMS = [{
         id: 'customers',
         label: '客户',
         pagePath: '/pages/customers/index',
-        icon: 'friends-o'
+        icon: 'friends-o',
+        businessOnly: true
     },
     {
         id: 'contribution',
         label: '消费',
         pagePath: '/pages/contribution/index',
-        icon: 'diamond-o'
+        icon: 'diamond-o',
+        businessOnly: true
     },
     {
         id: 'profile',
@@ -24,11 +26,24 @@ const TAB_ITEMS = [{
     }
 ]
 
+function getVisibleTabs(session) {
+    const businessReady = Boolean(
+        session && session.hasBusinessMembership === true &&
+        session.membershipStatus !== 'disabled' && session.orgStatus !== 'disabled'
+    )
+    return TAB_ITEMS.filter((item) => !item.businessOnly || businessReady)
+}
+
 const ACTION_TARGETS = {
     'promote-code': {
-        title: '我的推广码',
+        title: '客户绑定码',
         path: '/pages/promotion-code/index',
         capability: 'promotion'
+    },
+    'staff-invite': {
+        title: '发展业务员',
+        path: '/pages/staff-invite/index',
+        capability: 'staffInvite'
     },
     'bind-client': {
         title: '客户绑定',
@@ -79,5 +94,6 @@ const ACTION_TARGETS = {
 
 module.exports = {
     TAB_ITEMS,
+    getVisibleTabs,
     ACTION_TARGETS
 }

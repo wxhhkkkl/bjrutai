@@ -28,18 +28,26 @@
           <el-icon><Search /></el-icon>
         </template>
       </el-input>
-      <el-input
+      <el-select
         v-model="store.filterCategory"
         placeholder="分类筛选"
         clearable
+        filterable
+        :loading="categoriesStore.loading"
         style="width: 180px; margin-left: 12px"
-        @keyup.enter="handleFilterChange"
+        @change="handleFilterChange"
         @clear="handleFilterChange"
       >
         <template #prefix>
           <el-icon><Folder /></el-icon>
         </template>
-      </el-input>
+        <el-option
+          v-for="category in categories"
+          :key="category.id"
+          :label="category.name"
+          :value="category.name"
+        />
+      </el-select>
       <el-button type="default" @click="handleFilterChange" style="margin-left: 8px">
         搜索
       </el-button>
@@ -152,13 +160,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { Plus, Search, Folder } from '@element-plus/icons-vue'
 import { useArticlesStore } from '@/stores/articles'
+import { useCategoriesStore } from '@/stores/categories'
 import ArticleEditor from '@/components/articles/ArticleEditor.vue'
 
 const store = useArticlesStore()
+const categoriesStore = useCategoriesStore()
+const categories = computed(() => categoriesStore.categories)
 
 const editorVisible = ref(false)
 const editingArticle = ref(null)
@@ -240,6 +251,7 @@ function handleSaved() {
 }
 
 onMounted(() => {
+  categoriesStore.fetchCategories()
   loadArticles()
 })
 </script>

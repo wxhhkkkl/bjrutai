@@ -1,4 +1,4 @@
-const { TAB_ITEMS, ACTION_TARGETS } = require('../models/navigation')
+const { TAB_ITEMS, ACTION_TARGETS, getVisibleTabs } = require('../models/navigation')
 const { hasCapability } = require('../models/collaborator')
 
 function getAction(actionId) { return ACTION_TARGETS[actionId] || null }
@@ -20,7 +20,13 @@ function openAction(actionId, session) {
     title: action.title
   }
 }
-function updateTabBar(page, selected) { const bar = page.getTabBar && page.getTabBar(); if (bar) bar.setData({ selected }) }
+function updateTabBar(page, selected) {
+  const bar = page.getTabBar && page.getTabBar()
+  if (bar) {
+    const session = require('./session-service').getCurrentSession()
+    bar.setData({ selected, tabs: getVisibleTabs(session) })
+  }
+}
 module.exports = {
   TAB_ITEMS,
   getAction,

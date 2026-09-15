@@ -15,6 +15,7 @@ from ..models.distributor import Distributor, DistributorStatus, OrgRole
 from ..models.organization import Organization
 from ..models.user import ActivationStatus, User, UserType
 from ..schemas.distributor import (
+    DistributorAttachExisting,
     DistributorCreate,
     DistributorRoleUpdate,
     DistributorUpdate,
@@ -78,23 +79,35 @@ async def create_distributor(
     """Create a distributor account within an org (single org attribution)."""
     await organization_service._get_org_or_404(db, org_id)
 
-    # Phone uniqueness (login identifier)
+    # Reuse an existing login account that has not joined an organization yet.
     result = await db.execute(select(User).where(User.phone == data.phone))
-    if result.scalars().first() is not None:
-        raise ConflictException(message="该手机号已存在分销员账户")
-
-    user = User(
-        name=data.name,
-        phone=data.phone,
-        phone_masked=data.phone[:3] + "****" + data.phone[-4:],
-        password_hash=get_password_hash(data.initial_password),
-        user_type=UserType.DISTRIBUTOR,
-        activation_status=ActivationStatus.ACTIVE,
-        wechat_bound=False,
-    )
-    db.add(user)
-    await db.flush()
-    await db.refresh(user)
+    user = result.scalars().first()
+    reused_existing_account = user is not None
+    if user is not None:
+        existing_distributor = await get_distributor_by_user(db, user.id)
+        if existing_distributor is not None:
+            raise ConflictException(message="该手机号已是组织人员")
+        user.name = data.name
+        user.password_hash = get_password_hash(data.initial_password)
+        user.user_type = UserType.DISTRIBUTOR
+        user.activation_status = ActivationStatus.ACTIVE
+        user.profile_completed = True
+        db.add(user)
+        await db.flush()
+    else:
+        user = User(
+            name=data.name,
+            phone=data.phone,
+            phone_masked=data.phone[:3] + "****" + data.phone[-4:],
+            password_hash=get_password_hash(data.initial_password),
+            user_type=UserType.DISTRIBUTOR,
+            activation_status=ActivationStatus.ACTIVE,
+            wechat_bound=False,
+            profile_completed=True,
+        )
+        db.add(user)
+        await db.flush()
+        await db.refresh(user)
 
     distributor = Distributor(
         user_id=user.id,
@@ -103,6 +116,83 @@ async def create_distributor(
         status=DistributorStatus.ACTIVE,
     )
     db.add(distributor)
+    await db.flush()
+    await db.refresh(distributor)
+    response = await _to_dict(db, distributor)
+    response["reusedExistingAccount"] = reused_existing_account
+    return response
+
+
+async def list_unassigned_users(
+    db: AsyncSession,
+    keyword: Optional[str] = None,
+    limit: int = 20,
+) -> dict:
+    """List login accounts that do not yet have an organization membership."""
+    stmt = (
+        select(User)
+        .outerjoin(Distributor, Distributor.user_id == User.id)
+        .where(
+            Distributor.id.is_(None),
+            User.phone.is_not(None),
+            User.user_type == UserType.PERSONAL,
+        )
+        .order_by(User.id.desc())
+        .limit(max(1, min(limit, 50)))
+    )
+    if keyword:
+        stmt = stmt.where(User.name.contains(keyword) | User.phone.contains(keyword))
+    users = (await db.execute(stmt)).scalars().all()
+    return {
+        "items": [
+            {
+                "userId": str(user.id),
+                "name": user.name,
+                "phone": user.phone_masked or user.phone,
+            }
+            for user in users
+        ]
+    }
+
+
+async def attach_existing_user(
+    db: AsyncSession,
+    org_id: int,
+    data: DistributorAttachExisting,
+    operator_id: Optional[int] = None,
+) -> dict:
+    """Turn an existing personal account into an organization member/admin."""
+    await organization_service._get_org_or_404(db, org_id)
+    user = await db.get(User, data.user_id, with_for_update=True)
+    if user is None:
+        raise NotFoundException(message="未找到该个人账号")
+    if user.user_type != UserType.PERSONAL:
+        raise ConflictException(message="该账号不是可加入组织的个人账号")
+    if await get_distributor_by_user(db, user.id) is not None:
+        raise ConflictException(message="该账号已加入组织")
+
+    role = OrgRole(data.org_role)
+    if role == OrgRole.ADMIN:
+        existing_admin = await db.execute(
+            select(Distributor.id).where(
+                Distributor.org_id == org_id,
+                Distributor.org_role == OrgRole.ADMIN,
+            )
+        )
+        if existing_admin.scalars().first() is not None:
+            raise BadRequestException(message="该组织已有管理员，请先撤销")
+
+    user.user_type = UserType.DISTRIBUTOR
+    user.activation_status = ActivationStatus.ACTIVE
+    user.profile_completed = bool(user.name and user.name.strip())
+    distributor = Distributor(
+        user_id=user.id,
+        org_id=org_id,
+        org_role=role,
+        status=DistributorStatus.ACTIVE,
+        source_channel="admin_attach",
+    )
+    db.add_all([user, distributor])
     await db.flush()
     await db.refresh(distributor)
     return await _to_dict(db, distributor)

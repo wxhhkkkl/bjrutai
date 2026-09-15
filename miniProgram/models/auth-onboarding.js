@@ -1,4 +1,4 @@
-const DEFAULT_ORGANIZATION = '北京儒泰服务有限公司';
+const DEFAULT_ORGANIZATION = '暂未加入组织';
 
 function validateLoginAuthorization(state) {
   const value = state || {};
@@ -41,14 +41,15 @@ function validateLoginConsent(state) {
 function createPendingProfileSession(phone) {
   return {
     userId: 'wx-promoter-001',
-    role: 'collaborator',
-    identityType: 'promoter',
+    role: 'personal',
+    identityType: 'personal',
     activationStatus: 'active',
     profileCompleted: false,
     name: '微信用户',
     phoneAuthorized: true,
     phone: phone || '138****1028',
-    organization: DEFAULT_ORGANIZATION
+    organization: DEFAULT_ORGANIZATION,
+    hasBusinessMembership: false
   };
 }
 
@@ -89,10 +90,8 @@ function completeProfileSession(session, form) {
   const value = session || {};
 
   return Object.assign({}, value, {
-    role: 'collaborator',
-    identityType: session && session.identityType
-      ? session.identityType
-      : 'promoter',
+    role: value.role || 'personal',
+    identityType: value.identityType || 'personal',
     activationStatus: 'active',
     profileCompleted: true,
     name: String(form.name).trim(),

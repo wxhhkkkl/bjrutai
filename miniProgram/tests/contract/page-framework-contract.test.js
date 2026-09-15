@@ -38,7 +38,7 @@ test('all tab pages use the shared app header', () => {
   }
 });
 
-test('home banner remains balanced after hiding the promotion-code entry', () => {
+test('home uses managed banners after hiding the promotion-code entry', () => {
   const markup = fs.readFileSync(
     path.join(projectRoot, 'pages/home/index.wxml'),
     'utf8'
@@ -48,12 +48,12 @@ test('home banner remains balanced after hiding the promotion-code entry', () =>
     'utf8'
   );
 
-  assert.match(markup, /home-banner-visual-v2\.jpg/);
-  assert.match(markup, /class="hero-sub"/);
-  assert.match(markup, /客户与消费数据，一站式查看/);
+  assert.match(markup, /class="home-banners"/);
+  assert.match(markup, /wx:for="\{\{bannerItems\}\}"/);
+  assert.match(markup, /bindtap="openBanner"/);
   assert.doesNotMatch(markup, /data-id="promote-code"/);
-  assert.match(styles, /\.hero\s*\{[\s\S]*?height:\s*270rpx/);
-  assert.match(styles, /\.hero-copy\s*\{[\s\S]*?justify-content:\s*center/);
+  assert.match(styles, /\.home-banners__swiper/);
+  assert.match(styles, /\.home-banners__image/);
 });
 
 test('custom tab bar keeps content and safe area in separate layers', () => {
@@ -173,7 +173,6 @@ test('customer analysis uses lightweight native charts and real period controls'
   assert.equal((source.match(/<donut-chart\b/g) || []).length, 1);
   assert.match(source, /bindtap="selectPeriod"/);
   assert.match(source, /bindchange="onDateChange"/);
-  assert.match(source, /bindtap="openAttention"/);
   assert.match(source, /class="analysis-update"/);
 });
 
@@ -381,6 +380,9 @@ test('profile tab uses approved assets and complete service controls', () => {
 
   for (const file of [
     'profile-promo-icon.png',
+    'team-members-icon.png',
+    'team-contribution-icon.png',
+    'contribution-icon.png',
     'profile-records-icon.png',
     'profile-contribution-icon.png',
     'profile-article-icon.png',
@@ -601,16 +603,18 @@ test('article list registers refresh, states, pagination and complete-card navig
   assert.match(source, /暂无更多文章/);
   assert.match(script, /onPullDownRefresh/);
   assert.match(script, /onReachBottom/);
+  assert.match(script, /options\.category/);
+  assert.match(script, /selectedCategory/);
   assert.match(script, /requestVersion/);
 });
 
-test('homepage article block sits after overview and before notices', () => {
+test('homepage article block sits after wellness content and before about content', () => {
   const source = fs.readFileSync(path.join(projectRoot, 'pages/home/index.wxml'), 'utf8');
-  const overviewIndex = source.indexOf('class="team-card"');
-  const articlesIndex = source.indexOf('class="home-articles"');
-  const noticesIndex = source.indexOf('最新通知');
+  const wellnessIndex = source.indexOf('class="wellness-feature"');
+  const articlesIndex = source.indexOf('class="article-heading"');
+  const aboutIndex = source.indexOf('class="section-heading about-heading"');
 
-  assert.ok(overviewIndex >= 0 && articlesIndex > overviewIndex && noticesIndex > articlesIndex);
+  assert.ok(wellnessIndex >= 0 && articlesIndex > wellnessIndex && aboutIndex > articlesIndex);
   assert.match(source, /data-id="article-list"/);
   assert.match(source, /bindtap="openArticle"/);
   assert.match(source, /articleState === 'recoverable-error'/);

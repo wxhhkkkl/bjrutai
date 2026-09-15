@@ -1,10 +1,20 @@
 <flow-navigation title="文章资讯" bind:back="handleBack" />
 
 <view class="articles-page">
-  <view class="articles-heading">
-    <text class="articles-heading__title">最新文章</text>
-    <text class="articles-heading__note">下拉可刷新最新内容</text>
-  </view>
+  <scroll-view class="article-category-filter" scroll-x="true" enable-flex="true" show-scrollbar="false">
+    <view class="article-category-filter__items">
+      <view
+        wx:for="{{categories}}"
+        wx:key="id"
+        class="article-category-filter__item tap-target {{selectedCategory === item.value ? 'article-category-filter__item--active' : ''}}"
+        data-category="{{item.value}}"
+        bindtap="selectCategory"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+      >{{item.name}}</view>
+    </view>
+  </scroll-view>
 
   <page-state wx:if="{{state !== 'success'}}" state="{{state}}" message="{{stateMessage}}" bind:retry="retry" />
 

@@ -1,0 +1,46 @@
+<flow-navigation title="确认客户绑定" bind:back="handleBack" />
+
+<view class="scan-page">
+  <view wx:if="{{state === 'loading'}}" class="scan-state">正在验证客户绑定码…</view>
+
+  <view wx:elif="{{state === 'invalid'}}" class="scan-card scan-card--state">
+    <van-icon name="warning-o" size="48px" color="#e65d4f" />
+    <text class="scan-title">暂时无法绑定</text>
+    <text class="scan-description">{{stateMessage}}</text>
+  </view>
+
+  <view wx:elif="{{state === 'success'}}" class="scan-card scan-card--state">
+    <van-icon name="passed" size="54px" color="#20af6b" />
+    <text class="scan-title">绑定成功</text>
+    <text class="scan-description">您已绑定至{{result.distributorName}}，后续由该业务员为您提供服务。</text>
+    <text class="scan-meta">{{result.organizationName}} · {{result.phone}}</text>
+  </view>
+
+  <block wx:else>
+    <view class="scan-hero">
+      <text class="scan-kicker">儒泰医联客户服务</text>
+      <text class="scan-title">确认绑定业务员</text>
+      <text class="scan-description">提交后，您的客户资料将归属于发送二维码的业务员。</text>
+    </view>
+    <view class="scan-card">
+      <view class="scan-person">
+        <view class="scan-person__icon"><van-icon name="contact-o" size="34px" color="#1677ff" /></view>
+        <view class="scan-person__copy">
+          <text class="scan-person__name">{{codeInfo.distributorName}}</text>
+          <text class="scan-person__org">{{codeInfo.organizationName}}</text>
+        </view>
+      </view>
+      <view class="scan-field">
+        <text class="scan-field__label">姓名</text>
+        <input value="{{name}}" maxlength="20" placeholder="选填，用于完善客户资料" bindinput="onNameInput" />
+      </view>
+    </view>
+    <view class="scan-consent tap-target" bindtap="toggleConsent" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+      <view class="scan-checkbox {{consentConfirmed ? 'scan-checkbox--checked' : ''}}">
+        <van-icon wx:if="{{consentConfirmed}}" name="success" size="14px" color="#ffffff" />
+      </view>
+      <text>我同意将手机号和填写的资料用于客户归属与后续服务</text>
+    </view>
+    <button class="scan-submit" open-type="getPhoneNumber" bindgetphonenumber="submit" loading="{{submitting}}" disabled="{{submitting}}">授权手机号并确认绑定</button>
+  </block>
+</view>

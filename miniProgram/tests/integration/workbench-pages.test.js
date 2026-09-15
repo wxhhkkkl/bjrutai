@@ -5,69 +5,79 @@ const path = require('node:path')
 
 const root = path.resolve(__dirname, '../..')
 
-test('home and profile production pages use real workbench service and no Demo fixtures', () => {
-  for (const relative of ['pages/home/index.js', 'pages/profile/index.js']) {
-    const source = fs.readFileSync(path.join(root, relative), 'utf8')
-    assert.match(source, /workbench-service/)
-    assert.doesNotMatch(source, /mock\/demo-control|mock\/foundation-fixtures/)
-    assert.match(source, /state:\s*['"]loading['"]/)
-    assert.match(source, /recoverable-error/)
-  }
+test('home is a public health-content page while profile keeps its workbench integration', () => {
+  const home = fs.readFileSync(path.join(root, 'pages/home/index.js'), 'utf8')
+  const homeMarkup = fs.readFileSync(path.join(root, 'pages/home/index.wxml'), 'utf8')
+  const profile = fs.readFileSync(path.join(root, 'pages/profile/index.js'), 'utf8')
+
+  assert.match(home, /article-service/)
+  assert.match(home, /banner-service/)
+  assert.doesNotMatch(home, /workbench-service/)
+  assert.doesNotMatch(homeMarkup, /快捷服务|业务概览/)
+  assert.match(homeMarkup, /关于儒泰/)
+  assert.match(homeMarkup, /心脑维养/)
+  assert.match(homeMarkup, /data-category="心脑维养"/)
+  assert.match(home, /openArticleCategory/)
+  assert.match(homeMarkup, /健康资讯/)
+  assert.ok(homeMarkup.lastIndexOf('关于儒泰') > homeMarkup.lastIndexOf('健康资讯'))
+  assert.match(profile, /workbench-service/)
+  assert.doesNotMatch(home, /mock\/demo-control|mock\/foundation-fixtures/)
 })
 
-test('home and profile guard page state against stale asynchronous responses', () => {
-  for (const relative of ['pages/home/index.js', 'pages/profile/index.js']) {
-    const source = fs.readFileSync(path.join(root, relative), 'utf8')
-    assert.match(source, /requestVersion/)
-    assert.match(source, /version\s*!==\s*this\.requestVersion/)
-  }
-})
-
-test('workbench pages expose empty and forbidden state handling', () => {
+test('content requests and profile workbench requests discard stale responses', () => {
   const home = fs.readFileSync(path.join(root, 'pages/home/index.js'), 'utf8')
   const profile = fs.readFileSync(path.join(root, 'pages/profile/index.js'), 'utf8')
-  assert.match(home, /empty/)
-  assert.match(home, /forbidden/)
+  assert.match(home, /articleRequestVersion/)
+  assert.match(home, /bannerRequestVersion/)
+  assert.match(home, /version\s*!==\s*this\.articleRequestVersion/)
+  assert.match(home, /version\s*!==\s*this\.bannerRequestVersion/)
+  assert.match(profile, /requestVersion/)
+  assert.match(profile, /version\s*!==\s*this\.requestVersion/)
+})
+
+test('profile retains empty and forbidden state handling', () => {
+  const profile = fs.readFileSync(path.join(root, 'pages/profile/index.js'), 'utf8')
   assert.match(profile, /empty/)
   assert.match(profile, /forbidden/)
 })
 
-test('profile temporarily hides the promotion-code entry and keeps other services', () => {
+test('profile exposes role-gated customer binding and staff invite entries', () => {
   const source = fs.readFileSync(path.join(root, 'pages/profile/index.js'), 'utf8')
-  assert.doesNotMatch(source, /id:\s*['"]promote-code['"]/) // 入口暂时隐藏
+  assert.match(source, /id:\s*['"]promote-code['"]/) // 业务员患者绑定码
+  assert.match(source, /id:\s*['"]staff-invite['"]/) // 仅组织管理员可见
   assert.match(source, /id:\s*['"]article-list['"]/) // 其他服务保留
   assert.match(source, /title:\s*['"]文章资讯['"]/)
   assert.match(source, /description:\s*['"]阅读最新内容['"]/)
   assert.match(source, /profile-article-icon\.png/)
   assert.ok(source.indexOf("id: 'article-list'") > source.indexOf("id: 'contribution-detail'"))
   assert.match(source, /adminOnly/)
+  assert.match(source, /businessOnly/)
 })
 
-test('home article state is isolated from the core workbench state', () => {
+test('home article and banner states are independently isolated', () => {
   const source = fs.readFileSync(path.join(root, 'pages/home/index.js'), 'utf8')
   assert.match(source, /articleState:\s*['"]loading['"]/)
   assert.match(source, /articleItems:\s*\[\]/)
   assert.match(source, /articleRequestVersion/)
-  assert.match(source, /listArticles\(\{\s*limit:\s*3\s*\}\)/)
+  assert.match(source, /listArticles\(\{\s*limit:\s*4\s*\}\)/)
+  assert.match(source, /listArticles\(\{\s*category:\s*['"]关于儒泰['"],\s*limit:\s*1\s*\}\)/)
   assert.match(source, /version\s*!==\s*this\.articleRequestVersion/)
+  assert.match(source, /bannerState:\s*['"]loading['"]/)
+  assert.match(source, /bannerRequestVersion/)
 })
 
 function flush() {
   return new Promise((resolve) => setImmediate(resolve))
 }
 
-function loadHome(articleService) {
+function loadHome(articleService, bannerService = { listBanners() { return Promise.resolve({ items: [] }) } }) {
   const pagePath = path.join(root, 'pages/home/index.js')
   const moduleStubs = {
     [path.join(root, 'services/article-service.js')]: articleService,
+    [path.join(root, 'services/banner-service.js')]: bannerService,
     [path.join(root, 'services/session-service.js')]: {
       getCurrentSession() { return { userId: 'u1', role: 'promoter', activationStatus: 'active' } },
       getEntry() { return { type: 'stay' } }
-    },
-    [path.join(root, 'services/workbench-service.js')]: {
-      getWorkbench() { return Promise.resolve({ role: 'promoter', metrics: { myCustomers: 1, myBindings: 2, myMonthlyConsumption: 0, pendingFollowups: 0 } }) },
-      getNotices() { return Promise.resolve({ notices: [] }) },
-      getRecentBindings() { return Promise.resolve({ items: [] }) }
     },
     [path.join(root, 'services/navigation-service.js')]: {
       openAction() { return { ok: true, url: '/pages/articles/index' } },
@@ -104,7 +114,7 @@ function loadHome(articleService) {
   }
 }
 
-test('article request failure does not change a successful home workbench', async () => {
+test('article request failure does not affect the rest of the home content', async () => {
   const fixture = loadHome({
     listArticles() { return Promise.reject({ kind: 'NETWORK', message: '文章网络异常' }) }
   })
@@ -112,9 +122,8 @@ test('article request failure does not change a successful home workbench', asyn
     fixture.page.onShow()
     await flush()
     await flush()
-    assert.equal(fixture.page.data.state, 'success')
     assert.equal(fixture.page.data.articleState, 'recoverable-error')
-    assert.equal(fixture.page.data.summary.firstMetricValue, '1')
+    assert.equal(fixture.page.data.bannerState, 'empty')
   } finally {
     fixture.restore()
   }
@@ -132,6 +141,57 @@ test('home discards an article response arriving after the page hides', async ()
     await flush()
     assert.notEqual(fixture.page.data.articleState, 'success')
     assert.deepEqual(fixture.page.data.articleItems, [])
+  } finally {
+    fixture.restore()
+  }
+})
+
+test('home keeps the about article separate from health article cards', async () => {
+  const calls = []
+  const fixture = loadHome({
+    listArticles(options) {
+      calls.push(options)
+      if (options.category === '关于儒泰') {
+        return Promise.resolve({
+          items: [{ articleId: '4', title: '关于儒泰', summary: '介绍', category: '关于儒泰', viewCount: 0 }],
+          nextCursor: null,
+          hasMore: false
+        })
+      }
+      return Promise.resolve({
+        items: [
+          { articleId: '4', title: '关于儒泰', category: '关于儒泰', viewCount: 0 },
+          { articleId: '3', title: '心脑健康', category: '健康资讯', viewCount: 0 }
+        ],
+        nextCursor: null,
+        hasMore: false
+      })
+    }
+  })
+  try {
+    fixture.page.onShow()
+    await flush()
+    await flush()
+    assert.deepEqual(calls, [{ limit: 4 }, { category: '关于儒泰', limit: 1 }])
+    assert.equal(fixture.page.data.aboutArticle.articleId, '4')
+    assert.deepEqual(fixture.page.data.articleItems.map((item) => item.articleId), ['3'])
+  } finally {
+    fixture.restore()
+  }
+})
+
+test('banner request failure does not affect the article section', async () => {
+  const fixture = loadHome(
+    { listArticles() { return Promise.resolve({ items: [], nextCursor: null, hasMore: false }) } },
+    { listBanners() { return Promise.reject({ kind: 'NETWORK', message: '轮播图网络异常' }) } }
+  )
+  try {
+    fixture.page.onShow()
+    await flush()
+    await flush()
+    assert.equal(fixture.page.data.bannerState, 'recoverable-error')
+    assert.equal(fixture.page.data.articleState, 'empty')
+    assert.deepEqual(fixture.page.data.bannerItems, [])
   } finally {
     fixture.restore()
   }

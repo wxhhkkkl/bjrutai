@@ -33,6 +33,9 @@ function normalizeSession(raw) {
     orgId: session.orgId || '',
     orgName: session.orgName || session.organization || '',
     orgRole: session.orgRole === 'admin' ? 'admin' : 'member',
+    hasBusinessMembership: session.hasBusinessMembership === true,
+    membershipStatus: session.membershipStatus || 'none',
+    orgStatus: session.orgStatus || 'none',
     sourceChannel: session.sourceChannel || '',
     permissions: Array.isArray(session.permissions) ? session.permissions.slice() : [],
     profileCompleted: session.profileCompleted === true,
@@ -51,15 +54,18 @@ function buildDistributorSession(user, distributor) {
   return normalizeSession({
     userId: String(u.userId || ''),
     distributorId: String(d.distributorId || ''),
-    role: 'collaborator',
-    identityType: 'promoter',
+    role: d.distributorId ? 'collaborator' : (u.role || 'personal'),
+    identityType: d.orgRole === 'admin' ? 'orgAdmin' : (d.distributorId ? 'promoter' : 'personal'),
     activationStatus: u.activationStatus || (d.status === 'disabled' ? 'inactive' : 'active'),
     orgId: String(d.orgId || u.orgNodeId || ''),
     orgName: d.orgName || u.orgNodeName || '',
     orgRole: d.orgRole || u.orgRole || 'member',
+    hasBusinessMembership: d.hasBusinessMembership === true || u.hasBusinessMembership === true,
+    membershipStatus: d.status || u.membershipStatus || 'none',
+    orgStatus: d.orgStatus || u.orgStatus || 'none',
     sourceChannel: d.sourceChannel || '',
     permissions: u.permissions || [],
-    profileCompleted: Boolean(u.userId || d.distributorId),
+    profileCompleted: u.profileCompleted === true,
     name: u.nickname || u.name || d.name || '',
     phone: u.phone || d.phone || '',
     organization: d.orgName || u.orgNodeName || '',
@@ -110,6 +116,9 @@ function getEntry(session) {
       type: 'reLaunch',
       url: '/pages/common/feature-placeholder/index?title=账号未激活'
     }
+  }
+  if (!value.profileCompleted) {
+    return { type: 'reLaunch', url: '/pages/auth/profile-setup/index' }
   }
   return { type: 'switchTab', url: '/pages/home/index' }
 }

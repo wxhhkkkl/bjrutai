@@ -1,4 +1,4 @@
-"""Unit tests for auth_service (012-register-default-dept: auto-mount on registration)."""
+"""Unit tests for personal login and explicit organization membership."""
 
 from unittest.mock import AsyncMock, patch
 
@@ -12,8 +12,8 @@ from src.services.auth_service import get_auth_service
 
 
 @pytest.mark.asyncio
-async def test_wechat_login_auto_creates_distributor(db_session, mock_wechat_client):
-    """T011: New WeChat user → auto-create Distributor under default org."""
+async def test_wechat_login_creates_personal_account_only(db_session, mock_wechat_client):
+    """New WeChat users stay personal until explicitly joining an organization."""
     org = await organization_service.create_org(
         db_session, OrgCreate(name="默认组织", orgType=None)
     )
@@ -27,13 +27,9 @@ async def test_wechat_login_auto_creates_distributor(db_session, mock_wechat_cli
     assert result["user"]["isNewUser"] is True
     assert result["user"]["openId"] == "o_new_user_001"
 
-    # Distributor was created
-    dist = result.get("distributor")
-    assert dist is not None
-    assert dist["orgId"] == str(org.id)
-    assert dist["orgName"] == "默认组织"
-    assert dist["orgRole"] == "member"
-    assert dist["sourceChannel"] == "wechat_register"
+    assert result.get("distributor") is None
+    assert result["user"]["role"] == "personal"
+    assert result["hasBusinessMembership"] is False
 
 
 @pytest.mark.asyncio
@@ -56,7 +52,7 @@ async def test_wechat_login_consumes_phone_code_once_and_persists_phone(
     user = (
         await db_session.execute(select(User).where(User.openid == "o_phone_login"))
     ).scalars().first()
-    assert user.phone == "138****1234"
+    assert user.phone == "13800131234"
     assert user.phone_masked == "138****1234"
     assert user.phone_authorized is True
 
@@ -77,10 +73,10 @@ async def test_wechat_login_no_default_org(db_session, mock_wechat_client):
 
 
 @pytest.mark.asyncio
-async def test_existing_orphan_wechat_user_is_mounted_to_default_org(
+async def test_existing_orphan_business_identity_is_repaired_to_personal(
     db_session, mock_wechat_client
 ):
-    """An existing WeChat user without a Distributor is repaired on login."""
+    """A legacy business identity without membership is repaired to personal."""
     from sqlalchemy import select
     from src.models.distributor import Distributor
 
@@ -103,15 +99,16 @@ async def test_existing_orphan_wechat_user_is_mounted_to_default_org(
         result = await get_auth_service().wechat_login(db_session, "wx_orphan_001")
 
     assert result["user"]["isNewUser"] is False
-    assert result["distributor"]["orgId"] == str(org.id)
-    assert result["distributor"]["sourceChannel"] == "wechat_register"
+    assert "distributor" not in result
+    assert result["user"]["role"] == "personal"
+    assert result["hasBusinessMembership"] is False
 
     distributors = (
         await db_session.execute(
             select(Distributor).where(Distributor.user_id == orphan.id)
         )
     ).scalars().all()
-    assert len(distributors) == 1
+    assert distributors == []
 
 
 @pytest.mark.asyncio

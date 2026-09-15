@@ -91,7 +91,7 @@ class WechatClient:
         ``<button open-type="getPhoneNumber">`` callback.
 
         Returns:
-            Masked phone string, e.g. ``138****1234``.
+            The verified pure phone number. Callers must mask it for API output.
 
         Raises:
             Exception: if the code is invalid or the WeChat API fails.
@@ -122,9 +122,39 @@ class WechatClient:
         if not phone:
             raise Exception("invalid phone code")
 
-        # Mask the phone number for storage: 138****1234
-        masked = phone[:3] + "****" + phone[-4:] if len(phone) >= 7 else phone
-        return masked
+        return phone
+
+    async def get_unlimited_wxacode(self, scene: str, page: str) -> bytes:
+        """Generate a real unlimited mini-program code for the given scene."""
+        if not scene or len(scene) > 32:
+            raise ValueError("小程序码参数长度必须为1到32个字符")
+        access_token = await self._get_access_token()
+        url = f"{self.BASE_URL}/wxa/getwxacodeunlimit"
+        params = {"access_token": access_token}
+        payload = {
+            "scene": scene,
+            "page": page.lstrip("/"),
+            "check_path": False,
+            "env_version": "release",
+            "width": 430,
+        }
+        try:
+            response = await self.http.post(url, params=params, json=payload)
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            logger.error("WeChat getwxacodeunlimit HTTP error: %s", exc)
+            raise Exception("微信小程序码生成失败，请稍后重试") from exc
+
+        content_type = response.headers.get("content-type", "")
+        if "application/json" in content_type:
+            data = response.json()
+            logger.warning(
+                "WeChat getwxacodeunlimit error [%s]: %s",
+                data.get("errcode"),
+                data.get("errmsg"),
+            )
+            raise Exception("微信小程序码生成失败，请检查发布页面配置")
+        return response.content
 
     # ------------------------------------------------------------------
     # Internal: get access_token

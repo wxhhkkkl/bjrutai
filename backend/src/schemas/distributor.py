@@ -16,6 +16,16 @@ class DistributorCreate(BaseModel):
         populate_by_name = True
 
 
+class DistributorAttachExisting(BaseModel):
+    """Attach an existing personal login account to an organization."""
+
+    user_id: int = Field(..., ge=1, alias="userId")
+    org_role: str = Field("member", alias="orgRole", pattern=r"^(member|admin)$")
+
+    class Config:
+        populate_by_name = True
+
+
 class DistributorUpdate(BaseModel):
     """Schema for adjusting distributor org / status."""
 

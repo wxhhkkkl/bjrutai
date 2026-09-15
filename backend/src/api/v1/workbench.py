@@ -15,7 +15,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from ...api.deps import get_current_user, get_db
+from ...api.deps import get_current_user, get_db, require_active_distributor_or_admin
 from ...models.binding import BindingRequest, BindingRequestStatus, BindingStatus, Customer
 from ...models.bill import Bill, TransactionStatus
 from ...models.distributor import Distributor
@@ -23,7 +23,11 @@ from ...models.notification import Notification, NotificationCategory
 from ...models.org_qualification import OrgQualStatus, OrganizationQualification
 from ...models.user import User, UserType
 
-router = APIRouter(prefix="/workbench", tags=["workbench"])
+router = APIRouter(
+    prefix="/workbench",
+    tags=["workbench"],
+    dependencies=[Depends(require_active_distributor_or_admin)],
+)
 
 
 def _ok(data=None) -> dict:

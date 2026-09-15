@@ -124,7 +124,7 @@ class TestSelectablePromoters:
         await _create_promoter(db_session, name="张推广", org_name="华北区")
         await _create_promoter(db_session, name="李推广", org_name="华东区")
 
-        token = make_access_token(user_id=1, user_type="doctor")
+        token = make_access_token(user_id=1, user_type="admin")
         resp = await client.get(
             "/api/v1/promoters/selectable?keyword=张",
             headers={"Authorization": f"Bearer {token}"},
@@ -141,7 +141,7 @@ class TestSelectablePromoters:
         for i in range(5):
             await _create_promoter(db_session, name=f"推广{i}", org_name="测试区")
 
-        token = make_access_token(user_id=1, user_type="doctor")
+        token = make_access_token(user_id=1, user_type="admin")
         resp = await client.get(
             "/api/v1/promoters/selectable?limit=3",
             headers={"Authorization": f"Bearer {token}"},
@@ -157,7 +157,7 @@ class TestSelectablePromoters:
         await _create_promoter(db_session, name="已审核", approved=True)
         await _create_promoter(db_session, name="未审核", approved=False)
 
-        token = make_access_token(user_id=1, user_type="doctor")
+        token = make_access_token(user_id=1, user_type="admin")
         resp = await client.get(
             "/api/v1/promoters/selectable",
             headers={"Authorization": f"Bearer {token}"},
@@ -190,7 +190,7 @@ class TestSubmitBindingRequest:
         prom = await _create_promoter(db_session, name="测试推广员")
         doctor_id = await _create_doctor(db_session)
 
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         with patch(
             "src.services.binding_service.get_rutai_client",
@@ -222,14 +222,13 @@ class TestSubmitBindingRequest:
         assert data["data"]["status"] in ("bound", "pending_match", "matching")
         assert "requestId" in data["data"]
 
-    async def test_match_reuses_existing_customer_by_id_card(
+    async def test_existing_customer_cannot_be_transferred_by_reentry(
         self, client: AsyncClient, db_session, mock_rutai
     ):
-        """FR-007: a successful match reuses an existing customer (no duplicate)."""
+        """Re-entering the same customer never transfers it to another salesperson."""
         from sqlalchemy import select
 
         from src.models.binding import BindingStatus, Customer
-        from src.models.customer_change_log import CustomerChangeLog
 
         prom_a = await _create_promoter(db_session, name="推广员A")
         prom_b = await _create_promoter(db_session, name="推广员B")
@@ -249,7 +248,7 @@ class TestSubmitBindingRequest:
         db_session.add(existing)
         await db_session.flush()
 
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
         with patch(
             "src.services.binding_service.get_rutai_client",
             return_value=mock_rutai,
@@ -271,17 +270,14 @@ class TestSubmitBindingRequest:
                     "Idempotency-Key": "ik_dedup_001",
                 },
             )
-        assert resp.json()["code"] == 0
+        assert resp.status_code == 409
+        assert resp.json()["code"] == 40023
 
         customers = (await db_session.execute(select(Customer))).scalars().all()
-        assert len(customers) == 1  # reused, no duplicate
+        assert len(customers) == 1
         assert customers[0].id == existing.id
-        assert customers[0].binding_status == BindingStatus.BOUND
-        assert customers[0].distributor_id == prom_b["distributor_id"]
-
-        logs = (await db_session.execute(select(CustomerChangeLog))).scalars().all()
-        assert len(logs) == 1
-        assert logs[0].operation_type.value == "transfer"
+        assert customers[0].binding_status == BindingStatus.PENDING
+        assert customers[0].distributor_id == prom_a["distributor_id"]
 
     async def test_duplicate_idempotency_key(
         self, client: AsyncClient, db_session, mock_rutai
@@ -289,7 +285,7 @@ class TestSubmitBindingRequest:
         """Duplicate idempotency key returns same response."""
         prom = await _create_promoter(db_session, name="测试推广员2")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         key = "ik_dup_001"
         payload = {
@@ -318,7 +314,7 @@ class TestSubmitBindingRequest:
 
         prom = await _create_promoter(db_session, name="测试推广员3")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         # Create an existing bound customer for this promoter
         cust = Customer(
@@ -358,7 +354,7 @@ class TestSubmitBindingRequest:
 
         prom = await _create_promoter(db_session, name="多客户推广员")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         db_session.add(Customer(
             distributor_id=prom["distributor_id"],
@@ -394,6 +390,50 @@ class TestSubmitBindingRequest:
         assert_response_envelope(data)
         assert data["code"] == 0
 
+    async def test_same_promoter_duplicate_id_card_is_rejected(
+        self, client: AsyncClient, db_session, mock_rutai
+    ):
+        """A different phone cannot bypass duplicate detection for the same ID card."""
+        from src.models.binding import BindingStatus, Customer
+
+        prom = await _create_promoter(db_session, name="身份证去重推广员")
+        doctor_id = await _create_doctor(db_session)
+        token = make_access_token(user_id=doctor_id, user_type="admin")
+
+        db_session.add(Customer(
+            distributor_id=prom["distributor_id"],
+            name="已绑定客户",
+            phone="13800138002",
+            phone_normalized="13800138002",
+            id_card_encrypted="110101199001011234",
+            binding_status=BindingStatus.BOUND,
+        ))
+        await db_session.flush()
+
+        with patch(
+            "src.services.binding_service.get_rutai_client",
+            return_value=mock_rutai,
+        ):
+            resp = await client.post(
+                "/api/v1/binding-requests",
+                json={
+                    "promoterId": str(prom["user_id"]),
+                    "customerInfo": {
+                        "name": "已绑定客户",
+                        "phone": "13900139003",
+                        "idCard": "110101199001011234",
+                    },
+                    "sourceType": "manual",
+                },
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Idempotency-Key": "ik_duplicate_id_card_test",
+                },
+            )
+
+        assert resp.status_code == 409
+        assert resp.json()["code"] == 40022
+
     async def test_pending_request_only_blocks_the_same_customer(
         self, client: AsyncClient, db_session, mock_rutai
     ):
@@ -402,7 +442,7 @@ class TestSubmitBindingRequest:
 
         prom = await _create_promoter(db_session, name="并行申请推广员")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         db_session.add(BindingRequest(
             distributor_id=prom["distributor_id"],
@@ -444,7 +484,7 @@ class TestSubmitBindingRequest:
         """Binding with invalid consent record ID fails."""
         prom = await _create_promoter(db_session, name="测试推广员4")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         with patch(
             "src.services.binding_service.get_rutai_client",
@@ -470,7 +510,7 @@ class TestSubmitBindingRequest:
     async def test_missing_required_fields(self, client: AsyncClient, db_session):
         """Binding request without promoterId fails."""
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         resp = await client.post(
             "/api/v1/binding-requests",
@@ -490,7 +530,7 @@ class TestSubmitBindingRequest:
         """Binding request without Idempotency-Key header fails."""
         prom = await _create_promoter(db_session, name="测试推广员5")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         with patch(
             "src.services.binding_service.get_rutai_client",
@@ -508,7 +548,7 @@ class TestSubmitBindingRequest:
 
         assert resp.status_code == 400
         data = resp.json()
-        assert "Idempotency-Key" in data.get("message", "")
+        assert "幂等请求标识" in data.get("message", "")
 
 
 # =============================================================================
@@ -523,7 +563,7 @@ class TestListBindingRequests:
         """Filter binding requests by status."""
         prom = await _create_promoter(db_session, name="测试推广员6")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         # Create a binding request
         with patch(
@@ -556,7 +596,7 @@ class TestListBindingRequests:
         """Search binding requests by keyword."""
         prom = await _create_promoter(db_session, name="测试推广员7")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         with patch(
             "src.services.binding_service.get_rutai_client",
@@ -588,7 +628,7 @@ class TestListBindingRequests:
         """Filter binding requests to show only those submitted by current user."""
         prom = await _create_promoter(db_session, name="测试推广员8")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         with patch(
             "src.services.binding_service.get_rutai_client",
@@ -621,7 +661,7 @@ class TestListBindingRequests:
         """Binding requests list supports cursor pagination."""
         prom = await _create_promoter(db_session, name="测试推广员9")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         # Create multiple requests
         for i in range(5):
@@ -675,7 +715,7 @@ class TestBindingDetail:
 
         prom = await _create_promoter(db_session, name="测试推广员A")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         with patch(
             "src.services.binding_service.get_rutai_client",
@@ -717,7 +757,7 @@ class TestBindingDetail:
 
         prom = await _create_promoter(db_session, name="测试推广员B")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         with patch(
             "src.services.binding_service.get_rutai_client",
@@ -753,7 +793,7 @@ class TestBindingDetail:
 
         prom = await _create_promoter(db_session, name="测试推广员C")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         with patch(
             "src.services.binding_service.get_rutai_client",
@@ -785,7 +825,7 @@ class TestBindingDetail:
 
     async def test_not_found(self, client: AsyncClient):
         """Non-existent binding request returns 404."""
-        token = make_access_token(user_id=1, user_type="doctor")
+        token = make_access_token(user_id=1, user_type="admin")
         resp = await client.get(
             "/api/v1/binding-requests/99999",
             headers={"Authorization": f"Bearer {token}"},
@@ -816,7 +856,7 @@ class TestRetryBinding:
 
         prom = await _create_promoter(db_session, name="推广员重试")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         with patch(
             "src.services.binding_service.get_rutai_client",
@@ -872,7 +912,7 @@ class TestRetryBinding:
 
         prom = await _create_promoter(db_session, name="已绑定推广员")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         with patch(
             "src.services.binding_service.get_rutai_client",
@@ -927,7 +967,7 @@ class TestBindingSummary:
         prom1 = await _create_promoter(db_session, name="汇总推广员1")
         prom2 = await _create_promoter(db_session, name="汇总推广员2")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         # Create one bound with prom1
         with patch(
@@ -1003,7 +1043,7 @@ class TestUpdateCustomerInfo:
 
         prom = await _create_promoter(db_session, name="更正推广员")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         with patch(
             "src.services.binding_service.get_rutai_client",
@@ -1047,7 +1087,7 @@ class TestUpdateCustomerInfo:
         """Cannot update customer info on an already-bound request."""
         prom = await _create_promoter(db_session, name="已绑不可改")
         doctor_id = await _create_doctor(db_session)
-        token = make_access_token(user_id=doctor_id, user_type="doctor")
+        token = make_access_token(user_id=doctor_id, user_type="admin")
 
         with patch(
             "src.services.binding_service.get_rutai_client",

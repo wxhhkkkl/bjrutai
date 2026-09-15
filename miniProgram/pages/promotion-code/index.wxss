@@ -135,6 +135,9 @@ page {
   border-radius: 16rpx;
 }
 
+.promotion-card__qr-error { color: #8b95a6; }
+.promotion-qr-retry { min-width: 180rpx; height: 64rpx; margin: 0; padding: 0 24rpx; color: #1f75c9; font-size: 24rpx; line-height: 64rpx; background: #eaf4ff; border: 0; border-radius: 999rpx; }
+
 .promotion-refresh {
   margin-top: 22rpx;
   color: #687383;

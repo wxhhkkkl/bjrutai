@@ -1,0 +1,21 @@
+page { background: #f6f9fd; }
+.scan-page { min-height: 100vh; padding: 36rpx 38rpx calc(60rpx + env(safe-area-inset-bottom)); box-sizing: border-box; }
+.scan-state { padding: 160rpx 20rpx; color: #7c8798; font-size: 27rpx; text-align: center; }
+.scan-hero { padding: 34rpx 8rpx 28rpx; display: flex; flex-direction: column; gap: 18rpx; }
+.scan-kicker { color: #1677ff; font-size: 24rpx; font-weight: 600; }
+.scan-title { color: #111318; font-size: 42rpx; font-weight: 700; }
+.scan-description { color: #687383; font-size: 26rpx; line-height: 1.65; }
+.scan-card { padding: 34rpx; background: #fff; border: 1rpx solid #e3eaf4; border-radius: 28rpx; box-shadow: 0 12rpx 32rpx rgba(31, 61, 105, .08); }
+.scan-card--state { margin-top: 100rpx; min-height: 320rpx; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 24rpx; text-align: center; }
+.scan-person { display: flex; align-items: center; }
+.scan-person__icon { width: 88rpx; height: 88rpx; display: flex; align-items: center; justify-content: center; background: #edf5ff; border-radius: 20rpx; }
+.scan-person__copy { margin-left: 24rpx; display: flex; flex-direction: column; gap: 10rpx; }
+.scan-person__name { color: #111318; font-size: 31rpx; font-weight: 700; }
+.scan-person__org, .scan-meta { color: #788293; font-size: 24rpx; }
+.scan-field { min-height: 104rpx; margin-top: 28rpx; display: flex; align-items: center; border-top: 1rpx solid #e7ebf0; }
+.scan-field__label { width: 110rpx; color: #313844; font-size: 27rpx; }
+.scan-field input { flex: 1; font-size: 27rpx; }
+.scan-consent { margin: 30rpx 8rpx; display: flex; align-items: flex-start; gap: 14rpx; color: #5f6978; font-size: 23rpx; line-height: 1.55; }
+.scan-checkbox { width: 30rpx; height: 30rpx; flex: none; display: flex; align-items: center; justify-content: center; border: 2rpx solid #9ba4b2; border-radius: 6rpx; box-sizing: border-box; }
+.scan-checkbox--checked { background: #1677ff; border-color: #1677ff; }
+.scan-submit { height: 92rpx; color: #fff; font-size: 30rpx; font-weight: 600; line-height: 92rpx; background: #111318; border-radius: 999rpx; }

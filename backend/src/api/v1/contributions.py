@@ -13,10 +13,14 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_current_user, get_db
+from ...api.deps import get_current_user, get_db, require_active_distributor_or_admin
 from ...services.contribution_query_service import ConsumptionQueryService
 
-router = APIRouter(prefix="/contributions", tags=["contributions"])
+router = APIRouter(
+    prefix="/contributions",
+    tags=["contributions"],
+    dependencies=[Depends(require_active_distributor_or_admin)],
+)
 
 
 def _ok(data=None) -> dict:

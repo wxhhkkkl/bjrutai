@@ -138,12 +138,12 @@ test('list replaces first page, appends cursor page, deduplicates and prevents c
     fixture.page.onLoad()
     await flush()
     assert.equal(fixture.page.data.state, 'success')
-    assert.deepEqual(calls, [{ limit: 20 }])
+    assert.deepEqual(calls, [{ limit: 20, category: '' }])
 
     fixture.page.onReachBottom()
     fixture.page.onReachBottom()
     assert.equal(calls.length, 2)
-    assert.deepEqual(calls[1], { limit: 20, cursor: 'c1' })
+    assert.deepEqual(calls[1], { limit: 20, cursor: 'c1', category: '' })
     more.resolve({
       items: [item, { ...item, articleId: '13', title: '文章二' }],
       nextCursor: null,
@@ -152,6 +152,51 @@ test('list replaces first page, appends cursor page, deduplicates and prevents c
     await flush()
     assert.deepEqual(fixture.page.data.items.map((value) => value.articleId), ['12', '13'])
     assert.equal(fixture.page.data.hasMore, false)
+  } finally {
+    fixture.restore()
+  }
+})
+
+test('list reloads and keeps the selected category for pagination', async () => {
+  const calls = []
+  const fixture = loadPage('pages/articles/index.js', {
+    listArticleCategories() {
+      return Promise.resolve({ items: [{ id: '1', name: '健康科普' }] })
+    },
+    listArticles(options) {
+      calls.push(options)
+      return Promise.resolve({ items: [item], nextCursor: options.cursor ? null : 'c1', hasMore: !options.cursor })
+    }
+  })
+  try {
+    fixture.page.onLoad()
+    await flush()
+    fixture.page.selectCategory({ currentTarget: { dataset: { category: '健康科普' } } })
+    await flush()
+    fixture.page.onReachBottom()
+    await flush()
+
+    assert.deepEqual(calls, [
+      { limit: 20, category: '' },
+      { limit: 20, category: '健康科普' },
+      { limit: 20, cursor: 'c1', category: '健康科普' }
+    ])
+    assert.equal(fixture.page.data.selectedCategory, '健康科普')
+  } finally {
+    fixture.restore()
+  }
+})
+
+test('list retains the all-category option when category loading fails', async () => {
+  const fixture = loadPage('pages/articles/index.js', {
+    listArticleCategories() { return Promise.reject(new Error('网络异常')) },
+    listArticles() { return Promise.resolve({ items: [item], nextCursor: null, hasMore: false }) }
+  })
+  try {
+    fixture.page.onLoad()
+    await flush()
+    assert.deepEqual(fixture.page.data.categories, [{ id: 'all', name: '全部', value: '' }])
+    assert.equal(fixture.page.data.state, 'success')
   } finally {
     fixture.restore()
   }

@@ -8,11 +8,11 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_current_user, get_db
+from ...api.deps import get_current_user, get_db, require_org_admin
 from ...core.error_handler import _build_response
 from ...services import org_performance_service
 
-router = APIRouter(prefix="/org", tags=["org"])
+router = APIRouter(prefix="/org", tags=["org"], dependencies=[Depends(require_org_admin)])
 
 
 @router.get("/performance")

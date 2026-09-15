@@ -19,6 +19,7 @@ from ..core.database import Base
 
 
 class UserType(str, enum.Enum):
+    PERSONAL = "personal"
     PROMOTER = "promoter"
     DOCTOR = "doctor"
     ADMIN = "admin"
@@ -65,7 +66,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     openid: Mapped[Optional[str]] = mapped_column(String(128), unique=True, nullable=True, index=True)
     user_type: Mapped[UserType] = mapped_column(
-        SAEnum(UserType, name="user_type_enum"), default=UserType.PROMOTER
+        SAEnum(UserType, name="user_type_enum"), default=UserType.PERSONAL
     )
     name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
@@ -91,6 +92,7 @@ class User(Base):
     # relationships
     promoter: Mapped[Optional["Promoter"]] = relationship("Promoter", back_populates="user", uselist=False)
     distributor: Mapped[Optional["Distributor"]] = relationship("Distributor", back_populates="user", uselist=False)
+    customer: Mapped[Optional["Customer"]] = relationship("Customer", back_populates="user", uselist=False)
     notifications: Mapped[list["Notification"]] = relationship("Notification", back_populates="user")
     # tokens relationship — FK removed; user_id is polymorphic
 

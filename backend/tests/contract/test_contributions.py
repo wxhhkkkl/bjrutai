@@ -129,7 +129,7 @@ class TestContributionTrend:
     async def test_trend_returns_correct_monthly_data(self, client: AsyncClient, db_session: AsyncSession):
         user_id, _node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
         await seed_customer_bill(db_session, distributor_id=distributor_id, paid_cent=15000,
-                                 txn_id="txn_trend_mar", occurred_at=datetime(2026, 3, 10, tzinfo=timezone.utc))
+                                 txn_id="txn_trend_apr", occurred_at=datetime(2026, 4, 10, tzinfo=timezone.utc))
         await seed_customer_bill(db_session, distributor_id=distributor_id, paid_cent=30000,
                                  txn_id="txn_trend_jun", occurred_at=datetime(2026, 6, 20, tzinfo=timezone.utc))
 
@@ -137,7 +137,7 @@ class TestContributionTrend:
         data = resp.json()["data"]
         assert len(data["categories"]) == 6
         values = dict(zip(data["categories"], data["values"]))
-        assert values.get("2026-03") == 15000
+        assert values.get("2026-04") == 15000
         assert values.get("2026-06") == 30000
 
     async def test_trend_defaults_to_6_months(self, client: AsyncClient, db_session: AsyncSession):
@@ -259,7 +259,7 @@ class TestTeamContributions:
         node_l5 = await seed_hierarchy_node(db_session, name="Team Member", node_type="promoter", level=5, parent_id=node_l4)
         user_l4 = await seed_user(db_session, openid="wx_team_l4", user_type="promoter", name="队长")
         user_l5 = await seed_user(db_session, openid="wx_team_l5", user_type="promoter", name="队员")
-        promoter_l4 = await seed_promoter(db_session, user_id=user_l4, node_id=node_l4)
+        promoter_l4 = await seed_promoter(db_session, user_id=user_l4, node_id=node_l4, org_role="admin")
         promoter_l5 = await seed_promoter(db_session, user_id=user_l5, node_id=node_l5)
 
         await seed_customer_bill(db_session, distributor_id=promoter_l5, paid_cent=20000, txn_id="txn_team_1")
@@ -280,7 +280,7 @@ class TestTeamContributions:
         user_l4 = await seed_user(db_session, openid="wx_agg_l4", user_type="promoter", name="队长")
         user_l5a = await seed_user(db_session, openid="wx_agg_a", user_type="promoter", name="队员A")
         user_l5b = await seed_user(db_session, openid="wx_agg_b", user_type="promoter", name="队员B")
-        promoter_l4 = await seed_promoter(db_session, user_id=user_l4, node_id=node_l4)
+        promoter_l4 = await seed_promoter(db_session, user_id=user_l4, node_id=node_l4, org_role="admin")
         promoter_l5a = await seed_promoter(db_session, user_id=user_l5a, node_id=node_l5a)
         promoter_l5b = await seed_promoter(db_session, user_id=user_l5b, node_id=node_l5b)
 
@@ -308,7 +308,7 @@ class TestTeamDrillDown:
         user_l4 = await seed_user(db_session, openid="wx_drill_l4", user_type="promoter", name="队长")
         user_l5 = await seed_user(db_session, openid="wx_drill_l5", user_type="promoter", name="队员")
         user_l6 = await seed_user(db_session, openid="wx_drill_l6", user_type="promoter", name="孙子")
-        promoter_l4 = await seed_promoter(db_session, user_id=user_l4, node_id=node_l4)
+        promoter_l4 = await seed_promoter(db_session, user_id=user_l4, node_id=node_l4, org_role="admin")
         promoter_l5 = await seed_promoter(db_session, user_id=user_l5, node_id=node_l5)
         promoter_l6 = await seed_promoter(db_session, user_id=user_l6, node_id=node_l6)
 
@@ -329,7 +329,7 @@ class TestTeamDrillDown:
         user_b = await seed_user(db_session, openid="wx_branch_b", user_type="promoter", name="分支B")
         user_a_child = await seed_user(db_session, openid="wx_branch_ac", user_type="promoter", name="子A")
         user_b_child = await seed_user(db_session, openid="wx_branch_bc", user_type="promoter", name="子B")
-        promoter_a = await seed_promoter(db_session, user_id=user_a, node_id=node_a)
+        promoter_a = await seed_promoter(db_session, user_id=user_a, node_id=node_a, org_role="admin")
         promoter_b = await seed_promoter(db_session, user_id=user_b, node_id=node_b)
         await seed_promoter(db_session, user_id=user_a_child, node_id=node_a_child)
         promoter_b_child = await seed_promoter(db_session, user_id=user_b_child, node_id=node_b_child)

@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     # WeChat
     wechat_app_id: str = ""
     wechat_app_secret: str = ""
+    public_api_base_url: str = "https://bjrutai.com/api/v1"
 
     # JWT
     jwt_secret_key: str = "dev-secret-change-in-production"

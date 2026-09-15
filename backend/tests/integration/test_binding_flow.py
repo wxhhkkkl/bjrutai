@@ -84,7 +84,7 @@ async def _setup_doctor(db):
     return await seed_user(
         db,
         openid="doctor_flow",
-        user_type="doctor",
+        user_type="admin",
         name="流程医生",
         phone_masked="138****1111",
     )
@@ -96,7 +96,7 @@ async def test_full_binding_lifecycle(client: AsyncClient, db_session, mock_ruta
     prom = await _setup_promoter(db_session)
     doctor_id = await _setup_doctor(db_session)
 
-    doctor_token = make_access_token(user_id=doctor_id, user_type="doctor")
+    doctor_token = make_access_token(user_id=doctor_id, user_type="admin")
 
     # ------------------------------------------------------------------
     # Step 1: Select available promoters
@@ -224,7 +224,7 @@ async def test_binding_failure_and_retry_flow(
     """Test: binding fails initially, then retry succeeds."""
     prom = await _setup_promoter(db_session)
     doctor_id = await _setup_doctor(db_session)
-    token = make_access_token(user_id=doctor_id, user_type="doctor")
+    token = make_access_token(user_id=doctor_id, user_type="admin")
 
     # Step 1: Submit with Rutai failing
     mock_rutai.bind_bj_user_should_fail = True
@@ -283,7 +283,7 @@ async def test_transfer_preserves_data(
     admin_id = await seed_admin(db_session, username="preserve_admin")
     prom1 = await _setup_promoter(db_session)
     doctor_id = await _setup_doctor(db_session)
-    doctor_token = make_access_token(user_id=doctor_id, user_type="doctor")
+    doctor_token = make_access_token(user_id=doctor_id, user_type="admin")
 
     # Create second promoter
     user2_id = await seed_user(

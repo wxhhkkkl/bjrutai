@@ -39,9 +39,12 @@ test('customer detail only renders the customer summary and consumption overview
   assert.doesNotMatch(source, /contactCustomer|recordFollowup/)
 })
 
-test('followup page keeps draft and submit actions blocked without fake success', () => {
+test('followup page saves drafts and records through the customer service', () => {
   const source = fs.readFileSync(path.join(root, 'pages/followup-record/index.js'), 'utf8')
-  assert.doesNotMatch(source, /mock\/foundation-fixtures|customer-service|request\(/)
-  assert.match(source, /暂不能提交|blockedMessage/)
-  assert.doesNotMatch(source, /草稿已保存|跟进已保存/)
+  assert.match(source, /customer-service/)
+  assert.match(source, /saveFollowupDraft/)
+  assert.match(source, /createFollowup/)
+  assert.match(source, /草稿已保存/)
+  assert.match(source, /跟进已保存/)
+  assert.doesNotMatch(source, /mock\/foundation-fixtures/)
 })

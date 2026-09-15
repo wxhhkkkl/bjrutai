@@ -30,17 +30,30 @@ function loadService(result = {}) {
   }
 }
 
-test('article service uses public list contract and preserves an opaque cursor', async () => {
+test('article service uses public list contract and preserves an opaque cursor and category', async () => {
   const fixture = loadService()
   try {
     await fixture.service.listArticles({ limit: 20, cursor: 'opaque+/=', category: 'ignored' })
     await fixture.service.listArticles({ limit: 3 })
     assert.deepEqual(fixture.calls, [{
       path: '/api/v1/articles',
-      options: { auth: false, data: { limit: 20, cursor: 'opaque+/=' } }
+      options: { auth: false, data: { limit: 20, category: 'ignored', cursor: 'opaque+/=' } }
     }, {
       path: '/api/v1/articles',
       options: { auth: false, data: { limit: 3 } }
+    }])
+  } finally {
+    fixture.restore()
+  }
+})
+
+test('article service loads public article categories without authentication', async () => {
+  const fixture = loadService()
+  try {
+    await fixture.service.listArticleCategories()
+    assert.deepEqual(fixture.calls, [{
+      path: '/api/v1/articles/categories',
+      options: { auth: false }
     }])
   } finally {
     fixture.restore()

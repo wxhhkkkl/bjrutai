@@ -47,9 +47,17 @@
           <el-icon><DataAnalysis /></el-icon>
           <span>数据报表</span>
         </el-menu-item>
+        <el-menu-item v-if="authStore.hasPermission('articles.read')" index="/articles/categories">
+          <el-icon><CollectionTag /></el-icon>
+          <span>文章分类</span>
+        </el-menu-item>
         <el-menu-item index="/articles">
           <el-icon><Document /></el-icon>
           <span>文章管理</span>
+        </el-menu-item>
+        <el-menu-item index="/banners">
+          <el-icon><Picture /></el-icon>
+          <span>轮播图管理</span>
         </el-menu-item>
         <el-menu-item v-if="authStore.hasPermission('feedbacks.read')" index="/feedbacks">
           <el-icon><Document /></el-icon>
@@ -169,9 +177,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { ElMessage } from 'element-plus'
 import {
   Odometer, Share, User, Link, TrendCharts,
-  Setting, DataAnalysis, Document, Bell,
+  Setting, DataAnalysis, Document, Picture, CollectionTag, Bell,
   Fold, Expand, ArrowDown, UserFilled,
 } from '@element-plus/icons-vue'
 
@@ -193,30 +202,33 @@ async function fetchNotifications() {
       ...item,
       isRead: item.isRead !== undefined ? item.isRead : item.is_read,
     }))
-    unreadCount.value = notifications.value.filter((n) => !n.isRead).length
-  } catch { /* silence */ }
+    unreadCount.value = body.unreadCount ?? notifications.value.filter((n) => !n.isRead).length
+  } catch (error) {
+    ElMessage.error(error.userMessage || '加载消息通知失败')
+  }
 }
 
 async function markAllRead() {
   try {
     const http = (await import('@/api/http')).default
-    for (const item of notifications.value) {
-      if (!item.isRead) {
-        await http.post(`/notifications/${item.id}/read`).catch(() => {})
-      }
-    }
+    await http.post('/notifications/read-all')
     notifications.value.forEach((n) => (n.isRead = true))
     unreadCount.value = 0
-  } catch { /* silence */ }
+  } catch (error) {
+    ElMessage.error(error.userMessage || '标记消息已读失败')
+  }
 }
 
-function handleNotifClick(item) {
+async function handleNotifClick(item) {
   if (!item.isRead) {
-    import('@/api/http').then(({ default: http }) => {
-      http.post(`/notifications/${item.id}/read`).catch(() => {})
-    })
-    item.isRead = true
-    unreadCount.value = Math.max(0, unreadCount.value - 1)
+    try {
+      const http = (await import('@/api/http')).default
+      await http.post(`/notifications/${item.id}/read`)
+      item.isRead = true
+      unreadCount.value = Math.max(0, unreadCount.value - 1)
+    } catch (error) {
+      ElMessage.error(error.userMessage || '标记消息已读失败')
+    }
   }
 }
 

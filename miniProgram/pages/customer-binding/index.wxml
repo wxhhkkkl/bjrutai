@@ -7,7 +7,7 @@
         <view class="binding-intro">
             <text class="binding-intro__title">录入客户信息</text>
             <text class="binding-intro__description">
-                请填写用于儒泰用户匹配的必要信息
+                手机号为必填项，其他资料可后续完善
             </text>
         </view>
 
@@ -19,7 +19,7 @@
                     <van-icon name="contact-o" size="27px" color="#1677ff" />
                 </view>
                 <text class="binding-field__label">姓名</text>
-                <input class="binding-field__input" value="{{form.name}}" placeholder="请输入客户姓名"
+                <input class="binding-field__input" value="{{form.name}}" placeholder="选填"
                     placeholder-class="binding-field__placeholder" maxlength="20" data-field="name"
                     bindinput="onInput" />
             </view>
@@ -111,7 +111,7 @@
             <text class="binding-card-title">绑定信息</text>
             <view class="result-row">
                 <text>客户</text>
-                <text class="result-row__value">{{form.name}}</text>
+                <text class="result-row__value">{{form.name || '未填写姓名'}}</text>
             </view>
             <view class="result-row">
                 <text>归属拓展人</text>

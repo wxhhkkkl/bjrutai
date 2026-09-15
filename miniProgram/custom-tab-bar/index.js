@@ -1,10 +1,16 @@
 const {
-    TAB_ITEMS
+    getVisibleTabs
 } = require('../models/navigation')
+const { getCurrentSession } = require('../services/session-service')
 Component({
     data: {
         selected: 'home',
-        tabs: TAB_ITEMS
+        tabs: []
+    },
+    lifetimes: {
+        attached() {
+            this.setData({ tabs: getVisibleTabs(getCurrentSession()) })
+        }
     },
     methods: {
         switchTab(e) {

@@ -1,14 +1,14 @@
 <template>
-  <el-dialog :model-value="modelValue" title="更改推广员" width="480px" :close-on-click-modal="false" @close="reset" @open="init">
+  <el-dialog :model-value="modelValue" title="更改归属业务员" width="480px" :close-on-click-modal="false" @close="reset" @open="init">
     <el-form :model="form" label-width="90px" size="small" ref="formRef" :rules="rules">
       <el-form-item label="客户">
         <el-input :model-value="customerName || '-'" disabled />
       </el-form-item>
-      <el-form-item label="当前推广员">
+      <el-form-item label="当前业务员">
         <el-input :model-value="currentPromoter || '-'" disabled />
       </el-form-item>
-      <el-form-item label="新推广员" prop="newDistributorId">
-        <el-select v-model="form.newDistributorId" filterable placeholder="选择新推广员" style="width: 100%" :loading="distLoading">
+      <el-form-item label="新业务员" prop="newDistributorId">
+        <el-select v-model="form.newDistributorId" filterable placeholder="选择新业务员" style="width: 100%" :loading="distLoading">
           <el-option
             v-for="d in availableDistributors"
             :key="d.distributorId"
@@ -16,7 +16,7 @@
             :label="`${d.name}（${d.phone}）`"
           />
         </el-select>
-        <div v-if="!distLoading && availableDistributors.length === 0" class="hint">该组织下无其他可用推广员</div>
+        <div v-if="!distLoading && availableDistributors.length === 0" class="hint">该组织下无其他可用业务员</div>
       </el-form-item>
       <el-form-item label="变更原因" prop="reason">
         <el-input v-model="form.reason" type="textarea" :rows="2" maxlength="500" placeholder="变更原因（必填）" />
@@ -58,7 +58,7 @@ const availableDistributors = computed(() => {
 })
 
 const rules = {
-  newDistributorId: [{ required: true, message: '请选择新推广员', trigger: 'change' }],
+  newDistributorId: [{ required: true, message: '请选择新业务员', trigger: 'change' }],
   reason: [{ required: true, message: '请填写变更原因', trigger: 'blur' }],
 }
 
@@ -69,7 +69,7 @@ async function init() {
     const data = await distributorApi.list(props.orgId, { limit: 100, includeSubtree: true })
     distributors.value = data.items || []
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '加载推广员失败')
+    ElMessage.error(e.response?.data?.message || '加载业务员失败')
   } finally {
     distLoading.value = false
   }
@@ -89,10 +89,10 @@ async function submit() {
       newDistributorId: form.newDistributorId,
       reason: form.reason,
     })
-    ElMessage.success('推广员已变更')
+    ElMessage.success('归属业务员已变更')
     emit('success')
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '变更推广员失败')
+    ElMessage.error(e.response?.data?.message || '变更业务员失败')
   } finally {
     saving.value = false
   }

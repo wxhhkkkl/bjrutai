@@ -88,6 +88,27 @@ function adaptArticlePage(value) {
   }
 }
 
+function adaptArticleCategories(value) {
+  if (!value || typeof value !== 'object' || !Array.isArray(value.items)) {
+    throw articleFormatError('文章分类列表格式异常')
+  }
+
+  const knownIds = new Set()
+  return value.items.reduce((categories, item) => {
+    const name = optionalText(item && item.name)
+    let id = ''
+    try {
+      id = normalizeArticleId(item && item.id)
+    } catch (error) {
+      return categories
+    }
+    if (!name || name.length > 50 || knownIds.has(id)) return categories
+    knownIds.add(id)
+    categories.push({ id, name })
+    return categories
+  }, [])
+}
+
 function mergeArticlePage(existingItems, page, currentCursor = '') {
   const items = Array.isArray(existingItems) ? existingItems.slice() : []
   const knownIds = new Set(items.map((item) => item.articleId))
@@ -125,5 +146,6 @@ module.exports = {
   adaptArticleListItem,
   adaptArticleDetail,
   adaptArticlePage,
+  adaptArticleCategories,
   mergeArticlePage
 }

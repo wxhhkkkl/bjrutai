@@ -43,8 +43,14 @@ async def list_notifications(
 ) -> dict:
     """List notifications for the current user with optional filters."""
     user_id = int(payload["sub"])
+    is_admin = payload.get("user_type") == "admin"
 
-    query = select(Notification).where(Notification.user_id == user_id)
+    # Admin tokens use admin_accounts.id, while notifications belong to
+    # users.id.  The admin notification center is global, so do not compare
+    # those two unrelated identifier spaces.
+    query = select(Notification)
+    if not is_admin:
+        query = query.where(Notification.user_id == user_id)
 
     if category:
         try:
@@ -85,12 +91,10 @@ async def list_notifications(
         })
 
     # Count unread
-    unread_result = await db.execute(
-        select(func.count(Notification.id)).where(
-            Notification.user_id == user_id,
-            Notification.is_read == False,
-        )
-    )
+    unread_query = select(func.count(Notification.id)).where(Notification.is_read == False)
+    if not is_admin:
+        unread_query = unread_query.where(Notification.user_id == user_id)
+    unread_result = await db.execute(unread_query)
     unread_count = unread_result.scalar() or 0
 
     return _ok({
@@ -112,11 +116,10 @@ async def mark_all_as_read(
     """Mark every unread notification belonging to the current user as read."""
     user_id = int(payload["sub"])
     now = datetime.now(timezone.utc)
-    result = await db.execute(
-        update(Notification)
-        .where(Notification.user_id == user_id, Notification.is_read == False)
-        .values(is_read=True, read_at=now)
-    )
+    query = update(Notification).where(Notification.is_read == False)
+    if payload.get("user_type") != "admin":
+        query = query.where(Notification.user_id == user_id)
+    result = await db.execute(query.values(is_read=True, read_at=now))
     await db.commit()
     return _ok({"updatedCount": result.rowcount or 0, "isRead": True, "readAt": now.isoformat()})
 
@@ -132,12 +135,10 @@ async def mark_as_read(
     """Mark a notification as read."""
     user_id = int(payload["sub"])
 
-    result = await db.execute(
-        select(Notification).where(
-            Notification.id == notification_id,
-            Notification.user_id == user_id,
-        )
-    )
+    query = select(Notification).where(Notification.id == notification_id)
+    if payload.get("user_type") != "admin":
+        query = query.where(Notification.user_id == user_id)
+    result = await db.execute(query)
     notification = result.scalars().first()
     if notification is None:
         raise NotFoundException(message="Notification not found")

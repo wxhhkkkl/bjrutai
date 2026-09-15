@@ -1,0 +1,2 @@
+@import "../patient-binding/index.wxss";
+.scan-field { margin-top: 0; border-top: 0; }

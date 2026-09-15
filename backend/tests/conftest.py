@@ -169,7 +169,7 @@ class MockWechatClient:
         if self._should_fail:
             raise Exception(self._fail_message)
         if code == "valid_phone_code":
-            return "138****1234"
+            return "13800131234"
         raise Exception("invalid phone code")
 
 
@@ -410,6 +410,7 @@ async def seed_promoter(
     user_id: int,
     node_id: int,
     qualification_status: str | None = None,
+    org_role: str = "member",
 ) -> int:
     """Insert a Distributor row and return its id (node_id -> org_id).
 
@@ -421,7 +422,7 @@ async def seed_promoter(
     distributor = Distributor(
         user_id=user_id,
         org_id=node_id,
-        org_role=OrgRole.MEMBER,
+        org_role=OrgRole(org_role),
     )
     db.add(distributor)
     await db.flush()

@@ -12,10 +12,6 @@ function validateCustomerForm(form) {
   const idCard = compact(value.idCard);
   const familyPhone = compact(value.familyPhone);
 
-  if (!name) {
-    return { valid: false, field: 'name', message: '请输入客户姓名' };
-  }
-
   if (!PHONE_PATTERN.test(phone)) {
     return { valid: false, field: 'phone', message: '请输入正确的客户手机号' };
   }

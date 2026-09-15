@@ -34,12 +34,22 @@
         />
       </el-form-item>
 
-      <el-form-item label="文章分类" prop="category">
-        <el-input
-          v-model="form.category"
-          placeholder="请输入分类（选填）"
-          maxlength="50"
-        />
+      <el-form-item label="文章分类" prop="category_id">
+        <el-select
+          v-model="form.category_id"
+          placeholder="请选择文章分类"
+          clearable
+          :loading="categoriesStore.loading"
+          style="width: 100%"
+          @change="handleCategoryChange"
+        >
+          <el-option
+            v-for="category in categories"
+            :key="category.id"
+            :label="category.name"
+            :value="Number(category.id)"
+          />
+        </el-select>
       </el-form-item>
 
       <el-form-item label="封面图片" prop="coverImageUrl">
@@ -65,12 +75,6 @@
             class="cover-url-input"
           />
         </div>
-      </el-form-item>
-
-      <el-form-item label="分类" prop="category_id">
-        <el-select v-model="form.category_id" placeholder="选择分类" clearable style="width: 100%">
-          <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="Number(c.id)" />
-        </el-select>
       </el-form-item>
 
       <el-form-item label="标签" prop="tags">
@@ -152,6 +156,9 @@ const rules = {
   coverImageUrl: [
     { max: 2048, message: '封面图片URL不能超过2048字符', trigger: 'blur' },
   ],
+  category_id: [
+    { required: true, message: '请选择文章分类', trigger: 'change' },
+  ],
 }
 
 // Watch for article prop to populate form
@@ -162,7 +169,7 @@ watch(
       form.title = val.title || ''
       form.summary = val.summary || ''
       form.category = val.category || ''
-      form.category_id = val.category_id || null
+      form.category_id = val.category_id ? Number(val.category_id) : null
       form.coverImageUrl = val.coverImageUrl || ''
       form.tags = val.tags || []
       form.content = val.content || ''
@@ -186,6 +193,11 @@ function parseTags() {
     .slice(0, 20)
 }
 
+function handleCategoryChange(categoryId) {
+  const selected = categories.value.find((category) => Number(category.id) === categoryId)
+  form.category = selected?.name || ''
+}
+
 function validateCoverFile(file) {
   if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
     ElMessage.error('仅支持 JPG/PNG/GIF/WebP 格式')
@@ -200,16 +212,12 @@ function validateCoverFile(file) {
 
 async function handleCoverUpload({ file, onSuccess, onError }) {
   try {
-    const res = await http.post('/admin/articles/upload-image', {
-      fileName: file.name,
-      contentType: file.type,
+    const uploadForm = new FormData()
+    uploadForm.append('file', file, file.name)
+    const res = await http.post('/admin/articles/upload-image-file', uploadForm, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     })
-    const { uploadUrl, fileUrl } = res.data.data || res.data
-    await fetch(uploadUrl, {
-      method: 'PUT',
-      body: file,
-      headers: { 'Content-Type': file.type },
-    })
+    const { fileUrl } = res.data.data || res.data
     form.coverImageUrl = fileUrl
     ElMessage.success('封面上传成功')
     onSuccess?.()
@@ -231,7 +239,10 @@ function resetForm() {
   form.content = ''
   tagsInput.value = ''
   saving.value = false
-  formRef.value?.resetFields()
+  // Do not call resetFields here: Element Plus restores the field snapshot it
+  // captured when the dialog was previously opened, which can reintroduce an
+  // article's title and summary into a subsequent "new article" form.
+  formRef.value?.clearValidate()
 }
 
 function handleCancel() {
@@ -263,8 +274,10 @@ async function handleSave() {
       summary: form.summary || undefined,
       content: form.content || undefined,
       coverImageUrl: form.coverImageUrl || undefined,
-      category: form.category || undefined,
-      category_id: form.category_id || undefined,
+      // `category` is retained for the legacy article list and public display;
+      // it is always derived from the selected category rather than being free text.
+      category: form.category || null,
+      category_id: form.category_id || null,
       tags: form.tags.length > 0 ? form.tags : undefined,
     }
 

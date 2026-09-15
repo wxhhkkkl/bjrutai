@@ -102,8 +102,8 @@ class TestContributionViewFullFlow:
         node_l3 = await seed_hierarchy_node(db_session, name="Member L3", node_type="promoter", level=3, parent_id=node_l2)
         user_l2 = await seed_user(db_session, openid="wx_tm_l2", user_type="promoter", name="上级")
         user_l3 = await seed_user(db_session, openid="wx_tm_l3", user_type="promoter", name="下级")
-        promoter_l2 = await seed_promoter(db_session, user_id=user_l2, node_id=node_l2)
-        promoter_l3 = await seed_promoter(db_session, user_id=user_l3, node_id=node_l3)
+        promoter_l2 = await seed_promoter(db_session, user_id=user_l2, node_id=node_l2, org_role="admin")
+        promoter_l3 = await seed_promoter(db_session, user_id=user_l3, node_id=node_l3, org_role="admin")
         customer_id = await seed_bound_customer(db_session, promoter_l3, "hrb_tm")
         await seed_bill(db_session, customer_id, 50000, "txn_tm_1", datetime(2026, 7, 15, tzinfo=timezone.utc))
 
@@ -123,7 +123,7 @@ class TestContributionViewFullFlow:
         user_l3 = await seed_user(db_session, openid="wx_dd_l3", user_type="promoter", name="分部经理")
         user_l4 = await seed_user(db_session, openid="wx_dd_l4", user_type="promoter", name="团队长")
         user_l5 = await seed_user(db_session, openid="wx_dd_l5", user_type="promoter", name="推广员")
-        promoter_l3 = await seed_promoter(db_session, user_id=user_l3, node_id=node_l3)
+        promoter_l3 = await seed_promoter(db_session, user_id=user_l3, node_id=node_l3, org_role="admin")
         promoter_l4 = await seed_promoter(db_session, user_id=user_l4, node_id=node_l4)
         promoter_l5 = await seed_promoter(db_session, user_id=user_l5, node_id=node_l5)
 

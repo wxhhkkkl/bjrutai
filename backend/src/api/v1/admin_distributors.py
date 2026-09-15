@@ -7,7 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_admin_user, get_db, require_permission
 from ...core.error_handler import _build_response
+from ...core.exceptions import ForbiddenException
 from ...schemas.distributor import (
+    DistributorAttachExisting,
     DistributorCreate,
     DistributorRoleUpdate,
     DistributorUpdate,
@@ -23,6 +25,18 @@ def _operator_id(payload: dict) -> Optional[int]:
         return int(payload["sub"])
     except (KeyError, TypeError, ValueError):
         return None
+
+
+@router.get("/users/unassigned")
+async def list_unassigned_users(
+    keyword: Optional[str] = Query(None, max_length=100),
+    limit: int = Query(20, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+    _admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("distributor.read")),
+):
+    result = await distributor_service.list_unassigned_users(db, keyword=keyword, limit=limit)
+    return _build_response(0, "success", result)
 
 
 @router.get("/orgs/{org_id}/distributors")
@@ -56,6 +70,23 @@ async def create_distributor(
 ):
     """Create a distributor account within an org."""
     result = await distributor_service.create_distributor(
+        db, org_id, body, operator_id=_operator_id(admin)
+    )
+    return _build_response(0, "success", result)
+
+
+@router.post("/orgs/{org_id}/distributors/attach")
+async def attach_existing_user(
+    org_id: int,
+    body: DistributorAttachExisting,
+    db: AsyncSession = Depends(get_db),
+    admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("distributor.write")),
+):
+    """Attach an existing personal account to an organization."""
+    if body.org_role == "admin" and "org_admin.write" not in admin.get("permissions", []):
+        raise ForbiddenException(message="缺少权限: org_admin.write")
+    result = await distributor_service.attach_existing_user(
         db, org_id, body, operator_id=_operator_id(admin)
     )
     return _build_response(0, "success", result)

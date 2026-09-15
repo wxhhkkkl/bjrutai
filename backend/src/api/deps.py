@@ -7,6 +7,7 @@ from typing import AsyncGenerator, Callable
 
 from fastapi import Depends, Header, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.database import get_db as _get_db
@@ -38,7 +39,7 @@ async def get_current_user(
     Raises ``UnauthorizedException`` when the token is missing, malformed, or expired.
     """
     if credentials is None:
-        raise UnauthorizedException(message="Token expired")
+        raise UnauthorizedException(message="登录已过期，请重新登录")
 
     token = credentials.credentials
     try:
@@ -46,11 +47,11 @@ async def get_current_user(
     except Exception as exc:
         msg = str(exc).lower()
         if "expired" in msg or "exp" in msg:
-            raise UnauthorizedException(message="Token expired")
-        raise UnauthorizedException(message="Token invalid or malformed")
+            raise UnauthorizedException(message="登录已过期，请重新登录")
+        raise UnauthorizedException(message="登录凭证无效，请重新登录")
 
     if payload.get("type") != "access":
-        raise UnauthorizedException(message="Token invalid or malformed")
+        raise UnauthorizedException(message="登录凭证无效，请重新登录")
 
     return payload
 
@@ -73,7 +74,7 @@ def require_role(*roles: str) -> Callable:
     ) -> dict:
         user_type = payload.get("user_type", "")
         if user_type not in roles:
-            raise ForbiddenException(message="Forbidden")
+            raise ForbiddenException(message="无权执行此操作")
         return payload
 
     return _dependency
@@ -87,6 +88,57 @@ async def get_admin_user(
 ) -> dict:
     """Dependency that ensures the caller is an admin."""
     return payload
+
+
+async def require_active_distributor(
+    payload: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Require an active organization member in an active organization."""
+    from ..models.distributor import Distributor, DistributorStatus
+    from ..models.organization import Organization, OrgStatus
+    from ..models.user import ActivationStatus, User
+
+    user_id = int(payload["sub"])
+    result = await db.execute(
+        select(Distributor, User, Organization)
+        .join(User, User.id == Distributor.user_id)
+        .join(Organization, Organization.id == Distributor.org_id)
+        .where(Distributor.user_id == user_id)
+    )
+    row = result.first()
+    if row is None:
+        raise ForbiddenException(message="成为业务员后才能使用客户和消费功能")
+
+    distributor, user, organization = row
+    if (
+        distributor.status != DistributorStatus.ACTIVE
+        or user.activation_status != ActivationStatus.ACTIVE
+        or organization.status != OrgStatus.ACTIVE
+    ):
+        raise ForbiddenException(message="当前组织人员账号已停用")
+    return distributor
+
+
+async def require_active_distributor_or_admin(
+    payload: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Allow a backend admin or require an active mini-program business member."""
+    if payload.get("user_type") == "admin":
+        return payload
+    return await require_active_distributor(payload, db)
+
+
+async def require_org_admin(
+    distributor=Depends(require_active_distributor),
+):
+    """Require the current organization member to be its organization admin."""
+    from ..models.distributor import OrgRole
+
+    if distributor.org_role != OrgRole.ADMIN:
+        raise ForbiddenException(message="只有组织管理员可以发展业务员")
+    return distributor
 
 
 # ---------------------------------------------------------------------------

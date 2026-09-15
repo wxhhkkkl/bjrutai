@@ -99,7 +99,8 @@ class TestFullWechatLoginFlow:
         assert session_resp.status_code == 200
         session_body = session_resp.json()
         assert session_body["code"] == 0
-        assert session_body["data"]["user"]["role"] == "promoter"
+        assert session_body["data"]["user"]["role"] == "personal"
+        assert session_body["data"]["hasBusinessMembership"] is False
         assert "tokenExpiresAt" in session_body["data"]
 
         # ── Phase 3: Bootstrap ────────────────────────────────────
@@ -223,13 +224,13 @@ class TestAdminLoginFlow:
 
 
 # ──────────────────────────────────────────────────────────────────────
-# 012-register-default-dept: auto-mount integration tests
+# 019-role-customer-staff-invite: personal registration tests
 # ──────────────────────────────────────────────────────────────────────
-class TestWechatRegisterAutoMount:
-    """T009: WeChat login auto-creates Distributor under default org."""
+class TestWechatPersonalRegistration:
+    """WeChat login creates a personal account without organization access."""
 
-    async def test_wechat_register_creates_distributor(self, mock_client):
-        """New WeChat user → Distributor record created with source_channel=wechat_register."""
+    async def test_wechat_register_does_not_create_distributor(self, mock_client):
+        """New WeChat user remains personal until invited or attached by admin."""
         new_user = make_mock_user(user_id=101, openid="o_auto_mount", user_type="promoter")
         default_org = MagicMock()
         default_org.id = 1
@@ -257,17 +258,16 @@ class TestWechatRegisterAutoMount:
         body = login_resp.json()
         assert body["code"] == 0
         assert body["data"]["user"]["isNewUser"] is True
-        assert body["data"]["distributor"] is not None
-        assert body["data"]["distributor"]["orgId"] == "1"
-        assert body["data"]["distributor"]["orgRole"] == "member"
-        assert body["data"]["distributor"]["sourceChannel"] == "wechat_register"
+        assert "distributor" not in body["data"]
+        assert body["data"]["user"]["role"] == "personal"
+        assert body["data"]["hasBusinessMembership"] is False
 
 
-class TestPhoneRegisterAutoMount:
-    """T010: Phone+password registration auto-creates Distributor."""
+class TestPhonePersonalRegistration:
+    """Phone registration creates a personal account only."""
 
-    async def test_phone_register_creates_distributor(self, mock_client):
-        """New phone registration → Distributor created with source_channel=phone_register."""
+    async def test_phone_register_does_not_create_distributor(self, mock_client):
+        """New phone registration grants no organization membership."""
         default_org = MagicMock()
         default_org.id = 1
         default_org.name = "北京儒泰服务有限公司"
@@ -286,9 +286,9 @@ class TestPhoneRegisterAutoMount:
         assert register_resp.status_code == 201
         body = register_resp.json()
         assert body["code"] == 0
-        assert body["data"]["distributor"] is not None
-        assert body["data"]["distributor"]["sourceChannel"] == "phone_register"
-        assert body["data"]["distributor"]["orgRole"] == "member"
+        assert "distributor" not in body["data"]
+        assert body["data"]["user"]["role"] == "personal"
+        assert body["data"]["hasBusinessMembership"] is False
 
 
 class TestExistingDistributorWechatBind:
@@ -299,7 +299,7 @@ class TestExistingDistributorWechatBind:
         from tests.conftest import make_mock_user
 
         existing_user = make_mock_user(
-            user_id=200, openid=None, user_type="distributor", phone="138****8888"
+            user_id=200, openid=None, user_type="distributor", phone="13800008888"
         )
         existing_dist = MagicMock()
         existing_dist.id = 200
@@ -315,7 +315,20 @@ class TestExistingDistributorWechatBind:
         ), patch(
             "src.integrations.wechat_client.WechatClient.get_phone_number",
             new_callable=AsyncMock,
-            return_value="138****8888",
+            return_value="13800008888",
+        ), patch(
+            "src.services.auth_service.AuthService._get_business_membership",
+            new_callable=AsyncMock,
+            return_value={
+                "distributorId": "200",
+                "orgId": "5",
+                "orgName": "测试组织",
+                "orgRole": "member",
+                "sourceChannel": "admin_create",
+                "status": "active",
+                "orgStatus": "active",
+                "hasBusinessMembership": True,
+            },
         ):
             mock_client._mock_db.execute = AsyncMock()
             mock_client._mock_db.execute.side_effect = [

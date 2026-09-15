@@ -4,12 +4,12 @@
       <el-form-item label="所属组织">
         <el-input :model-value="orgName || '-'" disabled />
       </el-form-item>
-      <el-form-item label="推广员" prop="distributorId">
-        <el-select v-model="form.distributorId" filterable placeholder="选择推广员" style="width: 100%" :loading="distLoading">
+      <el-form-item label="归属业务员" prop="distributorId">
+        <el-select v-model="form.distributorId" filterable placeholder="选择归属业务员" style="width: 100%" :loading="distLoading">
           <el-option v-for="d in distributors" :key="d.distributorId" :value="d.distributorId"
             :label="`${d.name}（${d.phone}）`" />
         </el-select>
-        <div v-if="!distLoading && distributors.length === 0" class="hint">该组织下暂无分销员，请先在组织人员管理中创建</div>
+        <div v-if="!distLoading && distributors.length === 0" class="hint">该组织下暂无业务员，请先在组织人员管理中添加</div>
       </el-form-item>
       <el-form-item label="姓名" prop="name">
         <el-input v-model="form.name" maxlength="100" placeholder="客户姓名" />
@@ -66,7 +66,7 @@ const form = reactive({
 })
 
 const rules = {
-  distributorId: [{ required: true, message: '请选择推广员', trigger: 'change' }],
+  distributorId: [{ required: true, message: '请选择归属业务员', trigger: 'change' }],
   name: [{ required: true, message: '请填写客户姓名', trigger: 'blur' }],
   phone: [{ required: true, message: '请填写手机号', trigger: 'blur' }],
   idCard: [{ required: true, message: '请填写身份证号', trigger: 'blur' },
@@ -83,7 +83,7 @@ async function init() {
       form.distributorId = distributors.value[0].distributorId  // 默认选第一个
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '加载推广员失败')
+    ElMessage.error(e.response?.data?.message || '加载业务员失败')
   } finally {
     distLoading.value = false
   }
@@ -103,7 +103,7 @@ function reset() {
 async function submit() {
   await formRef.value.validate().catch(() => { throw new Error('invalid') })
   if (!form.distributorId) {
-    ElMessage.warning('请选择推广员')
+    ElMessage.warning('请选择归属业务员')
     return
   }
   saving.value = true

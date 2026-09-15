@@ -92,9 +92,5 @@ Page({
     } finally {
       this.setData({ saving: false });
     }
-  },
-
-  skipProfile() {
-    wx.switchTab({ url: '/pages/home/index' });
   }
 });

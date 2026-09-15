@@ -2,7 +2,7 @@
 
 import logging
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import select
@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 SOURCE_CODE = "BJTR"
+DEFAULT_SHARE_TITLE = "邀请您绑定儒泰医联业务员"
+CHINA_TIMEZONE = timezone(timedelta(hours=8))
 
 
 # ============================================================================
@@ -29,7 +31,7 @@ async def _get_promoter(db: AsyncSession, user_id: int) -> Distributor:
     )
     promoter = result.scalars().first()
     if promoter is None:
-        raise ForbiddenException(message="You are not registered as a promoter")
+        raise ForbiddenException(message="当前账号尚未成为业务员")
     return promoter
 
 
@@ -43,35 +45,44 @@ async def _check_approved_qualification(db: AsyncSession, distributor_id: int) -
     distributor = result.scalars().first()
     if distributor is None or not await distributor_service.is_distributor_selectable(db, distributor):
         raise ForbiddenException(
-            message="You must have an approved qualification to access promotion codes"
+            message="所属组织资质通过后才能使用客户绑定码"
         )
     return True
 
 
 def _generate_ref_token() -> str:
-    """Generate a cryptographically secure random ref token."""
-    return secrets.token_urlsafe(32)
+    """Generate a WeChat scene-compatible secure 32-character token."""
+    return secrets.token_hex(16)
+
+
+def _format_api_datetime(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    aware = value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+    return aware.astimezone(CHINA_TIMEZONE).isoformat(timespec="seconds")
 
 
 def _code_to_response(code: PromotionCode) -> dict:
     """Serialize a PromotionCode model to a response dict."""
     status = code.status.value if hasattr(code.status, "value") else str(code.status)
+    public_base = settings.public_api_base_url.rstrip("/")
     return {
         "promotionCodeId": str(code.id),
         "refToken": code.ref_token,
         "sourceCode": code.source_code,
-        "qrImageUrl": code.qr_image_url,
-        "shareTitle": code.share_title,
-        "sharePath": code.share_path,
+        "qrImageUrl": f"{public_base}/customer-binding-codes/{code.ref_token}/image",
+        "shareTitle": code.share_title or DEFAULT_SHARE_TITLE,
+        "sharePath": code.share_path
+        or f"/pages/patient-binding/index?refToken={code.ref_token}",
         "status": status,
-        "statusLabel": "推广码可用" if status == PromotionCodeStatus.AVAILABLE.value else "推广码不可用",
-        "expiresAt": code.expires_at.isoformat() if code.expires_at else None,
+        "statusLabel": "客户绑定码可用" if status == PromotionCodeStatus.AVAILABLE.value else "客户绑定码不可用",
+        "expiresAt": _format_api_datetime(code.expires_at),
         "disabledReason": code.disabled_reason,
         "scanCount": code.scan_count,
         "leadCount": code.lead_count,
         "bindCount": code.bind_count,
-        "createdAt": code.created_at.isoformat() if code.created_at else None,
-        "updatedAt": code.updated_at.isoformat() if code.updated_at else None,
+        "createdAt": _format_api_datetime(code.created_at),
+        "updatedAt": _format_api_datetime(code.updated_at),
     }
 
 
@@ -99,7 +110,30 @@ async def get_promotion_code(
     )
     code = result.scalars().first()
 
+    if code is not None and len(code.ref_token) <= 32:
+        expected_path = f"/pages/patient-binding/index?refToken={code.ref_token}"
+        if (
+            code.share_path != expected_path
+            or code.share_title != DEFAULT_SHARE_TITLE
+            or code.qr_image_url is not None
+        ):
+            # Repair codes created by the former demo-QR implementation so an
+            # already deployed account immediately shares the patient flow.
+            code.share_path = expected_path
+            code.share_title = DEFAULT_SHARE_TITLE
+            code.qr_image_url = None
+            db.add(code)
+            await db.flush()
+        return _code_to_response(code)
+
     if code is not None:
+        code.ref_token = _generate_ref_token()
+        code.share_path = f"/pages/patient-binding/index?refToken={code.ref_token}"
+        code.share_title = DEFAULT_SHARE_TITLE
+        code.qr_image_url = None
+        db.add(code)
+        await db.flush()
+        await db.refresh(code)
         return _code_to_response(code)
 
     # Generate a new promotion code
@@ -111,7 +145,8 @@ async def get_promotion_code(
         ref_token=ref_token,
         source_code=SOURCE_CODE,
         status=PromotionCodeStatus.AVAILABLE,
-        share_path=f"/pages/index/index?source={SOURCE_CODE}&ref_token={ref_token}",
+        share_title=DEFAULT_SHARE_TITLE,
+        share_path=f"/pages/patient-binding/index?refToken={ref_token}",
     )
     db.add(code)
     await db.flush()
@@ -151,7 +186,9 @@ async def refresh_code(
     if code is not None:
         old_ref_token = code.ref_token
         code.ref_token = new_ref_token
-        code.share_path = f"/pages/index/index?source={SOURCE_CODE}&ref_token={new_ref_token}"
+        code.share_path = f"/pages/patient-binding/index?refToken={new_ref_token}"
+        code.share_title = DEFAULT_SHARE_TITLE
+        code.qr_image_url = None
         code.status = PromotionCodeStatus.AVAILABLE
         code.disabled_reason = None
         code.updated_at = now
@@ -163,7 +200,8 @@ async def refresh_code(
             ref_token=new_ref_token,
             source_code=SOURCE_CODE,
             status=PromotionCodeStatus.AVAILABLE,
-            share_path=f"/pages/index/index?source={SOURCE_CODE}&ref_token={new_ref_token}",
+            share_title=DEFAULT_SHARE_TITLE,
+            share_path=f"/pages/patient-binding/index?refToken={new_ref_token}",
         )
         db.add(code)
 
@@ -257,12 +295,12 @@ async def get_poster(
     code = result.scalars().first()
 
     if code is None:
-        raise NotFoundException(message="No active promotion code found. Generate one first.")
+        raise NotFoundException(message="暂无可用客户绑定码，请先生成")
 
     return {
-        "posterUrl": code.qr_image_url or "",
-        "qrImageUrl": code.qr_image_url,
-        "shareTitle": code.share_title or "北京儒泰分销",
-        "sharePath": code.share_path or "/pages/index/index",
+        "posterUrl": f"{settings.public_api_base_url.rstrip('/')}/customer-binding-codes/{code.ref_token}/image",
+        "qrImageUrl": f"{settings.public_api_base_url.rstrip('/')}/customer-binding-codes/{code.ref_token}/image",
+        "shareTitle": DEFAULT_SHARE_TITLE,
+        "sharePath": f"/pages/patient-binding/index?refToken={code.ref_token}",
         "sourceCode": code.source_code,
     }

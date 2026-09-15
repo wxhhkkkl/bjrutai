@@ -67,16 +67,22 @@ const routes = [
     meta: { title: '数据报表', icon: 'DataAnalysis' },
   },
   {
+    path: '/articles/categories',
+    name: 'ArticleCategories',
+    component: () => import('@/pages/articles/categories.vue'),
+    meta: { title: '文章分类', permission: 'articles.read' },
+  },
+  {
     path: '/articles',
     name: 'Articles',
     component: () => import('@/pages/articles/index.vue'),
     meta: { title: '文章管理', icon: 'Document' },
   },
   {
-    path: '/articles/categories',
-    name: 'ArticleCategories',
-    component: () => import('@/pages/articles/categories.vue'),
-    meta: { title: '文章分类', permission: 'articles.read' },
+    path: '/banners',
+    name: 'Banners',
+    component: () => import('@/pages/banners/index.vue'),
+    meta: { title: '轮播图管理', icon: 'Picture' },
   },
   {
     path: '/articles/preview/:id',

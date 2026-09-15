@@ -12,7 +12,8 @@ const approvedDoctor = {
   role: 'collaborator',
   identityType: 'doctor',
   name: '张小明',
-  phone: '138****1028'
+  phone: '138****1028',
+  organization: '已分配组织'
 };
 
 test('account profile exposes identity and account state', () => {
@@ -47,7 +48,7 @@ test('account profile save preserves role and updates editable data', () => {
 
   assert.equal(updated.role, 'collaborator');
   assert.equal(updated.name, '李医生');
-  assert.equal(updated.organization, '北京儒泰服务有限公司');
+  assert.equal(updated.organization, '已分配组织');
   assert.equal(updated.phone, '139****6688');
   assert.equal(updated.avatar, 'wxfile://avatar.png');
 });

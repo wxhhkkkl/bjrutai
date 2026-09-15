@@ -1,8 +1,8 @@
-<app-header title="儒泰协作" showLogo="{{true}}" />
+<app-header title="儒泰医联" showLogo="{{true}}" />
 
 <view class="login-page">
     <view class="login-welcome">
-        <text class="login-welcome__title">欢迎使用儒泰协作</text>
+        <text class="login-welcome__title">欢迎使用儒泰医联</text>
         <text class="login-welcome__description">推广协作，贡献可见</text>
     </view>
 

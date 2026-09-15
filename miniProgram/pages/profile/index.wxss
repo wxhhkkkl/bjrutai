@@ -150,6 +150,17 @@ page {
     line-height: 1.2;
 }
 
+.profile-membership-notice {
+  margin-bottom: 30rpx;
+  padding: 24rpx 28rpx;
+  color: #5d6878;
+  font-size: 24rpx;
+  line-height: 1.6;
+  background: #f1f6fd;
+  border: 1rpx solid #dbe9fb;
+  border-radius: 18rpx;
+}
+
 .profile-service-grid {
     position: relative;
     display: grid;

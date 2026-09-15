@@ -157,8 +157,8 @@ async function markRead(item) {
     await http.post(`/notifications/${item.id}/read`)
     item.isRead = true
     unreadCount.value = Math.max(0, unreadCount.value - 1)
-  } catch {
-    // Silently ignore
+  } catch (error) {
+    ElMessage.error(error.userMessage || '标记消息已读失败')
   }
 }
 

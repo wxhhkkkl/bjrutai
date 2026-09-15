@@ -1,8 +1,9 @@
 page { min-height: 100%; background: #f6f8fb; }
 .articles-page { min-height: 100vh; padding: 24rpx 28rpx calc(56rpx + constant(safe-area-inset-bottom)); padding: 24rpx 28rpx calc(56rpx + env(safe-area-inset-bottom)); box-sizing: border-box; }
-.articles-heading { margin: 4rpx 4rpx 26rpx; display: flex; align-items: baseline; justify-content: space-between; gap: 20rpx; }
-.articles-heading__title { color: #111722; font-size: 42rpx; font-weight: 700; line-height: 1.3; }
-.articles-heading__note { color: #8992a0; font-size: 23rpx; line-height: 1.4; }
+.article-category-filter { width: 100%; margin: 0 0 24rpx; white-space: nowrap; }
+.article-category-filter__items { min-width: 100%; display: inline-flex; align-items: center; gap: 14rpx; }
+.article-category-filter__item { min-width: 96rpx; height: 60rpx; padding: 0 22rpx; display: inline-flex; align-items: center; justify-content: center; color: #637083; font-size: 25rpx; line-height: 1; background: #ffffff; border: 1rpx solid #dce3ed; border-radius: 999rpx; box-sizing: border-box; }
+.article-category-filter__item--active { color: #ffffff; font-weight: 600; background: #1677ff; border-color: #1677ff; box-shadow: 0 6rpx 14rpx rgba(22, 119, 255, 0.2); }
 .article-list { display: flex; flex-direction: column; gap: 22rpx; }
 .article-card { min-height: 218rpx; padding: 22rpx; display: flex; align-items: stretch; gap: 24rpx; background: #ffffff; border: 1rpx solid #e8ecf2; border-radius: 26rpx; box-shadow: 0 10rpx 26rpx rgba(31, 61, 105, 0.055); box-sizing: border-box; }
 .article-card__cover, .article-card__placeholder { width: 218rpx; height: 164rpx; flex: none; border-radius: 18rpx; }

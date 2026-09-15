@@ -3,15 +3,31 @@
 Public endpoints return only published articles. No authentication required.
 """
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.database import get_db
 from ...core.error_handler import _build_response
 from ...core.exceptions import NotFoundException
+from ...models.category import ArticleCategory
 from ...schemas.article import ArticleListResponse
 from ...services.article_service import get_detail, list_public
 
 router = APIRouter(prefix="/articles", tags=["articles"])
+
+
+@router.get("/categories")
+async def list_article_categories(
+    db: AsyncSession = Depends(get_db),
+):
+    """List the managed article categories used by the public article filter."""
+    result = await db.execute(
+        select(ArticleCategory).order_by(ArticleCategory.sort_order, ArticleCategory.id)
+    )
+    categories = result.scalars().all()
+    return _build_response(0, "success", {
+        "items": [{"id": str(category.id), "name": category.name} for category in categories]
+    })
 
 
 @router.get("")

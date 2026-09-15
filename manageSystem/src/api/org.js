@@ -30,11 +30,17 @@ export const orgApi = {
 }
 
 export const distributorApi = {
+  listUnassigned(params = {}) {
+    return http.get('/admin/users/unassigned', { params }).then(payload)
+  },
   list(orgId, params = {}) {
     return http.get(`/admin/orgs/${orgId}/distributors`, { params }).then(payload)
   },
   create(orgId, data) {
     return http.post(`/admin/orgs/${orgId}/distributors`, data).then(payload)
+  },
+  attach(orgId, data) {
+    return http.post(`/admin/orgs/${orgId}/distributors/attach`, data).then(payload)
   },
   update(id, data) {
     return http.put(`/admin/distributors/${id}`, data).then(payload)

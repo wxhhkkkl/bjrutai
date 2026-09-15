@@ -80,17 +80,14 @@ async def distributor_login(
 
 
 # ──────────────────────────────────────────────────────────────────
-# POST /auth/distributor-register (012-register-default-dept)
+# POST /auth/distributor-register (legacy route; creates an unassigned account)
 # ──────────────────────────────────────────────────────────────────
 @router.post("/distributor-register", status_code=201)
 async def distributor_register(
     body: DistributorRegisterRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Self-registration for new distributors (phone + password).
-
-    Creates a User + Distributor auto-mounted to the default org.
-    """
+    """Register a login account; organization membership requires an invite or admin."""
     svc = get_auth_service()
     result = await svc.distributor_register(
         db, body.phone, body.password, body.name
@@ -149,7 +146,7 @@ async def phone_bind(
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalars().first()
     if user is None:
-        raise UnauthorizedException(message="Token invalid or malformed")
+        raise UnauthorizedException(message="登录凭证无效，请重新登录")
 
     svc = get_auth_service()
     masked_phone = await svc.phone_bind(db, user, body.code)

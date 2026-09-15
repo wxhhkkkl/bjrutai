@@ -111,6 +111,16 @@ def _mask_id_card(id_card: Optional[str]) -> Optional[str]:
     return id_card[:3] + "***********" + id_card[-4:]
 
 
+def _normalize_phone(phone: Optional[str]) -> str:
+    """Return a canonical mainland mobile number used for customer merging."""
+    digits = "".join(character for character in str(phone or "") if character.isdigit())
+    if digits.startswith("86") and len(digits) == 13:
+        digits = digits[2:]
+    if len(digits) != 11 or not digits.startswith("1"):
+        raise ValidationException(message="请输入正确的11位客户手机号")
+    return digits
+
+
 # ---------------------------------------------------------------------------
 # Service
 # ---------------------------------------------------------------------------
@@ -245,12 +255,12 @@ class BindingService:
         """
         promoter_id_str = data.get("promoterId", "")
         if not promoter_id_str:
-            raise ValidationException(message="promoterId is required")
+            raise ValidationException(message="缺少归属业务员参数")
 
         try:
             promoter_user_id = int(promoter_id_str)
         except (ValueError, TypeError):
-            raise BadRequestException(message="Invalid promoterId")
+            raise BadRequestException(message="业务员参数无效")
 
         # Verify distributor exists and its org is business-available
         promoter_result = await db.execute(
@@ -259,7 +269,7 @@ class BindingService:
         promoter = promoter_result.scalars().first()
         if promoter is None or not await distributor_service.is_distributor_selectable(db, promoter):
             raise AppException(
-                code=40020, message="Distributor not found or not selectable", status_code=400,
+                code=40020, message="业务员不存在或当前不可开展业务", status_code=400,
             )
 
         # Extract customer info before duplicate checks. A promoter may bind many
@@ -267,63 +277,65 @@ class BindingService:
         # be rejected as a duplicate.
         customer_info = data.get("customerInfo") or {}
         name = customer_info.get("name", "")
-        phone = customer_info.get("phone", "")
+        phone = _normalize_phone(customer_info.get("phone"))
         id_card = customer_info.get("idCard", "")
         medical_account = customer_info.get("medicalAccount", "")
         family_phone = customer_info.get("familyPhone", "")
         remark = customer_info.get("remark", "")
         source_type_str = data.get("sourceType", "manual")
 
-        # Validate that at least one identifier is provided for matching
-        if not name and not phone and not id_card:
-            raise ValidationException(message="At least one of name, phone, or idCard is required for customer matching")
-
-        customer_identifiers = []
-        if phone:
-            customer_identifiers.append(Customer.phone == phone)
+        customer_identifiers = [
+            Customer.phone_normalized == phone,
+            Customer.phone == phone,
+        ]
         if id_card:
             customer_identifiers.append(Customer.id_card_encrypted == id_card)
 
-        if customer_identifiers:
-            existing_bound = await db.execute(
-                select(Customer.id).where(
-                    Customer.distributor_id == promoter.id,
-                    Customer.binding_status == BindingStatus.BOUND,
-                    or_(*customer_identifiers),
-                )
+        existing_customer = (
+            await db.execute(
+                select(Customer)
+                .where(or_(*customer_identifiers))
+                .order_by(Customer.id.asc())
+                .with_for_update()
             )
-            if existing_bound.scalars().first() is not None:
-                raise AppException(
-                    code=40022, message="该客户已绑定当前拓展人，请勿重复提交", status_code=409,
-                )
-
-            # Binding requests contain masked identifiers only. Restrict the
-            # pending-request check to the submitted customer instead of blocking
-            # every request for the same promoter.
-            pending_identifiers = []
-            if phone:
-                pending_identifiers.append(BindingRequest.phone_masked == _mask_phone(phone))
-            if id_card:
-                pending_identifiers.append(BindingRequest.id_card_masked == _mask_id_card(id_card))
-
-            existing_pending = await db.execute(
-                select(BindingRequest.id).where(
-                    BindingRequest.distributor_id == promoter.id,
-                    BindingRequest.submitted_by == submitted_by,
-                    BindingRequest.status.in_([
-                        BindingRequestStatus.PENDING_MATCH,
-                        BindingRequestStatus.MATCHING,
-                        BindingRequestStatus.RETRYING,
-                        BindingRequestStatus.MANUAL_REVIEW,
-                    ]),
-                    or_(*pending_identifiers),
-                )
+        ).scalars().first()
+        if existing_customer is not None and existing_customer.distributor_id != promoter.id:
+            raise ConflictException(
+                code=40023,
+                message="该手机号对应客户已归属其他业务员，请联系后台处理",
             )
-            if existing_pending.scalars().first() is not None:
-                raise ConflictException(
-                    code=40021,
-                    message="该客户已有待处理的绑定申请",
-                )
+        if (
+            existing_customer is not None
+            and existing_customer.binding_status == BindingStatus.BOUND
+        ):
+            raise AppException(
+                code=40022, message="该客户已绑定当前业务员，请勿重复提交", status_code=409,
+            )
+
+        # Binding requests contain masked identifiers only. Restrict the
+        # pending-request check to the submitted customer instead of blocking
+        # every request for the same promoter.
+        pending_identifiers = [BindingRequest.phone_masked == _mask_phone(phone)]
+        if id_card:
+            pending_identifiers.append(BindingRequest.id_card_masked == _mask_id_card(id_card))
+
+        existing_pending = await db.execute(
+            select(BindingRequest.id).where(
+                BindingRequest.distributor_id == promoter.id,
+                BindingRequest.status.in_([
+                    BindingRequestStatus.PENDING_MATCH,
+                    BindingRequestStatus.MATCHING,
+                    BindingRequestStatus.RETRYING,
+                    BindingRequestStatus.MANUAL_REVIEW,
+                ]),
+                or_(*pending_identifiers),
+            )
+        )
+        if existing_pending.scalars().first() is not None:
+            raise ConflictException(
+                code=40021,
+                message="该客户已有待处理的绑定申请",
+            )
 
         # Get consent record if provided
         consent_record_id = data.get("consentRecordId")
@@ -337,13 +349,51 @@ class BindingService:
             if cr is None or not cr.confirmed:
                 raise BadRequestException(
                     code=40025,
-                    message="Consent record not found or not confirmed",
+                    message="授权记录不存在或尚未确认",
                 )
             consent_record_id = int(consent_record_id)
 
-        # Create binding request
+        # A customer exists from the first local entry, independently of the
+        # external Rutai matching result. This record is reused after scan.
+        if existing_customer is None:
+            customer = Customer(
+                distributor_id=promoter.id,
+                name=name or None,
+                phone=phone,
+                phone_normalized=phone,
+                phone_masked=_mask_phone(phone),
+                id_card_encrypted=id_card or None,
+                id_card_masked=_mask_id_card(id_card) if id_card else None,
+                medical_account_encrypted=medical_account or None,
+                family_phone=family_phone or None,
+                note=remark or None,
+                binding_status=BindingStatus.PENDING,
+                version=1,
+            )
+            db.add(customer)
+            await db.flush()
+            await db.refresh(customer)
+        else:
+            customer = existing_customer
+            if name:
+                customer.name = name
+            if id_card and not customer.id_card_encrypted:
+                customer.id_card_encrypted = id_card
+                customer.id_card_masked = _mask_id_card(id_card)
+            if medical_account and not customer.medical_account_encrypted:
+                customer.medical_account_encrypted = medical_account
+            if family_phone and not customer.family_phone:
+                customer.family_phone = family_phone
+            if remark:
+                customer.note = remark
+            customer.version += 1
+            db.add(customer)
+            await db.flush()
+
+        # Create binding request linked to the local customer from the start.
         ref_token = str(uuid.uuid4())
         binding_req = BindingRequest(
+            customer_id=customer.id,
             distributor_id=promoter.id,
             submitted_by=submitted_by,
             customer_name=name or None,
@@ -427,65 +477,13 @@ class BindingService:
         db.add(log)
         await db.flush()
 
-        # If matched, create/update Customer record
+        # If matched, update the already-created local Customer record.
         if binding_req.status == BindingRequestStatus.BOUND and hrb_user_id:
-            existing_customer_id = None
-            if id_card:
-                existing_result = await db.execute(
-                    select(Customer.id).where(Customer.id_card_encrypted == id_card)
-                )
-                existing_customer_id = existing_result.scalars().first()
-
-            if existing_customer_id is not None:
-                # FR-007: reuse the existing profile (e.g. manually created 待绑定
-                # customer) instead of creating a duplicate record.
-                customer = await db.get(Customer, existing_customer_id)
-                customer.binding_status = BindingStatus.BOUND
-                customer.rutai_user_id = hrb_user_id
-                customer.bound_at = now
-                if not customer.id_card_encrypted and id_card:
-                    customer.id_card_encrypted = id_card
-                    customer.id_card_masked = _mask_id_card(id_card)
-                if not customer.phone and phone:
-                    customer.phone = phone
-                    customer.phone_masked = _mask_phone(phone)
-                if not customer.medical_account_encrypted and medical_account:
-                    customer.medical_account_encrypted = medical_account
-                if customer.distributor_id != promoter.id:
-                    previous_distributor_id = customer.distributor_id
-                    customer.distributor_id = promoter.id
-                    from ..models.customer_change_log import ChangeOperationType, CustomerChangeLog
-
-                    db.add(CustomerChangeLog(
-                        customer_id=customer.id,
-                        operation_type=ChangeOperationType.TRANSFER,
-                        previous_distributor_id=previous_distributor_id,
-                        new_distributor_id=promoter.id,
-                        operator_id=submitted_by,
-                        reason="绑定流程匹配成功，推广员更新",
-                    ))
-                customer.version += 1
-                db.add(customer)
-                await db.flush()
-            else:
-                customer = Customer(
-                    distributor_id=promoter.id,
-                    name=name or None,
-                    phone=phone or None,
-                    phone_masked=_mask_phone(phone) if phone else None,
-                    id_card_encrypted=id_card or None,
-                    id_card_masked=_mask_id_card(id_card) if id_card else None,
-                    medical_account_encrypted=medical_account or None,
-                    family_phone=family_phone,
-                    rutai_user_id=hrb_user_id,
-                    note=remark,
-                    binding_status=BindingStatus.BOUND,
-                    bound_at=now,
-                    version=1,
-                )
-                db.add(customer)
-                await db.flush()
-            binding_req.customer_id = customer.id
+            customer.binding_status = BindingStatus.BOUND
+            customer.rutai_user_id = hrb_user_id
+            customer.bound_at = now
+            customer.version += 1
+            db.add(customer)
             await db.flush()
 
         # Get promoter name for response
@@ -660,7 +658,7 @@ class BindingService:
         )
         br = result.scalars().first()
         if br is None:
-            raise NotFoundException(code=40400, message="Binding request not found")
+            raise NotFoundException(code=40400, message="未找到绑定申请")
 
         promoter_user = br.distributor.user if br.distributor else None
 
@@ -742,18 +740,18 @@ class BindingService:
         )
         br = result.scalars().first()
         if br is None:
-            raise NotFoundException(code=40400, message="Binding request not found")
+            raise NotFoundException(code=40400, message="未找到绑定申请")
 
         if br.status.value not in RETRYABLE_STATUSES:
             raise BadRequestException(
                 code=40026,
-                message="Can only retry abnormal, manual_review, or no_consume requests",
+                message="当前绑定状态不允许重试",
             )
 
         if br.retry_count >= MAX_RETRY_COUNT:
             raise BadRequestException(
                 code=40026,
-                message=f"Maximum retry count ({MAX_RETRY_COUNT}) reached",
+                message=f"已达最大重试次数（{MAX_RETRY_COUNT}次）",
             )
 
         # Check retry interval
@@ -761,7 +759,7 @@ class BindingService:
         if br.next_retry_at and now < br.next_retry_at:
             raise BadRequestException(
                 code=40026,
-                message=f"Next retry allowed at {br.next_retry_at.isoformat()}",
+                message=f"请在 {br.next_retry_at.isoformat()} 后重试",
             )
 
         # Also check if user is already bound
@@ -775,7 +773,7 @@ class BindingService:
             if cust_result.scalars().first() is not None:
                 raise ConflictException(
                     code=40022,
-                    message="Already bound to this promoter",
+                    message="该客户已绑定当前业务员",
                 )
 
         # Increment retry count and set next retry
@@ -853,18 +851,18 @@ class BindingService:
         )
         br = result.scalars().first()
         if br is None:
-            raise NotFoundException(code=40400, message="Binding request not found")
+            raise NotFoundException(code=40400, message="未找到绑定申请")
 
         # Only allow updates if not already bound/unbound/transferred
         if br.status in (BindingRequestStatus.BOUND, BindingRequestStatus.UNBOUND, BindingRequestStatus.TRANSFERRED):
             raise BadRequestException(
                 code=40027,
-                message="Can only update customer info for requests that are not yet bound, unbound, or transferred",
+                message="当前绑定状态不允许修改客户资料",
             )
 
         version = data.get("version", 0)
         if version != br.version:
-            raise ConflictException(message="Version conflict: binding request has been modified")
+            raise ConflictException(message="绑定申请已被修改，请刷新后重试")
 
         # Update fields
         if "name" in data and data["name"] is not None:

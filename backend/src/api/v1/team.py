@@ -11,10 +11,10 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_current_user, get_db
+from ...api.deps import get_current_user, get_db, require_org_admin
 from ...services.team_service import TeamService
 
-router = APIRouter(prefix="/team", tags=["team"])
+router = APIRouter(prefix="/team", tags=["team"], dependencies=[Depends(require_org_admin)])
 
 
 def _ok(data=None) -> dict:

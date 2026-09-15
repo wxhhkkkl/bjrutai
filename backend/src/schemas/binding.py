@@ -37,7 +37,7 @@ class CustomerInfoInput(BaseModel):
     """Customer info submitted during binding request creation."""
 
     name: Optional[str] = Field(None, max_length=100, description="Customer name")
-    phone: Optional[str] = Field(None, min_length=11, max_length=11, description="Customer phone")
+    phone: str = Field(..., min_length=11, max_length=20, description="Customer phone")
     idCard: Optional[str] = Field(None, max_length=18, description="Customer ID card number")
     medicalAccount: Optional[str] = Field(None, max_length=64, description="Medical insurance account")
     familyPhone: Optional[str] = Field(None, max_length=20, description="Family contact phone")

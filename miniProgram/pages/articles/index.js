@@ -1,5 +1,10 @@
 const articleService = require('../../services/article-service')
-const { normalizeArticleId, adaptArticlePage, mergeArticlePage } = require('../../models/article')
+const {
+  normalizeArticleId,
+  adaptArticlePage,
+  adaptArticleCategories,
+  mergeArticlePage
+} = require('../../models/article')
 
 Page({
   requestVersion: 0,
@@ -12,10 +17,22 @@ Page({
     hasMore: false,
     loadingMore: false,
     loadMoreError: '',
+    categories: [{ id: 'all', name: '全部', value: '' }],
+    selectedCategory: '',
     openingArticleId: ''
   },
 
-  onLoad() {
+  onLoad(options = {}) {
+    let category = typeof options.category === 'string' ? options.category.trim() : ''
+    try {
+      category = decodeURIComponent(category).trim()
+    } catch (error) {
+      // 保留原始参数，后续由接口返回统一错误。
+    }
+    if (category.length > 50) category = category.slice(0, 50)
+    this.data.selectedCategory = category
+    this.setData({ selectedCategory: category })
+    this.loadCategories()
     this.loadFirstPage(false)
   },
 
@@ -29,6 +46,7 @@ Page({
 
   async loadFirstPage(fromRefresh) {
     const version = ++this.requestVersion
+    const category = this.data.selectedCategory
     this.setData({
       state: 'loading',
       stateMessage: '',
@@ -40,7 +58,7 @@ Page({
     })
 
     try {
-      const payload = await articleService.listArticles({ limit: 20 })
+      const payload = await articleService.listArticles({ limit: 20, category })
       if (version !== this.requestVersion) return
       const page = adaptArticlePage(payload)
       this.setData({
@@ -73,10 +91,15 @@ Page({
     if (this.data.state !== 'success' || !this.data.hasMore || this.data.loadingMore) return
     const version = this.requestVersion
     const currentCursor = this.data.nextCursor
+    const category = this.data.selectedCategory
     this.setData({ loadingMore: true, loadMoreError: '' })
 
     try {
-      const payload = await articleService.listArticles({ limit: 20, cursor: currentCursor })
+      const payload = await articleService.listArticles({
+        limit: 20,
+        cursor: currentCursor,
+        category
+      })
       if (version !== this.requestVersion) return
       const page = adaptArticlePage(payload)
       const merged = mergeArticlePage(this.data.items, page, currentCursor)
@@ -102,6 +125,32 @@ Page({
 
   retryLoadMore() {
     this.loadMore()
+  },
+
+  async loadCategories() {
+    try {
+      const payload = await articleService.listArticleCategories()
+      const categories = adaptArticleCategories(payload).map((category) => ({
+        id: category.id,
+        name: category.name,
+        value: category.name
+      }))
+      this.setData({
+        categories: [{ id: 'all', name: '全部', value: '' }].concat(categories)
+      })
+    } catch (error) {
+      // 分类只是辅助筛选；读取失败时仍允许用户浏览全部文章。
+      this.setData({ categories: [{ id: 'all', name: '全部', value: '' }] })
+    }
+  },
+
+  selectCategory(event) {
+    const category = typeof event.currentTarget.dataset.category === 'string'
+      ? event.currentTarget.dataset.category
+      : ''
+    if (category === this.data.selectedCategory) return
+    this.setData({ selectedCategory: category })
+    this.loadFirstPage(false)
   },
 
   openArticle(event) {

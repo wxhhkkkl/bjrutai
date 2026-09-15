@@ -22,7 +22,14 @@ from ..core.security import (
 from ..integrations.wechat_client import get_wechat_client
 from ..models.role import Role
 from ..models.session import TokenType, UserToken
-from ..models.user import AdminAccount, AdminStatus, User, UserType, admin_account_roles
+from ..models.user import (
+    ActivationStatus,
+    AdminAccount,
+    AdminStatus,
+    User,
+    UserType,
+    admin_account_roles,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -99,47 +106,47 @@ def _issue_token_pair(
 class AuthService:
     """Stateless auth service.  Each method accepts a DB session."""
 
-    async def _ensure_wechat_distributor(
+    async def _get_business_membership(
         self,
         db: AsyncSession,
         user: User,
     ) -> Optional[dict]:
-        """Ensure a WeChat user is mounted under the default root organization.
-
-        Older WeChat users may have a ``users`` row but no corresponding
-        ``distributors`` row.  Treat that state the same as first registration
-        and repair it during login so the user becomes visible in the admin
-        organization personnel list.
-        """
+        """Return an existing active organization membership without creating one."""
         from ..services import distributor_service as dist_svc
-        from ..services import organization_service
+        from ..models.distributor import Distributor, DistributorStatus
+        from ..models.organization import Organization, OrgStatus
 
         distributor = await dist_svc.get_distributor_by_user(db, user.id)
-        default_org = None
-        if distributor is None:
-            default_org = await organization_service.get_default_org(db)
-            if default_org is None:
-                logger.warning(
-                    "No default org configured; user %s registered without Distributor",
-                    user.id,
-                )
-                return None
-            distributor = await dist_svc.register_distributor(
-                db, user.id, default_org.id, "wechat_register"
-            )
+        if not isinstance(distributor, Distributor):
+            return None
 
-        org_name = default_org.name if default_org and isinstance(default_org.name, str) else None
-        if org_name is None:
-            org_name = await dist_svc._org_name(db, distributor.org_id) or ""
+        org = await db.get(Organization, distributor.org_id)
+        membership_status = (
+            distributor.status.value
+            if hasattr(distributor.status, "value")
+            else str(distributor.status)
+        )
+        org_status = (
+            org.status.value if org and hasattr(org.status, "value") else str(org.status)
+            if org else "missing"
+        )
+        active = (
+            membership_status == DistributorStatus.ACTIVE.value
+            and org_status == OrgStatus.ACTIVE.value
+            and user.activation_status == ActivationStatus.ACTIVE
+        )
 
         return {
             "distributorId": str(distributor.id),
             "orgId": str(distributor.org_id),
-            "orgName": org_name,
+            "orgName": org.name if org else "",
             "orgRole": distributor.org_role.value
             if hasattr(distributor.org_role, "value")
             else str(distributor.org_role),
-            "sourceChannel": distributor.source_channel or "wechat_register",
+            "sourceChannel": distributor.source_channel or "admin_create",
+            "status": membership_status,
+            "orgStatus": org_status,
+            "hasBusinessMembership": active,
         }
 
     # ── WeChat Login ──────────────────────────────────────────────
@@ -165,11 +172,11 @@ class AuthService:
             msg = str(exc)
             if "invalid code" in msg:
                 raise AppException(
-                    code=40001, message="Invalid WeChat code",
+                    code=40001, message="微信登录凭证无效，请重试",
                     status_code=400, error_type="bad_request",
                 )
             raise AppException(
-                code=40002, message="WeChat service error, please retry",
+                code=40002, message="微信服务异常，请稍后重试",
                 status_code=400, error_type="bad_request",
             )
 
@@ -186,15 +193,13 @@ class AuthService:
                 logger.warning("Failed to resolve phone_code during wechat_login", exc_info=True)
                 raise AppException(
                     code=40005,
-                    message="Invalid phone auth code",
+                    message="手机号授权凭证无效，请重新授权",
                     status_code=400,
                     error_type="bad_request",
                 ) from exc
             if resolved_phone:
                 phone_result = await db.execute(
-                    select(User).where(
-                        (User.phone == resolved_phone) | (User.phone_masked == resolved_phone)
-                    )
+                    select(User).where(User.phone == resolved_phone)
                 )
                 phone_user = phone_result.scalars().first()
 
@@ -206,7 +211,7 @@ class AuthService:
         distributor_info = None
         if user is None:
             if phone_user is not None:
-                # Existing distributor binding WeChat for the first time (US2)
+                # Existing account binding WeChat for the first time.
                 user = phone_user
                 user.openid = openid
                 user.wechat_bound = True
@@ -214,49 +219,18 @@ class AuthService:
                 await db.flush()
                 await db.refresh(user)
 
-                # Don't create a new Distributor — use the existing one
-                from ..services import distributor_service as dist_svc
-                existing_dist = await dist_svc.get_distributor_by_user(db, user.id)
-                if existing_dist is not None:
-                    org_name = await dist_svc._org_name(db, existing_dist.org_id)
-                    distributor_info = {
-                        "distributorId": str(existing_dist.id),
-                        "orgId": str(existing_dist.org_id),
-                        "orgName": org_name or "",
-                        "orgRole": existing_dist.org_role.value if hasattr(existing_dist.org_role, "value") else str(existing_dist.org_role),
-                        "sourceChannel": existing_dist.source_channel,
-                    }
+                distributor_info = await self._get_business_membership(db, user)
             else:
                 is_new_user = True
                 user = User(
                     openid=openid,
-                    user_type=UserType.PROMOTER,
+                    user_type=UserType.PERSONAL,
                     wechat_bound=True,
                 )
                 db.add(user)
                 await db.flush()
                 await db.refresh(user)
 
-                # 012-register-default-dept: auto-mount to default org (FR-002/FR-003)
-                from ..services import distributor_service as dist_svc
-                from ..services import organization_service
-
-                default_org = await organization_service.get_default_org(db)
-                if default_org is not None:
-                    distributor = await dist_svc.register_distributor(
-                        db, user.id, default_org.id, "wechat_register"
-                    )
-                    distributor_info = {
-                        "distributorId": str(distributor.id),
-                        "orgId": str(distributor.org_id),
-                        "orgName": default_org.name,
-                        "orgRole": distributor.org_role.value,
-                        "sourceChannel": distributor.source_channel,
-                    }
-                else:
-                    logger.warning(
-                        "No default org configured; user %s registered without Distributor", user.id
-                    )
         elif phone_user is not None and phone_user.id != user.id:
             # Edge case: different WeChat account, same phone → bind phone's openid
             # to the existing phone_user instead.
@@ -271,32 +245,25 @@ class AuthService:
             await db.flush()
             await db.refresh(user)
 
-            from ..services import distributor_service as dist_svc
-            existing_dist = await dist_svc.get_distributor_by_user(db, user.id)
-            if existing_dist is not None:
-                from ..services import organization_service
-                org_name = await organization_service._get_org_name(db, existing_dist.org_id)
-                distributor_info = {
-                    "distributorId": str(existing_dist.id),
-                    "orgId": str(existing_dist.org_id),
-                    "orgName": org_name or "",
-                    "orgRole": existing_dist.org_role.value if hasattr(existing_dist.org_role, "value") else str(existing_dist.org_role),
-                    "sourceChannel": existing_dist.source_channel,
-                }
+            distributor_info = await self._get_business_membership(db, user)
 
         # The phone authorization code is single-use.  Persist the phone here
         # while resolving it during WeChat login so the mini program does not
         # need to call /phone-bind a second time with the same code.
         if resolved_phone:
             user.phone = resolved_phone
-            user.phone_masked = resolved_phone
+            user.phone_masked = resolved_phone[:3] + "****" + resolved_phone[-4:]
             user.phone_authorized = True
             db.add(user)
 
-        # Repair users created by an earlier login flow that have an openid but
-        # were never mounted into the organization personnel tree.
-        if distributor_info is None:
-            distributor_info = await self._ensure_wechat_distributor(db, user)
+        business_user_types = {UserType.PROMOTER, UserType.DISTRIBUTOR}
+        if distributor_info is None and user.user_type in business_user_types:
+            distributor_info = await self._get_business_membership(db, user)
+        if distributor_info is None and user.user_type in business_user_types:
+            # Membership is the source of authority. Repair legacy accounts
+            # that carried a business role without an organization record.
+            user.user_type = UserType.PERSONAL
+            db.add(user)
 
         # Issue token pair
         user_type_str = user.user_type.value if isinstance(user.user_type, UserType) else str(user.user_type)
@@ -326,6 +293,8 @@ class AuthService:
             "phone": user.phone_masked or user.phone,
             "role": user.user_type.value if isinstance(user.user_type, UserType) else user.user_type,
             "isNewUser": is_new_user,
+            "activationStatus": user.activation_status.value if hasattr(user.activation_status, "value") else str(user.activation_status),
+            "profileCompleted": user.profile_completed,
         }
 
         result = {
@@ -334,6 +303,15 @@ class AuthService:
             "expiresIn": token_pair["expiresIn"],
             "tokenType": token_pair["tokenType"],
             "user": user_info,
+            "hasBusinessMembership": bool(
+                distributor_info and distributor_info.get("hasBusinessMembership")
+            ),
+            "membershipStatus": (
+                distributor_info.get("status") if distributor_info else "none"
+            ),
+            "orgStatus": (
+                distributor_info.get("orgStatus") if distributor_info else "none"
+            ),
         }
         if distributor_info is not None:
             result["distributor"] = distributor_info
@@ -365,10 +343,13 @@ class AuthService:
         dist = await distributor_service.get_distributor_by_user(db, user.id)
         if dist is None:
             raise AppException(
-                code=40101, message="该账号不是分销员",
+                code=40101, message="该账号尚未成为业务员",
                 status_code=401, error_type="unauthorized",
             )
-        if dist.status == DistributorStatus.DISABLED:
+        if (
+            dist.status == DistributorStatus.DISABLED
+            or user.activation_status != ActivationStatus.ACTIVE
+        ):
             raise AppException(
                 code=40102, message="账号已停用",
                 status_code=401, error_type="unauthorized",
@@ -384,10 +365,14 @@ class AuthService:
         )
         db.add(token_record)
 
-        from ..models.organization import Organization
+        from ..models.organization import Organization, OrgStatus
 
-        org_res = await db.execute(select(Organization.name).where(Organization.id == dist.org_id))
-        org_name = org_res.scalars().first()
+        organization = await db.get(Organization, dist.org_id)
+        if organization is None or organization.status != OrgStatus.ACTIVE:
+            raise AppException(
+                code=40102, message="所属组织已停用",
+                status_code=401, error_type="unauthorized",
+            )
 
         return {
             "accessToken": token_pair["accessToken"],
@@ -395,10 +380,13 @@ class AuthService:
             "expiresIn": token_pair["expiresIn"],
             "tokenType": token_pair["tokenType"],
             "requiresWechatBinding": not bool(user.wechat_bound),
+            "hasBusinessMembership": True,
+            "membershipStatus": dist.status.value if hasattr(dist.status, "value") else str(dist.status),
+            "orgStatus": organization.status.value if hasattr(organization.status, "value") else str(organization.status),
             "distributor": {
                 "distributorId": str(dist.id),
                 "orgId": str(dist.org_id),
-                "orgName": org_name,
+                "orgName": organization.name,
                 "orgRole": dist.org_role.value if hasattr(dist.org_role, "value") else str(dist.org_role),
                 "name": user.name,
                 "phone": user.phone_masked or user.phone,
@@ -414,13 +402,8 @@ class AuthService:
         password: str,
         name: Optional[str] = None,
     ) -> dict:
-        """Self-registration for new distributors (FR-002, phone+password path).
-
-        Creates User + Distributor with org_role=MEMBER, auto-mounted to the
-        default org. Rejects if phone already linked to a Distributor.
-        """
+        """Create a login account without granting organization membership."""
         from ..core.security import get_password_hash as _hash
-        from ..services import distributor_service as dist_svc, organization_service
 
         # Phone uniqueness for self-registration (FR-004 duplicate check)
         existing = await db.execute(
@@ -437,34 +420,16 @@ class AuthService:
             phone=phone,
             phone_masked=phone[:3] + "****" + phone[-4:],
             password_hash=_hash(password),
-            user_type=UserType.DISTRIBUTOR,
+            user_type=UserType.PERSONAL,
             wechat_bound=False,
+            profile_completed=bool(name and name.strip()),
         )
         db.add(user)
         await db.flush()
         await db.refresh(user)
 
-        # Auto-mount to default org (FR-002/FR-003)
-        default_org = await organization_service.get_default_org(db)
-        distributor_info = None
-        if default_org is not None:
-            distributor = await dist_svc.register_distributor(
-                db, user.id, default_org.id, "phone_register"
-            )
-            distributor_info = {
-                "distributorId": str(distributor.id),
-                "orgId": str(distributor.org_id),
-                "orgName": default_org.name,
-                "orgRole": distributor.org_role.value,
-                "sourceChannel": distributor.source_channel,
-            }
-        else:
-            logger.warning(
-                "No default org configured; phone-registered user %s without Distributor", user.id
-            )
-
         # Issue token pair
-        token_pair = _issue_token_pair(user.id, "distributor")
+        token_pair = _issue_token_pair(user.id, "personal")
         token_record = UserToken(
             user_id=user.id,
             token_type=TokenType.REFRESH,
@@ -479,8 +444,10 @@ class AuthService:
             "openId": None,
             "nickname": user.name,
             "phone": user.phone_masked or user.phone,
-            "role": "distributor",
+            "role": "personal",
             "isNewUser": True,
+            "activationStatus": user.activation_status.value if hasattr(user.activation_status, "value") else str(user.activation_status),
+            "profileCompleted": user.profile_completed,
         }
 
         result = {
@@ -489,9 +456,10 @@ class AuthService:
             "expiresIn": token_pair["expiresIn"],
             "tokenType": token_pair["tokenType"],
             "user": user_info,
+            "hasBusinessMembership": False,
+            "membershipStatus": "none",
+            "orgStatus": "none",
         }
-        if distributor_info is not None:
-            result["distributor"] = distributor_info
         return result
 
     # ── First-Login WeChat Binding ───────────────────────────────
@@ -504,11 +472,11 @@ class AuthService:
             msg = str(exc)
             if "invalid code" in msg:
                 raise AppException(
-                    code=40001, message="Invalid WeChat code",
+                    code=40001, message="微信登录凭证无效，请重试",
                     status_code=400, error_type="bad_request",
                 )
             raise AppException(
-                code=40002, message="WeChat service error, please retry",
+                code=40002, message="微信服务异常，请稍后重试",
                 status_code=400, error_type="bad_request",
             )
 
@@ -524,7 +492,7 @@ class AuthService:
 
         user = await db.get(User, user_id)
         if user is None:
-            raise UnauthorizedException(message="User not found")
+            raise UnauthorizedException(message="用户不存在")
 
         user.openid = openid
         user.wechat_bound = True
@@ -550,7 +518,7 @@ class AuthService:
         # Check lockout
         if _check_login_attempts(account):
             raise AppException(
-                code=40103, message="Account locked due to too many failed attempts (retry after 15 minutes)",
+                code=40103, message="登录失败次数过多，账号已锁定15分钟",
                 status_code=401, error_type="unauthorized",
             )
 
@@ -563,19 +531,19 @@ class AuthService:
         if admin is None:
             _record_login_attempt(account, False)
             raise AppException(
-                code=40101, message="Invalid account or password",
+                code=40101, message="账号或密码错误",
                 status_code=401, error_type="unauthorized",
             )
 
         # Check status
         if admin.status == AdminStatus.DISABLED:
             raise AppException(
-                code=40102, message="Account is disabled, contact administrator",
+                code=40102, message="账号已停用，请联系管理员",
                 status_code=401, error_type="unauthorized",
             )
         if admin.status == AdminStatus.LOCKED:
             raise AppException(
-                code=40103, message="Account locked due to too many failed attempts (retry after 15 minutes)",
+                code=40103, message="登录失败次数过多，账号已锁定15分钟",
                 status_code=401, error_type="unauthorized",
             )
 
@@ -583,7 +551,7 @@ class AuthService:
         if not verify_password(password, admin.password_hash):
             _record_login_attempt(account, False)
             raise AppException(
-                code=40101, message="Invalid account or password",
+                code=40101, message="账号或密码错误",
                 status_code=401, error_type="unauthorized",
             )
 
@@ -652,32 +620,32 @@ class AuthService:
         wechat = get_wechat_client()
 
         try:
-            masked_phone = await wechat.get_phone_number(phone_code)
+            phone = await wechat.get_phone_number(phone_code)
         except Exception:
             raise AppException(
-                code=40005, message="Invalid phone auth code",
+                code=40005, message="手机号授权凭证无效，请重新授权",
                 status_code=400, error_type="bad_request",
             )
 
         # Check if phone is already bound to another user
         result = await db.execute(
             select(User).where(
-                (User.phone == masked_phone) | (User.phone_masked == masked_phone)
+                User.phone == phone
             )
         )
         other = result.scalars().first()
         if other is not None and other.id != user.id:
             raise AppException(
-                code=40006, message="Phone already bound to another account",
+                code=40006, message="该手机号已绑定其他账号",
                 status_code=400, error_type="bad_request",
             )
 
-        user.phone = masked_phone
-        user.phone_masked = masked_phone
+        user.phone = phone
+        user.phone_masked = phone[:3] + "****" + phone[-4:]
         user.phone_authorized = True
         db.add(user)
 
-        return masked_phone
+        return user.phone_masked
 
     # ── Token Refresh ────────────────────────────────────────────
     async def refresh_token(
@@ -697,13 +665,13 @@ class AuthService:
             payload = verify_token(refresh_token_str)
         except Exception:
             raise AppException(
-                code=40101, message="Token invalid or malformed",
+                code=40101, message="登录状态无效，请重新登录",
                 status_code=401, error_type="unauthorized",
             )
 
         if payload.get("type") != "refresh":
             raise AppException(
-                code=40101, message="Token invalid or malformed",
+                code=40101, message="登录状态无效，请重新登录",
                 status_code=401, error_type="unauthorized",
             )
 
@@ -711,7 +679,7 @@ class AuthService:
         exp = payload.get("exp", 0)
         if exp < datetime.now(timezone.utc).timestamp():
             raise AppException(
-                code=40106, message="Refresh token expired, please re-login",
+                code=40106, message="登录已过期，请重新登录",
                 status_code=401, error_type="unauthorized",
             )
 
@@ -722,7 +690,7 @@ class AuthService:
             user_id = int(user_id_str)
         except (ValueError, TypeError):
             raise AppException(
-                code=40101, message="Token invalid or malformed",
+                code=40101, message="登录状态无效，请重新登录",
                 status_code=401, error_type="unauthorized",
             )
 
@@ -734,7 +702,7 @@ class AuthService:
 
         if token_record is None:
             raise AppException(
-                code=40101, message="Token invalid or malformed",
+                code=40101, message="登录状态无效，请重新登录",
                 status_code=401, error_type="unauthorized",
             )
 
@@ -755,7 +723,7 @@ class AuthService:
                     .values(is_revoked=True)
                 )
             raise AppException(
-                code=40107, message="Refresh token revoked",
+                code=40107, message="登录状态已失效，请重新登录",
                 status_code=401, error_type="unauthorized",
             )
 
@@ -840,7 +808,7 @@ class AuthService:
             admin = result.scalars().first()
             if admin is None:
                 raise AppException(
-                    code=40101, message="Token invalid or malformed",
+                    code=40101, message="登录状态无效，请重新登录",
                     status_code=401, error_type="unauthorized",
                 )
 
@@ -866,13 +834,15 @@ class AuthService:
                 "role": "admin",
                 "orgNodeId": None,
                 "orgNodeName": None,
+                "activationStatus": "active",
+                "profileCompleted": True,
             }
         else:
             result = await db.execute(select(User).where(User.id == user_id))
             user = result.scalars().first()
             if user is None:
                 raise AppException(
-                    code=40101, message="Token invalid or malformed",
+                    code=40101, message="登录状态无效，请重新登录",
                     status_code=401, error_type="unauthorized",
                 )
 
@@ -886,27 +856,38 @@ class AuthService:
                 "role": user.user_type.value if isinstance(user.user_type, UserType) else str(user.user_type),
                 "orgNodeId": None,
                 "orgNodeName": None,
+                "activationStatus": user.activation_status.value if hasattr(user.activation_status, "value") else str(user.activation_status),
+                "profileCompleted": user.profile_completed,
             }
 
-            # 012-register-default-dept: include distributor info in session
-            from ..services import distributor_service
-            dist = await distributor_service.get_distributor_by_user(db, user.id)
-            if dist is not None:
-                user_data["orgNodeId"] = str(dist.org_id)
-                user_data["orgNodeName"] = await distributor_service._org_name(db, dist.org_id)
-                user_data["distributorId"] = str(dist.id)
-                user_data["orgRole"] = dist.org_role.value if hasattr(dist.org_role, "value") else str(dist.org_role)
-                user_data["sourceChannel"] = dist.source_channel
+            membership = await self._get_business_membership(db, user)
+            if membership is not None:
+                user_data["orgNodeId"] = membership["orgId"]
+                user_data["orgNodeName"] = membership["orgName"] if membership else None
+                user_data["distributorId"] = membership["distributorId"]
+                user_data["orgRole"] = membership["orgRole"]
+                user_data["sourceChannel"] = membership["sourceChannel"]
+                user_data["membershipStatus"] = membership["status"] if membership else "disabled"
+                user_data["orgStatus"] = membership["orgStatus"] if membership else "missing"
+
+            has_business_membership = bool(membership and membership["hasBusinessMembership"])
 
         token_expires_at = datetime.fromtimestamp(token_exp, tz=timezone.utc).strftime(
             "%Y-%m-%dT%H:%M:%S%z"
         )
 
-        return {
+        response = {
             "user": user_data,
             "tokenExpiresAt": token_expires_at,
             "permissions": permissions,
         }
+        if user_type != "admin":
+            response.update({
+                "hasBusinessMembership": has_business_membership,
+                "membershipStatus": user_data.get("membershipStatus", "none"),
+                "orgStatus": user_data.get("orgStatus", "none"),
+            })
+        return response
 
 
 # Singleton

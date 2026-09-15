@@ -76,7 +76,7 @@ async def get_profile(
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalars().first()
     if user is None:
-        raise NotFoundException(message="User not found")
+        raise NotFoundException(message="用户不存在")
 
     editable_fields = ["name", "avatar"]
     organization = await _organization_name(db, user)
@@ -109,14 +109,14 @@ async def update_profile(
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalars().first()
     if user is None:
-        raise NotFoundException(message="User not found")
+        raise NotFoundException(message="用户不存在")
 
     # Optimistic locking: compare versions
     if user.updated_at is not None:
         current_version = user.updated_at.isoformat()
         if str(body.version) != current_version:
             raise ConflictException(
-                message="Profile has been modified by another session. Please refresh and retry.",
+                message="资料已在其他页面更新，请刷新后重试",
                 code=40901,
             )
 
@@ -126,6 +126,8 @@ async def update_profile(
         raise BadRequestException(message="所属机构由系统维护，无法手动修改")
     if body.avatar is not None:
         user.avatar_url = body.avatar
+    if user.name and user.name.strip():
+        user.profile_completed = True
 
     db.add(user)
     await db.commit()
@@ -183,7 +185,7 @@ async def get_account_summary(
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalars().first()
     if user is None:
-        raise NotFoundException(message="User not found")
+        raise NotFoundException(message="用户不存在")
 
     # Count unread notifications
     from ...models.notification import Notification

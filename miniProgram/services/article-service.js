@@ -9,12 +9,25 @@ function normalizeLimit(value) {
   return value
 }
 
+function normalizeCategory(value) {
+  if (value === undefined || value === null) return ''
+  const category = String(value).trim()
+  if (category.length > 50) throw new Error('文章分类不能超过 50 个字符')
+  return category
+}
+
 function listArticles(options = {}) {
   const data = { limit: normalizeLimit(options.limit) }
+  const category = normalizeCategory(options.category)
+  if (category) data.category = category
   if (options.cursor !== undefined && options.cursor !== null && options.cursor !== '') {
     data.cursor = String(options.cursor)
   }
   return request('/api/v1/articles', { auth: false, data })
+}
+
+function listArticleCategories() {
+  return request('/api/v1/articles/categories', { auth: false })
 }
 
 function getArticle(articleId) {
@@ -24,5 +37,6 @@ function getArticle(articleId) {
 
 module.exports = {
   listArticles,
+  listArticleCategories,
   getArticle
 }

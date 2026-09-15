@@ -18,21 +18,35 @@ const {
 } = require('../../models/collaborator')
 
 const SERVICE_ITEMS = [{
+  id: 'promote-code',
+  title: '客户绑定码',
+  description: '邀请患者扫码绑定',
+  icon: '/assets/images/profile-promo-icon.png',
+  businessOnly: true
+}, {
+  id: 'staff-invite',
+  title: '发展业务员',
+  description: '邀请业务员加入组织',
+  icon: '/assets/images/team-members-icon.png',
+  adminOnly: true
+}, {
   id: 'org-performance',
   title: '组织业绩',
   description: '查看组织消费汇总',
-  icon: '/assets/images/profile-contribution-icon.png',
+  icon: '/assets/images/team-contribution-icon.png',
   adminOnly: true
 }, {
   id: 'binding-records',
   title: '绑定记录',
   description: '查看客户绑定状态',
-  icon: '/assets/images/profile-records-icon.png'
+  icon: '/assets/images/profile-records-icon.png',
+  businessOnly: true
 }, {
   id: 'contribution-detail',
   title: '消费明细',
   description: '查看每笔消费来源',
-  icon: '/assets/images/profile-contribution-icon.png'
+  icon: '/assets/images/contribution-icon.png',
+  businessOnly: true
 }, {
   id: 'article-list',
   title: '文章资讯',
@@ -69,7 +83,7 @@ Page({
     state: 'loading',
     stateMessage: '',
     session: {},
-    identityLabel: '儒泰协作人员',
+    identityLabel: '儒泰医联人员',
     metrics: [],
     serviceItems: SERVICE_ITEMS,
     accountItems: ACCOUNT_ITEMS
@@ -101,12 +115,12 @@ Page({
 
     try {
       const [workbenchPayload, accountPayload] = await Promise.all([
-        workbenchService.getWorkbench(session.userId),
+        session.hasBusinessMembership ? workbenchService.getWorkbench(session.userId) : Promise.resolve(null),
         workbenchService.getAccountSummary(session.userId)
       ])
       if (version !== this.requestVersion) return
 
-      const workbench = adaptWorkbench(workbenchPayload)
+      const workbench = workbenchPayload ? adaptWorkbench(workbenchPayload) : null
       const account = adaptAccountSummary(accountPayload)
       const displaySession = Object.assign({}, session, {
         userId: account.userId || session.userId,
@@ -125,10 +139,11 @@ Page({
         session: displaySession,
         identityLabel: getIdentityLabel(displaySession),
         serviceItems: SERVICE_ITEMS.filter(
-          (item) => !item.adminOnly || session.orgRole === 'admin'
+          (item) => (!item.businessOnly || session.hasBusinessMembership) &&
+            (!item.adminOnly || (session.hasBusinessMembership && session.orgRole === 'admin'))
         ),
         accountItems,
-        metrics: buildProfileViewModel(workbench)
+        metrics: workbench ? buildProfileViewModel(workbench) : []
       })
     } catch (error) {
       if (version !== this.requestVersion) return

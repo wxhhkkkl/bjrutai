@@ -24,7 +24,7 @@ from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from ...api.deps import get_current_user, get_db
+from ...api.deps import get_current_user, get_db, require_active_distributor_or_admin
 from ...core.exceptions import BadRequestException, ForbiddenException, NotFoundException
 from ...models.binding import (
     BindingChangeLog,
@@ -39,10 +39,18 @@ from ...models.distributor import Distributor
 from ...models.notification import Notification, NotificationCategory
 from ...models.user import User, UserType
 
-router = APIRouter(prefix="/customers", tags=["customers"])
+router = APIRouter(
+    prefix="/customers",
+    tags=["customers"],
+    dependencies=[Depends(require_active_distributor_or_admin)],
+)
 
 # Separate router for followup operations not nested under /customers/{id}
-followups_router = APIRouter(prefix="/followups", tags=["followups"])
+followups_router = APIRouter(
+    prefix="/followups",
+    tags=["followups"],
+    dependencies=[Depends(require_active_distributor_or_admin)],
+)
 
 
 def _ok(data=None) -> dict:

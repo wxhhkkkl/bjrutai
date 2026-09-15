@@ -91,7 +91,8 @@ class TestWechatLogin:
         assert body["data"]["refreshToken"]
         assert body["data"]["expiresIn"] > 0
         assert body["data"]["tokenType"] == "Bearer"
-        assert body["data"]["user"]["role"] == "promoter"
+        assert body["data"]["user"]["role"] == "personal"
+        assert body["data"]["hasBusinessMembership"] is False
         assert body["data"]["user"]["isNewUser"] is False
 
     async def test_valid_code_creates_new_user(self, mock_client):

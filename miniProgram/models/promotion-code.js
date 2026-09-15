@@ -1,7 +1,7 @@
 const PROMOTION_CODE = Object.freeze({
   sourceCity: '北京',
   available: true,
-  qrImage: '/assets/images/promotion-qr.jpg'
+  qrImage: ''
 });
 const {
   getIdentityLabel
@@ -21,26 +21,26 @@ const PROMOTION_STEPS = Object.freeze([
   {
     id: 'confirm',
     icon: 'friends-o',
-    label: '医生完成客户归属确认'
+    label: '授权手机号并完成归属'
   }
 ]);
 
 function getPromotionProfile(session = {}) {
   return {
     ...PROMOTION_CODE,
-    id: session.userId || 'demo-collaborator-001',
-    name: session.name || '张小明',
+    id: session.userId || '',
+    name: session.name || '',
     roleLabel: getIdentityLabel(session),
-    statusLabel: PROMOTION_CODE.available ? '推广码可用' : '推广码已停用'
+    statusLabel: PROMOTION_CODE.available ? '客户绑定码可用' : '客户绑定码已停用'
   };
 }
 
 function createPromotionShare(profile) {
   const value = profile || getPromotionProfile();
-  const fallbackPath = `/pages/home/index?sourceId=${encodeURIComponent(value.id || '')}`;
+  const fallbackPath = `/pages/patient-binding/index?refToken=${encodeURIComponent(value.refToken || '')}`;
 
   return {
-    title: value.shareTitle || `${value.name}邀请你进入儒泰小程序`,
+    title: value.shareTitle || `${value.name || '儒泰医联业务员'}邀请您完成客户绑定`,
     path: value.sharePath || fallbackPath,
     imageUrl: value.qrImage
   };

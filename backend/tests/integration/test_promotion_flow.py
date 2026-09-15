@@ -26,12 +26,15 @@ async def mock_client():
     mock_session.flush = AsyncMock()
     mock_session.execute = AsyncMock()
 
+    from src.api.deps import get_db as api_get_db, require_active_distributor_or_admin
     from src.core.database import get_db
 
     async def override_get_db():
         yield mock_session
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[api_get_db] = override_get_db
+    app.dependency_overrides[require_active_distributor_or_admin] = lambda: {"user_type": "promoter"}
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

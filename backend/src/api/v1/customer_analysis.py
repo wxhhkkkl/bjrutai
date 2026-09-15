@@ -11,12 +11,16 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_current_user, get_db
+from ...api.deps import get_current_user, get_db, require_active_distributor_or_admin
 from ...models.binding import BindingRequest, BindingStatus, Customer
 from ...models.distributor import Distributor
 from ...models.followup import FollowupRecord, ReminderStatus
 
-router = APIRouter(prefix="/customer-analysis", tags=["customer-analysis"])
+router = APIRouter(
+    prefix="/customer-analysis",
+    tags=["customer-analysis"],
+    dependencies=[Depends(require_active_distributor_or_admin)],
+)
 
 
 def _ok(data=None) -> dict:

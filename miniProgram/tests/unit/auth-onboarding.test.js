@@ -42,7 +42,7 @@ test('pending login session enters profile setup', () => {
   const session = createPendingProfileSession('138****1028');
 
   assert.equal(session.profileCompleted, false);
-  assert.equal(session.role, 'collaborator');
+  assert.equal(session.role, 'personal');
   assert.equal(session.phoneAuthorized, true);
 });
 
@@ -71,7 +71,7 @@ test('profile form validates required values and confirmation', () => {
   );
 });
 
-test('completed onboarding persists business identity', () => {
+test('completed onboarding preserves the server-authorized identity', () => {
   const session = completeProfileSession(
     createPendingProfileSession(),
     {
@@ -82,5 +82,6 @@ test('completed onboarding persists business identity', () => {
 
   assert.equal(session.profileCompleted, true);
   assert.equal(session.name, '张小明');
-  assert.equal(session.organization, '北京儒泰服务有限公司');
+  assert.equal(session.role, 'personal');
+  assert.equal(session.organization, '暂未加入组织');
 });

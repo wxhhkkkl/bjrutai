@@ -283,10 +283,12 @@ from .api.v1.admin_contributions import router as admin_contributions_router
 from .api.v1.org_performance import router as org_performance_router
 from .api.v1.admin_categories import router as admin_categories_router
 from .api.v1.admin_articles import router as admin_articles_router
+from .api.v1.admin_banners import router as admin_banners_router
 from .api.v1.cos_upload import router as cos_upload_router
 from .api.v1.admin_sync import router as admin_sync_router
 from .api.v1.admin_feedbacks import router as admin_feedbacks_router
 from .api.v1.articles import router as articles_router
+from .api.v1.banners import router as banners_router
 from .api.v1.auth import router as auth_router
 from .api.v1.app import router as app_router
 from .api.v1.binding import router as binding_router
@@ -298,6 +300,8 @@ from .api.v1.feedbacks import feedback_files_router, router as feedbacks_router
 from .api.v1.health import router as health_router
 from .api.v1.notifications import router as notifications_router
 from .api.v1.promotions import router as promotions_router
+from .api.v1.customer_binding_codes import router as customer_binding_codes_router
+from .api.v1.staff_invites import router as staff_invites_router
 from .api.v1.reports import router as reports_router
 from .api.v1.team import router as team_router
 from .api.v1.users import router as users_router
@@ -307,8 +311,10 @@ from .api.v1.workbench import router as workbench_router
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(app_router, prefix="/api/v1")
 app.include_router(articles_router, prefix="/api/v1")
+app.include_router(banners_router, prefix="/api/v1")
 app.include_router(admin_categories_router, prefix="/api/v1")
 app.include_router(admin_articles_router, prefix="/api/v1")
+app.include_router(admin_banners_router, prefix="/api/v1")
 app.include_router(cos_upload_router, prefix="/api/v1")
 app.include_router(admin_sync_router, prefix="/api/v1")
 app.include_router(admin_feedbacks_router, prefix="/api/v1")
@@ -325,6 +331,8 @@ app.include_router(admin_contributions_router, prefix="/api/v1")
 app.include_router(org_performance_router, prefix="/api/v1")
 app.include_router(binding_router, prefix="/api/v1")
 app.include_router(promotions_router, prefix="/api/v1")
+app.include_router(customer_binding_codes_router, prefix="/api/v1")
+app.include_router(staff_invites_router, prefix="/api/v1")
 app.include_router(contributions_router, prefix="/api/v1")
 app.include_router(team_router, prefix="/api/v1")
 app.include_router(reports_router, prefix="/api/v1")

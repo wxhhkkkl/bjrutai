@@ -36,7 +36,7 @@ class Distributor(Base):
     )
     source_channel: Mapped[str] = mapped_column(
         String(32), nullable=False, default="admin_create", server_default="admin_create",
-        comment="人员来源渠道: wechat_register / phone_register / admin_create",
+        comment="人员来源渠道: admin_create / staff_invite / migrated",
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

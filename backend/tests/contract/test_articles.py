@@ -5,12 +5,33 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.models.category import ArticleCategory
 from tests.conftest import admin_auth_headers, seed_article  # noqa: F401
 
 
 # ============================================================================
 # GET /api/v1/articles -- Public list (published only)
 # ============================================================================
+class TestPublicArticleCategories:
+    async def test_lists_managed_categories_without_authentication(
+        self, client: AsyncClient, db_session: AsyncSession
+    ):
+        db_session.add_all([
+            ArticleCategory(name="健康科普", sort_order=20),
+            ArticleCategory(name="服务动态", sort_order=10),
+        ])
+        await db_session.commit()
+
+        resp = await client.get("/api/v1/articles/categories")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["code"] == 0
+        items = data["data"]["items"]
+        assert [item["name"] for item in items] == ["服务动态", "健康科普"]
+        assert all(item["id"].isdigit() for item in items)
+
+
 class TestPublicListArticles:
     async def test_returns_only_published_articles(
         self, client: AsyncClient, db_session: AsyncSession
