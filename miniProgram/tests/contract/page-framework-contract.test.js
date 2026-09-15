@@ -608,13 +608,14 @@ test('article list registers refresh, states, pagination and complete-card navig
   assert.match(script, /requestVersion/);
 });
 
-test('homepage article block sits after wellness content and before about content', () => {
+test('homepage sections follow banner, about, wellness and article order', () => {
   const source = fs.readFileSync(path.join(projectRoot, 'pages/home/index.wxml'), 'utf8');
-  const wellnessIndex = source.indexOf('class="wellness-feature"');
+  const wellnessIndex = source.indexOf('wellness-feature');
   const articlesIndex = source.indexOf('class="article-heading"');
-  const aboutIndex = source.indexOf('class="section-heading about-heading"');
+  const aboutIndex = source.indexOf('about-heading');
 
-  assert.ok(wellnessIndex >= 0 && articlesIndex > wellnessIndex && aboutIndex > articlesIndex);
+  const bannerIndex = source.indexOf('class="home-banners"');
+  assert.ok(bannerIndex >= 0 && aboutIndex > bannerIndex && wellnessIndex > aboutIndex && articlesIndex > wellnessIndex);
   assert.match(source, /data-id="article-list"/);
   assert.match(source, /bindtap="openArticle"/);
   assert.match(source, /articleState === 'recoverable-error'/);

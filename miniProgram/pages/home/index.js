@@ -9,6 +9,7 @@ Page({
   articleRequestVersion: 0,
   bannerRequestVersion: 0,
   aboutRequestVersion: 0,
+  wellnessRequestVersion: 0,
 
   data: {
     session: {},
@@ -18,6 +19,8 @@ Page({
     openingArticleId: '',
     aboutState: 'loading',
     aboutArticle: null,
+    wellnessState: 'loading',
+    wellnessArticle: null,
     bannerState: 'loading',
     bannerItems: [],
     openingBannerId: ''
@@ -39,6 +42,7 @@ Page({
     }
     this.loadArticles()
     this.loadAboutArticle()
+    this.loadWellnessArticle()
     this.loadBanners()
   },
 
@@ -46,12 +50,14 @@ Page({
     this.articleRequestVersion += 1
     this.bannerRequestVersion += 1
     this.aboutRequestVersion += 1
+    this.wellnessRequestVersion += 1
   },
 
   onUnload() {
     this.articleRequestVersion += 1
     this.bannerRequestVersion += 1
     this.aboutRequestVersion += 1
+    this.wellnessRequestVersion += 1
   },
 
   async loadArticles() {
@@ -63,10 +69,10 @@ Page({
     })
 
     try {
-      const payload = await articleService.listArticles({ limit: 4 })
+      const payload = await articleService.listArticles({ limit: 6 })
       if (version !== this.articleRequestVersion) return
       const page = adaptArticlePage(payload)
-      const items = page.items.filter((item) => item.category !== '关于儒泰').slice(0, 3)
+      const items = page.items.slice(0, 6)
       this.setData({
         articleState: items.length ? 'success' : 'empty',
         articleStateMessage: items.length ? '' : '暂无已发布文章',
@@ -100,6 +106,24 @@ Page({
     } catch (error) {
       if (version !== this.aboutRequestVersion) return
       this.setData({ aboutState: 'recoverable-error', aboutArticle: null })
+    }
+  },
+
+  async loadWellnessArticle() {
+    const version = ++this.wellnessRequestVersion
+    this.setData({ wellnessState: 'loading', wellnessArticle: null })
+
+    try {
+      const payload = await articleService.listArticles({ category: '心脑维养', limit: 1 })
+      if (version !== this.wellnessRequestVersion) return
+      const page = adaptArticlePage(payload)
+      this.setData({
+        wellnessState: page.items.length ? 'success' : 'empty',
+        wellnessArticle: page.items[0] || null
+      })
+    } catch (error) {
+      if (version !== this.wellnessRequestVersion) return
+      this.setData({ wellnessState: 'recoverable-error', wellnessArticle: null })
     }
   },
 
