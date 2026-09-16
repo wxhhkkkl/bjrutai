@@ -41,6 +41,7 @@
       </view>
       <text>我同意将手机号和填写的资料用于客户归属与后续服务</text>
     </view>
-    <button class="scan-submit" open-type="getPhoneNumber" bindgetphonenumber="submit" loading="{{submitting}}" disabled="{{submitting}}">授权手机号并确认绑定</button>
+    <button wx:if="{{consentConfirmed}}" class="scan-submit" open-type="getPhoneNumber" bindgetphonenumber="submit" loading="{{submitting}}" disabled="{{submitting}}">授权手机号并确认绑定</button>
+    <button wx:else class="scan-submit tap-target" bindtap="requestPhoneAuthorization" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" loading="{{submitting}}" disabled="{{submitting}}">授权手机号并确认绑定</button>
   </block>
 </view>

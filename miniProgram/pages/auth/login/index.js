@@ -59,6 +59,15 @@ Page({
   },
 
   // ── WeChat phone authorization + login ─────────────────────────
+  requestWechatPhoneLogin() {
+    // Do not render a getPhoneNumber button until consent is confirmed. This
+    // guard also protects against any programmatic or stale-tap invocation.
+    const validation = validateLoginConsent(this.data);
+    if (!validation.ok) {
+      wx.showToast({ title: validation.message, icon: 'none' });
+    }
+  },
+
   wechatLogin(event) {
     const validation = validateLoginConsent(this.data);
     if (!validation.ok) {

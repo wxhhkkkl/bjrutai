@@ -44,6 +44,12 @@ Page({
     this.setData({ consentConfirmed: !this.data.consentConfirmed })
   },
 
+  requestPhoneAuthorization() {
+    if (!this.data.consentConfirmed) {
+      wx.showToast({ title: '请先同意客户资料授权', icon: 'none' })
+    }
+  },
+
   async submit(event) {
     if (!this.data.consentConfirmed) {
       wx.showToast({ title: '请先同意客户资料授权', icon: 'none' })

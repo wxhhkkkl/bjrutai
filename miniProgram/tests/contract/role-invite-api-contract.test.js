@@ -1,5 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
+const fs = require('node:fs')
 const path = require('node:path')
 
 const projectRoot = path.resolve(__dirname, '../..')
@@ -19,6 +20,16 @@ test('app declares dedicated customer and staff scan pages', () => {
   assert.ok(app.pages.includes('pages/patient-binding/index'))
   assert.ok(app.pages.includes('pages/staff-join/index'))
   assert.ok(app.pages.includes('pages/staff-invite/index'))
+})
+
+test('phone authorization buttons are gated by consent on scan pages', () => {
+  for (const page of ['patient-binding', 'staff-join']) {
+    const template = fs.readFileSync(path.join(projectRoot, 'pages', page, 'index.wxml'), 'utf8')
+    const controller = fs.readFileSync(path.join(projectRoot, 'pages', page, 'index.js'), 'utf8')
+    assert.match(template, /wx:if="\{\{consentConfirmed\}\}"[^>]*open-type="getPhoneNumber"/)
+    assert.match(template, /wx:else[^>]*bindtap="requestPhoneAuthorization"/)
+    assert.match(controller, /requestPhoneAuthorization\(\)/)
+  }
 })
 
 test('staff invite image follows the active mini program API environment', () => {
