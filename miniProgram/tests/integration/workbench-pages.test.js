@@ -18,17 +18,19 @@ test('home is a public health-content page while profile keeps its workbench int
   assert.doesNotMatch(homeMarkup, /about-card__cover-shade|about-card__cover-brand|about-card__cover-label/)
   assert.match(homeMarkup, /心脑维养/)
   assert.match(homeMarkup, /wellness-feature__cover/)
-  assert.match(homeMarkup, /\{\{wellnessArticle\.title\}\}/)
+  assert.match(homeMarkup, /\{\{wellnessLead\.title\}\}/)
+  assert.match(homeMarkup, /wx:for="\{\{wellnessSupportingItems\}\}"/)
   assert.match(homeMarkup, /data-category="心脑维养"/)
   assert.match(homeMarkup, /class="section-more tap-target"/)
   assert.match(homeMarkup, /data-category="关于儒泰"/)
   assert.doesNotMatch(homeMarkup, /class="heading-link tap-target"/)
   assert.match(home, /openArticleCategory/)
   assert.match(homeMarkup, /文章资讯/)
-  assert.doesNotMatch(homeMarkup, /wellness-grid|科学认知|生活维养|持续陪伴/)
+  assert.match(homeMarkup, /wellness-grid/)
+  assert.doesNotMatch(homeMarkup, /科学认知|生活维养|持续陪伴/)
   assert.doesNotMatch(homeMarkup, /wellness-link|查看心脑健康资讯/)
-  assert.ok(homeMarkup.indexOf('关于儒泰') < homeMarkup.indexOf('心脑维养'))
-  assert.ok(homeMarkup.indexOf('心脑维养') < homeMarkup.indexOf('文章资讯'))
+  assert.ok(homeMarkup.indexOf('心脑维养') < homeMarkup.indexOf('健康资讯'))
+  assert.ok(homeMarkup.indexOf('健康资讯') < homeMarkup.lastIndexOf('关于儒泰'))
   assert.match(profile, /workbench-service/)
   assert.doesNotMatch(home, /mock\/demo-control|mock\/foundation-fixtures/)
 })
@@ -69,9 +71,11 @@ test('home article and banner states are independently isolated', () => {
   assert.match(source, /articleItems:\s*\[\]/)
   assert.match(source, /articleRequestVersion/)
   assert.match(source, /listArticles\(\{\s*limit:\s*6\s*\}\)/)
-  assert.match(source, /listArticles\(\{\s*category:\s*['"]关于儒泰['"],\s*limit:\s*1\s*\}\)/)
-  assert.match(source, /listArticles\(\{\s*category:\s*['"]心脑维养['"],\s*limit:\s*1\s*\}\)/)
-  assert.match(source, /\.slice\(0,\s*6\)/)
+  assert.match(source, /listArticles\(\{\s*category:\s*['"]关于儒泰['"],\s*limit:\s*3\s*\}\)/)
+  assert.match(source, /listArticles\(\{\s*category:\s*['"]心脑维养['"],\s*limit:\s*3\s*\}\)/)
+  assert.match(source, /aboutSupportingItems/)
+  assert.match(source, /wellnessSupportingItems/)
+  assert.match(source, /\.slice\(0,\s*3\)/)
   assert.match(source, /version\s*!==\s*this\.articleRequestVersion/)
   assert.match(source, /bannerState:\s*['"]loading['"]/)
   assert.match(source, /bannerRequestVersion/)
@@ -157,14 +161,29 @@ test('home discards an article response arriving after the page hides', async ()
   }
 })
 
-test('home keeps the about article separate from health article cards', async () => {
+test('home keeps three classified articles separate from health article cards', async () => {
   const calls = []
   const fixture = loadHome({
     listArticles(options) {
       calls.push(options)
       if (options.category === '关于儒泰') {
         return Promise.resolve({
-          items: [{ articleId: '4', title: '关于儒泰', summary: '介绍', category: '关于儒泰', viewCount: 0 }],
+          items: [
+            { articleId: '4', title: '关于儒泰', summary: '介绍', category: '关于儒泰', viewCount: 0 },
+            { articleId: '5', title: '儒泰服务', summary: '服务', category: '关于儒泰', viewCount: 0 },
+            { articleId: '6', title: '儒泰故事', summary: '故事', category: '关于儒泰', viewCount: 0 }
+          ],
+          nextCursor: null,
+          hasMore: false
+        })
+      }
+      if (options.category === '心脑维养') {
+        return Promise.resolve({
+          items: [
+            { articleId: '7', title: '心脑重点', category: '心脑维养', viewCount: 0 },
+            { articleId: '8', title: '心脑习惯', category: '心脑维养', viewCount: 0 },
+            { articleId: '9', title: '心脑阅读', category: '心脑维养', viewCount: 0 }
+          ],
           nextCursor: null,
           hasMore: false
         })
@@ -172,7 +191,8 @@ test('home keeps the about article separate from health article cards', async ()
       return Promise.resolve({
         items: [
           { articleId: '4', title: '关于儒泰', category: '关于儒泰', viewCount: 0 },
-          { articleId: '3', title: '心脑健康', category: '健康资讯', viewCount: 0 }
+          { articleId: '3', title: '心脑健康', category: '心脑维养', viewCount: 0 },
+          { articleId: '2', title: '健康资讯', category: '健康资讯', viewCount: 0 }
         ],
         nextCursor: null,
         hasMore: false
@@ -185,11 +205,14 @@ test('home keeps the about article separate from health article cards', async ()
     await flush()
     assert.deepEqual(calls, [
       { limit: 6 },
-      { category: '关于儒泰', limit: 1 },
-      { category: '心脑维养', limit: 1 }
+      { category: '关于儒泰', limit: 3 },
+      { category: '心脑维养', limit: 3 }
     ])
-    assert.equal(fixture.page.data.aboutArticle.articleId, '4')
-    assert.deepEqual(fixture.page.data.articleItems.map((item) => item.articleId), ['4', '3'])
+    assert.deepEqual(fixture.page.data.aboutSupportingItems.map((item) => item.articleId), ['5', '6'])
+    assert.equal(fixture.page.data.aboutLead.articleId, '4')
+    assert.equal(fixture.page.data.wellnessLead.articleId, '7')
+    assert.deepEqual(fixture.page.data.wellnessSupportingItems.map((item) => item.articleId), ['8', '9'])
+    assert.deepEqual(fixture.page.data.articleItems.map((item) => item.articleId), ['3', '2'])
   } finally {
     fixture.restore()
   }

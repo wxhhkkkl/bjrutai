@@ -237,6 +237,8 @@ test('login offers phone+password and WeChat quick login with agreement', () => 
   assert.match(source, /bindtap="login"/);
   assert.match(source, /open-type="getPhoneNumber"/);
   assert.match(source, /bindgetphonenumber="wechatLogin"/);
+  assert.match(source, /wx:if="\{\{agreed\}\}"/);
+  assert.match(source, /bindtap="requestWechatPhoneLogin"/);
   assert.match(source, /bindinput="onPhoneInput"/);
   assert.match(source, /bindinput="onPasswordInput"/);
   assert.match(source, /bindtap="toggleAgreement"/);
@@ -608,14 +610,14 @@ test('article list registers refresh, states, pagination and complete-card navig
   assert.match(script, /requestVersion/);
 });
 
-test('homepage sections follow banner, about, wellness and article order', () => {
+test('homepage sections follow banner, wellness, health articles and about-story order', () => {
   const source = fs.readFileSync(path.join(projectRoot, 'pages/home/index.wxml'), 'utf8');
   const wellnessIndex = source.indexOf('wellness-feature');
-  const articlesIndex = source.indexOf('class="article-heading"');
+  const articlesIndex = source.indexOf('article-heading');
   const aboutIndex = source.indexOf('about-heading');
 
   const bannerIndex = source.indexOf('class="home-banners"');
-  assert.ok(bannerIndex >= 0 && aboutIndex > bannerIndex && wellnessIndex > aboutIndex && articlesIndex > wellnessIndex);
+  assert.ok(bannerIndex >= 0 && wellnessIndex > bannerIndex && articlesIndex > wellnessIndex && aboutIndex > articlesIndex);
   assert.match(source, /data-id="article-list"/);
   assert.match(source, /bindtap="openArticle"/);
   assert.match(source, /articleState === 'recoverable-error'/);

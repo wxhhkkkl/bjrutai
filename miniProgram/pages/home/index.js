@@ -18,9 +18,11 @@ Page({
     articleItems: [],
     openingArticleId: '',
     aboutState: 'loading',
-    aboutArticle: null,
+    aboutLead: null,
+    aboutSupportingItems: [],
     wellnessState: 'loading',
-    wellnessArticle: null,
+    wellnessLead: null,
+    wellnessSupportingItems: [],
     bannerState: 'loading',
     bannerItems: [],
     openingBannerId: ''
@@ -72,7 +74,10 @@ Page({
       const payload = await articleService.listArticles({ limit: 6 })
       if (version !== this.articleRequestVersion) return
       const page = adaptArticlePage(payload)
-      const items = page.items.slice(0, 6)
+      // 企业故事由页面底部单独呈现；其他健康文章仍可进入资讯列表。
+      const items = page.items
+        .filter((item) => item.category !== '关于儒泰')
+        .slice(0, 3)
       this.setData({
         articleState: items.length ? 'success' : 'empty',
         articleStateMessage: items.length ? '' : '暂无已发布文章',
@@ -82,7 +87,8 @@ Page({
       if (version !== this.articleRequestVersion) return
       this.setData({
         articleState: 'recoverable-error',
-        articleStateMessage: error && error.message ? error.message : '文章暂时无法加载'
+        articleStateMessage: error && error.message ? error.message : '文章暂时无法加载',
+        articleItems: []
       })
     }
   },
@@ -93,37 +99,57 @@ Page({
 
   async loadAboutArticle() {
     const version = ++this.aboutRequestVersion
-    this.setData({ aboutState: 'loading', aboutArticle: null })
+    this.setData({
+      aboutState: 'loading',
+      aboutLead: null,
+      aboutSupportingItems: []
+    })
 
     try {
-      const payload = await articleService.listArticles({ category: '关于儒泰', limit: 1 })
+      const payload = await articleService.listArticles({ category: '关于儒泰', limit: 3 })
       if (version !== this.aboutRequestVersion) return
       const page = adaptArticlePage(payload)
+      const items = page.items.slice(0, 3)
       this.setData({
-        aboutState: page.items.length ? 'success' : 'empty',
-        aboutArticle: page.items[0] || null
+        aboutState: items.length ? 'success' : 'empty',
+        aboutLead: items[0] || null,
+        aboutSupportingItems: items.slice(1, 3)
       })
     } catch (error) {
       if (version !== this.aboutRequestVersion) return
-      this.setData({ aboutState: 'recoverable-error', aboutArticle: null })
+      this.setData({
+        aboutState: 'recoverable-error',
+        aboutLead: null,
+        aboutSupportingItems: []
+      })
     }
   },
 
   async loadWellnessArticle() {
     const version = ++this.wellnessRequestVersion
-    this.setData({ wellnessState: 'loading', wellnessArticle: null })
+    this.setData({
+      wellnessState: 'loading',
+      wellnessLead: null,
+      wellnessSupportingItems: []
+    })
 
     try {
-      const payload = await articleService.listArticles({ category: '心脑维养', limit: 1 })
+      const payload = await articleService.listArticles({ category: '心脑维养', limit: 3 })
       if (version !== this.wellnessRequestVersion) return
       const page = adaptArticlePage(payload)
+      const items = page.items.slice(0, 3)
       this.setData({
-        wellnessState: page.items.length ? 'success' : 'empty',
-        wellnessArticle: page.items[0] || null
+        wellnessState: items.length ? 'success' : 'empty',
+        wellnessLead: items[0] || null,
+        wellnessSupportingItems: items.slice(1, 3)
       })
     } catch (error) {
       if (version !== this.wellnessRequestVersion) return
-      this.setData({ wellnessState: 'recoverable-error', wellnessArticle: null })
+      this.setData({
+        wellnessState: 'recoverable-error',
+        wellnessLead: null,
+        wellnessSupportingItems: []
+      })
     }
   },
 

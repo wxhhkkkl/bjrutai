@@ -14,6 +14,9 @@ Page({
   },
   onNameInput(event) { this.setData({ name: event.detail.value }) },
   toggleConsent() { this.setData({ consentConfirmed: !this.data.consentConfirmed }) },
+  requestPhoneAuthorization() {
+    if (!this.data.consentConfirmed) wx.showToast({ title: '请先同意加入组织授权', icon: 'none' })
+  },
   async submit(event) {
     const name = String(this.data.name || '').trim()
     if (!name) { wx.showToast({ title: '请填写真实姓名', icon: 'none' }); return }
