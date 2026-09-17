@@ -66,7 +66,7 @@
             </view>
         </view>
 
-        <text class="binding-section-title">归属拓展人</text>
+        <text class="binding-section-title">归属客户顾问</text>
         <view class="owner-card">
             <view class="binding-icon-tile binding-icon-tile--owner">
                 <van-icon name="manager-o" size="27px" color="#1677ff" />
@@ -114,7 +114,7 @@
                 <text class="result-row__value">{{form.name || '未填写姓名'}}</text>
             </view>
             <view class="result-row">
-                <text>归属拓展人</text>
+                <text>归属客户顾问</text>
                 <text class="result-row__value">{{owner.name}}</text>
             </view>
             <view class="result-row result-row--last">

@@ -66,7 +66,7 @@
 
     <view class="promotion-notice">
         <van-icon name="info-o" size="22px" color="#f06a00" />
-        <text>同一手机号的业务员预录信息与患者扫码信息会自动合并</text>
+        <text>同一手机号的客户顾问预录信息与患者扫码信息会自动合并</text>
     </view>
     <text class="promotion-limit">客户绑定码仅限本人服务客户使用</text>
 </view>

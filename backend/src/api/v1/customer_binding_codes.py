@@ -10,11 +10,11 @@ from ...core.error_handler import _build_response
 from ...integrations.wechat_client import get_wechat_client
 from ...services import customer_binding_code_service
 
-
 router = APIRouter(prefix="/customer-binding-codes", tags=["customer-binding-codes"])
 
 
 class CustomerClaimRequest(BaseModel):
+    wechat_code: str = Field(..., min_length=1, max_length=256, alias="wechatCode")
     phone_code: str = Field(..., min_length=1, max_length=256, alias="phoneCode")
     name: str | None = Field(None, max_length=100)
     consent_confirmed: bool = Field(..., alias="consentConfirmed")
@@ -38,6 +38,7 @@ async def claim_customer(
     result = await customer_binding_code_service.claim_customer(
         db,
         ref_token,
+        wechat_code=body.wechat_code,
         phone_code=body.phone_code,
         name=body.name,
         consent_confirmed=body.consent_confirmed,

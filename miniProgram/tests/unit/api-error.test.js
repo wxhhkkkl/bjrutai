@@ -58,5 +58,5 @@ test('localizes known English backend messages for end users', () => {
     httpStatus: 409,
     body: { code: 40022, message: 'You are already bound to this promoter', requestId: 'req-bound' }
   })
-  assert.equal(error.message, '该拓展人已有绑定客户，不能重复绑定')
+  assert.equal(error.message, '该客户顾问已有绑定客户，不能重复绑定')
 })

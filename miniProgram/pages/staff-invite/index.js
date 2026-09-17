@@ -6,7 +6,7 @@ Page({
   data: { state: 'loading', stateMessage: '', invite: {}, saving: false, qrState: 'loading', qrRetryCount: 0 },
   onLoad() {
     if (!hasCapability(getCurrentSession(), 'staffInvite')) {
-      this.setData({ state: 'forbidden', stateMessage: '只有组织管理员可以发展业务员' })
+      this.setData({ state: 'forbidden', stateMessage: '只有组织管理员可以发展客户顾问' })
       return
     }
     this.loadInvite()

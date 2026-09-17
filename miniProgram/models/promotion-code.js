@@ -40,7 +40,6 @@ function createPromotionShare(profile) {
   const fallbackPath = `/pages/patient-binding/index?refToken=${encodeURIComponent(value.refToken || '')}`;
 
   return {
-    title: value.shareTitle || `${value.name || '儒泰医联业务员'}邀请您完成客户绑定`,
     path: value.sharePath || fallbackPath,
     imageUrl: value.qrImage
   };

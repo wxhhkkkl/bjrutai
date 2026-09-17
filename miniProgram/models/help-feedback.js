@@ -6,12 +6,14 @@ const HELP_FAQS = Object.freeze([
     id: 'binding',
     title: '客户绑定与匹配',
     icon: 'link-o',
+    businessOnly: true,
     answer: '录入客户信息并确认授权后，系统会自动完成客户归属匹配。待匹配记录可在绑定记录页查看最新状态。'
   },
   {
     id: 'contribution',
     title: '消费与结算',
     icon: 'bar-chart-o',
+    businessOnly: true,
     answer: '业绩贡献以消费金额（账单实付金额）为准，由系统同步账单数据统计。'
   },
   {
@@ -41,6 +43,10 @@ function normalizeFeedbackType(type) {
   return FEEDBACK_TYPES.some((item) => item.id === type)
     ? type
     : 'issue';
+}
+
+function getVisibleHelpFaqs(session) {
+  return HELP_FAQS.filter((item) => !item.businessOnly || Boolean(session && session.hasBusinessMembership));
 }
 
 function validateFeedback(input) {
@@ -103,6 +109,7 @@ module.exports = {
   MAX_SCREENSHOTS,
   HELP_FAQS,
   FEEDBACK_TYPES,
+  getVisibleHelpFaqs,
   normalizeFeedbackType,
   validateFeedback,
   createFeedbackRecord

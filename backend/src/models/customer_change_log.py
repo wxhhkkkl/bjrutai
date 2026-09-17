@@ -1,4 +1,4 @@
-"""Customer change log — audit trail for distributor (推广员) reassignment.
+"""Customer change log — audit trail for distributor (客户顾问) reassignment.
 
 Records the initial promoter assignment on manual customer creation (created)
 and every subsequent promoter change (transfer). Satisfies FR-012: every

@@ -127,7 +127,7 @@ export const useBindingStore = defineStore('binding', () => {
       selectablePromoters.value = res.data.items || []
       return res.data
     } catch (e) {
-      ElMessage.error(e.userMessage || '获取推广员列表失败')
+      ElMessage.error(e.userMessage || '获取客户顾问列表失败')
       throw e
     }
   }

@@ -7,7 +7,6 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.exceptions import BadRequestException, ConflictException, NotFoundException
-from ..integrations.wechat_client import get_wechat_client
 from ..models.binding import (
     BindingRequest,
     BindingRequestStatus,
@@ -20,8 +19,9 @@ from ..models.consent import ConsentRecord, ConsentScene, EvidenceType, SubjectT
 from ..models.distributor import Distributor, DistributorStatus
 from ..models.organization import Organization, OrgStatus
 from ..models.promotion import PromotionCode, PromotionCodeStatus
-from ..models.user import ActivationStatus, User, UserType
-from .binding_service import _mask_phone, _normalize_phone
+from ..models.user import ActivationStatus, User
+from .auth_service import get_auth_service
+from .binding_service import _mask_phone, _normalize_phone, ensure_phone_not_business_member
 
 
 async def _valid_code(db: AsyncSession, ref_token: str):
@@ -58,7 +58,7 @@ async def get_code_info(
         db.add(code)
         await db.flush()
     return {
-        "distributorName": user.name or "业务员",
+        "distributorName": user.name or "客户顾问",
         "organizationName": organization.name,
         "status": "available",
     }
@@ -68,6 +68,7 @@ async def claim_customer(
     db: AsyncSession,
     ref_token: str,
     *,
+    wechat_code: str,
     phone_code: str,
     name: Optional[str],
     consent_confirmed: bool,
@@ -75,14 +76,19 @@ async def claim_customer(
     if not consent_confirmed:
         raise BadRequestException(message="请先同意客户资料授权后再绑定")
     code, distributor, distributor_user, organization = await _valid_code(db, ref_token)
-    phone = _normalize_phone(await get_wechat_client().get_phone_number(phone_code))
-    patient_user = (
-        await db.execute(
-            select(User)
-            .where(User.phone == phone, User.user_type == UserType.PERSONAL)
-            .with_for_update()
-        )
-    ).scalars().first()
+    # Phone authorization credentials are single-use. Resolve the WeChat
+    # identity and phone once, then keep attribution and login atomic.
+    login_result = await get_auth_service().wechat_login(
+        db,
+        wechat_code,
+        phone_code=phone_code,
+    )
+    patient_user = await db.get(User, int(login_result["user"]["userId"]))
+    if patient_user is None or not patient_user.phone:
+        raise BadRequestException(message="手机号授权失败，请重新授权")
+
+    phone = _normalize_phone(patient_user.phone)
+    await ensure_phone_not_business_member(db, phone)
     customer_matchers = [
         Customer.phone_normalized == phone,
         Customer.phone == phone,
@@ -98,10 +104,14 @@ async def claim_customer(
         )
     ).scalars().first()
 
-    if customer is not None and customer.distributor_id != distributor.id:
+    if (
+        customer is not None
+        and customer.distributor_id is not None
+        and customer.distributor_id != distributor.id
+    ):
         raise ConflictException(
             code=40023,
-            message="该手机号对应客户已归属其他业务员，请联系后台处理",
+            message="该手机号对应客户已归属其他客户顾问，请联系后台处理",
         )
     created = customer is None
     was_bound = False
@@ -122,6 +132,8 @@ async def claim_customer(
         await db.refresh(customer)
     else:
         was_bound = customer.binding_status == BindingStatus.BOUND
+        if customer.distributor_id is None:
+            customer.distributor_id = distributor.id
         if patient_user and customer.user_id is None:
             customer.user_id = patient_user.id
         if name and name.strip():
@@ -183,6 +195,7 @@ async def claim_customer(
         "phone": customer.phone_masked,
         "bindingStatus": "bound",
         "rutaiMatchStatus": "pending_match",
-        "distributorName": distributor_user.name or "业务员",
+        "distributorName": distributor_user.name or "客户顾问",
         "organizationName": organization.name,
+        "session": login_result,
     }

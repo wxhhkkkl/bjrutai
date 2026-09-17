@@ -1,7 +1,7 @@
 const IDENTITY_LABELS = {
   doctor: '儒泰医生',
-  promoter: '业务员',
-  orgAdmin: '推广员（组织管理员）',
+  promoter: '客户顾问',
+  orgAdmin: '客户顾问（组织管理员）',
   personal: '普通用户',
   unknown: '儒泰医联人员'
 };

@@ -4,6 +4,7 @@ const {
   MAX_SCREENSHOTS,
   HELP_FAQS,
   FEEDBACK_TYPES,
+  getVisibleHelpFaqs,
   normalizeFeedbackType,
   validateFeedback,
   createFeedbackRecord
@@ -14,6 +15,17 @@ test('help feedback exposes approved faq and type choices', () => {
   assert.equal(FEEDBACK_TYPES.length, 3);
   assert.equal(normalizeFeedbackType('suggestion'), 'suggestion');
   assert.equal(normalizeFeedbackType('unsupported'), 'issue');
+});
+
+test('help feedback hides business FAQs from ordinary users', () => {
+  assert.deepEqual(
+    getVisibleHelpFaqs({ hasBusinessMembership: false }).map((item) => item.id),
+    ['account']
+  );
+  assert.deepEqual(
+    getVisibleHelpFaqs({ hasBusinessMembership: true }).map((item) => item.id),
+    ['binding', 'contribution', 'account']
+  );
 });
 
 test('feedback requires a useful description and limits screenshots', () => {

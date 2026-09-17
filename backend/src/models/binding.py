@@ -59,7 +59,9 @@ class Customer(Base):
     user_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("users.id"), unique=True, nullable=True, index=True
     )
-    distributor_id: Mapped[int] = mapped_column(Integer, ForeignKey("distributors.id"), nullable=False, index=True)
+    distributor_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("distributors.id"), nullable=True, index=True
+    )
     name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     phone_normalized: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
@@ -78,7 +80,7 @@ class Customer(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    distributor: Mapped["Distributor"] = relationship("Distributor", back_populates="customers")
+    distributor: Mapped[Optional["Distributor"]] = relationship("Distributor", back_populates="customers")
     user: Mapped[Optional["User"]] = relationship("User", back_populates="customer")
     bills: Mapped[list["Bill"]] = relationship("Bill", back_populates="customer")
     followup_records: Mapped[list["FollowupRecord"]] = relationship(

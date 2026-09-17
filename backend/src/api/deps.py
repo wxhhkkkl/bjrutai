@@ -108,7 +108,7 @@ async def require_active_distributor(
     )
     row = result.first()
     if row is None:
-        raise ForbiddenException(message="成为业务员后才能使用客户和消费功能")
+        raise ForbiddenException(message="成为客户顾问后才能使用客户和消费功能")
 
     distributor, user, organization = row
     if (
@@ -137,7 +137,7 @@ async def require_org_admin(
     from ..models.distributor import OrgRole
 
     if distributor.org_role != OrgRole.ADMIN:
-        raise ForbiddenException(message="只有组织管理员可以发展业务员")
+        raise ForbiddenException(message="只有组织管理员可以发展客户顾问")
     return distributor
 
 

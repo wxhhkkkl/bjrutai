@@ -89,6 +89,25 @@ STATUS_LABELS: dict[str, str] = {
     BindingRequestStatus.TRANSFERRED.value: "已转移",
 }
 
+STATUS_GROUP_LABELS: dict[str, str] = {
+    "bound": "已归属",
+    "matching": "匹配中",
+    "attention": "需处理",
+}
+
+ATTENTION_STATUSES: tuple[BindingRequestStatus, ...] = (
+    BindingRequestStatus.ABNORMAL,
+    BindingRequestStatus.NO_CONSUME,
+    BindingRequestStatus.UNBOUND,
+    BindingRequestStatus.TRANSFERRED,
+)
+
+TERMINAL_STATUSES: tuple[BindingRequestStatus, ...] = (
+    BindingRequestStatus.BOUND,
+    BindingRequestStatus.UNBOUND,
+    BindingRequestStatus.TRANSFERRED,
+)
+
 MATCH_LEVEL_LABELS: dict[str, str] = {
     MatchLevel.EXACT.value: "精确匹配",
     MatchLevel.FUZZY.value: "模糊匹配",
@@ -119,6 +138,81 @@ def _normalize_phone(phone: Optional[str]) -> str:
     if len(digits) != 11 or not digits.startswith("1"):
         raise ValidationException(message="请输入正确的11位客户手机号")
     return digits
+
+
+def _status_group_condition(status_group: str, now: datetime):
+    """Return the shared SQL condition for a binding-record display group."""
+    expired_unresolved = and_(
+        BindingRequest.created_at < now - timedelta(days=BINDING_EXPIRY_DAYS),
+        BindingRequest.status.notin_(TERMINAL_STATUSES),
+    )
+    needs_attention = or_(
+        BindingRequest.status.in_(ATTENTION_STATUSES),
+        expired_unresolved,
+    )
+    locally_bound = or_(
+        BindingRequest.status == BindingRequestStatus.BOUND,
+        Customer.binding_status == BindingStatus.BOUND,
+    )
+
+    if status_group == "bound":
+        return and_(locally_bound, ~needs_attention)
+    if status_group == "matching":
+        return and_(~locally_bound, ~needs_attention)
+    if status_group == "attention":
+        return needs_attention
+    raise ValidationException(message="无效的绑定状态分组")
+
+
+def _status_group_value(
+    request_status: BindingRequestStatus,
+    customer_status: Optional[BindingStatus],
+    created_at: Optional[datetime],
+    now: datetime,
+) -> str:
+    if request_status in ATTENTION_STATUSES:
+        return "attention"
+    if (
+        created_at
+        and created_at < now - timedelta(days=BINDING_EXPIRY_DAYS)
+        and request_status not in TERMINAL_STATUSES
+    ):
+        return "attention"
+    if request_status == BindingRequestStatus.BOUND or customer_status == BindingStatus.BOUND:
+        return "bound"
+    return "matching"
+
+
+async def ensure_phone_not_business_member(db: AsyncSession, phone: str) -> None:
+    """Reject customer binding when the phone already belongs to a staff member.
+
+    A phone can exist in both legacy tables, so the organization membership is
+    the authoritative check rather than the mutable ``user_type`` field.
+    Lock the matching user rows while checking to keep a concurrent staff join
+    from slipping through the customer-binding flow.
+    """
+    users = (
+        await db.execute(
+            select(User).where(User.phone == phone).with_for_update()
+        )
+    ).scalars().all()
+    if not users:
+        return
+
+    user_ids = [user.id for user in users]
+    business_member = (
+        await db.execute(
+            select(Distributor.id)
+            .where(Distributor.user_id.in_(user_ids))
+            .with_for_update()
+            .limit(1)
+        )
+    ).scalars().first()
+    if business_member is not None:
+        raise ConflictException(
+            code=40024,
+            message="该手机号已是客户顾问账号，不能作为客户绑定",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -255,12 +349,12 @@ class BindingService:
         """
         promoter_id_str = data.get("promoterId", "")
         if not promoter_id_str:
-            raise ValidationException(message="缺少归属业务员参数")
+            raise ValidationException(message="缺少归属客户顾问参数")
 
         try:
             promoter_user_id = int(promoter_id_str)
         except (ValueError, TypeError):
-            raise BadRequestException(message="业务员参数无效")
+            raise BadRequestException(message="客户顾问参数无效")
 
         # Verify distributor exists and its org is business-available
         promoter_result = await db.execute(
@@ -269,7 +363,7 @@ class BindingService:
         promoter = promoter_result.scalars().first()
         if promoter is None or not await distributor_service.is_distributor_selectable(db, promoter):
             raise AppException(
-                code=40020, message="业务员不存在或当前不可开展业务", status_code=400,
+                code=40020, message="客户顾问不存在或当前不可开展业务", status_code=400,
             )
 
         # Extract customer info before duplicate checks. A promoter may bind many
@@ -278,6 +372,7 @@ class BindingService:
         customer_info = data.get("customerInfo") or {}
         name = customer_info.get("name", "")
         phone = _normalize_phone(customer_info.get("phone"))
+        await ensure_phone_not_business_member(db, phone)
         id_card = customer_info.get("idCard", "")
         medical_account = customer_info.get("medicalAccount", "")
         family_phone = customer_info.get("familyPhone", "")
@@ -299,17 +394,21 @@ class BindingService:
                 .with_for_update()
             )
         ).scalars().first()
-        if existing_customer is not None and existing_customer.distributor_id != promoter.id:
+        if (
+            existing_customer is not None
+            and existing_customer.distributor_id is not None
+            and existing_customer.distributor_id != promoter.id
+        ):
             raise ConflictException(
                 code=40023,
-                message="该手机号对应客户已归属其他业务员，请联系后台处理",
+                message="该手机号对应客户已归属其他客户顾问，请联系后台处理",
             )
         if (
             existing_customer is not None
             and existing_customer.binding_status == BindingStatus.BOUND
         ):
             raise AppException(
-                code=40022, message="该客户已绑定当前业务员，请勿重复提交", status_code=409,
+                code=40022, message="该客户已绑定当前客户顾问，请勿重复提交", status_code=409,
             )
 
         # Binding requests contain masked identifiers only. Restrict the
@@ -375,6 +474,8 @@ class BindingService:
             await db.refresh(customer)
         else:
             customer = existing_customer
+            if customer.distributor_id is None:
+                customer.distributor_id = promoter.id
             if name:
                 customer.name = name
             if id_card and not customer.id_card_encrypted:
@@ -512,6 +613,7 @@ class BindingService:
         db: AsyncSession,
         *,
         status: Optional[str] = None,
+        status_group: Optional[str] = None,
         role: str = "initiator",
         cursor: Optional[str] = None,
         page_size: int = 20,
@@ -523,7 +625,9 @@ class BindingService:
         """List binding requests with filters and cursor pagination."""
         page_size = max(1, min(page_size, 100))
 
-        query = select(BindingRequest).options(
+        query = select(BindingRequest, Customer.binding_status).outerjoin(
+            Customer, Customer.id == BindingRequest.customer_id
+        ).options(
             selectinload(BindingRequest.distributor).selectinload(Distributor.user),
         )
 
@@ -534,6 +638,9 @@ class BindingService:
                 query = query.where(BindingRequest.status == req_status)
             except ValueError:
                 pass
+
+        if status_group:
+            query = query.where(_status_group_condition(status_group, datetime.utcnow()))
 
         # Filter by submitted_by
         if submitted_by_me is not None:
@@ -571,13 +678,13 @@ class BindingService:
 
         query = query.limit(page_size + 1)
         result = await db.execute(query)
-        binding_requests = result.scalars().all()
+        binding_request_rows = result.all()
 
-        has_more = len(binding_requests) > page_size
-        items_list = binding_requests[:page_size]
+        has_more = len(binding_request_rows) > page_size
+        items_list = binding_request_rows[:page_size]
 
         items: list[dict[str, Any]] = []
-        submitted_by_ids = {br.submitted_by for br in items_list}
+        submitted_by_ids = {br.submitted_by for br, _customer_status in items_list}
         # Batch fetch submitter users
         user_map: dict[int, User] = {}
         if submitted_by_ids:
@@ -587,15 +694,27 @@ class BindingService:
             for u in users_result.scalars():
                 user_map[u.id] = u
 
-        for br in items_list:
+        group_now = datetime.utcnow()
+        for br, customer_status in items_list:
             proms = br.distributor
             promoter_user = proms.user if proms else None
             submitter = user_map.get(br.submitted_by)
+            status_group_value = _status_group_value(
+                br.status,
+                customer_status,
+                br.created_at,
+                group_now,
+            )
 
             items.append({
                 "requestId": str(br.id),
                 "status": br.status.value,
                 "statusLabel": STATUS_LABELS.get(br.status.value, br.status.value),
+                "statusGroup": status_group_value,
+                "statusGroupLabel": STATUS_GROUP_LABELS[status_group_value],
+                "customerBindingStatus": (
+                    customer_status.value if customer_status is not None else None
+                ),
                 "matchLevel": br.match_level.value if br.match_level else None,
                 "initiator": {
                     "userId": str(br.submitted_by),
@@ -626,7 +745,7 @@ class BindingService:
 
         next_cursor: Optional[str] = None
         if has_more and items_list:
-            last_item = items_list[-1]
+            last_item, _customer_status = items_list[-1]
             next_cursor = _encode_cursor(str(last_item.id))
 
         return {
@@ -773,7 +892,7 @@ class BindingService:
             if cust_result.scalars().first() is not None:
                 raise ConflictException(
                     code=40022,
-                    message="该客户已绑定当前业务员",
+                    message="该客户已绑定当前客户顾问",
                 )
 
         # Increment retry count and set next retry
@@ -966,6 +1085,21 @@ class BindingService:
         expired_result = await db.execute(expired_q)
         expired_requests = expired_result.scalar() or 0
 
+        group_now = datetime.utcnow()
+
+        async def count_group(status_group: str) -> int:
+            group_query = select(func.count(BindingRequest.id)).outerjoin(
+                Customer, Customer.id == BindingRequest.customer_id
+            ).where(_status_group_condition(status_group, group_now))
+            if filters:
+                group_query = group_query.where(and_(*filters))
+            group_result = await db.execute(group_query)
+            return group_result.scalar() or 0
+
+        owned_bindings = await count_group("bound")
+        matching_requests = await count_group("matching")
+        attention_requests = await count_group("attention")
+
         # Last binding
         last_q = select(BindingRequest.bound_at).where(
             BindingRequest.bound_at.isnot(None)
@@ -982,6 +1116,9 @@ class BindingService:
             "pendingRequests": pending_requests,
             "rejectedRequests": rejected_requests,
             "expiredRequests": expired_requests,
+            "ownedBindings": owned_bindings,
+            "matchingRequests": matching_requests,
+            "attentionRequests": attention_requests,
             "lastBindingAt": last_binding_at_str,
         }
 

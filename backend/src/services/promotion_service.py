@@ -17,7 +17,9 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 SOURCE_CODE = "BJTR"
-DEFAULT_SHARE_TITLE = "邀请您绑定儒泰医联业务员"
+# The mini-program share card should not add marketing copy above the code.
+# Keep the field nullable so WeChat can use its platform-level presentation.
+DEFAULT_SHARE_TITLE = None
 CHINA_TIMEZONE = timezone(timedelta(hours=8))
 
 
@@ -31,7 +33,7 @@ async def _get_promoter(db: AsyncSession, user_id: int) -> Distributor:
     )
     promoter = result.scalars().first()
     if promoter is None:
-        raise ForbiddenException(message="当前账号尚未成为业务员")
+        raise ForbiddenException(message="当前账号尚未成为客户顾问")
     return promoter
 
 

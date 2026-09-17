@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import get_settings
@@ -21,6 +21,8 @@ from ..core.security import (
 )
 from ..integrations.wechat_client import get_wechat_client
 from ..models.role import Role
+from ..models.binding import BindingStatus, Customer
+from ..models.distributor import Distributor
 from ..models.session import TokenType, UserToken
 from ..models.user import (
     ActivationStatus,
@@ -98,6 +100,73 @@ def _issue_token_pair(
         "family": family,
         "token_hash": _hash_token(refresh_token),
     }
+
+
+def _normalize_customer_phone(phone: Optional[str]) -> str:
+    digits = "".join(character for character in str(phone or "") if character.isdigit())
+    if digits.startswith("86") and len(digits) == 13:
+        digits = digits[2:]
+    return digits if len(digits) == 11 and digits.startswith("1") else ""
+
+
+async def _ensure_unassigned_customer(db: AsyncSession, user: User) -> None:
+    """Create or link the pending customer record for a personal account.
+
+    A self-registered account has no business owner.  The record becomes owned
+    only when a staff pre-entry or a customer-binding-code claim supplies one.
+    """
+    if user.user_type != UserType.PERSONAL:
+        return
+
+    phone = _normalize_customer_phone(user.phone)
+    if not phone:
+        return
+
+    membership = (
+        await db.execute(
+            select(Distributor.id).where(Distributor.user_id == user.id).limit(1)
+        )
+    ).scalars().first()
+    if membership is not None:
+        return
+
+    customer = (
+        await db.execute(
+            select(Customer)
+            .where(
+                or_(
+                    Customer.user_id == user.id,
+                    Customer.phone_normalized == phone,
+                    Customer.phone == phone,
+                )
+            )
+            .order_by(Customer.id.asc())
+            .with_for_update()
+        )
+    ).scalars().first()
+    if customer is None:
+        customer = Customer(
+            user_id=user.id,
+            name=user.name.strip() if user.name and user.name.strip() else None,
+            phone=phone,
+            phone_normalized=phone,
+            phone_masked=phone[:3] + "****" + phone[-4:],
+            binding_status=BindingStatus.PENDING,
+            version=1,
+        )
+    else:
+        if customer.user_id is None:
+            customer.user_id = user.id
+        if not customer.phone_normalized:
+            customer.phone_normalized = phone
+        if not customer.phone:
+            customer.phone = phone
+            customer.phone_masked = phone[:3] + "****" + phone[-4:]
+        if not customer.name and user.name and user.name.strip():
+            customer.name = user.name.strip()
+        customer.version += 1
+    db.add(customer)
+    await db.flush()
 
 
 # ---------------------------------------------------------------------------
@@ -265,6 +334,9 @@ class AuthService:
             user.user_type = UserType.PERSONAL
             db.add(user)
 
+        if distributor_info is None:
+            await _ensure_unassigned_customer(db, user)
+
         # Issue token pair
         user_type_str = user.user_type.value if isinstance(user.user_type, UserType) else str(user.user_type)
         token_pair = _issue_token_pair(
@@ -343,7 +415,7 @@ class AuthService:
         dist = await distributor_service.get_distributor_by_user(db, user.id)
         if dist is None:
             raise AppException(
-                code=40101, message="该账号尚未成为业务员",
+                code=40101, message="该账号尚未成为客户顾问",
                 status_code=401, error_type="unauthorized",
             )
         if (
@@ -427,6 +499,7 @@ class AuthService:
         db.add(user)
         await db.flush()
         await db.refresh(user)
+        await _ensure_unassigned_customer(db, user)
 
         # Issue token pair
         token_pair = _issue_token_pair(user.id, "personal")

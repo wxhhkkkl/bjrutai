@@ -7,7 +7,9 @@ function payload(res) {
 
 export const adminCustomerApi = {
   list(orgId, params = {}) {
-    return http.get('/admin/customers', { params: { orgId, ...params } }).then(payload)
+    const query = { ...params }
+    if (orgId) query.orgId = orgId
+    return http.get('/admin/customers', { params: query }).then(payload)
   },
   export(orgId, params = {}) {
     return http.get('/admin/customers/export', {

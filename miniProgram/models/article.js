@@ -68,6 +68,27 @@ function adaptArticleDetail(value) {
   })
 }
 
+function createArticleShare(value) {
+  const article = value && typeof value === 'object' ? value : null
+  let articleId = ''
+
+  try {
+    articleId = normalizeArticleId(article && article.articleId)
+  } catch (error) {
+    return {
+      title: '儒泰医联健康资讯',
+      path: '/pages/home/index',
+      imageUrl: ''
+    }
+  }
+
+  return {
+    title: optionalText(article.title) || '儒泰医联健康资讯',
+    path: `/pages/article-detail/index?articleId=${encodeURIComponent(articleId)}`,
+    imageUrl: optionalText(article.coverImageUrl)
+  }
+}
+
 function adaptArticlePage(value) {
   if (!value || typeof value !== 'object' || !Array.isArray(value.items)) {
     throw articleFormatError('文章分页 items 格式异常')
@@ -145,6 +166,7 @@ module.exports = {
   normalizeArticleId,
   adaptArticleListItem,
   adaptArticleDetail,
+  createArticleShare,
   adaptArticlePage,
   adaptArticleCategories,
   mergeArticlePage

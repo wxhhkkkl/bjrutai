@@ -124,6 +124,29 @@ async def test_list_customers_filter_and_pagination(client: AsyncClient, db_sess
 
 
 @pytest.mark.asyncio
+async def test_list_unassigned_pending_customers_without_an_org(client: AsyncClient, db_session: AsyncSession):
+    user_id = await seed_user(
+        db_session, openid="unassigned-customer", user_type="personal", name="待绑定用户", phone="13900000001"
+    )
+    customer = Customer(
+        user_id=user_id,
+        name="待绑定用户",
+        phone="13900000001",
+        phone_normalized="13900000001",
+        phone_masked="139****0001",
+        binding_status=BindingStatus.PENDING,
+    )
+    db_session.add(customer)
+    await db_session.flush()
+
+    data = _assert_envelope(await client.get("/api/v1/admin/customers", headers=CUST_R))
+    assert data["total"] == 1
+    assert data["items"][0]["name"] == "待绑定用户"
+    assert data["items"][0]["distributorId"] is None
+    assert data["items"][0]["orgId"] is None
+
+
+@pytest.mark.asyncio
 async def test_list_customers_requires_read_permission(client: AsyncClient, db_session: AsyncSession):
     root_id, _ = await _seed_org_tree(db_session)
     resp = await client.get("/api/v1/admin/customers", params={"orgId": root_id}, headers=NO_PERM)

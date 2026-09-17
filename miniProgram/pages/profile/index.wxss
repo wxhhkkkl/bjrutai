@@ -18,6 +18,12 @@ page {
     box-shadow: 0 12rpx 30rpx rgba(31, 71, 127, 0.08);
 }
 
+/* Personal accounts have no business metrics, so the card follows its
+   identity content instead of reserving the metric area. */
+.profile-hero--personal {
+    height: 238rpx;
+}
+
 .profile-hero__visual {
     position: absolute;
     top: 0;
@@ -148,17 +154,6 @@ page {
     font-size: 39rpx;
     font-weight: 700;
     line-height: 1.2;
-}
-
-.profile-membership-notice {
-  margin-bottom: 30rpx;
-  padding: 24rpx 28rpx;
-  color: #5d6878;
-  font-size: 24rpx;
-  line-height: 1.6;
-  background: #f1f6fd;
-  border: 1rpx solid #dbe9fb;
-  border-radius: 18rpx;
 }
 
 .profile-service-grid {

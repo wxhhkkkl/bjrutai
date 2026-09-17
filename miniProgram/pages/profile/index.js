@@ -25,8 +25,8 @@ const SERVICE_ITEMS = [{
   businessOnly: true
 }, {
   id: 'staff-invite',
-  title: '发展业务员',
-  description: '邀请业务员加入组织',
+  title: '发展客户顾问',
+  description: '邀请客户顾问加入组织',
   icon: '/assets/images/team-members-icon.png',
   adminOnly: true
 }, {
@@ -94,6 +94,13 @@ Page({
     const entry = getEntry(session)
     if (entry.type === 'reLaunch') {
       wx.reLaunch({ url: entry.url })
+      return
+    }
+
+    // Public visitors can browse before entering a name.  The profile tab is
+    // the intentional point where we collect that information.
+    if (!session.profileCompleted) {
+      wx.reLaunch({ url: '/pages/auth/profile-setup/index' })
       return
     }
 

@@ -21,8 +21,8 @@ function getIdentityDisplay(session) {
   const identityType = normalizeIdentityType(session);
 
   if (identityType === 'doctor') return '北京儒泰合作医生';
-  if (identityType === 'orgAdmin') return '儒泰医联推广员（组织管理员）';
-  if (identityType === 'promoter') return '儒泰医联业务员';
+  if (identityType === 'orgAdmin') return '儒泰医联客户顾问（组织管理员）';
+  if (identityType === 'promoter') return '儒泰医联客户顾问';
   return '儒泰医联个人账号';
 }
 
@@ -30,8 +30,8 @@ function getIdentityLabel(session) {
   const identityType = normalizeIdentityType(session);
 
   if (identityType === 'doctor') return '儒泰医生';
-  if (identityType === 'orgAdmin') return '推广员（组织管理员）';
-  if (identityType === 'promoter') return '业务员';
+  if (identityType === 'orgAdmin') return '客户顾问（组织管理员）';
+  if (identityType === 'promoter') return '客户顾问';
   return '个人账号';
 }
 

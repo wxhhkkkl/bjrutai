@@ -8,13 +8,14 @@
 | `role` | enum | `promoter`、`doctor`、`unknown` |
 | `activationStatus` | enum | `active`、`inactive` |
 | `qualificationStatus` | enum | `approved`、`reviewing`、`rejected`、`expiring` |
-| `profileCompleted` | boolean | 未完成时进入首次资料补全 |
+| `profileCompleted` | boolean | 业务成员未完成时进入资料补全；普通访客可直接浏览 |
 
 ### Entry Transition
 
 ```text
 unknown session -> 登录授权
-profileCompleted=false -> 首次资料补全
+hasBusinessMembership=true + profileCompleted=false -> 首次资料补全
+普通访客 + profileCompleted=false -> 首页
 role=doctor -> 医生工作台
 activationStatus=inactive -> 账号待激活状态
 role=promoter + qualificationStatus=approved/expiring -> 拓展人首页

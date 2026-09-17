@@ -5,12 +5,12 @@ Page({
   onLoad(options = {}) {
     const refToken = decodeURIComponent(String(options.refToken || options.scene || '').trim())
     this.setData({ refToken })
-    if (!refToken) { this.setData({ state: 'invalid', stateMessage: '业务员加入码参数不完整' }); return }
+    if (!refToken) { this.setData({ state: 'invalid', stateMessage: '客户顾问加入码参数不完整' }); return }
     this.loadInfo()
   },
   async loadInfo() {
     try { this.setData({ state: 'loading' }); const info = await staffInviteService.getInviteInfo(this.data.refToken); this.setData({ state: 'ready', info }) }
-    catch (error) { this.setData({ state: 'invalid', stateMessage: error.message || '业务员加入码已失效' }) }
+    catch (error) { this.setData({ state: 'invalid', stateMessage: error.message || '客户顾问加入码已失效' }) }
   },
   onNameInput(event) { this.setData({ name: event.detail.value }) },
   toggleConsent() { this.setData({ consentConfirmed: !this.data.consentConfirmed }) },

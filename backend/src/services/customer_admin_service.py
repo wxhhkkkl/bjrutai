@@ -75,7 +75,7 @@ async def _get_distributor_or_404(db: AsyncSession, distributor_id: int) -> Dist
     result = await db.execute(select(Distributor).where(Distributor.id == distributor_id))
     d = result.scalars().first()
     if d is None:
-        raise NotFoundException(message="推广员不存在")
+        raise NotFoundException(message="客户顾问不存在")
     return d
 
 
@@ -236,6 +236,47 @@ async def list_customers_by_org(
     }
 
 
+async def list_unassigned_customers(
+    db: AsyncSession,
+    status: Optional[str] = None,
+    keyword: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
+    """Return pending customers created by personal registration without an owner."""
+    filters = [Customer.distributor_id.is_(None), Customer.binding_status == BindingStatus.PENDING]
+    if status:
+        try:
+            requested_status = BindingStatus(status)
+        except ValueError:
+            raise BadRequestException(message=f"无效的绑定状态: {status}")
+        filters.append(Customer.binding_status == requested_status)
+    if keyword:
+        kw = f"%{keyword}%"
+        filters.append(
+            or_(Customer.name.ilike(kw), Customer.phone.ilike(kw), Customer.phone_masked.ilike(kw))
+        )
+
+    count_stmt = select(Customer.id).where(*filters)
+    total = len((await db.execute(count_stmt)).scalars().all())
+    rows = (
+        await db.execute(
+            select(Customer)
+            .where(*filters)
+            .order_by(Customer.created_at.desc(), Customer.id.desc())
+            .limit(page_size)
+            .offset((page - 1) * page_size)
+        )
+    ).scalars().all()
+    return {
+        "items": [_customer_summary(customer, None, None, None) for customer in rows],
+        "total": total,
+        "page": page,
+        "pageSize": page_size,
+        "hasMore": page * page_size < total,
+    }
+
+
 def _csv_safe(value) -> str:
     """Prevent spreadsheet formula execution for user-controlled CSV cells."""
     text = "" if value is None else str(value)
@@ -320,10 +361,10 @@ async def create_manual_customer(
     try:
         distributor_id = int(data.distributor_id)
     except (ValueError, TypeError):
-        raise BadRequestException(message="无效的推广员")
+        raise BadRequestException(message="无效的客户顾问")
     distributor = await _get_distributor_or_404(db, distributor_id)
     if not await distributor_service.is_distributor_selectable(db, distributor):
-        raise AppException(code=40020, message="推广员不存在或不可开展业务", status_code=400)
+        raise AppException(code=40020, message="客户顾问不存在或不可开展业务", status_code=400)
 
     now = datetime.utcnow()
     customer = Customer(
@@ -443,8 +484,8 @@ async def get_customer_detail(db: AsyncSession, customer_id: int) -> dict:
         (await db.execute(select(FollowupRecord.id).where(FollowupRecord.customer_id == customer_id))).scalars().all()
     )
 
-    dist = await _get_distributor_or_404(db, customer.distributor_id)
-    org_id = dist.org_id
+    dist = await db.get(Distributor, customer.distributor_id) if customer.distributor_id else None
+    org_id = dist.org_id if dist else None
     return {
         "id": str(customer.id),
         "name": customer.name,
@@ -527,8 +568,14 @@ async def update_customer_profile(
     await db.flush()
     await db.refresh(customer)
 
-    dist = await _get_distributor_or_404(db, customer.distributor_id)
-    return _customer_summary(customer, await _distributor_name(db, customer.distributor_id), dist.org_id, await _org_name(db, dist.org_id))
+    dist = await db.get(Distributor, customer.distributor_id) if customer.distributor_id else None
+    org_id = dist.org_id if dist else None
+    return _customer_summary(
+        customer,
+        await _distributor_name(db, customer.distributor_id),
+        org_id,
+        await _org_name(db, org_id),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -543,13 +590,13 @@ async def transfer_customer(
     try:
         new_distributor_id = int(data.new_distributor_id)
     except (ValueError, TypeError):
-        raise BadRequestException(message="无效的推广员")
+        raise BadRequestException(message="无效的客户顾问")
 
     new_distributor = await _get_distributor_or_404(db, new_distributor_id)
     if not await distributor_service.is_distributor_selectable(db, new_distributor):
-        raise AppException(code=40020, message="新推广员不存在或不可开展业务", status_code=400)
+        raise AppException(code=40020, message="新客户顾问不存在或不可开展业务", status_code=400)
     if new_distributor.id == customer.distributor_id:
-        raise BadRequestException(message="不能更改为当前推广员")
+        raise BadRequestException(message="不能更改为当前客户顾问")
 
     previous_distributor_id = customer.distributor_id
     customer.distributor_id = new_distributor.id

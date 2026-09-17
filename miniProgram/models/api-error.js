@@ -11,8 +11,8 @@ const DEFAULT_MESSAGES = {
 }
 
 const ENGLISH_MESSAGES = [
-  [/you are already bound to this promoter/i, '该拓展人已有绑定客户，不能重复绑定'],
-  [/already bound to this promoter/i, '该拓展人已有绑定客户，不能重复绑定'],
+  [/you are already bound to this promoter/i, '该客户顾问已有绑定客户，不能重复绑定'],
+  [/already bound to this promoter/i, '该客户顾问已有绑定客户，不能重复绑定'],
   [/you already have a pending binding request for this promoter/i, '该客户已有待处理的绑定申请'],
   [/distributor not found or not selectable/i, '当前账号不可用于客户绑定'],
   [/invalid promoterid/i, '绑定对象信息无效'],

@@ -1,16 +1,6 @@
 <flow-navigation title="完善资料" bind:back="handleBack" />
 
 <view class="profile-setup-page">
-  <view class="profile-progress">
-    <view class="profile-progress__heading">
-      <text>账号初始化</text>
-      <text>1/2</text>
-    </view>
-    <view class="profile-progress__track">
-      <view class="profile-progress__value"></view>
-    </view>
-  </view>
-
   <text class="profile-setup-title">补充基础信息</text>
   <text class="profile-setup-description">用于完成账户识别与业务联系</text>
 
@@ -49,31 +39,6 @@
     </view>
   </view>
 
-  <view class="profile-role-card">
-    <view class="profile-role-card__icon">
-      <van-icon name="description-o" size="42px" color="#ffffff" />
-      <van-icon class="profile-role-card__shield" name="shield-o" size="20px" color="#ffffff" />
-    </view>
-    <view class="profile-role-card__copy">
-      <text class="profile-role-card__title">角色由系统识别</text>
-      <text class="profile-role-card__description">所属机构和身份由系统维护，加入组织后将自动开放业务功能</text>
-    </view>
-  </view>
-
-  <view
-    class="profile-confirmation tap-target"
-    bindtap="toggleConfirmation"
-    hover-class="tap-feedback"
-    hover-start-time="0"
-    hover-stay-time="80"
-    aria-role="checkbox"
-    aria-checked="{{confirmed}}"
-  >
-    <view class="profile-confirmation__box {{confirmed ? 'profile-confirmation__box--checked' : ''}}">
-      <van-icon wx:if="{{confirmed}}" name="success" size="17px" color="#ffffff" />
-    </view>
-    <text>我确认以上信息真实有效</text>
-  </view>
 </view>
 
 <view class="profile-submit-bar">

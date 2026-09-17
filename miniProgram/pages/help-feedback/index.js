@@ -1,11 +1,15 @@
 const feedbackService = require('../../services/feedback-service')
-const { MAX_CONTENT_LENGTH, MAX_SCREENSHOTS, HELP_FAQS, FEEDBACK_TYPES, validateFeedback } = require('../../models/help-feedback')
+const { MAX_CONTENT_LENGTH, MAX_SCREENSHOTS, HELP_FAQS, FEEDBACK_TYPES, getVisibleHelpFaqs, validateFeedback } = require('../../models/help-feedback')
+const { getCurrentSession } = require('../../services/session-service')
 const { createRequestKeyManager } = require('../../utils/request-key')
 
 const feedbackRequestKeys = createRequestKeyManager()
 
 Page({
   data: { faqs: HELP_FAQS, feedbackTypes: FEEDBACK_TYPES, selectedType: 'issue', content: '', contentLength: 0, maxContentLength: MAX_CONTENT_LENGTH, images: [], imageFiles: [], maxScreenshots: MAX_SCREENSHOTS, invalidField: '', submitting: false, uploadingImages: false, retryPayload: null },
+  onLoad() {
+    this.setData({ faqs: getVisibleHelpFaqs(getCurrentSession()) })
+  },
   handleBack() { if (getCurrentPages().length > 1) wx.navigateBack({ delta: 1 }); else wx.switchTab({ url: '/pages/profile/index' }) },
   openFaq(event) { const faq = this.data.faqs.find((item) => item.id === event.currentTarget.dataset.id); if (faq) wx.showModal({ title: faq.title, content: faq.answer, showCancel: false }) },
   resetRetry() { feedbackRequestKeys.restart('help-feedback'); this.setData({ retryPayload: null }) },

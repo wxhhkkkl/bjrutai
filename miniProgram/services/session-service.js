@@ -117,7 +117,9 @@ function getEntry(session) {
       url: '/pages/common/feature-placeholder/index?title=账号未激活'
     }
   }
-  if (!value.profileCompleted) {
+  // A visitor's name is optional for browsing content.  Keep profile setup
+  // for organization members, where the profile is needed for business work.
+  if (value.hasBusinessMembership && !value.profileCompleted) {
     return { type: 'reLaunch', url: '/pages/auth/profile-setup/index' }
   }
   return { type: 'switchTab', url: '/pages/home/index' }

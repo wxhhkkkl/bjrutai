@@ -1,4 +1,5 @@
 const bindingCodeService = require('../../services/customer-binding-code-service')
+const authService = require('../../services/auth-service')
 
 function tokenFromOptions(options = {}) {
   return decodeURIComponent(String(options.refToken || options.scene || '').trim())
@@ -50,6 +51,18 @@ Page({
     }
   },
 
+  getWechatCode() {
+    return new Promise((resolve, reject) => {
+      wx.login({
+        success: ({ code }) => {
+          if (code) resolve(code)
+          else reject(new Error('获取微信凭证失败'))
+        },
+        fail: () => reject(new Error('获取微信凭证失败'))
+      })
+    })
+  },
+
   async submit(event) {
     if (!this.data.consentConfirmed) {
       wx.showToast({ title: '请先同意客户资料授权', icon: 'none' })
@@ -63,12 +76,16 @@ Page({
     if (this.data.submitting) return
     this.setData({ submitting: true })
     try {
+      const wechatCode = await this.getWechatCode()
       const result = await bindingCodeService.claimCustomer(this.data.refToken, {
+        wechatCode,
         phoneCode,
         name: String(this.data.name || '').trim() || undefined,
         consentConfirmed: true
       })
-      this.setData({ state: 'success', result })
+      await authService.establishSession(result.session)
+      wx.showToast({ title: '绑定成功', icon: 'success' })
+      wx.switchTab({ url: '/pages/home/index' })
     } catch (error) {
       wx.showToast({ title: error.message || '绑定失败，请稍后重试', icon: 'none' })
     } finally {

@@ -24,3 +24,10 @@
     <view wx:else class="article-empty-content">暂无正文内容</view>
   </view>
 </view>
+
+<view wx:if="{{state === 'success'}}" class="article-detail-share-bar">
+  <button class="article-detail-share tap-target" open-type="share" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" aria-label="转发文章">
+    <van-icon name="share-o" size="22px" color="#ffffff" />
+    <text>转发文章</text>
+  </button>
+</view>

@@ -106,7 +106,7 @@
               <el-table-column label="身份" width="180" align="center">
                 <template #default="{ row }">
                   <el-tag :type="row.orgRole === 'admin' ? 'warning' : 'info'">
-                    {{ row.orgRole === 'admin' ? '推广员（组织管理员）' : '业务员' }}
+                    {{ row.orgRole === 'admin' ? '客户顾问（组织管理员）' : '客户顾问' }}
                   </el-tag>
                 </template>
               </el-table-column>
@@ -243,10 +243,10 @@
         </el-form-item>
         <el-form-item label="组织身份" required>
           <el-select v-model="distForm.orgRole" style="width: 100%">
-            <el-option label="业务员（组织成员）" value="member" />
-            <el-option label="推广员（组织管理员）" value="admin" :disabled="orgHasAdmin" />
+            <el-option label="客户顾问（组织成员）" value="member" />
+            <el-option label="客户顾问（组织管理员）" value="admin" :disabled="orgHasAdmin" />
           </el-select>
-          <div v-if="orgHasAdmin" class="form-tip">该组织已有推广员，如需更换请先撤销原管理员身份。</div>
+          <div v-if="orgHasAdmin" class="form-tip">该组织已有客户顾问，如需更换请先撤销原管理员身份。</div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -520,7 +520,7 @@ function handleDistModeChange(mode) {
 async function submitCreateDistributor() {
   const f = distForm.value
   if (f.orgRole === 'admin' && orgHasAdmin.value) {
-    ElMessage.warning('该组织已有推广员，请先撤销原管理员身份')
+    ElMessage.warning('该组织已有客户顾问，请先撤销原管理员身份')
     return
   }
   if (distMode.value === 'existing' && !existingUserId.value) {

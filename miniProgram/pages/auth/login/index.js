@@ -97,6 +97,8 @@ Page({
   },
 
   // Share token storage + session building + routing between both paths.
+  // Public visitors can browse immediately after phone authorization.  Only
+  // recognized business members without a required profile are sent to setup.
   async completeLogin(result) {
     const established = await authService.establishSession(result);
 
@@ -104,10 +106,11 @@ Page({
       wx.redirectTo({ url: '/pages/auth/bind-wechat/index' });
       return;
     }
-    if (established.isNewUser || !established.session.profileCompleted) {
-      wx.redirectTo({ url: '/pages/auth/profile-setup/index' });
+    const entry = sessionService.getEntry(established.session);
+    if (entry.type === 'reLaunch') {
+      wx.redirectTo({ url: entry.url });
       return;
     }
-    wx.switchTab({ url: '/pages/home/index' });
+    wx.switchTab({ url: entry.url });
   }
 });

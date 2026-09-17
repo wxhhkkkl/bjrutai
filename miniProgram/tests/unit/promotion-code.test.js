@@ -26,11 +26,11 @@ test('promotion instructions preserve the approved three-step flow', () => {
   );
 });
 
-test('customer binding share carries the salesperson token', () => {
+test('customer binding share carries the salesperson token without a title', () => {
   const profile = { name: '张小明', refToken: 'customer-token', qrImage: '/qr.png' };
   const share = createPromotionShare(profile);
 
-  assert.match(share.title, /张小明/);
+  assert.equal('title' in share, false);
   assert.equal(
     share.path,
     '/pages/patient-binding/index?refToken=customer-token'
@@ -38,9 +38,9 @@ test('customer binding share carries the salesperson token', () => {
   assert.equal(share.imageUrl, '/qr.png');
 });
 
-test('promotion share prefers the server-issued title and path', () => {
+test('promotion share omits custom invitation copy and preserves path', () => {
   const share = createPromotionShare({ name: '张小明', shareTitle: '进入儒泰', sharePath: '/pages/index/index?source=BJTR&ref_token=token', qrImage: '/qr.png' });
-  assert.equal(share.title, '进入儒泰');
+  assert.equal('title' in share, false);
   assert.equal(share.path, '/pages/index/index?source=BJTR&ref_token=token');
   assert.equal(share.imageUrl, '/qr.png');
 });

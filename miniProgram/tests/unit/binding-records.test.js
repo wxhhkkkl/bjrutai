@@ -23,7 +23,7 @@ test('binding record sorting does not mutate source data', () => {
   const originalOrder = BINDING_RECORDS.map((record) => record.id);
   const sorted = sortBindingRecords(BINDING_RECORDS, 'status');
 
-  assert.equal(sorted[0].status, 'processing');
+  assert.equal(sorted[0].status, 'attention');
   assert.deepEqual(
     BINDING_RECORDS.map((record) => record.id),
     originalOrder

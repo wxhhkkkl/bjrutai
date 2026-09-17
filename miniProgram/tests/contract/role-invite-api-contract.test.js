@@ -32,6 +32,18 @@ test('phone authorization buttons are gated by consent on scan pages', () => {
   }
 })
 
+test('customer binding logs the patient in before returning to the home tab', () => {
+  const controller = fs.readFileSync(
+    path.join(projectRoot, 'pages/patient-binding/index.js'),
+    'utf8'
+  )
+
+  assert.match(controller, /wx\.login\(/)
+  assert.match(controller, /wechatCode/)
+  assert.match(controller, /authService\.establishSession\(result\.session\)/)
+  assert.match(controller, /wx\.switchTab\(\{ url: '\/pages\/home\/index' \}\)/)
+})
+
 test('staff invite image follows the active mini program API environment', () => {
   const staff = require(path.join(projectRoot, 'services/staff-invite-service'))
   const invite = {

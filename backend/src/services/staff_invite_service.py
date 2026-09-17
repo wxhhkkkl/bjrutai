@@ -121,7 +121,7 @@ async def _valid_code(db: AsyncSession, ref_token: str):
     )
     row = result.first()
     if row is None:
-        raise NotFoundException(message="业务员加入码不存在或已失效")
+        raise NotFoundException(message="客户顾问加入码不存在或已失效")
     code, inviter, inviter_user, organization = row
     if (
         code.status != StaffInviteCodeStatus.AVAILABLE
@@ -131,7 +131,7 @@ async def _valid_code(db: AsyncSession, ref_token: str):
         or inviter_user.activation_status != ActivationStatus.ACTIVE
         or organization.status != OrgStatus.ACTIVE
     ):
-        raise BadRequestException(message="业务员加入码已失效，请联系组织管理员")
+        raise BadRequestException(message="客户顾问加入码已失效，请联系组织管理员")
     return code, inviter, inviter_user, organization
 
 

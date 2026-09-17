@@ -12,15 +12,15 @@
   <view wx:elif="{{state === 'success'}}" class="scan-card scan-card--state">
     <van-icon name="passed" size="54px" color="#20af6b" />
     <text class="scan-title">绑定成功</text>
-    <text class="scan-description">您已绑定至{{result.distributorName}}，后续由该业务员为您提供服务。</text>
+    <text class="scan-description">您已绑定至{{result.distributorName}}，后续由该客户顾问为您提供服务。</text>
     <text class="scan-meta">{{result.organizationName}} · {{result.phone}}</text>
   </view>
 
   <block wx:else>
     <view class="scan-hero">
       <text class="scan-kicker">儒泰医联客户服务</text>
-      <text class="scan-title">确认绑定业务员</text>
-      <text class="scan-description">提交后，您的客户资料将归属于发送二维码的业务员。</text>
+      <text class="scan-title">确认绑定客户顾问</text>
+      <text class="scan-description">提交后，您的客户资料将归属于发送二维码的客户顾问。</text>
     </view>
     <view class="scan-card">
       <view class="scan-person">
