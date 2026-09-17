@@ -1,5 +1,5 @@
 const articleService = require('../../services/article-service')
-const { normalizeArticleId, adaptArticleDetail } = require('../../models/article')
+const { normalizeArticleId, adaptArticleDetail, createArticleShare } = require('../../models/article')
 
 Page({
   requestVersion: 0,
@@ -61,6 +61,19 @@ Page({
 
   retry() {
     this.loadArticle()
+  },
+
+  onShareAppMessage() {
+    return createArticleShare(this.data.state === 'success' ? this.data.article : null)
+  },
+
+  onShareTimeline() {
+    const share = this.onShareAppMessage()
+    return {
+      title: share.title,
+      query: share.path.split('?')[1] || '',
+      imageUrl: share.imageUrl
+    }
   },
 
   handleBack() {

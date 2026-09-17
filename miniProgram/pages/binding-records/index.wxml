@@ -3,7 +3,7 @@
 <view class="records-page">
   <view class="records-overview">
     <text class="records-overview__title">绑定概览</text>
-    <text class="records-overview__subtitle">客户归属状态实时更新</text>
+    <text class="records-overview__subtitle">客户归属与匹配状态实时更新</text>
 
     <view class="records-summary">
       <view
@@ -141,7 +141,7 @@
     <view class="records-sync-note__icon">
       <van-icon name="shield-o" size="19px" color="#ffffff" />
     </view>
-    <text>待匹配记录将在儒泰匹配成功后自动更新</text>
+    <text>匹配中的记录将在儒泰同步完成后自动更新</text>
   </view>
 
   <view

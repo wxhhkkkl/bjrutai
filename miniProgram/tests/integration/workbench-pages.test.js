@@ -52,9 +52,22 @@ test('profile retains empty and forbidden state handling', () => {
   assert.match(profile, /forbidden/)
 })
 
+test('profile tab prompts a visitor without a name to complete their profile', () => {
+  const profile = fs.readFileSync(path.join(root, 'pages/profile/index.js'), 'utf8')
+  assert.match(profile, /if \(!session\.profileCompleted\)[\s\S]*?\/pages\/auth\/profile-setup\/index/)
+})
+
+test('personal profile removes the membership prompt and unused metric space', () => {
+  const markup = fs.readFileSync(path.join(root, 'pages/profile/index.wxml'), 'utf8')
+  const styles = fs.readFileSync(path.join(root, 'pages/profile/index.wxss'), 'utf8')
+  assert.match(markup, /profile-hero--personal/)
+  assert.doesNotMatch(markup, /当前账号尚未加入组织/)
+  assert.match(styles, /\.profile-hero--personal\s*\{\s*height:\s*238rpx/)
+})
+
 test('profile exposes role-gated customer binding and staff invite entries', () => {
   const source = fs.readFileSync(path.join(root, 'pages/profile/index.js'), 'utf8')
-  assert.match(source, /id:\s*['"]promote-code['"]/) // 业务员患者绑定码
+  assert.match(source, /id:\s*['"]promote-code['"]/) // 客户顾问患者绑定码
   assert.match(source, /id:\s*['"]staff-invite['"]/) // 仅组织管理员可见
   assert.match(source, /id:\s*['"]article-list['"]/) // 其他服务保留
   assert.match(source, /title:\s*['"]文章资讯['"]/)

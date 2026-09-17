@@ -41,7 +41,7 @@ const ACTION_TARGETS = {
         capability: 'promotion'
     },
     'staff-invite': {
-        title: '发展业务员',
+        title: '发展客户顾问',
         path: '/pages/staff-invite/index',
         capability: 'staffInvite'
     },

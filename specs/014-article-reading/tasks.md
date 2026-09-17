@@ -136,7 +136,15 @@
 
 ---
 
-## Phase 7: Polish & Cross-Cutting Verification
+## Phase 7: User Story 5 - 转发已发布文章 (Priority: P2)
+
+**Goal**: 用户可从文章详情将已发布文章转发给好友或分享到朋友圈；无可读文章时不泄露文章编号。
+
+- [x] T041 [P] [US5] 为文章分享路径、封面回退、好友转发、朋友圈分享和异常状态安全首页回退编写失败单元/流程/页面合同测试 `miniProgram/tests/unit/article.test.js`、`miniProgram/tests/integration/article-reading-flow.test.js`、`miniProgram/tests/contract/page-framework-contract.test.js`
+- [x] T042 [US5] 在文章详情实现原生 `open-type="share"`、`onShareAppMessage` 与 `onShareTimeline`，复用详情适配数据且不增加后端请求 `miniProgram/models/article.js`、`miniProgram/pages/article-detail/index.js`、`miniProgram/pages/article-detail/index.wxml`、`miniProgram/pages/article-detail/index.wxss`
+- [x] T043 [US5] 将转发按钮移至底部固定操作栏，适配底部安全区并增加正文底部留白 `miniProgram/pages/article-detail/index.wxml`、`miniProgram/pages/article-detail/index.wxss`
+
+## Phase 8: Polish & Cross-Cutting Verification
 
 **Purpose**: 完成安全、视觉、后端兼容与全量回归，不扩展产品范围。
 

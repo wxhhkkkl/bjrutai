@@ -131,6 +131,9 @@ async def submit_binding_request(
 @router.get("/binding-requests")
 async def list_binding_requests(
     status: str = Query(None),
+    status_group: str = Query(
+        None, alias="statusGroup", pattern="^(bound|matching|attention)$"
+    ),
     role: str = Query("initiator", pattern="^(initiator|target)$"),
     cursor: str = Query(None, max_length=256),
     limit: int = Query(20, ge=1, le=100),
@@ -149,6 +152,7 @@ async def list_binding_requests(
     result = await svc.get_binding_requests(
         db,
         status=status,
+        status_group=status_group,
         role=role,
         cursor=cursor,
         page_size=limit,

@@ -66,7 +66,7 @@
         <text class="info-row__value">{{record.phone}}</text>
       </view>
       <view class="info-row">
-        <text>归属拓展人</text>
+      <text>归属客户顾问</text>
         <text class="info-row__value">暂不可用</text>
       </view>
       <view class="info-row">
@@ -177,7 +177,7 @@
       <view class="result-notice__square">
         <van-icon name="shield-o" size="36px" color="#ffffff" />
       </view>
-      <text>为保护客户归属信息，前端不展示原绑定拓展人</text>
+      <text>为保护客户归属信息，前端不展示原绑定客户顾问</text>
     </view>
 
     <view class="result-card continue-card">

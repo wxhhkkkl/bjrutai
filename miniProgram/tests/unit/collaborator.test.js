@@ -27,7 +27,7 @@ test('professional identity only changes the display label', () => {
       role: 'collaborator',
       identityType: 'promoter'
     }),
-    '业务员'
+    '客户顾问'
   );
 });
 

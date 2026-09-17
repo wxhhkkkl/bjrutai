@@ -3,7 +3,7 @@
 <view class="login-page">
     <view class="login-welcome">
         <text class="login-welcome__title">欢迎使用儒泰医联</text>
-        <text class="login-welcome__description">推广协作，贡献可见</text>
+        <!-- <text class="login-welcome__description">推广协作，贡献可见</text> -->
     </view>
 
     <!-- <image
@@ -15,17 +15,14 @@
   /> -->
 
     <view class="login-auth-card">
-        <text class="login-auth-card__title">分销员登录</text>
-        <text class="login-auth-card__description">使用组织为您创建的账号（手机号 + 密码）登录</text>
+        <!-- <text class="login-auth-card__title">分销员登录</text> -->
+        <!-- <text class="login-auth-card__description">使用组织为您创建的账号（手机号 + 密码）登录</text> -->
 
-        <input class="login-input" type="number" maxlength="11" placeholder="手机号"
-            placeholder-class="login-input__placeholder" value="{{phone}}" bindinput="onPhoneInput" />
-        <input class="login-input" password="{{true}}" placeholder="密码" placeholder-class="login-input__placeholder"
-            value="{{password}}" bindinput="onPasswordInput" />
+        <input class="login-input" type="number" maxlength="11" placeholder="手机号" placeholder-class="login-input__placeholder" value="{{phone}}" bindinput="onPhoneInput" />
+        <input class="login-input" password="{{true}}" placeholder="密码" placeholder-class="login-input__placeholder" value="{{password}}" bindinput="onPasswordInput" />
 
-        <button class="login-phone-button tap-target" bindtap="login" hover-class="tap-feedback" hover-start-time="0"
-            hover-stay-time="80" loading="{{loggingIn}}" disabled="{{loggingIn}}">
-            <van-icon name="phone-o" size="31px" color="#ffffff" />
+        <button class="login-phone-button tap-target" bindtap="login" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" loading="{{loggingIn}}" disabled="{{loggingIn}}">
+            <van-icon name="phone-o" size="31px" color="#080b10" />
             <text>{{loggingIn ? '登录中...' : '手机号+密码登录'}}</text>
         </button>
 
@@ -35,29 +32,22 @@
             <view class="login-divider__line" />
         </view>
 
-        <button wx:if="{{agreed}}" class="login-wechat-button tap-target" open-type="getPhoneNumber" bindgetphonenumber="wechatLogin"
-            hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" loading="{{loggingIn}}"
-            disabled="{{loggingIn}}">
+        <button wx:if="{{agreed}}" class="login-wechat-button tap-target" open-type="getPhoneNumber" bindgetphonenumber="wechatLogin" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" loading="{{loggingIn}}" disabled="{{loggingIn}}">
             <text>{{loggingIn ? '正在登录' : '手机号快捷登录'}}</text>
         </button>
-        <button wx:else class="login-wechat-button tap-target" bindtap="requestWechatPhoneLogin"
-            hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" disabled="{{loggingIn}}">
+        <button wx:else class="login-wechat-button tap-target" bindtap="requestWechatPhoneLogin" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" disabled="{{loggingIn}}">
             <text>手机号快捷登录</text>
         </button>
     </view>
 
     <view class="login-agreement">
-        <view class="login-checkbox tap-target {{agreed ? 'login-checkbox--checked' : ''}}" bindtap="toggleAgreement"
-            hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" aria-role="checkbox"
-            aria-checked="{{agreed}}" aria-label="同意用户协议和隐私政策">
+        <view class="login-checkbox tap-target {{agreed ? 'login-checkbox--checked' : ''}}" bindtap="toggleAgreement" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" aria-role="checkbox" aria-checked="{{agreed}}" aria-label="同意用户协议和隐私政策">
             <van-icon wx:if="{{agreed}}" name="success" size="17px" color="#ffffff" />
         </view>
         <text>我已阅读并同意</text>
-        <text class="login-agreement__link tap-target" data-type="agreement" bindtap="openDocument"
-            hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">用户协议</text>
+        <text class="login-agreement__link tap-target" data-type="agreement" bindtap="openDocument" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">用户协议</text>
         <text>和</text>
-        <text class="login-agreement__link tap-target" data-type="privacy" bindtap="openDocument"
-            hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">隐私政策</text>
+        <text class="login-agreement__link tap-target" data-type="privacy" bindtap="openDocument" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">隐私政策</text>
     </view>
     <text class="login-role-hint">登录后将自动识别您的业务角色</text>
 </view>

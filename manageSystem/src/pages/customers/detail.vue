@@ -30,10 +30,10 @@
               </el-tag>
               <span v-if="customer.boundAt" class="muted">绑定于 {{ formatTime(customer.boundAt) }}</span>
             </el-form-item>
-            <el-form-item label="推广员">
+            <el-form-item label="客户顾问">
               <span>{{ customer.promoterName || '-' }}</span>
               <el-button v-if="canWrite" link type="primary" size="small" style="margin-left: 8px;" @click="openTransfer">
-                更改推广员
+                更改客户顾问
               </el-button>
             </el-form-item>
             <el-form-item label="备注">
@@ -66,8 +66,8 @@
           </el-descriptions>
         </el-tab-pane>
 
-        <!-- 推广员变更记录 -->
-        <el-tab-pane label="推广员变更" name="changeLogs">
+        <!-- 客户顾问变更记录 -->
+        <el-tab-pane label="客户顾问变更" name="changeLogs">
           <el-timeline v-if="changeLogItems.length">
             <el-timeline-item
               v-for="log in changeLogItems"
@@ -77,11 +77,11 @@
             >
               <p style="margin: 0;">
                 <el-tag :type="log.operationType === 'created' ? 'info' : 'warning'" size="small">
-                  {{ log.operationType === 'created' ? '建档' : '推广员变更' }}
+                  {{ log.operationType === 'created' ? '建档' : '客户顾问变更' }}
                 </el-tag>
                 <span style="margin-left: 8px;">
                   <template v-if="log.operationType === 'created'">
-                    初始推广员：{{ log.newPromoterName || '-' }}
+                    初始客户顾问：{{ log.newPromoterName || '-' }}
                   </template>
                   <template v-else>
                     {{ log.previousPromoterName || '-' }} → {{ log.newPromoterName || '-' }}
@@ -92,7 +92,7 @@
               <div v-if="log.operatorName" class="muted">操作人：{{ log.operatorName }}</div>
             </el-timeline-item>
           </el-timeline>
-          <el-empty v-else description="暂无推广员变更记录" />
+          <el-empty v-else description="暂无客户顾问变更记录" />
         </el-tab-pane>
 
         <!-- Binding history -->
@@ -202,7 +202,7 @@
       </template>
     </el-dialog>
 
-    <!-- 更改推广员 -->
+    <!-- 更改客户顾问 -->
     <TransferPromoterDialog
       v-model="showTransfer"
       :customer-id="customerId"
@@ -269,7 +269,7 @@ function followupResultType(r) {
   return { successful: 'success', failed: 'danger', pending: 'warning', no_answer: 'info' }[r] || 'info'
 }
 
-// 推广员变更记录
+// 客户顾问变更记录
 const changeLogItems = ref([])
 
 // Binding history
@@ -366,7 +366,7 @@ async function saveProfile() {
   }
 }
 
-// 推广员变更
+// 客户顾问变更
 function openTransfer() {
   showTransfer.value = true
 }
@@ -377,7 +377,7 @@ async function handleTransferSuccess() {
   await loadChangeLogs()
 }
 
-// 推广员变更记录 - loaded on tab switch
+// 客户顾问变更记录 - loaded on tab switch
 async function loadChangeLogs() {
   if (changeLogItems.value.length) return
   try {

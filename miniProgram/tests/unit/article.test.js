@@ -7,6 +7,7 @@ const {
   adaptArticleDetail,
   adaptArticlePage,
   adaptArticleCategories,
+  createArticleShare,
   mergeArticlePage
 } = require('../../models/article')
 
@@ -61,6 +62,23 @@ test('detail accepts published content only and filters malformed tags', () => {
   assert.equal(detail.createdAt, '2026-08-09T03:00:00Z')
   assert.equal(detail.updatedAt, '')
   assert.throws(() => adaptArticleDetail({ ...listItem, status: 'draft' }), /已发布/)
+})
+
+test('creates a public article share payload without exposing unavailable article ids', () => {
+  assert.deepEqual(createArticleShare({
+    articleId: '0012',
+    title: ' 夏季健康管理提示 ',
+    coverImageUrl: 'https://cdn.example.test/article-cover.png'
+  }), {
+    title: '夏季健康管理提示',
+    path: '/pages/article-detail/index?articleId=12',
+    imageUrl: 'https://cdn.example.test/article-cover.png'
+  })
+  assert.deepEqual(createArticleShare(null), {
+    title: '儒泰医联健康资讯',
+    path: '/pages/home/index',
+    imageUrl: ''
+  })
 })
 
 test('article page requires valid pagination data and treats cursor as opaque', () => {

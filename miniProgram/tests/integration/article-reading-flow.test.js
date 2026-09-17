@@ -88,6 +88,35 @@ test('detail validates id locally, loads once on entry and uses server view coun
   }
 })
 
+test('detail shares only the successfully loaded public article', async () => {
+  const fixture = loadPage('pages/article-detail/index.js', {
+    getArticle() { return Promise.resolve({ ...detail, coverImageUrl: 'https://cdn.example.test/cover.png' }) }
+  })
+  try {
+    fixture.page.onLoad({ articleId: '12' })
+    await flush()
+    assert.deepEqual(fixture.page.onShareAppMessage(), {
+      title: '文章一',
+      path: '/pages/article-detail/index?articleId=12',
+      imageUrl: 'https://cdn.example.test/cover.png'
+    })
+    assert.deepEqual(fixture.page.onShareTimeline(), {
+      title: '文章一',
+      query: 'articleId=12',
+      imageUrl: 'https://cdn.example.test/cover.png'
+    })
+
+    fixture.page.setData({ state: 'not-found', article: null })
+    assert.deepEqual(fixture.page.onShareAppMessage(), {
+      title: '儒泰医联健康资讯',
+      path: '/pages/home/index',
+      imageUrl: ''
+    })
+  } finally {
+    fixture.restore()
+  }
+})
+
 test('detail invalid id sends no request and late or 404 responses never expose old body', async () => {
   const pending = deferred()
   let calls = 0

@@ -33,7 +33,7 @@ def _operator_id(payload: dict) -> Optional[int]:
 
 @router.get("")
 async def list_customers(
-    orgId: str = Query(..., description="组织 ID，返回该组织及全部下级组织范围客户"),
+    orgId: Optional[str] = Query(None, description="组织 ID；留空时返回无归属待绑定客户池"),
     status: Optional[str] = Query(None),
     keyword: Optional[str] = Query(None, max_length=100),
     page: int = Query(1, ge=1),
@@ -43,13 +43,18 @@ async def list_customers(
     _perm: dict = Depends(require_permission("customers.read")),
 ):
     """List customers in an org's subtree (FR-003)."""
-    try:
-        org_id_int = int(orgId)
-    except (ValueError, TypeError):
-        raise BadRequestException(message="无效的组织 ID")
-    result = await customer_admin_service.list_customers_by_org(
-        db, org_id_int, status=status, keyword=keyword, page=page, page_size=pageSize
-    )
+    if orgId is None:
+        result = await customer_admin_service.list_unassigned_customers(
+            db, status=status, keyword=keyword, page=page, page_size=pageSize
+        )
+    else:
+        try:
+            org_id_int = int(orgId)
+        except (ValueError, TypeError):
+            raise BadRequestException(message="无效的组织 ID")
+        result = await customer_admin_service.list_customers_by_org(
+            db, org_id_int, status=status, keyword=keyword, page=page, page_size=pageSize
+        )
     return _build_response(0, "success", result)
 
 

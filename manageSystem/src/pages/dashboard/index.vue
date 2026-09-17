@@ -62,7 +62,7 @@ const authStore = useAuthStore()
 
 const isAdmin = computed(() => authStore.userRole === 'admin')
 const roleLabel = computed(() => {
-  const map = { admin: '管理员', promoter: '推广员', finance: '财务', ops: '运营' }
+  const map = { admin: '管理员', promoter: '客户顾问', finance: '财务', ops: '运营' }
   return map[authStore.userRole] || authStore.userRole || '用户'
 })
 
@@ -105,7 +105,7 @@ const promoterKpis = [
 ]
 
 const adminKpis = [
-  makeKpi('totalPromoters', '推广员总数', UserFilled, primary, intFmt),
+  makeKpi('totalPromoters', '客户顾问总数', UserFilled, primary, intFmt),
   makeKpi('pendingQualifications', '待审核资质', Stamp, warning, intFmt),
   makeKpi('abnormalBindings', '异常绑定', Warning, danger, intFmt),
   makeKpi('totalCustomers', '客户总数', OfficeBuilding, primary, intFmt),

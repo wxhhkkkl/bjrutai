@@ -113,26 +113,21 @@ page {
 
 .login-phone-button {
   margin-top: 34rpx;
-  color: #ffffff;
-  background: #050505;
-}
-
-.login-wechat-button {
-  margin-top: 28rpx;
   color: #080b10;
   background: #ffffff;
   border: 1rpx solid #cfd4dc;
 }
 
+.login-wechat-button {
+  margin-top: 28rpx;
+  color: #ffffff;
+  background: #050505;
+  border: 1rpx solid #050505;
+}
+
 .login-wechat-button > text {
   flex: 1;
   text-align: center;
-}
-
-.login-wechat-button--authorized {
-  color: #168f35;
-  background: #f7fff9;
-  border-color: #70c584;
 }
 
 .login-phone-button[disabled] {

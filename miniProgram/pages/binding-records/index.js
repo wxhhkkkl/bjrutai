@@ -1,7 +1,7 @@
 const bindingService = require('../../services/binding-service')
 const { adaptBindingRecords, adaptBindingSummary, filterBindingRecords, sortBindingRecords } = require('../../models/binding-records')
 
-const FILTERS = [{ id: 'all', label: '全部' }, { id: 'bound', label: '已绑定' }, { id: 'matching', label: '待匹配' }, { id: 'processing', label: '处理中' }]
+const FILTERS = [{ id: 'all', label: '全部' }, { id: 'bound', label: '已归属' }, { id: 'matching', label: '匹配中' }, { id: 'attention', label: '需处理' }]
 
 Page({
   requestVersion: 0,
@@ -14,20 +14,20 @@ Page({
     const version = ++this.requestVersion
     this.setData({ state: reset ? 'loading' : this.data.state })
     try {
-      const [recordPayload, summaryPayload] = await Promise.all([bindingService.listBindingRequests({ status: this.data.selectedFilter === 'all' ? undefined : this.data.selectedFilter === 'matching' ? 'pending_match' : this.data.selectedFilter, submittedByMe: true, keyword: this.data.keyword, cursor: reset ? undefined : this.data.nextCursor, limit: 20 }), bindingService.getBindingSummary()])
+      const [recordPayload, summaryPayload] = await Promise.all([bindingService.listBindingRequests({ statusGroup: this.data.selectedFilter === 'all' ? undefined : this.data.selectedFilter, submittedByMe: true, keyword: this.data.keyword, cursor: reset ? undefined : this.data.nextCursor, limit: 20 }), bindingService.getBindingSummary()])
       if (version !== this.requestVersion) return
       const adapted = adaptBindingRecords(recordPayload)
       const records = reset ? adapted.items : this.data.records.concat(adapted.items)
       const summary = adaptBindingSummary(summaryPayload)
-      this.setData({ state: 'success', records, visibleRecords: this.getVisibleRecords(records), nextCursor: adapted.nextCursor, hasMore: adapted.hasMore, selectedCount: records.length, summary: [{ id: 'bound', label: '已绑定', count: summary.bound, icon: 'contact-o', tone: 'green' }, { id: 'matching', label: '待匹配', count: summary.pending, icon: 'clock-o', tone: 'blue' }, { id: 'processing', label: '处理中', count: summary.rejected + summary.expired, icon: 'replay', tone: 'orange' }] })
+      this.setData({ state: 'success', records, visibleRecords: this.getVisibleRecords(records), nextCursor: adapted.nextCursor, hasMore: adapted.hasMore, selectedCount: records.length, summary: [{ id: 'bound', label: '已归属', count: summary.bound, icon: 'contact-o', tone: 'green' }, { id: 'matching', label: '匹配中', count: summary.matching, icon: 'clock-o', tone: 'blue' }, { id: 'attention', label: '需处理', count: summary.attention, icon: 'warning-o', tone: 'orange' }] })
     } catch (error) { if (version === this.requestVersion) this.setData({ state: error.kind === 'FORBIDDEN' ? 'forbidden' : 'recoverable-error', stateMessage: error.message || '请稍后再试' }) }
   },
   retry() { this.loadRecords(true) },
   getVisibleRecords(records = this.data.records, overrides = {}) { const filter = overrides.selectedFilter || this.data.selectedFilter; const keyword = overrides.keyword === undefined ? this.data.keyword : overrides.keyword; const sort = overrides.sortMode || this.data.sortMode; return sortBindingRecords(filterBindingRecords(records, filter, keyword), sort) },
   onSearch(e) { this.setData({ keyword: e.detail.value }); this.loadRecords(true) },
   selectFilter(e) { this.setData({ selectedFilter: e.currentTarget.dataset.id, records: [], visibleRecords: [] }); this.loadRecords(true) },
-  openSort() { wx.showActionSheet({ itemList: ['按最近提交排序', '按客户姓名排序', '优先显示处理中'], success: ({ tapIndex }) => { const sortMode = ['recent', 'name', 'status'][tapIndex] || 'recent'; this.setData({ sortMode, visibleRecords: this.getVisibleRecords(this.data.records, { sortMode }) }) } }) },
-  showStatusDescription() { wx.showModal({ title: '状态说明', content: '绑定状态由后端匹配服务更新。', showCancel: false }) },
+  openSort() { wx.showActionSheet({ itemList: ['按最近提交排序', '按客户姓名排序', '优先显示需处理'], success: ({ tapIndex }) => { const sortMode = ['recent', 'name', 'status'][tapIndex] || 'recent'; this.setData({ sortMode, visibleRecords: this.getVisibleRecords(this.data.records, { sortMode }) }) } }) },
+  showStatusDescription() { wx.showModal({ title: '状态说明', content: '已归属：客户已归属当前客户顾问；匹配中：正在同步儒泰匹配；需处理：异常、无匹配结果或已超期，请联系后台处理。', showCancel: false }) },
   async openRecord(e) {
     const id = e.currentTarget.dataset.id
     try {

@@ -64,7 +64,7 @@ function createProfileForm(session) {
   };
 }
 
-function validateProfileForm(form, confirmed) {
+function validateProfileForm(form) {
   const value = form || {};
 
   if (!String(value.name || '').trim()) {
@@ -72,14 +72,6 @@ function validateProfileForm(form, confirmed) {
       ok: false,
       field: 'name',
       message: '请输入真实姓名'
-    };
-  }
-
-  if (!confirmed) {
-    return {
-      ok: false,
-      field: 'confirmation',
-      message: '请确认以上信息真实有效'
     };
   }
 

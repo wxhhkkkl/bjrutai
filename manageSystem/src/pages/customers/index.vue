@@ -10,7 +10,12 @@
     <div class="cust-layout">
       <!-- 左侧：组织结构树 -->
       <div class="tree-panel" v-loading="loading">
-        <div class="panel-title"><span>组织结构</span></div>
+        <div class="panel-title">
+          <span>组织结构</span>
+          <el-button size="small" :type="unassignedMode ? 'primary' : 'default'" @click="openUnassigned">
+            无归属客户池
+          </el-button>
+        </div>
         <el-empty v-if="treeData.length === 0" description="暂无组织" :image-size="60" />
         <el-tree
           v-else
@@ -34,14 +39,22 @@
 
       <!-- 右侧：选中组织下的客户 -->
       <div class="detail-panel">
-        <el-empty v-if="!selected" description="请在左侧选择组织查看其下客户" :image-size="80" />
+        <el-empty v-if="!selected && !unassignedMode" description="请在左侧选择组织查看其下客户" :image-size="80" />
 
         <template v-else>
           <div class="cust-header">
-            <span class="org-title">{{ selected.name }}</span>
-            <el-tag size="small" type="info" effect="plain">L{{ selected.level }}</el-tag>
+            <span class="org-title">{{ unassignedMode ? '无归属客户池' : selected.name }}</span>
+            <el-tag v-if="!unassignedMode" size="small" type="info" effect="plain">L{{ selected.level }}</el-tag>
             <el-space wrap class="header-actions">
-              <el-button size="small" type="primary" :disabled="!canWrite" @click="openCreate">
+              <el-button
+                v-if="!unassignedMode"
+                size="small"
+                plain
+                @click="openUnassigned"
+              >
+                无归属客户池
+              </el-button>
+              <el-button v-if="!unassignedMode" size="small" type="primary" :disabled="!canWrite" @click="openCreate">
                 <el-icon style="margin-right: 4px"><Plus /></el-icon>新建客户
               </el-button>
             </el-space>
@@ -49,12 +62,13 @@
 
           <!-- 筛选 -->
           <div class="filter-card">
-            <el-radio-group v-model="filterStatus" size="small" @change="fetchData()">
+            <el-radio-group v-if="!unassignedMode" v-model="filterStatus" size="small" @change="fetchData()">
               <el-radio-button label="">全部</el-radio-button>
               <el-radio-button label="bound">已绑定</el-radio-button>
-              <el-radio-button label="pending">待绑定</el-radio-button>
+              <el-radio-button label="pending">组织内待绑定</el-radio-button>
               <el-radio-button label="unbound">已解绑</el-radio-button>
             </el-radio-group>
+            <el-tag v-else type="warning" effect="plain">仅展示无归属、待绑定客户</el-tag>
             <el-input
               v-model="keyword"
               placeholder="搜索姓名或手机号..."
@@ -67,6 +81,7 @@
               <template #prefix><el-icon><Search /></el-icon></template>
             </el-input>
             <el-date-picker
+              v-if="!unassignedMode"
               v-model="exportDateRange"
               type="daterange"
               value-format="YYYY-MM-DD"
@@ -78,6 +93,7 @@
               :clearable="true"
             />
             <el-button
+              v-if="!unassignedMode"
               size="small"
               :loading="exporting"
               :disabled="!exportDateRange?.length"
@@ -98,7 +114,7 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="promoterName" label="推广员" min-width="100" />
+            <el-table-column prop="promoterName" label="客户顾问" min-width="100" />
             <el-table-column prop="orgName" label="所属组织" min-width="120" />
             <el-table-column label="更新时间" width="170">
               <template #default="{ row }">{{ formatTime(row.updatedAt) }}</template>
@@ -148,6 +164,7 @@ const loadingMore = ref(false)
 const tree = ref(null)
 const treeRef = ref(null)
 const selected = ref(null)
+const unassignedMode = ref(false)
 const items = ref([])
 const filterStatus = ref('')
 const keyword = ref('')
@@ -199,18 +216,25 @@ async function loadAll() {
 
 function handleSelect(node) {
   selected.value = node
+  unassignedMode.value = false
+  fetchData()
+}
+
+function openUnassigned() {
+  unassignedMode.value = true
+  filterStatus.value = 'pending'
   fetchData()
 }
 
 async function fetchData() {
-  if (!selected.value) return
+  if (!selected.value && !unassignedMode.value) return
   loading.value = true
   page.value = 1
   try {
     const params = { page: 1, pageSize: 20 }
     if (filterStatus.value) params.status = filterStatus.value
     if (keyword.value) params.keyword = keyword.value
-    const data = await adminCustomerApi.list(selected.value.orgId, params)
+    const data = await adminCustomerApi.list(unassignedMode.value ? null : selected.value.orgId, params)
     items.value = data.items || []
     hasMore.value = !!data.hasMore
   } catch (e) {
@@ -226,7 +250,7 @@ async function loadMore() {
     const params = { page: page.value + 1, pageSize: 20 }
     if (filterStatus.value) params.status = filterStatus.value
     if (keyword.value) params.keyword = keyword.value
-    const data = await adminCustomerApi.list(selected.value.orgId, params)
+    const data = await adminCustomerApi.list(unassignedMode.value ? null : selected.value.orgId, params)
     page.value += 1
     items.value = [...items.value, ...(data.items || [])]
     hasMore.value = !!data.hasMore
@@ -293,6 +317,7 @@ onMounted(loadAll)
 .cust-layout { display: flex; gap: 14px; align-items: flex-start; }
 
 .tree-node-content { display: flex; align-items: center; gap: 8px; }
+.panel-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .node-level { color: var(--app-text-secondary); font-size: 12px; }
 
 .cust-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }

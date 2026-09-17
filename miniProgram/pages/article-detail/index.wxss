@@ -1,9 +1,12 @@
 page { min-height: 100%; background: #f6f8fb; }
-.article-detail-page { min-height: 100vh; padding: 24rpx 28rpx calc(56rpx + constant(safe-area-inset-bottom)); padding: 24rpx 28rpx calc(56rpx + env(safe-area-inset-bottom)); box-sizing: border-box; }
+.article-detail-page { min-height: 100vh; padding: 24rpx 28rpx calc(174rpx + constant(safe-area-inset-bottom)); padding: 24rpx 28rpx calc(174rpx + env(safe-area-inset-bottom)); box-sizing: border-box; }
 .article-detail-card { display: block; max-width: 100%; padding: 38rpx 32rpx 48rpx; overflow: hidden; background: #ffffff; border: 1rpx solid #e9edf3; border-radius: 28rpx; box-shadow: 0 12rpx 30rpx rgba(31, 61, 105, 0.06); box-sizing: border-box; }
 .article-detail-title { display: block; color: #111722; font-size: 46rpx; font-weight: 700; line-height: 1.38; word-break: break-all; }
 .article-detail-meta { margin-top: 22rpx; display: flex; align-items: center; flex-wrap: wrap; gap: 12rpx 18rpx; color: #818a98; font-size: 23rpx; line-height: 1.5; }
 .article-detail-category { padding: 5rpx 12rpx; color: #1677ff; background: #edf5ff; border-radius: 8rpx; }
+.article-detail-share-bar { position: fixed; right: 0; bottom: 0; left: 0; z-index: 20; padding: 18rpx 28rpx calc(18rpx + constant(safe-area-inset-bottom)); padding: 18rpx 28rpx calc(18rpx + env(safe-area-inset-bottom)); background: #ffffff; border-top: 1rpx solid #e9edf3; box-shadow: 0 -8rpx 24rpx rgba(31, 61, 105, 0.04); box-sizing: border-box; }
+.article-detail-share { width: 100%; height: 88rpx; min-height: 44px; margin: 0; padding: 0 24rpx; display: flex; align-items: center; justify-content: center; gap: 14rpx; color: #ffffff; font-size: 29rpx; font-weight: 600; line-height: 1; background: #050505; border: 0; border-radius: 999rpx; box-sizing: border-box; }
+.article-detail-share::after { border: 0; }
 .article-detail-cover { display: block; width: 100%; max-width: 100%; margin-top: 30rpx; border-radius: 20rpx; }
 .article-detail-summary { display: block; margin-top: 30rpx; padding: 22rpx 24rpx; color: #536173; font-size: 28rpx; line-height: 1.75; background: #f5f8fc; border-radius: 16rpx; }
 .article-rich-text { display: block; width: 100%; max-width: 100%; margin-top: 34rpx; overflow: hidden; color: #252d38; font-size: 30rpx; line-height: 1.9; word-break: break-word; }

@@ -1,7 +1,7 @@
 <app-header title="我的" />
 
 <view class="profile-screen tab-screen">
-    <view class="profile-hero">
+    <view class="profile-hero {{!session.hasBusinessMembership ? 'profile-hero--personal' : ''}}">
         <image class="profile-hero__avatar" src="{{session.avatar || '/assets/images/profile-avatar.png'}}"
             mode="aspectFill" aria-role="img" aria-label="用户头像" />
 
@@ -29,9 +29,6 @@
     <page-state state="{{state}}" message="{{stateMessage}}" bind:retry="retry" />
 
     <block wx:if="{{state === 'success'}}">
-        <view wx:if="{{!session.hasBusinessMembership}}" class="profile-membership-notice">
-            当前账号尚未加入组织，成为业务员后可使用客户和消费功能
-        </view>
         <text class="profile-section-title">我的服务</text>
         <view class="profile-service-grid" data-multirow="{{serviceItems.length > 4}}">
             <view wx:for="{{serviceItems}}" wx:key="id" class="profile-service-item tap-target" data-id="{{item.id}}"

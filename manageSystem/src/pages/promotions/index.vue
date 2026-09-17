@@ -33,7 +33,7 @@
     <div class="table-container" v-loading="loading">
       <el-empty v-if="!loading && promotionList.length === 0" description="暂无推广码数据" />
       <el-table v-else :data="promotionList" border stripe style="width: 100%">
-        <el-table-column label="推广员" width="150">
+        <el-table-column label="客户顾问" width="150">
           <template #default="{ row }">
             {{ row.promoter_name || '-' }}
           </template>

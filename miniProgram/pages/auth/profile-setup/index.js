@@ -12,7 +12,6 @@ Page({
   data: {
     session: {},
     form: createProfileForm(),
-    confirmed: false,
     invalidField: '',
     saving: false
   },
@@ -48,18 +47,8 @@ Page({
     this.setData(patch);
   },
 
-  toggleConfirmation() {
-    this.setData({
-      confirmed: !this.data.confirmed,
-      invalidField: ''
-    });
-  },
-
   async submitProfile() {
-    const validation = validateProfileForm(
-      this.data.form,
-      this.data.confirmed
-    );
+    const validation = validateProfileForm(this.data.form);
 
     if (!validation.ok) {
       this.setData({ invalidField: validation.field });

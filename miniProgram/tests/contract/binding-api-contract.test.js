@@ -40,3 +40,22 @@ test('blocked binding detail/retry/update operations are not exposed', () => {
     assert.equal(typeof f.service.updateCustomerInfo, 'undefined')
   } finally { f.restore() }
 })
+
+test('binding list sends the selected status group to the backend', async () => {
+  const f = fixture()
+  try {
+    await f.service.listBindingRequests({ statusGroup: 'attention', submittedByMe: true })
+    assert.deepEqual(f.calls[0], {
+      apiPath: '/api/v1/binding-requests',
+      options: {
+        data: {
+          statusGroup: 'attention',
+          role: 'initiator',
+          submittedByMe: true,
+          sortBy: 'created_at',
+          sortOrder: 'desc'
+        }
+      }
+    })
+  } finally { f.restore() }
+})

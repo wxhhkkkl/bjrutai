@@ -14,7 +14,8 @@
 | Condition | Destination |
 |---|---|
 | 无有效会话 | `/pages/auth/login` |
-| 资料未补全 | `/pages/auth/profile-setup` |
+| 业务成员资料未补全 | `/pages/auth/profile-setup` |
+| 普通访客资料未补全 | `/pages/home/index` |
 | 账号未激活 | `/pages/qualification/status?state=inactive` |
 | 医生 | `/pages/home/index?mode=doctor` |
 | 已激活拓展人 | `/pages/home/index?mode=promoter` |

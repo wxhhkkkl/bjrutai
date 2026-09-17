@@ -231,6 +231,14 @@ test('login offers phone+password and WeChat quick login with agreement', () => 
     path.join(projectRoot, 'pages/auth/login/index.wxml'),
     'utf8'
   );
+  const script = fs.readFileSync(
+    path.join(projectRoot, 'pages/auth/login/index.js'),
+    'utf8'
+  );
+  const styles = fs.readFileSync(
+    path.join(projectRoot, 'pages/auth/login/index.wxss'),
+    'utf8'
+  );
 
   assert.match(source, /<app-header\b/);
   assert.match(source, /login-security-hero\.jpg/);
@@ -245,6 +253,10 @@ test('login offers phone+password and WeChat quick login with agreement', () => 
   assert.match(source, /bindtap="openDocument"/);
   assert.match(source, /data-type="agreement"/);
   assert.match(source, /data-type="privacy"/);
+  assert.match(styles, /\.login-phone-button\s*\{[\s\S]*color:\s*#080b10[\s\S]*background:\s*#ffffff/);
+  assert.match(styles, /\.login-wechat-button\s*\{[\s\S]*color:\s*#ffffff[\s\S]*background:\s*#050505/);
+  assert.match(script, /sessionService\.getEntry\(established\.session\)/);
+  assert.doesNotMatch(script, /established\.isNewUser\s*\|\|\s*!established\.session\.profileCompleted/);
   const appConfig = JSON.parse(
     fs.readFileSync(path.join(projectRoot, 'app.json'), 'utf8')
   );
@@ -269,14 +281,15 @@ test('profile setup uses stable inputs and submits the approved first step', () 
   );
 
   assert.match(source, /<flow-navigation\b/);
-  assert.match(source, /账号初始化/);
+  assert.doesNotMatch(source, /账号初始化/);
+  assert.doesNotMatch(source, /角色由系统识别/);
+  assert.doesNotMatch(source, /我确认以上信息真实有效/);
   assert.match(source, /profile-field__required/);
   assert.match(source, /bindinput="onFieldInput"/);
   assert.match(source, /data-field="name"/);
   assert.doesNotMatch(source, /data-field="organization"/);
   assert.match(source, /所属机构/);
   assert.match(source, /name="lock"/);
-  assert.match(source, /bindtap="toggleConfirmation"/);
   assert.match(source, /bindtap="submitProfile"/);
   assert.match(source, /class="profile-submit-bar"/);
   assert.doesNotMatch(source, /<input\b[^>]*\bfocus=/s);
@@ -581,9 +594,13 @@ test('article detail uses the secondary-page framework and native safe rich text
   assert.equal(config.usingComponents['flow-navigation'], '/components/flow-navigation/index');
   assert.equal(config.usingComponents['page-state'], '/components/page-state/index');
   assert.match(source, /<flow-navigation\b/);
+  assert.match(source, /open-type="share"/);
+  assert.match(source, /转发文章/);
   assert.match(source, /<rich-text\b[^>]*nodes="\{\{article\.content\}\}"/s);
   assert.doesNotMatch(source, /<web-view\b/);
   assert.doesNotMatch(script, /onShow\s*\([^)]*\)[\s\S]*getArticle/);
+  assert.match(script, /onShareAppMessage/);
+  assert.match(script, /onShareTimeline/);
   assert.match(styles, /env\(safe-area-inset-bottom\)/);
   assert.match(styles, /max-width:\s*100%/);
 });

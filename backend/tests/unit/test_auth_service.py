@@ -3,8 +3,10 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from sqlalchemy import select
 
 from src.core.security import get_password_hash
+from src.models.binding import BindingStatus, Customer
 from src.models.user import User, UserType
 from src.schemas.organization import OrgCreate
 from src.services import distributor_service, organization_service
@@ -47,14 +49,34 @@ async def test_wechat_login_consumes_phone_code_once_and_persists_phone(
         )
 
     assert result["user"]["phone"] == "138****1234"
-    from sqlalchemy import select
-
     user = (
         await db_session.execute(select(User).where(User.openid == "o_phone_login"))
     ).scalars().first()
     assert user.phone == "13800131234"
     assert user.phone_masked == "138****1234"
     assert user.phone_authorized is True
+    customer = (
+        await db_session.execute(select(Customer).where(Customer.user_id == user.id))
+    ).scalars().one()
+    assert customer.distributor_id is None
+    assert customer.phone_normalized == "13800131234"
+    assert customer.binding_status == BindingStatus.PENDING
+
+
+@pytest.mark.asyncio
+async def test_self_registration_creates_an_unassigned_pending_customer(db_session):
+    result = await get_auth_service().distributor_register(
+        db_session, "13900000001", "password123", "测试客户"
+    )
+
+    customer = (
+        await db_session.execute(
+            select(Customer).where(Customer.user_id == int(result["user"]["userId"]))
+        )
+    ).scalars().one()
+    assert customer.name == "测试客户"
+    assert customer.distributor_id is None
+    assert customer.binding_status == BindingStatus.PENDING
 
 
 @pytest.mark.asyncio

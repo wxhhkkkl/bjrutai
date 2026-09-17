@@ -102,9 +102,24 @@
             <el-radio label="article">跳转文章</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item v-if="form.actionType === 'article'" label="文章 ID" prop="articleId">
-          <el-input-number v-model="form.articleId" :min="1" :precision="0" controls-position="right" />
-          <span class="field-hint field-hint--inline">填写已发布文章的 ID。</span>
+        <el-form-item v-if="form.actionType === 'article'" label="关联文章" prop="articleId">
+          <el-select
+            v-model="form.articleId"
+            class="article-select"
+            placeholder="请选择已发布文章"
+            filterable
+            clearable
+            :loading="articleOptionsLoading"
+            no-data-text="暂无已发布文章"
+          >
+            <el-option
+              v-for="article in articleOptions"
+              :key="article.articleId"
+              :label="`#${article.articleId} · ${article.title}`"
+              :value="Number(article.articleId)"
+            />
+          </el-select>
+          <span class="field-hint field-hint--inline">仅可关联已发布文章。</span>
         </el-form-item>
         <el-form-item label="展示排序" prop="sortOrder">
           <el-input-number v-model="form.sortOrder" :min="0" :max="9999" :precision="0" controls-position="right" />
@@ -133,6 +148,8 @@ const dialogVisible = ref(false)
 const editingId = ref('')
 const formRef = ref()
 const form = reactive(newForm())
+const articleOptions = ref([])
+const articleOptionsLoading = ref(false)
 
 const rules = {
   imageUrl: [
@@ -142,7 +159,7 @@ const rules = {
   title: [{ max: 100, message: '标题不能超过 100 个字符', trigger: 'blur' }],
   articleId: [{ validator: (_rule, value, callback) => {
     if (form.actionType === 'article' && (!Number.isInteger(value) || value < 1)) {
-      callback(new Error('请输入有效的文章 ID'))
+      callback(new Error('请选择已发布文章'))
       return
     }
     callback()
@@ -180,13 +197,29 @@ async function loadBanners() {
   }
 }
 
-function openCreate() {
+async function loadPublishedArticles() {
+  articleOptionsLoading.value = true
+  try {
+    const data = payload(await http.get('/admin/articles', {
+      params: { status: 'published', limit: 100 },
+    }))
+    articleOptions.value = data.items || []
+  } catch (error) {
+    articleOptions.value = []
+    ElMessage.error(error.userMessage || '获取已发布文章失败')
+  } finally {
+    articleOptionsLoading.value = false
+  }
+}
+
+async function openCreate() {
   editingId.value = ''
   resetForm()
   dialogVisible.value = true
+  await loadPublishedArticles()
 }
 
-function openEdit(item) {
+async function openEdit(item) {
   editingId.value = item.bannerId
   resetForm({
     title: item.title || '',
@@ -197,6 +230,7 @@ function openEdit(item) {
     version: item.version,
   })
   dialogVisible.value = true
+  await loadPublishedArticles()
 }
 
 function clearArticleWhenNone() {
@@ -309,4 +343,5 @@ onMounted(loadBanners)
 .image-url { margin-top: 10px; max-width: 420px; }
 .field-hint { margin: 7px 0 0; color: #8a94a3; font-size: 12px; line-height: 1.5; }
 .field-hint--inline { margin: 0 0 0 10px; }
+.article-select { width: 320px; }
 </style>

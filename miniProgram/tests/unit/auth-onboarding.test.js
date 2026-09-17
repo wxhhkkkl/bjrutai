@@ -46,7 +46,7 @@ test('pending login session enters profile setup', () => {
   assert.equal(session.phoneAuthorized, true);
 });
 
-test('profile form validates required values and confirmation', () => {
+test('profile form only requires a real name', () => {
   assert.equal(createProfileForm().name, '');
   assert.equal(createProfileForm({ name: '微信用户' }).name, '');
   assert.equal(createProfileForm({ name: '李明' }).name, '李明');
@@ -62,11 +62,7 @@ test('profile form validates required values and confirmation', () => {
     'name'
   );
   assert.equal(
-    validateProfileForm({ name: '李明', organization: '' }, false).field,
-    'confirmation'
-  );
-  assert.equal(
-    validateProfileForm({ name: '张小明', organization: '' }, true).ok,
+    validateProfileForm({ name: '张小明', organization: '' }).ok,
     true
   );
 });

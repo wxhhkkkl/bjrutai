@@ -164,7 +164,7 @@
       <view class="attribution-row__icon attribution-row__icon--blue">
         <van-icon name="manager-o" size="23px" color="#1677ff" />
       </view>
-      <text>归属拓展人</text>
+      <text>归属客户顾问</text>
       <text class="attribution-row__owner">{{customer.owner}}</text>
     </view>
   </view>
