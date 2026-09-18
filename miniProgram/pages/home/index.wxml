@@ -1,122 +1,71 @@
 <scroll-view class="home-scroll" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
-    <app-header title="儒泰医联" show-logo="{{true}}" />
+  <app-header title="儒泰医联" show-logo="{{true}}" />
 
-    <view class="home-page">
-        <view class="home-intro">
-            <text class="home-intro__eyebrow">健康服务 · 从容生活</text>
-            <text class="home-intro__title">欢迎来到儒泰医联</text>
-            <text class="home-intro__description">今天，也要好好照顾自己。</text>
+  <view class="home-page">
+    <view class="home-hero">
+      <view class="home-hero__orb home-hero__orb--large"></view>
+      <view class="home-hero__orb home-hero__orb--small"></view>
+
+      <view class="home-hero__brand">
+        <view class="home-hero__brand-mark">
+          <image src="/assets/images/home-brand-icon-v1.png" mode="aspectFill" />
         </view>
+        <text class="home-hero__brand-name">RUTAI MEDICAL ALLIANCE</text>
+      </view>
 
-        <view wx:if="{{bannerState === 'success'}}" class="home-banners">
-            <swiper class="home-banners__swiper" autoplay="{{bannerItems.length > 1}}" circular="{{bannerItems.length > 1}}" interval="4500" duration="380" indicator-dots="{{bannerItems.length > 1}}" indicator-color="rgba(255,255,255,.42)" indicator-active-color="#ffffff">
-                <swiper-item wx:for="{{bannerItems}}" wx:key="bannerId">
-                    <view class="home-banners__item tap-target" data-id="{{item.bannerId}}" bindtap="openBanner" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
-                        <image class="home-banners__image" src="{{item.imageUrl}}" mode="aspectFill" binderror="hideBrokenBanner" data-id="{{item.bannerId}}" />
-                        <view class="home-banners__veil"></view>
-                        <view wx:if="{{item.title}}" class="home-banners__copy">
-                            <text class="home-banners__kicker">健康生活</text>
-                            <text class="home-banners__title">{{item.title}}</text>
-                        </view>
-                    </view>
-                </swiper-item>
-            </swiper>
+      <view class="home-hero__copy">
+        <text class="home-hero__title">欢迎来到<text>儒泰医联</text></text>
+        <text class="home-hero__description">以专业与温度，陪伴每一次健康选择</text>
+      </view>
+
+      <view wx:if="{{bannerState === 'success'}}" class="home-banners">
+        <swiper class="home-banners__swiper" autoplay="{{bannerItems.length > 1}}" circular="{{bannerItems.length > 1}}" interval="4500" duration="380" indicator-dots="{{bannerItems.length > 1}}" indicator-color="rgba(255,255,255,.42)" indicator-active-color="#ffffff">
+          <swiper-item wx:for="{{bannerItems}}" wx:key="bannerId">
+            <view class="home-banners__item tap-target" data-id="{{item.bannerId}}" bindtap="openBanner" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+              <image class="home-banners__image" src="{{item.imageUrl}}" mode="aspectFill" binderror="hideBrokenBanner" data-id="{{item.bannerId}}" />
+              <view class="home-banners__veil"></view>
+              <view class="home-banners__copy">
+                <text class="home-banners__kicker">健康生活</text>
+                <text class="home-banners__title">{{item.title || '专业照护，安心同行'}}</text>
+              </view>
+            </view>
+          </swiper-item>
+        </swiper>
+      </view>
+
+      <view wx:else class="home-banners home-banners--fallback">
+        <view class="home-banners__fallback-line"></view>
+        <view class="home-banners__fallback-copy">
+          <text>健康关怀，从日常开始</text>
+          <text>专业照护 · 安心同行</text>
         </view>
+      </view>
 
-        <view class="home-section home-section--wellness">
-            <view class="section-heading">
-                <view>
-                    <text class="section-title">心脑维养</text>
-                    <text class="section-subtitle">从日常开始，守护心脑健康</text>
-                </view>
-                <text class="section-more tap-target" data-category="心脑维养" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">查看全部 <text>›</text></text>
-            </view>
-            <view wx:if="{{wellnessState === 'success'}}">
-                <view class="wellness-feature tap-target" data-id="{{wellnessLead.articleId}}" bindtap="openArticle" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
-                    <image wx:if="{{wellnessLead.coverImageUrl}}" class="wellness-feature__cover" src="{{wellnessLead.coverImageUrl}}" mode="aspectFill" />
-                    <view class="wellness-feature__veil"></view>
-                    <view class="wellness-feature__copy">
-                        <text class="wellness-feature__label">重点推荐</text>
-                        <text class="wellness-feature__title">{{wellnessLead.title}}</text>
-                        <text class="wellness-feature__description">{{wellnessLead.summary || '关注身体给出的信号，把健康照顾融入日常。'}}</text>
-                        <view class="wellness-feature__read">阅读文章 <text>›</text></view>
-                    </view>
-                </view>
-                <view wx:if="{{wellnessSupportingItems.length}}" class="wellness-grid">
-                    <view wx:for="{{wellnessSupportingItems}}" wx:key="articleId" class="wellness-mini tap-target" data-id="{{item.articleId}}" bindtap="openArticle" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
-                        <text class="wellness-mini__index">0{{index + 2}}</text>
-                        <text class="wellness-mini__category">心脑维养</text>
-                        <text class="wellness-mini__title">{{item.title}}</text>
-                        <text class="wellness-mini__more">阅读全文 <text>›</text></text>
-                    </view>
-                </view>
-            </view>
-            <view wx:elif="{{wellnessState === 'loading'}}" class="content-state">正在整理心脑维养内容…</view>
-            <view wx:elif="{{wellnessState === 'empty'}}" class="content-state">暂无“心脑维养”分类文章</view>
-            <view wx:else class="content-state content-state--error">心脑维养文章加载失败，请稍后重试</view>
-        </view>
-
-        <view class="home-section home-section--articles">
-            <view class="section-heading article-heading">
-                <view>
-                    <text class="section-title">健康资讯</text>
-                    <text class="section-subtitle">看见健康，也看见更好的生活</text>
-                </view>
-                <text class="section-more tap-target" data-id="article-list" bindtap="action" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">查看全部 <text>›</text></text>
-            </view>
-
-            <view wx:if="{{articleState === 'loading'}}" class="content-state">资讯加载中…</view>
-            <view wx:elif="{{articleState === 'empty'}}" class="content-state">暂无文章资讯，可稍后查看</view>
-            <view wx:elif="{{articleState === 'recoverable-error'}}" class="content-state content-state--error">
-                <text>{{articleStateMessage}}</text>
-                <button class="home-articles__retry tap-target" bindtap="retryArticles" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">重试</button>
-            </view>
-            <view wx:else class="article-list">
-                <view wx:for="{{articleItems}}" wx:key="articleId" class="article-row tap-target" data-id="{{item.articleId}}" bindtap="openArticle" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
-                    <image wx:if="{{item.coverImageUrl}}" class="article-row__cover" src="{{item.coverImageUrl}}" mode="aspectFill" />
-                    <view wx:else class="article-row__placeholder"><text>健康</text></view>
-                    <view class="article-row__copy">
-                        <text class="article-row__category">{{item.category || '健康资讯'}}</text>
-                        <text class="article-row__title">{{item.title}}</text>
-                        <text class="article-row__summary">{{item.summary || '阅读更多健康生活相关资讯。'}}</text>
-                    </view>
-                    <text class="article-row__arrow">›</text>
-                </view>
-            </view>
-        </view>
-
-        <view class="home-section home-section--about">
-            <view class="section-heading about-heading">
-                <view>
-                    <text class="section-title">关于儒泰</text>
-                    <text class="section-subtitle">以专业与温度，陪伴每一次健康选择</text>
-                </view>
-                <text class="section-more tap-target" data-category="关于儒泰" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">了解更多 <text>›</text></text>
-            </view>
-            <view wx:if="{{aboutState === 'success'}}">
-                <view class="about-story tap-target" data-id="{{aboutLead.articleId}}" bindtap="openArticle" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
-                    <image class="about-story__cover" src="{{aboutLead.coverImageUrl || '/assets/images/about-lutai-enterprise-cover-v1.png'}}" mode="aspectFill" />
-                    <view class="about-story__veil"></view>
-                    <view class="about-story__copy">
-                        <text class="about-story__label">儒泰医联</text>
-                        <text class="about-story__title">{{aboutLead.title}}</text>
-                        <text class="about-story__description">{{aboutLead.summary || '关于儒泰的健康服务资讯'}}</text>
-                        <view class="about-story__enter">走近儒泰 <text>›</text></view>
-                    </view>
-                </view>
-                <view wx:if="{{aboutSupportingItems.length}}" class="about-links">
-                    <view wx:for="{{aboutSupportingItems}}" wx:key="articleId" class="about-link tap-target" data-id="{{item.articleId}}" bindtap="openArticle" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
-                        <view class="about-link__copy">
-                            <text class="about-link__title">{{item.title}}</text>
-                            <text class="about-link__summary">{{item.summary || '了解更多儒泰健康服务资讯。'}}</text>
-                        </view>
-                        <text class="about-link__arrow">›</text>
-                    </view>
-                </view>
-            </view>
-            <view wx:elif="{{aboutState === 'loading'}}" class="about-state">正在载入儒泰故事…</view>
-            <view wx:elif="{{aboutState === 'empty'}}" class="about-state">暂无“关于儒泰”分类文章</view>
-            <view wx:else class="about-state about-state--error">关于儒泰文章加载失败，请稍后重试</view>
-        </view>
+      <view class="home-hero__tags">
+        <text>中医诊疗</text>
+        <text>心脑健康</text>
+        <text>健康科普</text>
+      </view>
     </view>
+
+    <view class="home-entry-grid">
+      <view class="home-entry-card tap-target" data-category="关于儒泰" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+        <image class="home-entry__icon" src="/assets/images/home-about-icon-v1.png" mode="aspectFit" />
+        <text class="home-entry__title">关于儒泰</text>
+        <text class="home-entry__description">了解儒泰<br />医联</text>
+      </view>
+
+      <view class="home-entry-card tap-target" data-category="心脑维养" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+        <image class="home-entry__icon" src="/assets/images/home-wellness-icon-v1.png" mode="aspectFit" />
+        <text class="home-entry__title">心脑维养</text>
+        <text class="home-entry__description">日常养护<br />与监测</text>
+      </view>
+
+      <view class="home-entry-card tap-target" data-id="article-list" bindtap="action" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
+        <image class="home-entry__icon" src="/assets/images/home-article-icon-v1.png" mode="aspectFit" />
+        <text class="home-entry__title">健康资讯</text>
+        <text class="home-entry__description">科普文章<br />与知识</text>
+      </view>
+    </view>
+  </view>
 </scroll-view>

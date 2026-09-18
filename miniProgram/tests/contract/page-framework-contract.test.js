@@ -627,15 +627,18 @@ test('article list registers refresh, states, pagination and complete-card navig
   assert.match(script, /requestVersion/);
 });
 
-test('homepage sections follow banner, wellness, health articles and about-story order', () => {
+test('homepage presents the approved welcome hero, managed banner and three content entry cards', () => {
   const source = fs.readFileSync(path.join(projectRoot, 'pages/home/index.wxml'), 'utf8');
-  const wellnessIndex = source.indexOf('wellness-feature');
-  const articlesIndex = source.indexOf('article-heading');
-  const aboutIndex = source.indexOf('about-heading');
-
+  const heroIndex = source.indexOf('class="home-hero"');
   const bannerIndex = source.indexOf('class="home-banners"');
-  assert.ok(bannerIndex >= 0 && wellnessIndex > bannerIndex && articlesIndex > wellnessIndex && aboutIndex > articlesIndex);
+  const entryIndex = source.indexOf('class="home-entry-grid"');
+
+  assert.ok(heroIndex >= 0 && bannerIndex > heroIndex && entryIndex > bannerIndex);
+  assert.match(source, /src="\/assets\/images\/home-brand-icon-v1\.png"/);
+  assert.match(source, /data-category="关于儒泰"/);
+  assert.match(source, /data-category="心脑维养"/);
   assert.match(source, /data-id="article-list"/);
-  assert.match(source, /bindtap="openArticle"/);
-  assert.match(source, /articleState === 'recoverable-error'/);
+  assert.match(source, /bindtap="openArticleCategory"/);
+  assert.match(source, /bindtap="action"/);
+  assert.doesNotMatch(source, /wellness-feature|about-story|article-row/);
 });
