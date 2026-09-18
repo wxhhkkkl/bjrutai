@@ -25,3 +25,5 @@
 - `miniProgram/pages/binding-records/index.js`
 - `miniProgram/pages/auth/profile-setup/index.js`
 - 推广码相关单元与契约测试
+- `miniProgram/pages/home/index.{js,wxml,wxss}`
+- 首页布局契约测试
