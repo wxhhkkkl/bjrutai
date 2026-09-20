@@ -50,9 +50,16 @@ function imageHandler() {
     if (!['image/jpeg','image/png','image/gif','image/webp'].includes(file.type)) { ElMessage.error('仅支持 JPG/PNG/GIF/WebP'); return }
     if (file.size > 10485760) { ElMessage.error('图片不超过10MB'); return }
     try {
-      const res = await http.post('/admin/articles/upload-image',{ fileName:file.name, contentType:file.type })
-      const { uploadUrl, fileUrl } = res.data.data || res.data
-      await fetch(uploadUrl,{ method:'PUT',body:file,headers:{'Content-Type':file.type} })
+      // Upload through the API instead of putting the file directly to COS.
+      // Direct browser uploads are rejected by COS when the admin origin is
+      // not included in its CORS allow-list, which surfaces as "Failed to fetch".
+      const uploadForm = new FormData()
+      uploadForm.append('file', file, file.name)
+      const res = await http.post('/admin/articles/upload-image-file', uploadForm, {
+        // Let the browser/Axios set the multipart boundary automatically.
+        headers: { 'Content-Type': undefined },
+      })
+      const { fileUrl } = res.data.data || res.data
       const q = quillRef.value?.getQuill(); if (q) { const r = q.getSelection(true); q.insertEmbed(r.index,'image',fileUrl); q.setSelection(r.index+1) }
     } catch(err) { ElMessage.error('上传失败: '+(err.userMessage||err.message||'网络错误')) }
   }
