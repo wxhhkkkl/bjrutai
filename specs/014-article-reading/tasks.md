@@ -143,6 +143,7 @@
 - [x] T041 [P] [US5] 为文章分享路径、封面回退、好友转发、朋友圈分享和异常状态安全首页回退编写失败单元/流程/页面合同测试 `miniProgram/tests/unit/article.test.js`、`miniProgram/tests/integration/article-reading-flow.test.js`、`miniProgram/tests/contract/page-framework-contract.test.js`
 - [x] T042 [US5] 在文章详情实现原生 `open-type="share"`、`onShareAppMessage` 与 `onShareTimeline`，复用详情适配数据且不增加后端请求 `miniProgram/models/article.js`、`miniProgram/pages/article-detail/index.js`、`miniProgram/pages/article-detail/index.wxml`、`miniProgram/pages/article-detail/index.wxss`
 - [x] T043 [US5] 将转发按钮移至底部固定操作栏，适配底部安全区并增加正文底部留白 `miniProgram/pages/article-detail/index.wxml`、`miniProgram/pages/article-detail/index.wxss`
+- [x] T044 [US4] 为封面和正文图片补充原生图片预览，先覆盖当前图片、全图列表与非图片点击不预览，再实现详情页点击处理 `miniProgram/tests/unit/article.test.js`、`miniProgram/tests/integration/article-reading-flow.test.js`、`miniProgram/models/article.js`、`miniProgram/pages/article-detail/index.{js,wxml}`
 
 ## Phase 8: Polish & Cross-Cutting Verification
 

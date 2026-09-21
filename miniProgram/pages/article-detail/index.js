@@ -63,6 +63,42 @@ Page({
     this.loadArticle()
   },
 
+  previewArticleImage(event) {
+    const current = event && event.currentTarget && event.currentTarget.dataset
+      ? event.currentTarget.dataset.src
+      : ''
+    this.previewImage(current)
+  },
+
+  previewContentImage(event) {
+    const node = event && event.detail && event.detail.node
+    const nodeAttributes = node && node.attrs ? node.attrs : {}
+    const nodeSource = node && String(node.name || '').toLowerCase() === 'img'
+      ? (nodeAttributes.src || nodeAttributes['data-preview-src'] || nodeAttributes['data-src'])
+      : ''
+    const dataset = event && event.target && event.target.dataset ? event.target.dataset : {}
+    const currentTargetDataset = event && event.currentTarget && event.currentTarget.dataset
+      ? event.currentTarget.dataset
+      : {}
+    this.previewImage(
+      nodeSource
+      || currentTargetDataset.src
+      || currentTargetDataset.previewSrc
+      || dataset.previewSrc
+      || dataset['preview-src']
+      || dataset.src
+      || dataset['data-src']
+      || ''
+    )
+  },
+
+  previewImage(current) {
+    const article = this.data.article
+    const urls = article && Array.isArray(article.imageUrls) ? article.imageUrls : []
+    if (!current || !urls.includes(current) || typeof wx.previewImage !== 'function') return
+    wx.previewImage({ current, urls })
+  },
+
   onShareAppMessage() {
     return createArticleShare(this.data.state === 'success' ? this.data.article : null)
   },

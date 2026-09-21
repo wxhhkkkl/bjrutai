@@ -21,6 +21,7 @@ function loadPage(relativePath, service) {
   const originalWx = global.wx
   let definition
   const navigations = []
+  const imagePreviews = []
 
   delete require.cache[pagePath]
   require.cache[servicePath] = {
@@ -34,6 +35,7 @@ function loadPage(relativePath, service) {
     navigateTo(options) { navigations.push(options.url); if (options.success) options.success() },
     navigateBack() {},
     switchTab() {},
+    previewImage(options) { imagePreviews.push(options) },
     stopPullDownRefresh() {}
   }
   require(pagePath)
@@ -45,6 +47,7 @@ function loadPage(relativePath, service) {
   return {
     page,
     navigations,
+    imagePreviews,
     restore() {
       delete require.cache[pagePath]
       if (originalService) require.cache[servicePath] = originalService
@@ -112,6 +115,65 @@ test('detail shares only the successfully loaded public article', async () => {
       path: '/pages/home/index',
       imageUrl: ''
     })
+  } finally {
+    fixture.restore()
+  }
+})
+
+test('detail previews the selected cover or rich-text image among all article images', async () => {
+  const fixture = loadPage('pages/article-detail/index.js', {
+    getArticle() {
+      return Promise.resolve({
+        ...detail,
+        coverImageUrl: 'https://cdn.example.test/cover.png',
+        content: '<p><img src="https://cdn.example.test/first.png"></p><p><img src="https://cdn.example.test/second.png"></p>'
+      })
+    }
+  })
+  try {
+    fixture.page.onLoad({ articleId: '12' })
+    await flush()
+
+    fixture.page.previewArticleImage({ currentTarget: { dataset: { src: 'https://cdn.example.test/cover.png' } } })
+    fixture.page.previewContentImage({ detail: { node: { name: 'img', attrs: { src: 'https://cdn.example.test/second.png' } } } })
+    fixture.page.previewContentImage({ target: { dataset: { previewSrc: 'https://cdn.example.test/first.png' } } })
+    fixture.page.previewContentImage({ currentTarget: { dataset: { src: 'https://cdn.example.test/second.png' } } })
+    fixture.page.previewContentImage({ detail: { node: { name: 'p', attrs: {} } } })
+
+    assert.deepEqual(fixture.imagePreviews, [
+      {
+        current: 'https://cdn.example.test/cover.png',
+        urls: [
+          'https://cdn.example.test/cover.png',
+          'https://cdn.example.test/first.png',
+          'https://cdn.example.test/second.png'
+        ]
+      },
+      {
+        current: 'https://cdn.example.test/second.png',
+        urls: [
+          'https://cdn.example.test/cover.png',
+          'https://cdn.example.test/first.png',
+          'https://cdn.example.test/second.png'
+        ]
+      },
+      {
+        current: 'https://cdn.example.test/first.png',
+        urls: [
+          'https://cdn.example.test/cover.png',
+          'https://cdn.example.test/first.png',
+          'https://cdn.example.test/second.png'
+        ]
+      },
+      {
+        current: 'https://cdn.example.test/second.png',
+        urls: [
+          'https://cdn.example.test/cover.png',
+          'https://cdn.example.test/first.png',
+          'https://cdn.example.test/second.png'
+        ]
+      }
+    ])
   } finally {
     fixture.restore()
   }

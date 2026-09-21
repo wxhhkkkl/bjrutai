@@ -18,9 +18,14 @@
       <text wx:if="{{article.publishedAtDisplay}}">{{article.publishedAtDisplay}}</text>
       <text>阅读 {{article.viewCount}}</text>
     </view>
-    <image wx:if="{{article.coverImageUrl}}" class="article-detail-cover" src="{{article.coverImageUrl}}" mode="widthFix" />
+    <image wx:if="{{article.coverImageUrl}}" class="article-detail-cover" src="{{article.coverImageUrl}}" mode="widthFix" bindtap="previewArticleImage" data-src="{{article.coverImageUrl}}" />
     <text wx:if="{{article.summary}}" class="article-detail-summary">{{article.summary}}</text>
-    <rich-text wx:if="{{article.content}}" class="article-rich-text" nodes="{{article.content}}"></rich-text>
+    <view wx:if="{{article.contentBlocks.length}}" class="article-content">
+      <block wx:for="{{article.contentBlocks}}" wx:key="index">
+        <rich-text wx:if="{{item.type === 'rich-text'}}" class="article-rich-text" nodes="{{item.nodes}}"></rich-text>
+        <image wx:elif="{{item.type === 'image'}}" class="article-content-image" src="{{item.src}}" mode="widthFix" bindtap="previewContentImage" data-src="{{item.src}}" />
+      </block>
+    </view>
     <view wx:else class="article-empty-content">暂无正文内容</view>
   </view>
 </view>

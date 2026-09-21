@@ -596,9 +596,13 @@ test('article detail uses the secondary-page framework and native safe rich text
   assert.match(source, /<flow-navigation\b/);
   assert.match(source, /open-type="share"/);
   assert.match(source, /转发文章/);
-  assert.match(source, /<rich-text\b[^>]*nodes="\{\{article\.content\}\}"/s);
+  assert.match(source, /<image\b[^>]*bindtap="previewArticleImage"/s);
+  assert.match(source, /<block\b[^>]*wx:for="\{\{article\.contentBlocks\}\}"/s);
+  assert.match(source, /<rich-text\b[^>]*nodes="\{\{item\.nodes\}\}"/s);
+  assert.match(source, /<image\b[^>]*bindtap="previewContentImage"[^>]*data-src="\{\{item\.src\}\}"/s);
   assert.doesNotMatch(source, /<web-view\b/);
   assert.doesNotMatch(script, /onShow\s*\([^)]*\)[\s\S]*getArticle/);
+  assert.match(script, /wx\.previewImage/);
   assert.match(script, /onShareAppMessage/);
   assert.match(script, /onShareTimeline/);
   assert.match(styles, /env\(safe-area-inset-bottom\)/);
