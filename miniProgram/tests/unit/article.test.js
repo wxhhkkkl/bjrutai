@@ -22,6 +22,15 @@ const listItem = {
   publishedAt: '2026-08-10T07:30:00Z'
 }
 
+function findRichTextNode(nodes, name) {
+  for (const node of nodes || []) {
+    if (node && node.name === name) return node
+    const child = findRichTextNode(node && node.children, name)
+    if (child) return child
+  }
+  return null
+}
+
 test('validates and normalizes positive article ids without losing string ids', () => {
   assert.equal(normalizeArticleId('0012'), '12')
   assert.equal(normalizeArticleId(12), '12')
@@ -62,6 +71,48 @@ test('detail accepts published content only and filters malformed tags', () => {
   assert.equal(detail.createdAt, '2026-08-09T03:00:00Z')
   assert.equal(detail.updatedAt, '')
   assert.throws(() => adaptArticleDetail({ ...listItem, status: 'draft' }), /已发布/)
+})
+
+test('detail makes backend rich-text images fit the mini-program content width', () => {
+  const detail = adaptArticleDetail({
+    ...listItem,
+    coverImageUrl: 'https://cdn.example.test/article-cover.png',
+    content: '<p><img src="https://cdn.example.test/article.png" alt="文章配图" width="1600" height="2400" style="width: 800px; height: 1200px; border-radius: 8px"></p><p><img src="https://cdn.example.test/article.png"><img src="https://cdn.example.test/second.png"></p>',
+    status: 'published'
+  })
+
+  assert.match(detail.content, /src="https:\/\/cdn\.example\.test\/article\.png"/)
+  assert.match(detail.content, /alt="文章配图"/)
+  assert.doesNotMatch(detail.content, /\swidth="1600"/)
+  assert.doesNotMatch(detail.content, /\sheight="2400"/)
+  assert.match(detail.content, /border-radius:\s*8px/)
+  assert.match(detail.content, /display:\s*block/)
+  assert.match(detail.content, /width:\s*100%/)
+  assert.match(detail.content, /max-width:\s*100%/)
+  assert.match(detail.content, /height:\s*auto/)
+  assert.match(detail.content, /data-preview-src="https:\/\/cdn\.example\.test\/article\.png"/)
+  assert.ok(Array.isArray(detail.contentNodes))
+  assert.equal(
+    findRichTextNode(detail.contentNodes, 'img').attrs['data-preview-src'],
+    'https://cdn.example.test/article.png'
+  )
+  assert.equal(
+    findRichTextNode(detail.contentNodes, 'img').attrs['data-src'],
+    'https://cdn.example.test/article.png'
+  )
+  assert.deepEqual(
+    detail.contentBlocks.filter((block) => block.type === 'image').map((block) => block.src),
+    [
+      'https://cdn.example.test/article.png',
+      'https://cdn.example.test/article.png',
+      'https://cdn.example.test/second.png'
+    ]
+  )
+  assert.deepEqual(detail.imageUrls, [
+    'https://cdn.example.test/article-cover.png',
+    'https://cdn.example.test/article.png',
+    'https://cdn.example.test/second.png'
+  ])
 })
 
 test('creates a public article share payload without exposing unavailable article ids', () => {

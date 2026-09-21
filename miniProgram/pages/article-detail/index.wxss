@@ -9,8 +9,10 @@ page { min-height: 100%; background: #f6f8fb; }
 .article-detail-share::after { border: 0; }
 .article-detail-cover { display: block; width: 100%; max-width: 100%; margin-top: 30rpx; border-radius: 20rpx; }
 .article-detail-summary { display: block; margin-top: 30rpx; padding: 22rpx 24rpx; color: #536173; font-size: 28rpx; line-height: 1.75; background: #f5f8fc; border-radius: 16rpx; }
-.article-rich-text { display: block; width: 100%; max-width: 100%; margin-top: 34rpx; overflow: hidden; color: #252d38; font-size: 30rpx; line-height: 1.9; word-break: break-word; }
-.article-rich-text img { max-width: 100% !important; height: auto !important; }
+.article-content { display: block; width: 100%; max-width: 100%; margin-top: 34rpx; overflow: visible; }
+.article-rich-text { display: block; width: 100%; max-width: 100%; overflow: visible; color: #252d38; font-size: 30rpx; line-height: 1.9; word-break: break-word; }
+.article-rich-text img { display: block; width: 100% !important; max-width: 100% !important; height: auto !important; margin: 0 auto; }
+.article-content-image { display: block; width: 100%; max-width: 100%; margin: 24rpx auto; border-radius: 12rpx; }
 .article-empty-content { margin-top: 34rpx; padding: 56rpx 20rpx; color: #8a93a0; font-size: 27rpx; line-height: 1.5; text-align: center; background: #f8fafc; border-radius: 18rpx; }
 .article-detail-state { min-height: 560rpx; display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 60rpx 30rpx; text-align: center; }
 .article-detail-state__symbol { color: #a7afbb; font-size: 92rpx; line-height: 1; }

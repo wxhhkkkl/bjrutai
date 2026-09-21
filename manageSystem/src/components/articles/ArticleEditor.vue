@@ -86,7 +86,13 @@
       </el-form-item>
 
       <el-form-item label="文章内容" prop="content">
-        <ArticleEditor v-model="form.content" />
+        <div class="article-content-field">
+          <ArticleEditor v-model="form.content" />
+          <div class="article-content-field__meta" :class="{ 'is-danger': contentLength > 100000 }">
+            <span>正文（含 HTML 标签与图片地址）</span>
+            <span>{{ contentLength.toLocaleString() }} / 100,000 字符</span>
+          </div>
+        </div>
       </el-form-item>
     </el-form>
 
@@ -131,6 +137,8 @@ const saving = ref(false)
 const tagsInput = ref('')
 
 const isEditing = computed(() => !!props.article)
+const contentLength = computed(() => String(form.content || '').length)
+const hasInlineImageData = computed(() => /data:image\//i.test(String(form.content || '')))
 
 const form = reactive({
   title: '',
@@ -261,6 +269,11 @@ function handlePreview() {
 async function handleSave() {
   if (!formRef.value) return
 
+  if (hasInlineImageData.value) {
+    ElMessage.error('检测到内嵌图片，请删除该图片后使用编辑器的图片上传按钮重新插入')
+    return
+  }
+
   try {
     await formRef.value.validate()
   } catch {
@@ -331,6 +344,10 @@ async function handleSave() {
 .toolbar-hint {
   line-height: 1.6;
 }
+
+.article-content-field { width: 100%; }
+.article-content-field__meta { display:flex; justify-content:space-between; margin-top:8px; color:#909399; font-size:12px; }
+.article-content-field__meta.is-danger { color:var(--el-color-danger); }
 
 .dialog-footer {
   display: flex;

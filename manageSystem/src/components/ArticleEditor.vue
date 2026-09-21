@@ -10,7 +10,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import http from '@/api/http'
@@ -19,6 +19,7 @@ import { ElMessage } from 'element-plus'
 const props = defineProps({ modelValue: { type: String, default: '' } })
 const emit = defineEmits(['update:modelValue'])
 const quillRef = ref(null)
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024
 
 const model = computed({
   get: () => props.modelValue,
@@ -42,29 +43,82 @@ const editorOptions = {
   placeholder: '请输入文章内容...',
 }
 
+function validateImageFile(file) {
+  if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+    ElMessage.error('仅支持 JPG/PNG/GIF/WebP 格式')
+    return false
+  }
+  if (file.size > MAX_IMAGE_SIZE) {
+    ElMessage.error('单张图片不能超过 10MB')
+    return false
+  }
+  return true
+}
+
+async function uploadAndInsertImage(file) {
+  if (!validateImageFile(file)) return
+  try {
+    const uploadForm = new FormData()
+    uploadForm.append('file', file, file.name || 'article-image.png')
+    const res = await http.post('/admin/articles/upload-image-file', uploadForm, {
+      headers: { 'Content-Type': undefined },
+    })
+    const { fileUrl } = res.data.data || res.data
+    if (!fileUrl) throw new Error('上传结果缺少图片地址')
+    const quill = quillRef.value?.getQuill()
+    if (!quill) return
+    const range = quill.getSelection(true) || { index: quill.getLength(), length: 0 }
+    quill.insertEmbed(range.index, 'image', fileUrl, 'user')
+    quill.setSelection(range.index + 1, 0, 'silent')
+  } catch (error) {
+    ElMessage.error(`上传失败：${error.userMessage || error.message || '网络错误'}`)
+  }
+}
+
 function imageHandler() {
   const input = document.createElement('input')
-  input.type = 'file'; input.accept = 'image/jpeg,image/png,image/gif,image/webp'
-  input.onchange = async (e) => {
-    const file = e.target.files?.[0]; if (!file) return
-    if (!['image/jpeg','image/png','image/gif','image/webp'].includes(file.type)) { ElMessage.error('仅支持 JPG/PNG/GIF/WebP'); return }
-    if (file.size > 10485760) { ElMessage.error('图片不超过10MB'); return }
-    try {
-      // Upload through the API instead of putting the file directly to COS.
-      // Direct browser uploads are rejected by COS when the admin origin is
-      // not included in its CORS allow-list, which surfaces as "Failed to fetch".
-      const uploadForm = new FormData()
-      uploadForm.append('file', file, file.name)
-      const res = await http.post('/admin/articles/upload-image-file', uploadForm, {
-        // Let the browser/Axios set the multipart boundary automatically.
-        headers: { 'Content-Type': undefined },
-      })
-      const { fileUrl } = res.data.data || res.data
-      const q = quillRef.value?.getQuill(); if (q) { const r = q.getSelection(true); q.insertEmbed(r.index,'image',fileUrl); q.setSelection(r.index+1) }
-    } catch(err) { ElMessage.error('上传失败: '+(err.userMessage||err.message||'网络错误')) }
+  input.type = 'file'
+  input.accept = 'image/jpeg,image/png,image/gif,image/webp'
+  input.onchange = (event) => {
+    const file = event.target.files?.[0]
+    if (file) uploadAndInsertImage(file)
   }
   input.click()
 }
+
+function interceptPastedOrDroppedImages(event) {
+  const files = Array.from(event.clipboardData?.files || event.dataTransfer?.files || [])
+    .filter((file) => file.type.startsWith('image/'))
+  if (!files.length) return
+  event.preventDefault()
+  files.reduce(
+    (sequence, file) => sequence.then(() => uploadAndInsertImage(file)),
+    Promise.resolve(),
+  )
+}
+
+function rejectInlineImage(node, delta) {
+  if (/^data:image\//i.test(node.getAttribute('src') || '')) {
+    ElMessage.warning('请使用图片上传功能插入图片，不能直接粘贴内嵌图片')
+    return { ops: [] }
+  }
+  return delta
+}
+
+onMounted(async () => {
+  await nextTick()
+  const quill = quillRef.value?.getQuill()
+  if (!quill) return
+  quill.root.addEventListener('paste', interceptPastedOrDroppedImages)
+  quill.root.addEventListener('drop', interceptPastedOrDroppedImages)
+  quill.clipboard.addMatcher('IMG', rejectInlineImage)
+})
+
+onBeforeUnmount(() => {
+  const quill = quillRef.value?.getQuill()
+  quill?.root.removeEventListener('paste', interceptPastedOrDroppedImages)
+  quill?.root.removeEventListener('drop', interceptPastedOrDroppedImages)
+})
 </script>
 
 <style>

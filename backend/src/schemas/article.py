@@ -2,7 +2,14 @@
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _reject_inline_image_data(value: object) -> object:
+    """Keep article HTML lightweight and ensure images use durable COS URLs."""
+    if isinstance(value, str) and "data:image/" in value.lower():
+        raise ValueError("文章图片请通过编辑器上传，不能直接粘贴图片")
+    return value
 
 
 # ---------------------------------------------------------------------------
@@ -25,6 +32,11 @@ class ArticleCreate(BaseModel):
         None, max_length=20, description="Tags (max 20 items, each max 30 chars)"
     )
 
+    @field_validator("content", mode="before")
+    @classmethod
+    def reject_inline_image_data(cls, value: object) -> object:
+        return _reject_inline_image_data(value)
+
     class Config:
         populate_by_name = True
 
@@ -46,6 +58,11 @@ class ArticleUpdate(BaseModel):
         None, max_length=20, description="Tags (max 20 items, each max 30 chars)"
     )
     version: int = Field(..., ge=1, description="Current version for optimistic locking")
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def reject_inline_image_data(cls, value: object) -> object:
+        return _reject_inline_image_data(value)
 
     class Config:
         populate_by_name = True

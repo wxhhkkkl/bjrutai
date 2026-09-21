@@ -369,6 +369,20 @@ class TestCreateArticle:
         )
         assert resp.status_code == 422
 
+    async def test_create_article_rejects_inline_base64_images(
+        self, client: AsyncClient, admin_auth_headers: dict,
+    ):
+        payload = {
+            "title": "Inline Image",
+            "content": '<p><img src="data:image/png;base64,aGVsbG8=" /></p>',
+        }
+        resp = await client.post(
+            "/api/v1/admin/articles", json=payload,
+            headers=admin_auth_headers,
+        )
+        assert resp.status_code == 422
+        assert "上传" in str(resp.json())
+
 
 # ============================================================================
 # PUT /api/v1/admin/articles/{id} -- Update article
