@@ -618,6 +618,98 @@ def make_mock_token(
     return t
 
 
+# ---------------------------------------------------------------------------
+# Article comments fixtures
+# ---------------------------------------------------------------------------
+class MutableCommentClock:
+    """Small dependency-free clock that can be advanced by comment tests.
+
+    The production comment service will receive a clock-like callable instead
+    of reading wall time directly.  Keeping the fixture here avoids adding a
+    time-freezing dependency to the test environment.
+    """
+
+    def __init__(self, current: datetime | None = None):
+        self.current = current or datetime.now(timezone.utc)
+
+    def now(self) -> datetime:
+        return self.current
+
+    def advance(self, **kwargs) -> datetime:
+        from datetime import timedelta
+
+        self.current = self.current + timedelta(**kwargs)
+        return self.current
+
+
+@pytest_asyncio.fixture
+async def comment_user(db_session: AsyncSession) -> int:
+    """Create an active ordinary mini-program user for comment tests."""
+
+    return await seed_user(
+        db_session,
+        openid=f"comment-user-{uuid.uuid4().hex}",
+        user_type="personal",
+        name="评论用户",
+        phone="13800138000",
+        phone_masked="138****8000",
+        avatar_url="https://example.com/comment-user.png",
+        phone_authorized=True,
+    )
+
+
+@pytest_asyncio.fixture
+async def published_article(db_session: AsyncSession) -> int:
+    """Create one published article suitable for public comment flows."""
+
+    return await seed_article(
+        db_session,
+        title="可评论的健康文章",
+        content="<p>评论测试正文</p>",
+        summary="评论测试摘要",
+        status="published",
+        published_at=datetime.now(timezone.utc),
+    )
+
+
+@pytest.fixture
+def comment_clock() -> MutableCommentClock:
+    """Return a controllable UTC clock for rate-limit and retention tests."""
+
+    return MutableCommentClock()
+
+
+@pytest.fixture
+def comment_user_auth_headers(comment_user: int) -> dict:
+    """Return a Bearer token for the seeded ordinary mini-program user."""
+
+    return auth_header(make_access_token(user_id=comment_user, user_type="personal"))
+
+
+@pytest.fixture
+def comment_admin_read_headers() -> dict:
+    """Return an admin token with read-only comment permission."""
+
+    token = make_access_token(
+        user_id=901,
+        user_type="admin",
+        permissions=["comments.read"],
+    )
+    return auth_header(token)
+
+
+@pytest.fixture
+def comment_admin_write_headers() -> dict:
+    """Return an admin token with read and write comment permissions."""
+
+    token = make_access_token(
+        user_id=902,
+        user_type="admin",
+        permissions=["comments.read", "comments.write"],
+    )
+    return auth_header(token)
+
+
 def mock_scalar_result(first_value=None, all_values=None):
     """Build a mock SQLAlchemy Result proxy."""
     result = MagicMock()

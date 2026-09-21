@@ -22,6 +22,77 @@
     <text wx:if="{{article.summary}}" class="article-detail-summary">{{article.summary}}</text>
     <rich-text wx:if="{{article.content}}" class="article-rich-text" nodes="{{article.content}}"></rich-text>
     <view wx:else class="article-empty-content">暂无正文内容</view>
+
+    <view wx:if="{{commentsVisible}}" class="article-comments">
+      <view class="article-comments__header">
+        <view class="article-comments__heading">
+          <view class="article-comments__title-icon" aria-hidden="true">
+            <van-icon name="chat-o" size="18px" />
+          </view>
+          <text class="article-comments__title">评论区</text>
+          <text class="article-comments__count">{{commentsTotal}} 条</text>
+        </view>
+        <text class="article-comments__hint">分享你的想法</text>
+      </view>
+
+      <view wx:if="{{commentsState === 'loading'}}" class="article-comments__state">正在加载评论…</view>
+      <view wx:elif="{{commentsState === 'error'}}" class="article-comments__state article-comments__state--error">
+        <text>{{commentsError}}</text>
+        <button class="article-comments__retry tap-target" bindtap="retryComments" hover-class="tap-feedback">重试</button>
+      </view>
+      <view wx:elif="{{commentsState === 'empty'}}" class="article-comments__empty" aria-label="暂无评论">
+        <view class="article-comments__empty-icon" aria-hidden="true">
+          <van-icon name="comment-o" size="34px" />
+          <text class="article-comments__empty-sparkle">✦</text>
+        </view>
+        <text class="article-comments__empty-title">还没有评论</text>
+        <text class="article-comments__empty-copy">来分享你的想法，成为第一个评论的人吧</text>
+      </view>
+
+      <view wx:elif="{{commentsState === 'success'}}" class="article-comments__list">
+        <view wx:for="{{comments}}" wx:key="commentId" class="article-comment">
+          <image wx:if="{{item.avatarUrl}}" class="article-comment__avatar" src="{{item.avatarUrl}}" mode="aspectFill" />
+          <view wx:else class="article-comment__avatar article-comment__avatar--fallback">儒</view>
+          <view class="article-comment__body">
+            <view class="article-comment__meta">
+              <text class="article-comment__name">{{item.displayName}}</text>
+              <text wx:if="{{item.isPinned}}" class="article-comment__pinned">置顶</text>
+              <text class="article-comment__time">{{item.createdAtDisplay}}</text>
+            </view>
+            <text class="article-comment__content" user-select="true">{{item.content}}</text>
+            <button
+              class="article-comment__like tap-target {{item.liked ? 'article-comment__like--active' : ''}}"
+              data-comment-id="{{item.commentId}}"
+              bindtap="toggleCommentLike"
+              hover-class="tap-feedback"
+              aria-label="{{item.liked ? '取消点赞' : '点赞'}}"
+            >{{item.liked ? '♥' : '♡'}} {{item.likeCount}}</button>
+          </view>
+        </view>
+        <button wx:if="{{commentsHasMore}}" class="article-comments__more tap-target" bindtap="loadMoreComments" loading="{{commentsLoadingMore}}" hover-class="tap-feedback">加载更多</button>
+      </view>
+
+      <view class="article-comment-composer">
+        <view class="article-comment-composer__hint">
+          <van-icon name="shield-o" size="16px" />
+          <text>评论提交后将进入审核</text>
+        </view>
+        <textarea class="article-comment-composer__input" value="{{commentDraft}}" maxlength="500" auto-height="true" placeholder="友善评论，分享你的想法" bindinput="handleCommentInput" />
+        <view class="article-comment-composer__footer">
+          <text class="article-comment-composer__count">{{commentDraft.length}}/500</text>
+          <button class="article-comment-composer__submit tap-target" bindtap="submitComment" loading="{{commentSubmitting}}" hover-class="tap-feedback">
+            <van-icon name="guide-o" size="16px" />
+            <text>发表评论</text>
+          </button>
+        </view>
+        <text wx:if="{{commentSubmitMessage}}" class="article-comment-composer__message">{{commentSubmitMessage}}</text>
+      </view>
+    </view>
+
+    <view wx:elif="{{state === 'success'}}" class="article-comments-login-gate">
+      <text>登录后查看评论并参与互动</text>
+      <button class="article-comments-login-gate__button tap-target" bindtap="promptCommentLogin" hover-class="tap-feedback">立即登录</button>
+    </view>
   </view>
 </view>
 

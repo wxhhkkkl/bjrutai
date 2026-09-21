@@ -8,7 +8,7 @@ test('develop environment defaults to the local backend and enables mock only wh
 
   assert.deepEqual(resolveEnvironment({ envVersion: 'develop' }), {
     envVersion: 'develop',
-    apiBase: 'http://127.0.0.1:8001',
+    apiBase: 'http://127.0.0.1:8000',
     useMock: false
   })
   assert.equal(resolveEnvironment({

@@ -1,8 +1,6 @@
 const DEFAULT_API_BASES = Object.freeze({
-  // 8000 is occupied by the local Nepstar project.  Run the LuTai backend on
-  // its isolated development port so the mini program never receives another
-  // project's 404 response.
-  develop: 'http://127.0.0.1:8001',
+  // Local development uses the LuTai backend started from ../backend.
+  develop: 'http://127.0.0.1:8000',
   trial: 'https://bjrutai.com',
   release: 'https://bjrutai.com'
 })

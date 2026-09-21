@@ -47,14 +47,24 @@
           <el-icon><DataAnalysis /></el-icon>
           <span>数据报表</span>
         </el-menu-item>
-        <el-menu-item v-if="authStore.hasPermission('articles.read')" index="/articles/categories">
-          <el-icon><CollectionTag /></el-icon>
-          <span>文章分类</span>
-        </el-menu-item>
-        <el-menu-item index="/articles">
-          <el-icon><Document /></el-icon>
-          <span>文章管理</span>
-        </el-menu-item>
+        <el-sub-menu
+          v-if="authStore.hasPermission('articles.read') || authStore.hasPermission('comments.read')"
+          index="/articles"
+        >
+          <template #title>
+            <el-icon><Document /></el-icon>
+            <span>文章管理</span>
+          </template>
+          <el-menu-item v-if="authStore.hasPermission('articles.read')" index="/articles/categories">
+            <span>文章分类</span>
+          </el-menu-item>
+          <el-menu-item v-if="authStore.hasPermission('articles.read')" index="/articles">
+            <span>文章管理</span>
+          </el-menu-item>
+          <el-menu-item v-if="authStore.hasPermission('comments.read')" index="/articles/comments">
+            <span>评论管理</span>
+          </el-menu-item>
+        </el-sub-menu>
         <el-menu-item index="/banners">
           <el-icon><Picture /></el-icon>
           <span>轮播图管理</span>
@@ -180,7 +190,7 @@ import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
 import {
   Odometer, Share, User, Link, TrendCharts,
-  Setting, DataAnalysis, Document, Picture, CollectionTag, Bell,
+  Setting, DataAnalysis, Document, Picture, Bell,
   Fold, Expand, ArrowDown, UserFilled,
 } from '@element-plus/icons-vue'
 

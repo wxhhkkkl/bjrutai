@@ -199,6 +199,17 @@ async def lifespan(app: FastAPI):
             replace_existing=True,
         )
 
+        from .tasks.maintenance_tasks import deleted_comment_cleanup_job
+        scheduler.add_job(
+            deleted_comment_cleanup_job,
+            trigger=CronTrigger(hour=3, minute=20),
+            id="deleted_comment_cleanup",
+            name="Clear deleted article comment data after seven days",
+            coalesce=True,
+            max_instances=1,
+            replace_existing=True,
+        )
+
         # T191: Idempotency key cleanup — every hour
         from .tasks.maintenance_tasks import idempotency_cleanup_job
         scheduler.add_job(
@@ -286,8 +297,10 @@ from .api.v1.admin_articles import router as admin_articles_router
 from .api.v1.admin_banners import router as admin_banners_router
 from .api.v1.cos_upload import router as cos_upload_router
 from .api.v1.admin_sync import router as admin_sync_router
+from .api.v1.admin_comments import router as admin_comments_router
 from .api.v1.admin_feedbacks import router as admin_feedbacks_router
 from .api.v1.articles import router as articles_router
+from .api.v1.article_comments import router as article_comments_router
 from .api.v1.banners import router as banners_router
 from .api.v1.auth import router as auth_router
 from .api.v1.app import router as app_router
@@ -311,6 +324,7 @@ from .api.v1.workbench import router as workbench_router
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(app_router, prefix="/api/v1")
 app.include_router(articles_router, prefix="/api/v1")
+app.include_router(article_comments_router, prefix="/api/v1")
 app.include_router(banners_router, prefix="/api/v1")
 app.include_router(admin_categories_router, prefix="/api/v1")
 app.include_router(admin_articles_router, prefix="/api/v1")
@@ -318,6 +332,7 @@ app.include_router(admin_banners_router, prefix="/api/v1")
 app.include_router(cos_upload_router, prefix="/api/v1")
 app.include_router(admin_sync_router, prefix="/api/v1")
 app.include_router(admin_feedbacks_router, prefix="/api/v1")
+app.include_router(admin_comments_router, prefix="/api/v1")
 app.include_router(admin_accounts_router, prefix="/api/v1")
 app.include_router(admin_roles_router, prefix="/api/v1")
 app.include_router(admin_organizations_router, prefix="/api/v1")
