@@ -7,6 +7,7 @@ Page({
     agreed: false,
     phone: '',
     password: '',
+    passwordVisible: false,
     loggingIn: false
   },
 
@@ -20,6 +21,11 @@ Page({
 
   onPasswordInput(event) {
     this.setData({ password: event.detail.value });
+  },
+
+  togglePasswordVisibility() {
+    if (!this.data.password) return;
+    this.setData({ passwordVisible: !this.data.passwordVisible });
   },
 
   openDocument(event) {

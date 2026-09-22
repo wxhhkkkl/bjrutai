@@ -17,6 +17,27 @@ test('develop environment defaults to the local backend and enables mock only wh
   }).useMock, true)
 })
 
+test('develop environment can use an explicit local storage API override', () => {
+  const { DEV_API_BASE_KEY, getRuntimeEnvironment } = require(ENV_MODULE)
+  const originalWx = global.wx
+  global.wx = {
+    getStorageSync(key) {
+      return key === DEV_API_BASE_KEY ? 'https://bjrutai.com/' : false
+    }
+  }
+
+  try {
+    assert.equal(getRuntimeEnvironment({ envVersion: 'develop' }).apiBase, 'https://bjrutai.com')
+    assert.equal(getRuntimeEnvironment({
+      envVersion: 'develop',
+      apiBases: { develop: 'http://127.0.0.1:8000' }
+    }).apiBase, 'http://127.0.0.1:8000')
+  } finally {
+    if (originalWx === undefined) delete global.wx
+    else global.wx = originalWx
+  }
+})
+
 test('trial and release use the configured production HTTPS API base', () => {
   const { resolveEnvironment } = require(ENV_MODULE)
 

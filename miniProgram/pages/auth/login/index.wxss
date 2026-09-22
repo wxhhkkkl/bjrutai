@@ -73,6 +73,29 @@ page {
   font-size: 29rpx;
 }
 
+.login-password-field {
+  position: relative;
+  margin-top: 28rpx;
+}
+
+.login-password-field__input {
+  width: 100%;
+  margin-top: 0;
+  padding-right: 92rpx;
+  box-sizing: border-box;
+}
+
+.login-password-field__toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 88rpx;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .login-input__placeholder {
   color: #a3abb6;
 }

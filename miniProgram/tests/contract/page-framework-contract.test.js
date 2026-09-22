@@ -249,6 +249,10 @@ test('login offers phone+password and WeChat quick login with agreement', () => 
   assert.match(source, /bindtap="requestWechatPhoneLogin"/);
   assert.match(source, /bindinput="onPhoneInput"/);
   assert.match(source, /bindinput="onPasswordInput"/);
+  assert.match(source, /wx:if="\{\{password\}\}"/);
+  assert.match(source, /bindtap="togglePasswordVisibility"/);
+  assert.match(source, /password="\{\{!passwordVisible\}\}"/);
+  assert.match(script, /togglePasswordVisibility/);
   assert.match(source, /bindtap="toggleAgreement"/);
   assert.match(source, /bindtap="openDocument"/);
   assert.match(source, /data-type="agreement"/);
