@@ -4,6 +4,7 @@ const DEFAULT_API_BASES = Object.freeze({
   trial: 'https://bjrutai.com',
   release: 'https://bjrutai.com'
 })
+const DEV_API_BASE_KEY = 'lutai_dev_api_base'
 
 function normalizeEnvVersion(value) {
   return value === 'develop' || value === 'trial' || value === 'release'
@@ -44,6 +45,16 @@ function detectEnvVersion() {
   }
 }
 
+function readDevelopmentApiBase() {
+  if (typeof wx === 'undefined' || !wx.getStorageSync) return ''
+
+  try {
+    return normalizeBase(wx.getStorageSync(DEV_API_BASE_KEY))
+  } catch (error) {
+    return ''
+  }
+}
+
 function getRuntimeEnvironment(options = {}) {
   let requestedMock = options.requestedMock === true
 
@@ -53,15 +64,23 @@ function getRuntimeEnvironment(options = {}) {
     requestedMock = wx.getStorageSync('lutai_dev_use_mock') === true
   }
 
+  const envVersion = options.envVersion || detectEnvVersion()
+  const apiBases = Object.assign({}, options.apiBases)
+  if (envVersion === 'develop' && !Object.prototype.hasOwnProperty.call(apiBases, 'develop')) {
+    const developmentApiBase = readDevelopmentApiBase()
+    if (developmentApiBase) apiBases.develop = developmentApiBase
+  }
+
   return resolveEnvironment({
-    envVersion: options.envVersion || detectEnvVersion(),
-    apiBases: options.apiBases,
+    envVersion,
+    apiBases,
     requestedMock
   })
 }
 
 module.exports = {
   DEFAULT_API_BASES,
+  DEV_API_BASE_KEY,
   normalizeEnvVersion,
   resolveEnvironment,
   getRuntimeEnvironment

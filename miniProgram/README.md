@@ -39,8 +39,9 @@ $speckit-constitution
 1. 使用微信开发者工具导入本目录 `miniProgram/`，不要导入仓库根目录。
 2. 在本目录安装依赖并使用开发者工具的“工具 → 构建 npm”。生成的 `miniprogram_npm/` 和 `project.private.config.json` 只保留在本机，不提交。
 3. 当前开发联调后端地址为 `http://127.0.0.1:8000`，本地联调可在开发者工具中勾选“不校验合法域名”；如果后端 IP 或端口变化，只需同步修改 `config/env.js`。
-4. 体验版和正式版必须在 `config/env.js` 配置已备案 HTTPS API 地址；未配置时小程序会报告环境配置错误，且不会回退到 Mock。
-5. Mock 默认关闭。只有开发版显式设置本地 `lutai_dev_use_mock=true` 才允许启用，体验版和正式版始终禁用。
+4. 如需在开发者工具中临时联调线上服务，可在 AppData/Storage 写入 `lutai_dev_api_base=https://bjrutai.com`；该覆盖项仅开发版生效，清除该值即可恢复本地地址。
+5. 体验版和正式版必须在 `config/env.js` 配置已备案 HTTPS API 地址；未配置时小程序会报告环境配置错误，且不会回退到 Mock。
+6. Mock 默认关闭。只有开发版显式设置本地 `lutai_dev_use_mock=true` 才允许启用，体验版和正式版始终禁用。
 
 ## Tests
 
