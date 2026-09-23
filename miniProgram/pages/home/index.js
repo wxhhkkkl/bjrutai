@@ -10,6 +10,7 @@ Page({
   bannerRequestVersion: 0,
   aboutRequestVersion: 0,
   wellnessRequestVersion: 0,
+  womenRequestVersion: 0,
 
   data: {
     session: {},
@@ -23,6 +24,9 @@ Page({
     wellnessState: 'loading',
     wellnessLead: null,
     wellnessSupportingItems: [],
+    womenState: 'loading',
+    womenLead: null,
+    womenSupportingItems: [],
     bannerState: 'loading',
     bannerItems: [],
     openingBannerId: ''
@@ -45,6 +49,7 @@ Page({
     this.loadArticles()
     this.loadAboutArticle()
     this.loadWellnessArticle()
+    this.loadWomenArticle()
     this.loadBanners()
   },
 
@@ -53,6 +58,7 @@ Page({
     this.bannerRequestVersion += 1
     this.aboutRequestVersion += 1
     this.wellnessRequestVersion += 1
+    this.womenRequestVersion += 1
   },
 
   onUnload() {
@@ -60,6 +66,7 @@ Page({
     this.bannerRequestVersion += 1
     this.aboutRequestVersion += 1
     this.wellnessRequestVersion += 1
+    this.womenRequestVersion += 1
   },
 
   async loadArticles() {
@@ -71,13 +78,13 @@ Page({
     })
 
     try {
-      const payload = await articleService.listArticles({ limit: 6 })
+      const payload = await articleService.listArticles({ limit: 20 })
       if (version !== this.articleRequestVersion) return
       const page = adaptArticlePage(payload)
-      // 企业故事由页面底部单独呈现；其他健康文章仍可进入资讯列表。
-      const items = page.items
-        .filter((item) => item.category !== '关于儒泰')
-        .slice(0, 3)
+      // 资讯优先展示其他分类，再用女性专区未在上方展示的文章补足。
+      const womenItems = page.items.filter((item) => item.category === '女性专区')
+      const otherItems = page.items.filter((item) => item.category !== '关于儒泰' && item.category !== '女性专区')
+      const items = otherItems.concat(womenItems.slice(3)).slice(0, 3)
       this.setData({
         articleState: items.length ? 'success' : 'empty',
         articleStateMessage: items.length ? '' : '暂无已发布文章',
@@ -149,6 +156,34 @@ Page({
         wellnessState: 'recoverable-error',
         wellnessLead: null,
         wellnessSupportingItems: []
+      })
+    }
+  },
+
+  async loadWomenArticle() {
+    const version = ++this.womenRequestVersion
+    this.setData({
+      womenState: 'loading',
+      womenLead: null,
+      womenSupportingItems: []
+    })
+
+    try {
+      const payload = await articleService.listArticles({ category: '女性专区', limit: 3 })
+      if (version !== this.womenRequestVersion) return
+      const page = adaptArticlePage(payload)
+      const items = page.items.slice(0, 3)
+      this.setData({
+        womenState: items.length ? 'success' : 'empty',
+        womenLead: items[0] || null,
+        womenSupportingItems: items.slice(1, 3)
+      })
+    } catch (error) {
+      if (version !== this.womenRequestVersion) return
+      this.setData({
+        womenState: 'recoverable-error',
+        womenLead: null,
+        womenSupportingItems: []
       })
     }
   },

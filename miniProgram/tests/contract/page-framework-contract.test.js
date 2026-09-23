@@ -635,18 +635,28 @@ test('article list registers refresh, states, pagination and complete-card navig
   assert.match(script, /requestVersion/);
 });
 
-test('homepage presents the approved welcome hero, managed banner and three content entry cards', () => {
+test('homepage restores the article-rich layout around the managed banner', () => {
   const source = fs.readFileSync(path.join(projectRoot, 'pages/home/index.wxml'), 'utf8');
-  const heroIndex = source.indexOf('class="home-hero"');
+  const introIndex = source.indexOf('class="home-intro"');
   const bannerIndex = source.indexOf('class="home-banners"');
-  const entryIndex = source.indexOf('class="home-entry-grid"');
+  const aboutIndex = source.indexOf('class="home-section home-section--about"');
+  const wellnessIndex = source.indexOf('class="home-section home-section--wellness"');
+  const womenIndex = source.indexOf('class="home-section home-section--women"');
+  const articlesIndex = source.indexOf('class="home-section home-section--articles"');
 
-  assert.ok(heroIndex >= 0 && bannerIndex > heroIndex && entryIndex > bannerIndex);
-  assert.match(source, /src="\/assets\/images\/home-brand-icon-v1\.png"/);
+  assert.ok(introIndex >= 0 && bannerIndex > introIndex && aboutIndex > bannerIndex);
+  assert.ok(wellnessIndex > aboutIndex && womenIndex > wellnessIndex && articlesIndex > womenIndex);
+  assert.match(source, /wx:for="\{\{wellnessSupportingItems\}\}"/);
+  assert.match(source, /wx:for="\{\{aboutSupportingItems\}\}"/);
+  assert.match(source, /wx:for="\{\{womenSupportingItems\}\}"/);
+  assert.match(source, /wx:for="\{\{articleItems\}\}"/);
   assert.match(source, /data-category="关于儒泰"/);
   assert.match(source, /data-category="心脑维养"/);
+  assert.match(source, /data-category="女性专区"/);
   assert.match(source, /data-id="article-list"/);
   assert.match(source, /bindtap="openArticleCategory"/);
   assert.match(source, /bindtap="action"/);
-  assert.doesNotMatch(source, /wellness-feature|about-story|article-row/);
+  assert.match(source, /class="about-story__cover"/);
+  assert.doesNotMatch(source, /about-story__veil|about-story__copy|about-story__title|about-story__description|about-story__enter/);
+  assert.doesNotMatch(source, /home-hero|home-entry-grid/);
 });
