@@ -14,6 +14,46 @@ page { min-height: 100%; background: #f6f8fb; }
 .article-rich-text img { display: block; width: 100% !important; max-width: 100% !important; height: auto !important; margin: 0 auto; }
 .article-content-image { display: block; width: 100%; max-width: 100%; margin: 24rpx auto; border-radius: 12rpx; }
 .article-empty-content { margin-top: 34rpx; padding: 56rpx 20rpx; color: #8a93a0; font-size: 27rpx; line-height: 1.5; text-align: center; background: #f8fafc; border-radius: 18rpx; }
+.article-comments { margin-top: 48rpx; padding-top: 34rpx; border-top: 1rpx solid #edf1f6; }
+.article-comments__header { display: flex; align-items: center; justify-content: space-between; }
+.article-comments__heading { display: flex; align-items: center; gap: 12rpx; min-width: 0; }
+.article-comments__title-icon { width: 48rpx; height: 48rpx; display: inline-flex; align-items: center; justify-content: center; color: #1677ff; background: #eef5ff; border-radius: 16rpx; }
+.article-comments__title { color: #172033; font-size: 34rpx; font-weight: 700; letter-spacing: 1rpx; }
+.article-comments__count { padding: 6rpx 14rpx; color: #276bd0; font-size: 22rpx; line-height: 1.2; background: #eef5ff; border-radius: 999rpx; }
+.article-comments__hint { color: #9aa6b7; font-size: 22rpx; white-space: nowrap; }
+.article-comments__state { margin-top: 28rpx; padding: 42rpx 20rpx; color: #8b96a6; font-size: 26rpx; line-height: 1.6; text-align: center; background: #f8fafc; border: 1rpx solid #edf2f8; border-radius: 20rpx; }
+.article-comments__state--error { color: #a45d5d; }
+.article-comments__retry { display: inline-flex; height: 58rpx; margin: 20rpx auto 0; padding: 0 28rpx; align-items: center; color: #1677ff; font-size: 25rpx; background: #edf5ff; border: 0; border-radius: 999rpx; }
+.article-comments__empty { margin-top: 28rpx; padding: 38rpx 20rpx 40rpx; display: flex; align-items: center; flex-direction: column; text-align: center; background: #f8fbff; border: 1rpx solid #edf3fb; border-radius: 22rpx; }
+.article-comments__empty-icon { position: relative; width: 132rpx; height: 132rpx; display: inline-flex; align-items: center; justify-content: center; color: #327df4; background: #eef5ff; border-radius: 50%; }
+.article-comments__empty-sparkle { position: absolute; top: 14rpx; right: 20rpx; color: #4f8cff; font-size: 30rpx; line-height: 1; }
+.article-comments__empty-title { margin-top: 22rpx; color: #172033; font-size: 31rpx; font-weight: 600; }
+.article-comments__empty-copy { margin-top: 12rpx; color: #8996a9; font-size: 24rpx; line-height: 1.6; }
+.article-comments__list { margin-top: 24rpx; }
+.article-comment { display: flex; gap: 18rpx; padding: 28rpx 0; border-bottom: 1rpx solid #f0f2f5; }
+.article-comment__avatar { flex: 0 0 68rpx; width: 68rpx; height: 68rpx; border-radius: 50%; }
+.article-comment__avatar--fallback { display: flex; align-items: center; justify-content: center; color: #1677ff; font-size: 27rpx; background: #edf5ff; }
+.article-comment__body { min-width: 0; flex: 1; }
+.article-comment__meta { display: flex; align-items: center; flex-wrap: wrap; gap: 10rpx; }
+.article-comment__name { color: #354052; font-size: 25rpx; font-weight: 600; }
+.article-comment__time { color: #a0a8b4; font-size: 22rpx; }
+.article-comment__pinned { padding: 3rpx 8rpx; color: #1677ff; font-size: 20rpx; background: #edf5ff; border-radius: 6rpx; }
+.article-comment__content { display: block; margin-top: 12rpx; color: #293342; font-size: 28rpx; line-height: 1.65; word-break: break-word; }
+.article-comment__like { display: inline-flex; height: 52rpx; margin: 10rpx 0 0 auto; padding: 0 10rpx; align-items: center; color: #909aaa; font-size: 23rpx; line-height: 1; background: transparent; border: 0; }
+.article-comment__like--active { color: #1677ff; }
+.article-comments__more { width: 100%; height: 68rpx; margin-top: 12rpx; color: #1677ff; font-size: 25rpx; background: #f4f8ff; border: 0; border-radius: 14rpx; }
+.article-comment-composer { margin-top: 28rpx; padding: 24rpx; background: #ffffff; border: 1rpx solid #e5edf7; border-radius: 22rpx; box-shadow: 0 10rpx 26rpx rgba(41, 86, 146, 0.06); }
+.article-comment-composer__hint { display: flex; align-items: center; gap: 10rpx; margin-bottom: 18rpx; color: #7f8da1; font-size: 22rpx; line-height: 1.4; }
+.article-comment-composer__hint van-icon { color: #327df4; }
+.article-comment-composer__input { width: 100%; min-height: 144rpx; padding: 20rpx; color: #293342; font-size: 27rpx; line-height: 1.6; background: #fbfdff; border: 1rpx solid #e3ebf5; border-radius: 16rpx; box-sizing: border-box; }
+.article-comment-composer__input::placeholder { color: #a0acbc; }
+.article-comment-composer__footer { display: flex; align-items: center; justify-content: space-between; margin-top: 20rpx; }
+.article-comment-composer__count { color: #98a5b6; font-size: 22rpx; }
+.article-comment-composer__submit { min-width: 202rpx; height: 74rpx; margin: 0; padding: 0 28rpx; display: inline-flex; align-items: center; justify-content: center; gap: 10rpx; color: #ffffff; font-size: 25rpx; font-weight: 600; line-height: 1; background: linear-gradient(135deg, #4f8cff 0%, #1677ff 100%); border: 0; border-radius: 999rpx; box-shadow: 0 10rpx 18rpx rgba(22, 119, 255, 0.2); }
+.article-comment-composer__submit van-icon { transform: rotate(-12deg); }
+.article-comment-composer__message { display: block; margin-top: 14rpx; padding: 12rpx 14rpx; color: #58718e; font-size: 23rpx; line-height: 1.5; background: #f3f8ff; border-radius: 12rpx; }
+.article-comments-login-gate { margin-top: 32rpx; padding: 28rpx 24rpx; display: flex; align-items: center; justify-content: space-between; color: #6f7b8b; font-size: 25rpx; background: #f8fafc; border-radius: 16rpx; }
+.article-comments-login-gate__button { height: 58rpx; margin: 0; padding: 0 24rpx; color: #1677ff; font-size: 24rpx; background: #edf5ff; border: 0; border-radius: 999rpx; }
 .article-detail-state { min-height: 560rpx; display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 60rpx 30rpx; text-align: center; }
 .article-detail-state__symbol { color: #a7afbb; font-size: 92rpx; line-height: 1; }
 .article-detail-state__title { margin-top: 24rpx; color: #222b37; font-size: 34rpx; font-weight: 600; }

@@ -2,6 +2,7 @@
 
 T116c: qualification_expiry_check_job — runs daily at 09:00.
 T191:  idempotency_cleanup_job — runs hourly to clean expired idempotency keys.
+T020: deleted_comment_cleanup_job — runs daily to clear expired business data.
 """
 
 import logging
@@ -84,3 +85,18 @@ async def idempotency_cleanup_job():
         except Exception as exc:
             await db.rollback()
             logger.error("Idempotency cleanup failed: %s", exc)
+
+
+async def deleted_comment_cleanup_job():
+    """Clear deleted comment business data after the seven-day window."""
+    from ..services.comment_service import purge_expired_deleted_comments
+
+    logger.info("Starting deleted comment cleanup")
+    async with async_session() as db:
+        try:
+            deleted_count = await purge_expired_deleted_comments(db)
+            await db.commit()
+            logger.info("Deleted comment cleanup completed: purged=%d", deleted_count)
+        except Exception as exc:
+            await db.rollback()
+            logger.error("Deleted comment cleanup failed: %s", exc)

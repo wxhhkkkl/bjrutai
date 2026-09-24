@@ -32,3 +32,6 @@ from .audit import ApiCallLog, AuditLog  # noqa: F401
 from .idempotency import IdempotencyKey  # noqa: F401
 from .session import UserToken  # noqa: F401
 from .report import Report  # noqa: F401
+from .article_comment import ArticleComment  # noqa: F401
+from .comment_like import CommentLike  # noqa: F401
+from .comment_action import CommentAction  # noqa: F401

@@ -93,6 +93,14 @@ export const PERMISSION_MODULES = [
     ],
   },
   {
+    module: 'comments',
+    label: '评论管理',
+    permissions: [
+      { key: 'comments.read', label: '查看文章评论' },
+      { key: 'comments.write', label: '审核/管理文章评论' },
+    ],
+  },
+  {
     module: 'sharing_rules',
     label: '绩效规则',
     permissions: [
