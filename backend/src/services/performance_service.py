@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.exceptions import BadRequestException, NotFoundException
+from ..models.distributor import Distributor
 from ..models.organization import Organization
 from ..models.performance_rule import (
     ChangeOperation,
@@ -19,6 +20,8 @@ from ..models.performance_rule import (
     RuleStatus,
     RuleType,
 )
+from ..models.personal_performance_rule import PersonalPerformanceRule
+from ..schemas.performance_rule import PersonalPerformanceRuleUpdateRequest
 from . import distributor_service, organization_service
 
 
@@ -200,6 +203,119 @@ async def apply_rule_to_descendants(
         await _upsert_rule(db, did, rule_type, source.tiers, operator_id, operation=ChangeOperation.APPLY)
 
     return {"applied": len(desc_ids), "orgIds": sorted(str(x) for x in desc_ids)}
+
+
+# ---------------------------------------------------------------------------
+# Personal intra-org overrides
+# ---------------------------------------------------------------------------
+def _personal_rule_to_dict(rule: PersonalPerformanceRule) -> dict:
+    return {
+        "ruleId": str(rule.id),
+        "tiers": rule.tiers,
+        "version": rule.version,
+        "updatedAt": rule.updated_at.isoformat() if rule.updated_at else None,
+    }
+
+
+async def get_personal_rules_for_org(db: AsyncSession, org_id: int) -> dict:
+    """List configured personal intra-org overrides for one organization."""
+    await _get_org_or_404(db, org_id)
+    result = await db.execute(
+        select(PersonalPerformanceRule, Distributor.id)
+        .join(Distributor, Distributor.id == PersonalPerformanceRule.distributor_id)
+        .where(Distributor.org_id == org_id)
+        .order_by(Distributor.id)
+    )
+    return {
+        "items": [
+            {
+                "distributorId": str(distributor_id),
+                **_personal_rule_to_dict(rule),
+            }
+            for rule, distributor_id in result.all()
+        ]
+    }
+
+
+async def get_personal_rule(db: AsyncSession, distributor_id: int) -> dict:
+    """Return personal override and org-level fallback tiers for the editor."""
+    distributor = await distributor_service.get_distributor_or_404(db, distributor_id)
+    personal = (
+        await db.execute(
+            select(PersonalPerformanceRule).where(
+                PersonalPerformanceRule.distributor_id == distributor.id
+            )
+        )
+    ).scalars().first()
+    org_rule = (
+        await db.execute(
+            select(PerformanceRule).where(
+                PerformanceRule.org_id == distributor.org_id,
+                PerformanceRule.rule_type == RuleType.INTRA_ORG,
+                PerformanceRule.status == RuleStatus.ACTIVE,
+            )
+        )
+    ).scalars().first()
+    return {
+        "distributorId": str(distributor.id),
+        "orgId": str(distributor.org_id),
+        "personalRule": _personal_rule_to_dict(personal) if personal else None,
+        "organizationRule": _rule_to_dict(org_rule) if org_rule else None,
+    }
+
+
+async def save_personal_rule(
+    db: AsyncSession,
+    distributor_id: int,
+    data: PersonalPerformanceRuleUpdateRequest,
+    operator_id: Optional[int],
+) -> dict:
+    """Create or update a personal tier ladder that overrides the org rule."""
+    distributor = await distributor_service.get_distributor_or_404(db, distributor_id)
+    validate_tiers(data.tiers)
+    tiers = [tier.model_dump() for tier in data.tiers]
+    result = await db.execute(
+        select(PersonalPerformanceRule).where(
+            PersonalPerformanceRule.distributor_id == distributor.id
+        )
+    )
+    rule = result.scalars().first()
+    now = datetime.now(timezone.utc)
+    if rule is None:
+        rule = PersonalPerformanceRule(
+            distributor_id=distributor.id,
+            tiers=tiers,
+            version=1,
+            created_by=operator_id,
+            updated_by=operator_id,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(rule)
+    else:
+        rule.tiers = tiers
+        rule.version += 1
+        rule.updated_by = operator_id
+        rule.updated_at = now
+        db.add(rule)
+    await db.flush()
+    await db.refresh(rule)
+    return _personal_rule_to_dict(rule)
+
+
+async def clear_personal_rule(db: AsyncSession, distributor_id: int) -> dict:
+    """Remove the personal override so the distributor inherits org tiers."""
+    await distributor_service.get_distributor_or_404(db, distributor_id)
+    result = await db.execute(
+        select(PersonalPerformanceRule).where(
+            PersonalPerformanceRule.distributor_id == distributor_id
+        )
+    )
+    rule = result.scalars().first()
+    if rule is not None:
+        await db.delete(rule)
+        await db.flush()
+    return {"distributorId": str(distributor_id), "inherited": True}
 
 
 # ---------------------------------------------------------------------------

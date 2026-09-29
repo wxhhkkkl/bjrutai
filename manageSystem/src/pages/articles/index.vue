@@ -107,7 +107,7 @@
           {{ formatDate(row.updatedAt) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="220" fixed="right">
+      <el-table-column label="操作" width="260" fixed="right">
         <template #default="{ row }">
           <el-button
             text
@@ -135,19 +135,37 @@
           >
             下架
           </el-button>
+          <el-tooltip
+            :content="row.status === 'published' ? '上架中的文章不能删除，请先下架' : '删除文章及其评论'"
+            placement="top"
+          >
+            <span class="delete-action-wrap">
+              <el-button
+                text
+                type="danger"
+                size="small"
+                :disabled="row.status === 'published'"
+                @click="handleDelete(row)"
+              >
+                删除
+              </el-button>
+            </span>
+          </el-tooltip>
         </template>
       </el-table-column>
     </el-table>
 
-    <!-- Pagination (load more) -->
-    <div v-if="store.hasMore" class="load-more">
-      <el-button
-        :loading="store.loading"
-        size="default"
-        @click="handleLoadMore"
-      >
-        加载更多
-      </el-button>
+    <div v-if="store.totalCount > 0" class="pagination-bar">
+      <el-pagination
+        v-model:current-page="store.currentPage"
+        v-model:page-size="store.pageSize"
+        :page-sizes="[10, 20, 50, 100]"
+        :total="store.totalCount"
+        :disabled="store.loading"
+        layout="total, sizes, prev, pager, next, jumper"
+        @current-change="handlePageChange"
+        @size-change="handlePageSizeChange"
+      />
     </div>
 
     <!-- Article Editor Dialog -->
@@ -185,26 +203,22 @@ function formatDate(dateStr) {
   return `${y}-${m}-${day} ${h}:${mi}`
 }
 
-async function loadArticles() {
+async function loadArticles(page = store.currentPage) {
   await store.fetchArticles({
     status: store.filterStatus || undefined,
     category: store.filterCategory || undefined,
     keyword: store.filterKeyword || undefined,
+    page,
+    limit: store.pageSize,
   })
 }
 
 function handleFilterChange() {
-  loadArticles()
+  loadArticles(1)
 }
 
-async function handleLoadMore() {
-  await store.fetchArticles({
-    status: store.filterStatus || undefined,
-    category: store.filterCategory || undefined,
-    keyword: store.filterKeyword || undefined,
-    cursor: store.nextCursor,
-  })
-}
+function handlePageChange(page) { loadArticles(page) }
+function handlePageSizeChange() { loadArticles(1) }
 
 function showCreateDialog() {
   editingArticle.value = null
@@ -224,7 +238,7 @@ async function handlePublish(row) {
       { confirmButtonText: '确定', cancelButtonText: '取消', type: 'info' }
     )
     await store.publishArticle(row.articleId)
-    await loadArticles()
+    await loadArticles(1)
   } catch {
     // Cancelled or error handled in store
   }
@@ -238,16 +252,41 @@ async function handleUnpublish(row) {
       { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
     )
     await store.unpublishArticle(row.articleId)
-    await loadArticles()
+    await loadArticles(1)
   } catch {
     // Cancelled or error handled in store
+  }
+}
+
+async function handleDelete(row) {
+  if (row.status === 'published') return
+
+  try {
+    await ElMessageBox.confirm(
+      `删除《${row.title}》后，文章、评论及评论相关记录将永久删除且无法恢复，是否继续？`,
+      '删除文章确认',
+      {
+        type: 'warning',
+        confirmButtonText: '永久删除',
+        cancelButtonText: '取消',
+        distinguishCancelAndClose: true,
+      }
+    )
+    await store.deleteArticle(row.articleId)
+    const remaining = Math.max(0, store.totalCount - 1)
+    const lastPage = Math.max(1, Math.ceil(remaining / store.pageSize))
+    await loadArticles(Math.min(store.currentPage, lastPage))
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      // Request errors are already reported by the store.
+    }
   }
 }
 
 function handleSaved() {
   editorVisible.value = false
   editingArticle.value = null
-  loadArticles()
+  loadArticles(1)
 }
 
 onMounted(() => {
@@ -280,6 +319,10 @@ onMounted(() => {
   color: #c0c4cc;
 }
 
+.delete-action-wrap {
+  display: inline-flex;
+}
+
 .article-title-link {
   color: var(--el-color-primary);
   cursor: pointer;
@@ -289,8 +332,9 @@ onMounted(() => {
   text-decoration: underline;
 }
 
-.load-more {
-  text-align: center;
+.pagination-bar {
+  display: flex;
+  justify-content: flex-end;
   margin-top: 16px;
 }
 </style>

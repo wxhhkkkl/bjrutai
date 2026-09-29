@@ -1,6 +1,10 @@
 const { formatYuan } = require('../utils/money')
 const { formatChinaDateTime } = require('../utils/date-time')
 
+function groupThousands(value) {
+  return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
 const BINDING_STATUS_LABELS = Object.freeze({
   pending_match: '待匹配',
   matching: '匹配中',
@@ -15,6 +19,19 @@ const BINDING_STATUS_LABELS = Object.freeze({
 
 function nonNegativeInteger(value) {
   return Number.isSafeInteger(value) && value >= 0 ? value : 0
+}
+
+function nonNegativePoints(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? Math.round(value * 100) / 100
+    : 0
+}
+
+function formatPoints(value) {
+  const hundredths = Math.round(nonNegativePoints(value) * 100)
+  const whole = Math.floor(hundredths / 100)
+  const fraction = String(hundredths % 100).padStart(2, '0')
+  return `${groupThousands(whole)}.${fraction}`
 }
 
 function amountCent(value) {
@@ -61,6 +78,7 @@ function adaptWorkbench(payload = {}) {
       myCustomers: nonNegativeInteger(metrics.myCustomers),
       myBindings: nonNegativeInteger(metrics.myBindings),
       myMonthlyConsumptionCent: amountCent(metrics.myMonthlyConsumption),
+      myMonthlyPoints: nonNegativePoints(metrics.myMonthlyPoints),
       pendingFollowups: nonNegativeInteger(metrics.pendingFollowups)
     },
     welcomeMessage: String(payload.welcomeMessage || '')
@@ -142,7 +160,7 @@ function buildProfileViewModel(workbench) {
 
   return [
     { label: '客户', value: String(metrics.myCustomers || 0) },
-    { label: '本月消费', value: formatYuan(metrics.myMonthlyConsumptionCent || 0) },
+    { label: '本月积分', value: formatPoints(metrics.myMonthlyPoints || 0) },
     { label: '本月绑定', value: String(metrics.myBindings || 0) }
   ]
 }
@@ -153,5 +171,6 @@ module.exports = {
   adaptRecentBindings,
   adaptAccountSummary,
   buildHomeViewModel,
-  buildProfileViewModel
+  buildProfileViewModel,
+  formatPoints
 }

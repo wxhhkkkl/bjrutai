@@ -13,21 +13,18 @@ upsert); a preview variant computes for one org without persisting.
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.bill import Bill, TransactionStatus
-from ..models.binding import Customer
+from ..core.exceptions import BadRequestException, NotFoundException
 from ..models.commission_result import CommissionResult
 from ..models.distributor import Distributor, OrgRole
 from ..models.performance_rule import PerformanceRule, RuleStatus, RuleType
 from ..models.performance_settlement import PerformanceSettlement, SettlementStatus
+from ..models.personal_performance_rule import PersonalPerformanceRule
 from . import distributor_service, organization_service
-
-
 from .consumption_service import (
     consumption_by_distributor as _consumption_by_distributor,
-    period_start_end as _period_start_end,
 )
 
 
@@ -58,6 +55,34 @@ def _rule_snapshot(rule: PerformanceRule) -> dict:
         "tiers": rule.tiers,
         "version": rule.version,
     }
+
+
+def _personal_rule_snapshot(
+    personal_rule: PersonalPerformanceRule,
+    organization_rule: PerformanceRule | None,
+) -> dict:
+    """Snapshot the personal override and the org rule it took precedence over."""
+    return {
+        "ruleType": RuleType.INTRA_ORG.value,
+        "source": "personal",
+        "personalRuleId": str(personal_rule.id),
+        "tiers": personal_rule.tiers,
+        "version": personal_rule.version,
+        "organizationRuleVersion": organization_rule.version if organization_rule else None,
+    }
+
+
+async def _load_personal_rules(
+    db: AsyncSession, distributor_ids: list[int]
+) -> dict[int, PersonalPerformanceRule]:
+    if not distributor_ids:
+        return {}
+    result = await db.execute(
+        select(PersonalPerformanceRule).where(
+            PersonalPerformanceRule.distributor_id.in_(distributor_ids)
+        )
+    )
+    return {rule.distributor_id: rule for rule in result.scalars().all()}
 
 
 async def _ensure_pending_settlement(db: AsyncSession, period: str) -> None:
@@ -114,6 +139,22 @@ async def _upsert_result(
         db.add(existing)
 
 
+async def _delete_result(
+    db: AsyncSession, period: str, distributor_id: int, rule_type: RuleType
+) -> None:
+    existing = (
+        await db.execute(
+            select(CommissionResult).where(
+                CommissionResult.period == period,
+                CommissionResult.distributor_id == distributor_id,
+                CommissionResult.rule_type == rule_type,
+            )
+        )
+    ).scalars().first()
+    if existing is not None:
+        await db.delete(existing)
+
+
 async def _load_org_people(db: AsyncSession) -> tuple[dict, dict, list]:
     """Return {org_id: all distributors}, {org_id: admins}, and the full list."""
     dist_result = await db.execute(select(Distributor))
@@ -149,30 +190,44 @@ async def compute_commission(db: AsyncSession, period: str) -> dict:
         select(PerformanceRule).where(PerformanceRule.status == RuleStatus.ACTIVE)
     )
     rules = rules_result.scalars().all()
-    if not rules:
-        await _ensure_pending_settlement(db, period)
-        await db.flush()
-        return {"period": period, "computed": 0, "frozen": False}
-
-    org_people, org_admins, distributors = await _load_org_people(db)
+    _org_people, org_admins, distributors = await _load_org_people(db)
     consumption = await _consumption_by_distributor(db, [d.id for d in distributors], period)
+    personal_rules = await _load_personal_rules(db, [d.id for d in distributors])
+    intra_rules = {
+        rule.org_id: rule for rule in rules if rule.rule_type == RuleType.INTRA_ORG
+    }
 
     computed = 0
+    # Personal intra-org tiers override the organization's ladder for that
+    # distributor only. The org ladder remains the default for everyone else.
+    for d in distributors:
+        personal_rule = personal_rules.get(d.id)
+        organization_rule = intra_rules.get(d.org_id)
+        tiers = personal_rule.tiers if personal_rule else (
+            organization_rule.tiers if organization_rule else None
+        )
+        if not tiers:
+            # A cleared personal override with no org fallback must not leave
+            # its old pending-month result behind after recomputation.
+            await _delete_result(db, period, d.id, RuleType.INTRA_ORG)
+            continue
+        base = consumption.get(d.id, 0)
+        ratio = _apply_tiers(tiers, base)
+        if ratio <= 0:
+            await _delete_result(db, period, d.id, RuleType.INTRA_ORG)
+            continue
+        snapshot = (
+            _personal_rule_snapshot(personal_rule, organization_rule)
+            if personal_rule else _rule_snapshot(organization_rule)
+        )
+        await _upsert_result(
+            db, period, d.id, d.org_id, RuleType.INTRA_ORG, base, ratio,
+            int(round(base * ratio)), rule_snapshot=snapshot,
+        )
+        computed += 1
+
     for rule in rules:
-        if rule.rule_type == RuleType.INTRA_ORG:
-            # 组织内绩效提成覆盖本组织所有人员（含组织管理员）——管理员同时
-            # 计算组织内提成（自身消费）与组织管理提成（子树总额）。
-            for d in org_people.get(rule.org_id, []):
-                base = consumption.get(d.id, 0)
-                ratio = _apply_tiers(rule.tiers, base)
-                if ratio <= 0:
-                    continue
-                await _upsert_result(
-                    db, period, d.id, rule.org_id, RuleType.INTRA_ORG, base, ratio,
-                    int(round(base * ratio)), rule_snapshot=_rule_snapshot(rule),
-                )
-                computed += 1
-        elif rule.rule_type == RuleType.ORG_MANAGEMENT:
+        if rule.rule_type == RuleType.ORG_MANAGEMENT:
             subtree_ids = await _org_subtree_ids(db, rule.org_id)
             subtree_dists = [d.id for d in distributors if d.org_id in subtree_ids]
             base = sum(consumption.get(did, 0) for did in subtree_dists)
@@ -194,6 +249,51 @@ async def compute_commission(db: AsyncSession, period: str) -> dict:
 # Real-time preview (FR-013) — computes for one org without persisting
 # ---------------------------------------------------------------------------
 async def preview_org_commission(db: AsyncSession, org_id: int, period: str) -> dict:
+    settlement = (
+        await db.execute(
+            select(PerformanceSettlement).where(PerformanceSettlement.period == period)
+        )
+    ).scalars().first()
+
+    # Once reviewed, estimates must come from the frozen commission result, not
+    # live consumption/rules that may have changed since the settlement.
+    if settlement and settlement.status == SettlementStatus.REVIEWED:
+        rows = (
+            await db.execute(
+                select(CommissionResult)
+                .where(
+                    CommissionResult.period == period,
+                    CommissionResult.org_id == org_id,
+                )
+                .order_by(CommissionResult.id)
+            )
+        ).scalars().all()
+        intra_items, mgmt_items = [], []
+        for row in rows:
+            item = {
+                "distributorId": str(row.distributor_id),
+                "name": await _distributor_name(db, row.distributor_id),
+                "baseCent": row.base_cent,
+                "ratio": float(row.ratio),
+                "commissionCent": row.commission_cent,
+                "pointsBalance": 0.0 if row.points_redeemed_at else row.commission_cent / 100,
+                "pointsRedeemed": row.points_redeemed_at is not None,
+                "pointsRedeemedAt": (
+                    row.points_redeemed_at.isoformat() if row.points_redeemed_at else None
+                ),
+            }
+            if row.rule_type == RuleType.INTRA_ORG:
+                intra_items.append(item)
+            elif row.rule_type == RuleType.ORG_MANAGEMENT:
+                mgmt_items.append(item)
+        return {
+            "orgId": str(org_id),
+            "period": period,
+            "intraOrg": intra_items,
+            "orgManagement": mgmt_items,
+            "unconfigured": [],
+        }
+
     rules_result = await db.execute(
         select(PerformanceRule).where(
             PerformanceRule.org_id == org_id,
@@ -204,18 +304,24 @@ async def preview_org_commission(db: AsyncSession, org_id: int, period: str) -> 
 
     org_people, org_admins, distributors = await _load_org_people(db)
     consumption = await _consumption_by_distributor(db, [d.id for d in distributors], period)
+    people = org_people.get(org_id, [])
+    personal_rules = await _load_personal_rules(db, [d.id for d in people])
 
     intra_items, mgmt_items, unconfigured = [], [], []
 
     intra_rule = rules.get(RuleType.INTRA_ORG.value)
-    if intra_rule:
-        for d in org_people.get(org_id, []):
-            base = consumption.get(d.id, 0)
-            ratio = _apply_tiers(intra_rule.tiers, base)
-            if ratio <= 0:
-                continue
+    for d in people:
+        personal_rule = personal_rules.get(d.id)
+        tiers = personal_rule.tiers if personal_rule else (
+            intra_rule.tiers if intra_rule else None
+        )
+        if not tiers:
+            continue
+        base = consumption.get(d.id, 0)
+        ratio = _apply_tiers(tiers, base)
+        if ratio > 0:
             intra_items.append(_preview_item(d.id, await _distributor_name(db, d.id), base, ratio))
-    else:
+    if not intra_rule and (not people or len(personal_rules) < len(people)):
         unconfigured.append(RuleType.INTRA_ORG.value)
 
     mgmt_rule = rules.get(RuleType.ORG_MANAGEMENT.value)
@@ -241,12 +347,83 @@ async def preview_org_commission(db: AsyncSession, org_id: int, period: str) -> 
 
 
 def _preview_item(distributor_id: int, name, base_cent: int, ratio: float) -> dict:
+    commission_cent = int(round(base_cent * ratio))
     return {
         "distributorId": str(distributor_id),
         "name": name,
         "baseCent": base_cent,
         "ratio": float(ratio),
-        "commissionCent": int(round(base_cent * ratio)),
+        "commissionCent": commission_cent,
+        "pointsBalance": commission_cent / 100,
+        "pointsRedeemed": False,
+        "pointsRedeemedAt": None,
+    }
+
+
+async def redeem_commission_points(
+    db: AsyncSession,
+    period: str,
+    distributor_id: int,
+    rule_type: str,
+    operator_id: int,
+) -> dict:
+    """Redeem one frozen commission row's points without changing its amount."""
+    try:
+        parsed_rule_type = RuleType(rule_type)
+    except ValueError as exc:
+        raise BadRequestException(message="无效的提成类型") from exc
+
+    settlement = (
+        await db.execute(
+            select(PerformanceSettlement).where(PerformanceSettlement.period == period)
+        )
+    ).scalars().first()
+    if settlement is None or settlement.status != SettlementStatus.REVIEWED:
+        raise BadRequestException(message="仅已确认（冻结）的月份可以核销积分")
+
+    row = (
+        await db.execute(
+            select(CommissionResult).where(
+                CommissionResult.period == period,
+                CommissionResult.distributor_id == distributor_id,
+                CommissionResult.rule_type == parsed_rule_type,
+            )
+        )
+    ).scalars().first()
+    if row is None:
+        raise NotFoundException(message="未找到该月提成记录")
+    if row.points_redeemed_at is not None:
+        raise BadRequestException(message="该笔提成积分已核销")
+
+    # 1 元 = 1 积分，commission_cent is cents, so the same integer stores
+    # hundredths of a point and preserves the exact 1:1 conversion.
+    now = datetime.now(timezone.utc)
+    result = await db.execute(
+        update(CommissionResult)
+        .where(
+            CommissionResult.id == row.id,
+            CommissionResult.points_redeemed_at.is_(None),
+        )
+        .values(
+            redeemed_points_x100=row.commission_cent,
+            points_redeemed_by=operator_id,
+            points_redeemed_at=now,
+        )
+    )
+    if result.rowcount == 0:
+        raise BadRequestException(message="该笔提成积分已核销，请刷新后重试")
+
+    await db.flush()
+    return {
+        "period": period,
+        "distributorId": str(distributor_id),
+        "ruleType": parsed_rule_type.value,
+        "commissionCent": row.commission_cent,
+        "redeemedPoints": row.commission_cent / 100,
+        "pointsBalance": 0,
+        "pointsRedeemed": True,
+        "pointsRedeemedBy": operator_id,
+        "pointsRedeemedAt": now.isoformat(),
     }
 
 
@@ -342,10 +519,12 @@ async def export_results_csv(
     names = await _org_names(db, org_ids)
 
     buf = io.StringIO()
+    # Include a UTF-8 BOM so spreadsheet apps such as Excel detect Chinese headers.
+    buf.write("\ufeff")
     writer = csv.writer(buf)
     writer.writerow([
-        "period", "orgId", "orgName", "distributorId", "name",
-        "ruleType", "baseCent", "ratio", "commissionCent", "computedAt",
+        "月份", "组织ID", "组织名称", "推广员ID", "姓名",
+        "提成类型", "计算基数（分）", "提成比例", "提成金额（分）", "计算时间",
     ])
     for r in rows:
         writer.writerow([
@@ -375,6 +554,13 @@ async def estimate_distributor(db: AsyncSession, distributor_id: int, period: st
     if dist is None:
         return None
 
+    personal_rule = (
+        await db.execute(
+            select(PersonalPerformanceRule).where(
+                PersonalPerformanceRule.distributor_id == dist.id
+            )
+        )
+    ).scalars().first()
     rule = (
         await db.execute(
             select(PerformanceRule).where(
@@ -387,7 +573,8 @@ async def estimate_distributor(db: AsyncSession, distributor_id: int, period: st
 
     consumption = await _consumption_by_distributor(db, [dist.id], period)
     base = consumption.get(dist.id, 0)
-    ratio = _apply_tiers(rule.tiers, base) if rule else 0.0
+    tiers = personal_rule.tiers if personal_rule else (rule.tiers if rule else None)
+    ratio = _apply_tiers(tiers, base) if tiers else 0.0
     if ratio <= 0:
         return None
     return {
@@ -434,3 +621,46 @@ async def estimate_org_admin(db: AsyncSession, distributor_id: int, period: str)
         "ratio": ratio,
         "commissionCent": int(round(base * ratio)),
     }
+
+
+async def points_balance_for_distributor(
+    db: AsyncSession,
+    distributor_id: int,
+    period: str,
+    estimated_commissions: list[Optional[dict]] | None = None,
+) -> float:
+    """Current period points: available frozen commission, or live estimates.
+
+    One yuan maps to one point. Both commission cents and hundredths of a point
+    are integer-backed, so conversion is exact to two decimal places.
+    """
+    settlement = (
+        await db.execute(
+            select(PerformanceSettlement).where(PerformanceSettlement.period == period)
+        )
+    ).scalars().first()
+    if settlement and settlement.status == SettlementStatus.REVIEWED:
+        rows = (
+            await db.execute(
+                select(CommissionResult).where(
+                    CommissionResult.period == period,
+                    CommissionResult.distributor_id == distributor_id,
+                )
+            )
+        ).scalars().all()
+        available_cent = sum(
+            row.commission_cent for row in rows if row.points_redeemed_at is None
+        )
+        return available_cent / 100
+
+    if estimated_commissions is None:
+        estimated_commissions = [
+            await estimate_distributor(db, distributor_id, period),
+            await estimate_org_admin(db, distributor_id, period),
+        ]
+    estimated_cent = sum(
+        int(item.get("commissionCent", 0) or 0)
+        for item in estimated_commissions
+        if item
+    )
+    return estimated_cent / 100

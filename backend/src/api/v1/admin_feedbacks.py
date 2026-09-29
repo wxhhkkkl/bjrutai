@@ -10,6 +10,8 @@ from ...core.error_handler import _build_response
 from ...integrations.cos_client import get_cos_client
 from ...schemas.feedback import FeedbackAdminUpdateRequest
 from ...services.feedback_service import (
+    clear_admin_feedbacks,
+    delete_admin_feedback,
     get_admin_feedback,
     list_admin_feedbacks,
     update_admin_feedback,
@@ -77,5 +79,26 @@ async def update_feedback(
         feedback_no=feedback.feedback_no,
         cos=get_cos_client(),
         viewer_admin_id=int(admin["sub"]),
+    )
+    return _build_response(0, "success", result)
+
+
+@router.delete("")
+async def clear_feedbacks(
+    db: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_permission("feedbacks.delete")),
+) -> dict:
+    result = await clear_admin_feedbacks(db, admin_id=int(admin["sub"]))
+    return _build_response(0, "success", result)
+
+
+@router.delete("/{feedback_no}")
+async def delete_feedback(
+    feedback_no: str,
+    db: AsyncSession = Depends(get_db),
+    admin: dict = Depends(require_permission("feedbacks.delete")),
+) -> dict:
+    result = await delete_admin_feedback(
+        db, feedback_no=feedback_no, admin_id=int(admin["sub"])
     )
     return _build_response(0, "success", result)

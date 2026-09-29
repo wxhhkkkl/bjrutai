@@ -11,7 +11,6 @@ Page({
     state: 'loading',
     stateMessage: '',
     codeInfo: {},
-    name: '',
     consentConfirmed: false,
     submitting: false,
     result: null
@@ -35,10 +34,6 @@ Page({
     } catch (error) {
       this.setData({ state: 'invalid', stateMessage: error.message || '客户绑定码已失效' })
     }
-  },
-
-  onNameInput(event) {
-    this.setData({ name: event.detail.value })
   },
 
   toggleConsent() {
@@ -80,7 +75,6 @@ Page({
       const result = await bindingCodeService.claimCustomer(this.data.refToken, {
         wechatCode,
         phoneCode,
-        name: String(this.data.name || '').trim() || undefined,
         consentConfirmed: true
       })
       await authService.establishSession(result.session)

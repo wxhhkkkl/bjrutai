@@ -11,7 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_admin_user, get_db, require_permission
 from ...core.error_handler import _build_response
-from ...schemas.performance_rule import PerformanceRuleUpdateRequest
+from ...schemas.performance_rule import (
+    PerformanceRuleUpdateRequest,
+    PersonalPerformanceRuleUpdateRequest,
+)
 from ...services import commission_service, performance_service
 
 router = APIRouter(prefix="/admin", tags=["admin-performance-rules"])
@@ -33,6 +36,57 @@ async def get_rules(
 ):
     """Get both commission types for an org (US1)."""
     result = await performance_service.get_rules_for_org(db, org_id)
+    return _build_response(0, "success", result)
+
+
+@router.get("/orgs/{org_id}/personal-performance-rules")
+async def get_personal_rules(
+    org_id: int,
+    db: AsyncSession = Depends(get_db),
+    _admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("sharing_rules.read")),
+):
+    """List configured personal intra-org overrides for an organization."""
+    result = await performance_service.get_personal_rules_for_org(db, org_id)
+    return _build_response(0, "success", result)
+
+
+@router.get("/distributors/{distributor_id}/personal-performance-rule")
+async def get_personal_rule(
+    distributor_id: int,
+    db: AsyncSession = Depends(get_db),
+    _admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("sharing_rules.read")),
+):
+    """Return a person's override and the organization fallback rule."""
+    result = await performance_service.get_personal_rule(db, distributor_id)
+    return _build_response(0, "success", result)
+
+
+@router.put("/distributors/{distributor_id}/personal-performance-rule")
+async def save_personal_rule(
+    distributor_id: int,
+    body: PersonalPerformanceRuleUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("sharing_rules.write")),
+):
+    """Set a personal intra-org tier ladder, overriding organization tiers."""
+    result = await performance_service.save_personal_rule(
+        db, distributor_id, body, operator_id=_operator_id(admin)
+    )
+    return _build_response(0, "success", result)
+
+
+@router.delete("/distributors/{distributor_id}/personal-performance-rule")
+async def clear_personal_rule(
+    distributor_id: int,
+    db: AsyncSession = Depends(get_db),
+    _admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("sharing_rules.write")),
+):
+    """Remove a personal override and restore inheritance from the org."""
+    result = await performance_service.clear_personal_rule(db, distributor_id)
     return _build_response(0, "success", result)
 
 

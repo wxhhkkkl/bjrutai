@@ -17,13 +17,14 @@ from ...schemas.article import (
 )
 from ...services.article_service import (
     create_article,
+    delete_article,
     get_admin_detail,
     list_admin,
     publish_article,
     unpublish_article,
     update_article,
 )
-from ..deps import get_admin_user
+from ..deps import get_admin_user, require_permission
 
 router = APIRouter(prefix="/admin/articles", tags=["admin-articles"])
 
@@ -36,13 +37,20 @@ async def admin_list_articles(
     category: str | None = Query(None, max_length=50, description="Filter by category"),
     keyword: str | None = Query(None, max_length=100, description="Search title"),
     cursor: str | None = Query(None, max_length=256, description="Pagination cursor"),
+    page: int | None = Query(None, ge=1, description="Page number for numbered pagination"),
     limit: int = Query(20, ge=1, le=100, description="Page size"),
     db: AsyncSession = Depends(get_db),
     _current_admin: dict = Depends(get_admin_user),
 ):
-    """List all articles (admin view). Supports status/category/keyword filters and cursor pagination."""
+    """List admin articles with filters and either numbered or cursor pagination."""
     result = await list_admin(
-        db, status=status, category=category, keyword=keyword, cursor=cursor, page_size=limit
+        db,
+        status=status,
+        category=category,
+        keyword=keyword,
+        cursor=cursor,
+        page=page,
+        page_size=limit,
     )
     return _build_response(0, "success", result)
 
@@ -129,6 +137,17 @@ async def admin_unpublish_article(
             "unpublishedAt": article.updated_at.isoformat() if article.updated_at else None,
         },
     )
+
+
+@router.delete("/{article_id}")
+async def admin_delete_article(
+    article_id: int,
+    db: AsyncSession = Depends(get_db),
+    _perm: dict = Depends(require_permission("articles.write")),
+):
+    """Permanently delete an unpublished article and all of its comments."""
+    result = await delete_article(db, article_id)
+    return _build_response(0, "success", result)
 
 
 def _status_label(status) -> str:

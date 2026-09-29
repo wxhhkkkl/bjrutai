@@ -7,7 +7,13 @@ function pad(value) {
 function formatChinaDateTime(value) {
   if (!value) return ''
 
-  const timestamp = new Date(value).getTime()
+  const input = typeof value === 'string' ? value.trim() : value
+  const hasTimezone = typeof input === 'string' && /(?:z|[+-]\d{2}:?\d{2})$/i.test(input)
+  const hasTime = typeof input === 'string' && /T\d{2}:\d{2}/.test(input)
+  // Backend DateTime columns are stored as UTC; MySQL responses may omit the
+  // timezone suffix, so interpret an offset-less ISO datetime as UTC.
+  const normalized = hasTime && !hasTimezone ? `${input}Z` : input
+  const timestamp = new Date(normalized).getTime()
   if (!Number.isFinite(timestamp)) return ''
 
   const china = new Date(timestamp + CHINA_OFFSET_MS)

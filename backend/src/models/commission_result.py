@@ -1,10 +1,10 @@
 """Commission result — monthly commission computed from performance rules (FR-011/FR-013)."""
 
-import enum
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.mysql import JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -31,5 +31,8 @@ class CommissionResult(Base):
     base_cent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     ratio: Mapped[str] = mapped_column(String(20), nullable=False)  # decimal as string (precision)
     commission_cent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    rule_snapshot: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # 核算时生效规则快照（008 FR-007）
+    rule_snapshot: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # 核算时生效规则快照
     computed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    redeemed_points_x100: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    points_redeemed_by: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    points_redeemed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

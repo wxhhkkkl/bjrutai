@@ -18,6 +18,18 @@ export const performanceApi = {
   applyToDescendants(orgId, ruleType) {
     return http.post(`/admin/orgs/${orgId}/performance-rules/${ruleType}/apply-to-descendants`).then(payload)
   },
+  personalRules(orgId) {
+    return http.get(`/admin/orgs/${orgId}/personal-performance-rules`).then(payload)
+  },
+  personalRule(distributorId) {
+    return http.get(`/admin/distributors/${distributorId}/personal-performance-rule`).then(payload)
+  },
+  savePersonalRule(distributorId, data) {
+    return http.put(`/admin/distributors/${distributorId}/personal-performance-rule`, data).then(payload)
+  },
+  clearPersonalRule(distributorId) {
+    return http.delete(`/admin/distributors/${distributorId}/personal-performance-rule`).then(payload)
+  },
   // 008 绩效计算
   estimates(period, orgId) {
     return http.get('/admin/performance/estimates', { params: { period, orgId } }).then(payload)
@@ -33,6 +45,11 @@ export const performanceApi = {
   },
   recompute(period) {
     return http.post(`/admin/performance/settlements/${period}/recompute`).then(payload)
+  },
+  redeemPoints(period, distributorId, ruleType) {
+    return http.post(
+      `/admin/performance/settlements/${period}/points/${distributorId}/${ruleType}/redeem`
+    ).then(payload)
   },
   export(period) {
     return http.get(`/admin/performance/settlements/${period}/export`, { responseType: 'blob' })

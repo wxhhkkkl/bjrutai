@@ -15,3 +15,11 @@ export async function getFeedback(feedbackNo) {
 export async function updateFeedback(feedbackNo, payload) {
   return body(await http.patch(`/admin/feedbacks/${encodeURIComponent(feedbackNo)}`, payload))
 }
+
+export async function deleteFeedback(feedbackNo) {
+  return body(await http.delete(`/admin/feedbacks/${encodeURIComponent(feedbackNo)}`))
+}
+
+export async function clearFeedbacks() {
+  return body(await http.delete('/admin/feedbacks'))
+}

@@ -1,17 +1,20 @@
 <template>
-  <div class="feedback-page"><div class="page-head"><div><h2>意见与反馈</h2><p>集中查看和处理小程序用户提交的意见与问题</p></div><el-button @click="load">刷新</el-button></div>
+  <div class="feedback-page"><div class="page-head"><div><h2>意见与反馈</h2><p>集中查看和处理小程序用户提交的意见与问题</p></div><el-space><el-button v-if="canDelete" type="danger" plain :loading="clearing" @click="clearAll">清空全部</el-button><el-button @click="load">刷新</el-button></el-space></div>
     <el-card shadow="never"><el-form :inline="true" class="filters"><el-form-item label="状态"><el-select v-model="filters.status" clearable placeholder="全部" style="width: 120px" @change="search"><el-option label="待处理" value="submitted" /><el-option label="处理中" value="processing" /><el-option label="已解决" value="resolved" /></el-select></el-form-item><el-form-item label="类型"><el-select v-model="filters.type" clearable placeholder="全部" style="width: 120px" @change="search"><el-option label="功能异常" value="bug" /><el-option label="产品建议" value="suggestion" /><el-option label="其他" value="other" /></el-select></el-form-item><el-form-item label="提交日期"><el-date-picker v-model="filters.dates" type="daterange" value-format="YYYY-MM-DDTHH:mm:ss" range-separator="至" start-placeholder="开始" end-placeholder="结束" /></el-form-item><el-form-item><el-input v-model="filters.keyword" placeholder="反馈编号/用户姓名" clearable @keyup.enter="search" /></el-form-item><el-form-item><el-button type="primary" @click="search">搜索</el-button><el-button @click="reset">重置</el-button></el-form-item></el-form>
-      <el-table v-loading="loading" :data="items" empty-text="暂无符合条件的反馈"><el-table-column prop="feedbackNo" label="反馈编号" width="190" /><el-table-column label="类型" width="105"><template #default="{ row }"><el-tag size="small">{{ typeLabel(row.type) }}</el-tag></template></el-table-column><el-table-column prop="contentSummary" label="内容摘要" min-width="230" show-overflow-tooltip /><el-table-column prop="imageCount" label="图片" width="70" /><el-table-column label="提交用户" width="120"><template #default="{ row }">{{ row.submitter?.available ? (row.submitter?.name || '未完善姓名') : '用户不可用' }}</template></el-table-column><el-table-column label="手机号" width="125"><template #default="{ row }">{{ row.submitter?.phoneMasked || '-' }}</template></el-table-column><el-table-column label="状态" width="95"><template #default="{ row }"><el-tag :type="statusType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag></template></el-table-column><el-table-column label="提交时间" width="175"><template #default="{ row }">{{ formatDate(row.createdAt) }}</template></el-table-column><el-table-column label="更新时间" width="175"><template #default="{ row }">{{ formatDate(row.updatedAt) }}</template></el-table-column><el-table-column label="操作" fixed="right" width="80"><template #default="{ row }"><el-button link type="primary" @click="openDetail(row)">查看</el-button></template></el-table-column></el-table>
+      <el-table v-loading="loading" :data="items" empty-text="暂无符合条件的反馈"><el-table-column prop="feedbackNo" label="反馈编号" width="190" /><el-table-column label="类型" width="105"><template #default="{ row }"><el-tag size="small">{{ typeLabel(row.type) }}</el-tag></template></el-table-column><el-table-column prop="contentSummary" label="内容摘要" min-width="230" show-overflow-tooltip /><el-table-column prop="imageCount" label="图片" width="70" /><el-table-column label="提交用户" width="120"><template #default="{ row }">{{ row.submitter?.available ? (row.submitter?.name || '未完善姓名') : '用户不可用' }}</template></el-table-column><el-table-column label="手机号" width="125"><template #default="{ row }">{{ row.submitter?.phoneMasked || '-' }}</template></el-table-column><el-table-column label="状态" width="95"><template #default="{ row }"><el-tag :type="statusType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag></template></el-table-column><el-table-column label="提交时间" width="175"><template #default="{ row }">{{ formatDate(row.createdAt) }}</template></el-table-column><el-table-column label="更新时间" width="175"><template #default="{ row }">{{ formatDate(row.updatedAt) }}</template></el-table-column><el-table-column label="操作" fixed="right" width="130"><template #default="{ row }"><el-button link type="primary" @click="openDetail(row)">查看</el-button><el-button v-if="canDelete" link type="danger" :loading="deletingNo === row.feedbackNo" @click="deleteOne(row)">删除</el-button></template></el-table-column></el-table>
       <div class="pagination"><span>共 {{ total }} 条</span><el-pagination v-model:current-page="page" v-model:page-size="pageSize" layout="sizes, prev, pager, next" :total="total" :page-sizes="[20, 50, 100]" @current-change="load" @size-change="changeSize" /></div>
     </el-card><FeedbackDetailDrawer v-model="drawerOpen" :feedback-no="selectedNo" @saved="load" /></div>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { listFeedbacks } from '@/api/feedbacks'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { clearFeedbacks, deleteFeedback, listFeedbacks } from '@/api/feedbacks'
 import FeedbackDetailDrawer from '@/components/feedbacks/FeedbackDetailDrawer.vue'
-const loading = ref(false); const items = ref([]); const total = ref(0); const page = ref(1); const pageSize = ref(20); const drawerOpen = ref(false); const selectedNo = ref('')
+import { useAuthStore } from '@/stores/auth'
+const authStore = useAuthStore()
+const canDelete = computed(() => authStore.hasPermission('feedbacks.delete'))
+const loading = ref(false); const clearing = ref(false); const deletingNo = ref(''); const items = ref([]); const total = ref(0); const page = ref(1); const pageSize = ref(20); const drawerOpen = ref(false); const selectedNo = ref('')
 const filters = reactive({ status: '', type: '', keyword: '', dates: [] })
 const statusLabel = (value) => ({ submitted: '待处理', processing: '处理中', resolved: '已解决' }[value] || value)
 const statusType = (value) => ({ submitted: 'warning', processing: 'primary', resolved: 'success' }[value] || 'info')
@@ -22,6 +25,37 @@ function search() { page.value = 1; load() }
 function reset() { filters.status = ''; filters.type = ''; filters.keyword = ''; filters.dates = []; search() }
 function changeSize() { page.value = 1; load() }
 function openDetail(row) { selectedNo.value = row.feedbackNo; drawerOpen.value = true }
+async function deleteOne(row) {
+  try {
+    await ElMessageBox.confirm(`确认删除反馈 ${row.feedbackNo} 及其处理记录？此操作无法恢复。`, '删除反馈', { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'warning' })
+  } catch { return }
+  deletingNo.value = row.feedbackNo
+  try {
+    await deleteFeedback(row.feedbackNo)
+    ElMessage.success(`已删除反馈 ${row.feedbackNo}`)
+    if (items.value.length === 1 && page.value > 1) page.value -= 1
+    await load()
+  } catch (error) { ElMessage.error(error.userMessage || '删除反馈失败') } finally { deletingNo.value = '' }
+}
+async function clearAll() {
+  let count = total.value
+  try {
+    const current = await listFeedbacks({ page: 1, pageSize: 1 })
+    count = current.total || 0
+    if (!count) return ElMessage.info('当前没有反馈记录')
+    await ElMessageBox.confirm(`将永久删除全部 ${count} 条反馈及其处理记录，与当前筛选条件无关。此操作无法恢复。`, '清空全部反馈', { confirmButtonText: '确认清空', cancelButtonText: '取消', type: 'warning' })
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    return ElMessage.error(error.userMessage || '获取反馈总数失败')
+  }
+  clearing.value = true
+  try {
+    const result = await clearFeedbacks()
+    page.value = 1
+    await load()
+    ElMessage.success(`已清空 ${result.deletedCount || 0} 条反馈记录`)
+  } catch (error) { ElMessage.error(error.userMessage || '清空反馈失败') } finally { clearing.value = false }
+}
 onMounted(load)
 </script>
 

@@ -8,8 +8,8 @@ export const useArticlesStore = defineStore('articles', () => {
   const articles = ref([])
   const currentArticle = ref(null)
   const loading = ref(false)
-  const nextCursor = ref(null)
-  const hasMore = ref(false)
+  const currentPage = ref(1)
+  const pageSize = ref(20)
   const totalCount = ref(0)
 
   // Filter state
@@ -18,29 +18,25 @@ export const useArticlesStore = defineStore('articles', () => {
   const filterKeyword = ref('')
 
   // Actions
-  async function fetchArticles({ status, category, keyword, cursor, limit } = {}) {
+  async function fetchArticles({ status, category, keyword, page = currentPage.value, limit = pageSize.value } = {}) {
     loading.value = true
     try {
       const params = {}
       if (status) params.status = status
       if (category) params.category = category
       if (keyword) params.keyword = keyword
-      if (cursor) params.cursor = cursor
-      if (limit) params.limit = limit
+      params.page = page
+      params.limit = limit
 
       const res = await http.get('/admin/articles', { params })
       const data = res.data.data || res.data
 
-      if (cursor) {
-        // Append for pagination
-        articles.value = [...articles.value, ...(data.items || [])]
-      } else {
-        articles.value = data.items || []
-      }
-
-      nextCursor.value = data.nextCursor
-      hasMore.value = data.hasMore
-      totalCount.value = data.totalCount || articles.value.length
+      articles.value = data.items || []
+      currentPage.value = data.page || page
+      pageSize.value = data.pageSize || limit
+      totalCount.value = Number.isFinite(Number(data.totalCount))
+        ? Number(data.totalCount)
+        : articles.value.length
     } catch (e) {
       ElMessage.error(e.userMessage || '获取文章列表失败')
       throw e
@@ -131,6 +127,20 @@ export const useArticlesStore = defineStore('articles', () => {
     }
   }
 
+  async function deleteArticle(articleId) {
+    loading.value = true
+    try {
+      const res = await http.delete(`/admin/articles/${articleId}`)
+      ElMessage.success('文章及其评论已删除')
+      return res.data
+    } catch (e) {
+      ElMessage.error(e.userMessage || '删除文章失败')
+      throw e
+    } finally {
+      loading.value = false
+    }
+  }
+
   // Helper to get status label
   function getStatusLabel(status) {
     const labels = {
@@ -156,8 +166,8 @@ export const useArticlesStore = defineStore('articles', () => {
     articles,
     currentArticle,
     loading,
-    nextCursor,
-    hasMore,
+    currentPage,
+    pageSize,
     totalCount,
     filterStatus,
     filterCategory,
@@ -169,6 +179,7 @@ export const useArticlesStore = defineStore('articles', () => {
     updateArticle,
     publishArticle,
     unpublishArticle,
+    deleteArticle,
     // Helpers
     getStatusLabel,
     getStatusType,

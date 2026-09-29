@@ -5,7 +5,7 @@ import json
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.exceptions import (
@@ -453,3 +453,46 @@ async def update_admin_feedback(
     )
     await db.flush()
     return feedback
+
+
+async def delete_admin_feedback(
+    db: AsyncSession, *, feedback_no: str, admin_id: int
+) -> dict:
+    feedback = (
+        await db.execute(select(Feedback).where(Feedback.feedback_no == feedback_no))
+    ).scalars().first()
+    if feedback is None:
+        raise NotFoundException(message="反馈记录不存在")
+
+    feedback_id = feedback.id
+    await db.execute(delete(FeedbackAction).where(FeedbackAction.feedback_id == feedback_id))
+    await db.delete(feedback)
+    db.add(
+        AuditLog(
+            user_id=None,
+            action="feedback_delete",
+            entity_type="feedback",
+            entity_id=feedback_no,
+            detail={"adminAccountId": admin_id, "feedbackNo": feedback_no},
+        )
+    )
+    await db.flush()
+    return {"feedbackNo": feedback_no, "deleted": True}
+
+
+async def clear_admin_feedbacks(db: AsyncSession, *, admin_id: int) -> dict:
+    await db.execute(delete(FeedbackAction))
+    feedback_result = await db.execute(delete(Feedback))
+    deleted_count = max(feedback_result.rowcount or 0, 0)
+    if deleted_count:
+        db.add(
+            AuditLog(
+                user_id=None,
+                action="feedback_clear",
+                entity_type="feedback_collection",
+                entity_id=None,
+                detail={"adminAccountId": admin_id, "deletedCount": deleted_count},
+            )
+        )
+    await db.flush()
+    return {"deletedCount": deleted_count}

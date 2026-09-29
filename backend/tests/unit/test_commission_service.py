@@ -9,11 +9,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.bill import Bill, TransactionStatus
 from src.models.binding import BindingStatus, Customer
 from src.models.commission_result import CommissionResult
+from src.models.personal_performance_rule import PersonalPerformanceRule
 from src.schemas.organization import OrgCreate
 from src.schemas.performance_rule import PerformanceRuleUpdateRequest, Tier
 from src.services import organization_service
-from src.services.commission_service import compute_commission, preview_org_commission
-from src.services.performance_service import save_rule
+from src.services.commission_service import (
+    compute_commission,
+    estimate_distributor,
+    preview_org_commission,
+)
+from src.services.performance_service import clear_personal_rule, save_rule
 from tests.conftest import seed_user
 
 
@@ -94,6 +99,89 @@ async def test_compute_member_and_admin(db_session: AsyncSession):
     mgmt = by_dist_type[(admin, "org_management")]
     assert mgmt.base_cent == 1000000  # member(800000) + admin(200000) = subtree total
     assert mgmt.commission_cent == 80000  # 1000000 * 0.08
+
+
+@pytest.mark.asyncio
+async def test_personal_tiers_override_org_for_one_person_only(db_session: AsyncSession):
+    _, org_id = await _seed_org_tree(db_session)
+    custom_member = await _seed_distributor(db_session, org_id, "13900000011")
+    inherited_member = await _seed_distributor(db_session, org_id, "13900000012")
+    admin = await _seed_distributor(db_session, org_id, "13900000013", role="admin")
+
+    for distributor_id, card_suffix, amount, txn_id in (
+        (custom_member, "111", 800000, "txn_personal"),
+        (inherited_member, "112", 800000, "txn_inherited"),
+        (admin, "113", 200000, "txn_admin"),
+    ):
+        customer_id = await _seed_customer(
+            db_session, distributor_id, f"11010119900101{card_suffix}"
+        )
+        await _seed_bill(db_session, customer_id, amount, txn_id)
+
+    await save_rule(
+        db_session,
+        org_id,
+        "intra_org",
+        PerformanceRuleUpdateRequest(tiers=[
+            Tier(minCent=0, maxCent=500000, ratio=0.05),
+            Tier(minCent=500000, maxCent=None, ratio=0.07),
+        ]),
+        operator_id=1,
+    )
+    await _save_rule(db_session, org_id, "org_management", 0.08)
+    db_session.add(PersonalPerformanceRule(
+        distributor_id=custom_member,
+        tiers=[
+            {"minCent": 0, "maxCent": 600000, "ratio": 0.12},
+            {"minCent": 600000, "maxCent": None, "ratio": 0.15},
+        ],
+        version=1,
+    ))
+    await db_session.flush()
+
+    await compute_commission(db_session, "2026-07")
+    rows = (await db_session.execute(select(CommissionResult))).scalars().all()
+    by_dist_type = {(row.distributor_id, row.rule_type.value): row for row in rows}
+
+    assert by_dist_type[(custom_member, "intra_org")].ratio == "0.150000"
+    assert by_dist_type[(custom_member, "intra_org")].commission_cent == 120000
+    snapshot = by_dist_type[(custom_member, "intra_org")].rule_snapshot
+    assert snapshot["source"] == "personal"
+    assert snapshot["organizationRuleVersion"] == 1
+    assert by_dist_type[(inherited_member, "intra_org")].ratio == "0.070000"
+    assert by_dist_type[(admin, "intra_org")].ratio == "0.050000"
+    # The personal intra-org override does not replace an admin's management rate.
+    assert by_dist_type[(admin, "org_management")].ratio == "0.080000"
+
+    preview = await preview_org_commission(db_session, org_id, "2026-07")
+    preview_by_id = {item["distributorId"]: item for item in preview["intraOrg"]}
+    assert preview_by_id[str(custom_member)]["ratio"] == 0.15
+    assert preview_by_id[str(inherited_member)]["ratio"] == 0.07
+    own_estimate = await estimate_distributor(db_session, custom_member, "2026-07")
+    assert own_estimate["ratio"] == 0.15
+
+
+@pytest.mark.asyncio
+async def test_clearing_personal_rule_without_org_fallback_removes_pending_result(
+    db_session: AsyncSession,
+):
+    _, org_id = await _seed_org_tree(db_session)
+    member = await _seed_distributor(db_session, org_id, "13900000021")
+    customer_id = await _seed_customer(db_session, member, "110101199001011234")
+    await _seed_bill(db_session, customer_id, 500000, "txn_personal_only")
+    db_session.add(PersonalPerformanceRule(
+        distributor_id=member,
+        tiers=[{"minCent": 0, "maxCent": None, "ratio": 0.1}],
+        version=1,
+    ))
+    await db_session.flush()
+
+    await compute_commission(db_session, "2026-07")
+    assert (await db_session.execute(select(CommissionResult))).scalars().all()
+
+    await clear_personal_rule(db_session, member)
+    await compute_commission(db_session, "2026-07")
+    assert (await db_session.execute(select(CommissionResult))).scalars().all() == []
 
 
 @pytest.mark.asyncio

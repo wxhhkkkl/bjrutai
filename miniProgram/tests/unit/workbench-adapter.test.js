@@ -16,6 +16,7 @@ test('adapts promoter metrics and formats integer cents for existing page view m
       myCustomers: 12,
       myBindings: 3,
       myMonthlyConsumption: 126800,
+      myMonthlyPoints: 1268.4,
       pendingFollowups: 2
     },
     ignoredBackendField: 'safe to ignore'
@@ -25,14 +26,16 @@ test('adapts promoter metrics and formats integer cents for existing page view m
     myCustomers: 12,
     myBindings: 3,
     myMonthlyConsumptionCent: 126800,
+    myMonthlyPoints: 1268.4,
     pendingFollowups: 2
   })
   assert.equal(buildHomeViewModel(workbench).monthlyConsumption, '¥1,268.00')
   assert.deepEqual(buildProfileViewModel(workbench), [
     { label: '客户', value: '12' },
-    { label: '本月消费', value: '¥1,268.00' },
+    { label: '本月积分', value: '1,268.40' },
     { label: '本月绑定', value: '3' }
   ])
+  assert.equal(buildProfileViewModel(adaptWorkbench({ role: 'promoter', metrics: {} }))[1].value, '0.00')
 })
 
 test('normalizes admin and unknown role variants without borrowing promoter fields', () => {

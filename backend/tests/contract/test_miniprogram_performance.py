@@ -1,6 +1,6 @@
 """Contract tests for mini-program performance endpoints (008, US3, FR-009)."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from httpx import AsyncClient
@@ -108,12 +108,60 @@ async def test_my_commission_estimate_and_confirmed(client: AsyncClient, db_sess
     assert cur["status"] == "estimate"
     assert cur["intraOrg"]["baseCent"] == 800000
     assert cur["intraOrg"]["commissionCent"] == 40000
+    assert cur["pointsBalance"] == 400
     assert cur["orgManagement"] is None
 
     months = {m["month"]: m for m in data["confirmed"]}
     assert "2026-06" in months
     assert months["2026-06"]["intraOrg"]["commissionCent"] == 30000
     assert "2026-05" not in months  # pending month not shown as confirmed (FR-004)
+
+
+@pytest.mark.asyncio
+async def test_my_commission_points_balance_is_zero_after_redemption(
+    client: AsyncClient, db_session: AsyncSession
+):
+    org_id = await _seed_org(db_session)
+    user_id = await seed_user(db_session, openid="openid_redeemed_points", user_type="distributor", name="顾问A")
+    dist = await _seed_distributor(db_session, org_id, user_id)
+    db_session.add(CommissionResult(
+        period="2026-06", distributor_id=dist, org_id=org_id, rule_type=RuleType.INTRA_ORG,
+        base_cent=600000, ratio="0.050000", commission_cent=30000,
+        redeemed_points_x100=30000, points_redeemed_by=1, points_redeemed_at=datetime(2026, 7, 1),
+    ))
+    db_session.add(PerformanceSettlement(period="2026-06", status=SettlementStatus.REVIEWED))
+    await db_session.flush()
+
+    data = _assert_envelope(await client.get(
+        "/api/v1/my/performance/commission", params={"month": "2026-06"}, headers=_headers(user_id),
+    ))
+    assert data["currentMonth"]["pointsBalance"] == 0
+    assert data["confirmed"][0]["intraOrg"]["commissionCent"] == 30000
+
+
+@pytest.mark.asyncio
+async def test_workbench_exposes_current_month_points_without_changing_consumption(
+    client: AsyncClient, db_session: AsyncSession
+):
+    org_id = await _seed_org(db_session)
+    user_id = await seed_user(db_session, openid="openid_workbench_points", user_type="distributor", name="顾问B")
+    dist = await _seed_distributor(db_session, org_id, user_id)
+    customer_id = await _seed_customer(db_session, dist)
+    now = datetime.now(timezone.utc)
+    db_session.add(Bill(
+        customer_id=customer_id,
+        transaction_id="txn_workbench_points",
+        transaction_time=datetime(now.year, now.month, 10),
+        paid_amount_cent=800000,
+        total_amount_cent=800000,
+        transaction_status=TransactionStatus.PAID,
+    ))
+    await db_session.flush()
+    await _config_intra_rule(client, org_id)
+
+    data = _assert_envelope(await client.get("/api/v1/workbench", headers=_headers(user_id)))
+    assert data["metrics"]["myMonthlyConsumption"] == 800000
+    assert data["metrics"]["myMonthlyPoints"] == 400
 
 
 @pytest.mark.asyncio

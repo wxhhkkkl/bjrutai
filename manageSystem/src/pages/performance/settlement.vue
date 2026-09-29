@@ -82,7 +82,7 @@
           </div>
 
           <div v-if="unconfigured.length" class="config-hint">
-            未配置提成方式：{{ unconfigured.map((u) => u === 'intra_org' ? '组织内' : '组织管理').join('、') }}（相关人员无该部分提成）
+            未配置默认提成方式：{{ unconfigured.map((u) => u === 'intra_org' ? '组织内' : '组织管理').join('、') }}（未单独配置的人员无该部分提成）
           </div>
 
           <el-table :data="estimateItems" size="small" empty-text="该组织暂无绩效估算">
@@ -94,9 +94,41 @@
             <el-table-column label="比例">
               <template #default="{ row }">{{ (row.ratio * 100).toFixed(2) }}%</template>
             </el-table-column>
-            <el-table-column label="提成金额（预估）">
+            <el-table-column :label="settlement?.status === 'reviewed' ? '提成金额' : '提成金额（预估）'">
               <template #default="{ row }">
                 <span class="amount">{{ fmtCent(row.commissionCent) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="积分（1元=1积分）" width="150">
+              <template #default="{ row }">
+                <span :class="row.pointsRedeemed ? 'points-redeemed' : 'points-balance'">
+                  {{ fmtPoints(row.pointsBalance) }}
+                </span>
+                <el-tag v-if="row.pointsRedeemed" size="small" type="success" effect="plain" class="redeemed-tag">
+                  已核销
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="130" fixed="right">
+              <template #default="{ row }">
+                <el-tooltip
+                  v-if="!row.pointsRedeemed && settlement?.status !== 'reviewed'"
+                  content="仅已确认（冻结）的月份可以核销积分"
+                  placement="top"
+                >
+                  <span>
+                    <el-button size="small" type="success" disabled>积分核销</el-button>
+                  </span>
+                </el-tooltip>
+                <el-button
+                  v-else-if="!row.pointsRedeemed"
+                  size="small"
+                  type="success"
+                  :disabled="!canSettle || Number(row.pointsBalance) <= 0"
+                  :loading="redeemingKey === rowKey(row)"
+                  @click="handleRedeemPoints(row)"
+                >积分核销</el-button>
+                <span v-else class="redeemed-action">已核销</span>
               </template>
             </el-table-column>
           </el-table>
@@ -164,14 +196,19 @@ const settlement = ref(null)
 
 const settlementItems = ref([])
 const statusLoading = ref(false)
+const redeemingKey = ref('')
 
 const rejectVisible = ref(false)
 const rejectReason = ref('')
 const rejecting = ref(false)
 
 const estimateItems = computed(() => {
-  const intra = (estimate.value.intraOrg || []).map((it) => ({ ...it, ruleTypeLabel: '组织内提成' }))
-  const mgmt = (estimate.value.orgManagement || []).map((it) => ({ ...it, ruleTypeLabel: '组织管理提成' }))
+  const intra = (estimate.value.intraOrg || []).map((it) => ({
+    ...it, ruleType: 'intra_org', ruleTypeLabel: '组织内提成',
+  }))
+  const mgmt = (estimate.value.orgManagement || []).map((it) => ({
+    ...it, ruleType: 'org_management', ruleTypeLabel: '组织管理提成',
+  }))
   return [...intra, ...mgmt]
 })
 const unconfigured = computed(() => estimate.value.unconfigured || [])
@@ -316,6 +353,32 @@ async function handleRecompute() {
   }
 }
 
+async function handleRedeemPoints(row) {
+  const key = rowKey(row)
+  try {
+    await ElMessageBox.confirm(
+      `确认核销 ${row.name || '该员工'} 的 ${fmtPoints(row.pointsBalance)} 积分？核销后积分余额归零，提成金额保持不变。`,
+      '积分核销',
+      { confirmButtonText: '确认核销', cancelButtonText: '取消', type: 'warning' },
+    )
+  } catch { return }
+
+  redeemingKey.value = key
+  try {
+    await performanceApi.redeemPoints(period.value, row.distributorId, row.ruleType)
+    ElMessage.success('积分核销成功，提成金额未变')
+    await loadForOrg(selected.value.orgId)
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '积分核销失败')
+  } finally {
+    redeemingKey.value = ''
+  }
+}
+
+function rowKey(row) {
+  return `${row.distributorId}:${row.ruleType}`
+}
+
 async function handleExport() {
   try {
     const res = await performanceApi.export(period.value)
@@ -340,6 +403,9 @@ function statusType(s) {
 function fmtCent(c) {
   return `¥${((c || 0) / 100).toFixed(2)}`
 }
+function fmtPoints(points) {
+  return Number(points || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })
+}
 
 onMounted(loadAll)
 </script>
@@ -354,4 +420,8 @@ onMounted(loadAll)
 .header-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .config-hint { color: #e6a23c; font-size: 12px; margin-bottom: 10px; }
 .amount { color: var(--el-color-primary); font-weight: 600; }
+.points-balance { color: #16845b; font-weight: 600; }
+.points-redeemed { color: #909399; font-weight: 600; }
+.redeemed-tag { margin-left: 6px; }
+.redeemed-action { color: #67c23a; font-size: 12px; }
 </style>

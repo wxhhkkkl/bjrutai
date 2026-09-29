@@ -79,6 +79,9 @@ async def my_commission(db: AsyncSession, user_id: int, month: Optional[str]) ->
     mgmt = None
     if dist.org_role == OrgRole.ADMIN:
         mgmt = await commission_service.estimate_org_admin(db, dist.id, period)
+    points_balance = await commission_service.points_balance_for_distributor(
+        db, dist.id, period, estimated_commissions=[intra, mgmt]
+    )
 
     confirmed = await _confirmed_month_items(db, distributor_id=dist.id)
 
@@ -88,6 +91,7 @@ async def my_commission(db: AsyncSession, user_id: int, month: Optional[str]) ->
             "status": "estimate",
             "intraOrg": intra,
             "orgManagement": mgmt,
+            "pointsBalance": points_balance,
         },
         "confirmed": confirmed,
     }

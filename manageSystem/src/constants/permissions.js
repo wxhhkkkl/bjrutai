@@ -90,6 +90,7 @@ export const PERMISSION_MODULES = [
     permissions: [
       { key: 'feedbacks.read', label: '查看全部用户反馈' },
       { key: 'feedbacks.write', label: '处理用户反馈' },
+      { key: 'feedbacks.delete', label: '删除用户反馈' },
     ],
   },
   {

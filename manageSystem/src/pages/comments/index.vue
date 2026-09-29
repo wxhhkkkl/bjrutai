@@ -71,7 +71,17 @@ const filters = reactive({ status: '', keyword: '' })
 const statusLabel = (value) => ({ pending: '待审核', visible: '已展示', hidden: '已隐藏', rejected: '已拒绝', deleted: '已删除' }[value] || value || '-')
 const statusType = (value) => ({ pending: 'warning', visible: 'success', hidden: 'info', rejected: 'danger', deleted: 'info' }[value] || 'info')
 const moderationLabel = (value) => ({ pending: '待审核', passed: '已通过', flagged: '命中规则', rejected: '已拒绝', error: '异常' }[value] || value || '-')
-const formatDate = (value) => value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '-'
+const formatDate = (value) => {
+  if (!value) return '-'
+  const raw = String(value).trim()
+  const hasTimezone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(raw)
+  const hasTime = /T\d{2}:\d{2}/.test(raw)
+  // Comment DateTime values without an offset are UTC values from the backend.
+  const date = new Date(hasTime && !hasTimezone ? `${raw}Z` : raw)
+  return Number.isNaN(date.getTime())
+    ? '-'
+    : date.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })
+}
 
 async function load({ append = false } = {}) {
   if (append) loadingMore.value = true; else loading.value = true

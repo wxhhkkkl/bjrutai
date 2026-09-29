@@ -13,3 +13,9 @@ class Tier(BaseModel):
 
 class PerformanceRuleUpdateRequest(BaseModel):
     tiers: list[Tier] = Field(..., min_length=1, max_length=20)
+
+
+class PersonalPerformanceRuleUpdateRequest(BaseModel):
+    """Tier ladder replacing the org's intra-org rule for one distributor."""
+
+    tiers: list[Tier] = Field(..., min_length=1, max_length=20)

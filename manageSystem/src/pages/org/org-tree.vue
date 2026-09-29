@@ -117,8 +117,24 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="280" fixed="right">
+              <el-table-column v-if="canReadPerformance" label="个人提成" width="110" align="center">
                 <template #default="{ row }">
+                  <el-tag
+                    size="small"
+                    :type="personalRuleByDistributor[row.distributorId] ? 'warning' : 'info'"
+                    effect="plain"
+                  >{{ personalRuleByDistributor[row.distributorId] ? '个人覆盖' : (personalRuleListLoaded ? '继承组织' : '—') }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="370" fixed="right">
+                <template #default="{ row }">
+                  <el-button
+                    v-if="canManagePersonalPerformance"
+                    size="small"
+                    link
+                    type="primary"
+                    @click="openPersonalRule(row)"
+                  >设置提成</el-button>
                   <el-button
                     size="small"
                     link
@@ -281,6 +297,76 @@
         <el-button type="primary" :loading="saving" @click="submitMoveOrg">调整</el-button>
       </template>
     </el-dialog>
+
+    <!-- 个人组织内提成覆盖 -->
+    <el-dialog
+      v-model="personalRuleVisible"
+      :title="`设置个人提成${activePersonalDistributor?.name ? ` · ${activePersonalDistributor.name}` : ''}`"
+      width="680px"
+    >
+      <div v-loading="personalRuleLoading">
+        <el-alert
+          title="该人员的个人阶梯仅覆盖其组织内提成，并优先于组织阶梯；组织管理提成不受影响。"
+          type="info"
+          :closable="false"
+          show-icon
+        />
+        <div v-if="personalRuleData.organizationRule" class="personal-rule-inherit">
+          当前组织默认：
+          {{ formatTiers(personalRuleData.organizationRule.tiers) }}
+        </div>
+        <div v-else class="personal-rule-inherit">
+          当前组织尚未设置组织内提成；保存后仅该人员按此阶梯计算。
+        </div>
+        <el-form size="small" label-width="72px" class="personal-rule-form">
+          <div v-for="(tier, index) in personalEditorTiers" :key="index" class="personal-tier-row">
+            <span class="tier-idx">阶梯 {{ index + 1 }}</span>
+            <el-input-number
+              v-model="tier.minYuan"
+              :min="0"
+              :step="1000"
+              :controls="false"
+              placeholder="下限(元)"
+              style="width: 112px"
+            />
+            <span>~</span>
+            <el-input
+              v-model.number="tier.maxYuan"
+              placeholder="上限(元)，空=∞"
+              style="width: 145px"
+            />
+            <el-input-number
+              v-model="tier.ratioPercent"
+              :min="0.01"
+              :max="100"
+              :step="1"
+              :precision="2"
+              style="width: 105px"
+            />
+            <span class="pct-suffix">%</span>
+            <el-button
+              link
+              type="danger"
+              :disabled="personalEditorTiers.length <= 1"
+              @click="removePersonalTier(index)"
+            >删除</el-button>
+          </div>
+          <el-button size="small" @click="addPersonalTier">添加阶梯</el-button>
+          <div class="form-tip">金额单位：元；比例单位：%；阶梯必须从 0 开始、连续无重叠，最后一档上限留空。</div>
+        </el-form>
+      </div>
+      <template #footer>
+        <el-button
+          v-if="personalRuleData.personalRule"
+          type="warning"
+          plain
+          :loading="personalRuleSaving"
+          @click="clearPersonalRule"
+        >恢复继承组织</el-button>
+        <el-button @click="personalRuleVisible = false">取消</el-button>
+        <el-button type="primary" :loading="personalRuleSaving" @click="savePersonalRule">保存个人阶梯</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -290,8 +376,15 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Plus } from '@element-plus/icons-vue'
 import { orgApi, distributorApi } from '@/api/org'
+import { performanceApi } from '@/api/performance'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
+const canReadPerformance = computed(() => authStore.hasPermission('sharing_rules.read'))
+const canManagePersonalPerformance = computed(() => (
+  canReadPerformance.value && authStore.hasPermission('sharing_rules.write')
+))
 
 const loading = ref(false)
 const saving = ref(false)
@@ -326,6 +419,14 @@ const activeRow = ref(null)
 const moveOrgVisible = ref(false)
 const moveOrgTarget = ref(null)
 const moveOrgRow = ref(null)
+const personalRuleByDistributor = ref({})
+const personalRuleVisible = ref(false)
+const personalRuleLoading = ref(false)
+const personalRuleSaving = ref(false)
+const personalRuleListLoaded = ref(false)
+const activePersonalDistributor = ref(null)
+const personalRuleData = ref({ personalRule: null, organizationRule: null })
+const personalEditorTiers = ref([])
 
 const treeData = computed(() => tree.value || [])
 const subOrgs = computed(() => selected.value?.children || [])
@@ -372,6 +473,7 @@ async function handleSelect(node) {
 
 async function loadDistributors(orgId) {
   distLoading.value = true
+  personalRuleListLoaded.value = false
   try {
     const data = await distributorApi.list(orgId, { limit: 100 })
     distributors.value = data.items || []
@@ -380,6 +482,22 @@ async function loadDistributors(orgId) {
     distributors.value = []
   } finally {
     distLoading.value = false
+  }
+  if (canReadPerformance.value) await loadPersonalRuleSummaries(orgId)
+  else personalRuleByDistributor.value = {}
+}
+
+async function loadPersonalRuleSummaries(orgId) {
+  personalRuleListLoaded.value = false
+  try {
+    const data = await performanceApi.personalRules(orgId)
+    personalRuleByDistributor.value = Object.fromEntries(
+      (data.items || []).map((rule) => [rule.distributorId, rule])
+    )
+    personalRuleListLoaded.value = true
+  } catch (e) {
+    personalRuleByDistributor.value = {}
+    ElMessage.error(e.response?.data?.message || '加载个人提成配置失败')
   }
 }
 
@@ -613,6 +731,121 @@ function openReset(row) {
   resetVisible.value = true
 }
 
+function toEditorTiers(tiers) {
+  return (tiers || [{ minCent: 0, maxCent: null, ratio: 0.05 }]).map((tier) => ({
+    minYuan: tier.minCent / 100,
+    maxYuan: tier.maxCent != null ? tier.maxCent / 100 : null,
+    ratioPercent: Math.round(tier.ratio * 10000) / 100,
+  }))
+}
+
+async function openPersonalRule(row) {
+  activePersonalDistributor.value = row
+  personalRuleData.value = { personalRule: null, organizationRule: null }
+  personalEditorTiers.value = []
+  personalRuleVisible.value = true
+  personalRuleLoading.value = true
+  try {
+    const data = await performanceApi.personalRule(row.distributorId)
+    personalRuleData.value = data
+    personalEditorTiers.value = toEditorTiers(
+      data.personalRule?.tiers || data.organizationRule?.tiers
+    )
+  } catch (e) {
+    personalRuleVisible.value = false
+    ElMessage.error(e.response?.data?.message || '加载个人提成设置失败')
+  } finally {
+    personalRuleLoading.value = false
+  }
+}
+
+function addPersonalTier() {
+  const last = personalEditorTiers.value[personalEditorTiers.value.length - 1]
+  if (!last) {
+    personalEditorTiers.value.push({ minYuan: 0, maxYuan: null, ratioPercent: 5 })
+    return
+  }
+  const nextMin = last.maxYuan != null && last.maxYuan !== ''
+    ? Number(last.maxYuan)
+    : Number(last.minYuan || 0) + 1000
+  last.maxYuan = nextMin
+  personalEditorTiers.value.push({ minYuan: nextMin, maxYuan: null, ratioPercent: last.ratioPercent })
+}
+
+function removePersonalTier(index) {
+  if (personalEditorTiers.value.length <= 1) return
+  const removed = personalEditorTiers.value[index]
+  if (index === 0) {
+    personalEditorTiers.value[1].minYuan = 0
+  } else if (index === personalEditorTiers.value.length - 1) {
+    personalEditorTiers.value[index - 1].maxYuan = null
+  } else {
+    personalEditorTiers.value[index - 1].maxYuan = removed.maxYuan
+  }
+  personalEditorTiers.value.splice(index, 1)
+}
+
+function buildPersonalTiers() {
+  return personalEditorTiers.value.map((tier) => ({
+    minCent: Math.round(Number(tier.minYuan) * 100),
+    maxCent: tier.maxYuan !== '' && tier.maxYuan != null
+      ? Math.round(Number(tier.maxYuan) * 100)
+      : null,
+    ratio: Number(tier.ratioPercent) / 100,
+  }))
+}
+
+async function savePersonalRule() {
+  if (!activePersonalDistributor.value || personalEditorTiers.value.length === 0) {
+    ElMessage.warning('请至少配置一个提成阶梯')
+    return
+  }
+  personalRuleSaving.value = true
+  try {
+    await performanceApi.savePersonalRule(
+      activePersonalDistributor.value.distributorId,
+      { tiers: buildPersonalTiers() },
+    )
+    ElMessage.success('个人提成阶梯已保存，将优先于组织设置')
+    personalRuleVisible.value = false
+    await loadPersonalRuleSummaries(activePersonalDistributor.value.orgId || selected.value.orgId)
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '保存个人提成失败')
+  } finally {
+    personalRuleSaving.value = false
+  }
+}
+
+async function clearPersonalRule() {
+  if (!activePersonalDistributor.value) return
+  try {
+    await ElMessageBox.confirm(
+      `恢复「${activePersonalDistributor.value.name || '该人员'}」继承组织提成阶梯？`,
+      '恢复组织设置',
+      { confirmButtonText: '恢复继承', cancelButtonText: '取消', type: 'warning' },
+    )
+  } catch {
+    return
+  }
+  personalRuleSaving.value = true
+  try {
+    await performanceApi.clearPersonalRule(activePersonalDistributor.value.distributorId)
+    ElMessage.success('已恢复继承组织提成')
+    personalRuleVisible.value = false
+    await loadPersonalRuleSummaries(activePersonalDistributor.value.orgId || selected.value.orgId)
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '恢复组织提成失败')
+  } finally {
+    personalRuleSaving.value = false
+  }
+}
+
+function formatTiers(tiers) {
+  return (tiers || []).map((tier) => (
+    `¥${(tier.minCent / 100).toFixed(2)}~${tier.maxCent == null ? '∞' : `¥${(tier.maxCent / 100).toFixed(2)}`} ${(tier.ratio * 100).toFixed(2)}%`
+  )).join('；')
+}
+
 async function submitReset() {
   if (!activeRow.value || newPassword.value.length < 8) {
     ElMessage.warning('密码至少8位')
@@ -683,4 +916,9 @@ onMounted(loadAll)
   border-left: 3px solid var(--el-color-primary);
 }
 .form-tip { margin-top: 6px; color: #909399; font-size: 12px; line-height: 1.5; }
+.personal-rule-inherit { margin: 14px 0; color: #606266; font-size: 13px; line-height: 1.6; }
+.personal-rule-form { margin-top: 14px; }
+.personal-tier-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.tier-idx { width: 48px; flex: none; color: #606266; font-size: 13px; }
+.pct-suffix { color: #606266; font-size: 13px; }
 </style>

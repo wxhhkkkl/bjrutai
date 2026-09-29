@@ -145,6 +145,26 @@ async def recompute_settlement(
     return _build_response(0, "success", result)
 
 
+@router.post("/settlements/{period}/points/{distributor_id}/{rule_type}/redeem")
+async def redeem_points(
+    period: str,
+    distributor_id: int,
+    rule_type: str,
+    db: AsyncSession = Depends(get_db),
+    admin: dict = Depends(get_admin_user),
+    _perm: dict = Depends(require_permission("performance.settle")),
+):
+    """Redeem the points derived from one frozen commission row."""
+    result = await commission_service.redeem_commission_points(
+        db,
+        period,
+        distributor_id,
+        rule_type,
+        operator_id=int(admin["sub"]),
+    )
+    return _build_response(0, "success", result)
+
+
 @router.get("/settlements/{period}/export")
 async def export_settlement(
     period: str,

@@ -25,7 +25,7 @@ _ALL_PERMISSIONS = {
         "articles.read", "articles.write",
         "promotions.read", "promotions.write",
         "notifications.read", "notifications.write",
-        "feedbacks.read", "feedbacks.write",
+        "feedbacks.read", "feedbacks.write", "feedbacks.delete",
         "comments.read", "comments.write",
         "org.read", "org.write",
         "distributor.read", "distributor.write",

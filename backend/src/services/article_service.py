@@ -3,11 +3,12 @@ import base64
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.exceptions import BadRequestException, ConflictException, NotFoundException
 from ..models.article import Article, ArticleStatus
+from ..models.article_comment import ArticleComment
 from ..schemas.article import ArticleCreate, ArticleUpdate
 
 STATUS_LABELS = {
@@ -124,9 +125,10 @@ async def list_admin(
     category: str | None = None,
     keyword: str | None = None,
     cursor: str | None = None,
+    page: int | None = None,
     page_size: int = 20,
 ) -> dict:
-    """List all articles for admin with filters and cursor pagination."""
+    """List admin articles using page-number pagination or legacy cursors."""
     page_size = max(1, min(page_size, 100))
 
     stmt = select(Article)
@@ -143,6 +145,23 @@ async def list_admin(
     if keyword:
         like_pattern = f"%{keyword}%"
         stmt = stmt.where(Article.title.ilike(like_pattern))
+
+    if page is not None:
+        page = max(1, page)
+        total_count = await db.scalar(
+            select(func.count()).select_from(stmt.order_by(None).subquery())
+        )
+        rows_result = await db.execute(
+            stmt.order_by(Article.updated_at.desc(), Article.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        return {
+            "items": [_article_to_admin_item(article) for article in rows_result.scalars()],
+            "totalCount": int(total_count or 0),
+            "page": page,
+            "pageSize": page_size,
+        }
 
     # Cursor pagination: sorted by updated_at desc, then id desc
     cursor_id = _decode_cursor(cursor)
@@ -185,6 +204,30 @@ async def get_admin_detail(db: AsyncSession, article_id: int) -> Article:
     if article is None:
         raise NotFoundException(message="Article not found")
     return article
+
+
+async def delete_article(db: AsyncSession, article_id: int) -> dict:
+    """Permanently delete an unpublished article and its comments."""
+    result = await db.execute(
+        select(Article).where(Article.id == article_id).with_for_update()
+    )
+    article = result.scalar_one_or_none()
+    if article is None:
+        raise NotFoundException(message="文章不存在")
+    if article.status == ArticleStatus.PUBLISHED:
+        raise ConflictException(message="上架中的文章不能删除，请先下架")
+
+    comment_delete = await db.execute(
+        delete(ArticleComment).where(ArticleComment.article_id == article_id)
+    )
+    deleted_comments = max(0, comment_delete.rowcount or 0)
+    await db.delete(article)
+    await db.flush()
+
+    return {
+        "articleId": str(article_id),
+        "deletedComments": deleted_comments,
+    }
 
 
 # ============================================================================

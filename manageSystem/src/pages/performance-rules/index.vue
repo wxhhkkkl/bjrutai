@@ -49,7 +49,7 @@
               <el-tag :type="rules.intraOrg ? 'success' : 'info'" size="small">
                 {{ rules.intraOrg ? '已配置' : '未配置' }}
               </el-tag>
-              <span class="rule-desc">适用于本组织所有人员（按自身消费金额）</span>
+              <span class="rule-desc">组织内默认阶梯（按自身消费金额；个人设置优先）</span>
               <el-button v-if="canWrite" size="small" type="primary" @click="openEditor('intra_org')">配置</el-button>
               <el-button
                 v-if="canWrite"

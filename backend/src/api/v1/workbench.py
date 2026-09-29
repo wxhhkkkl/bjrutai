@@ -114,6 +114,7 @@ async def get_workbench(
                 "myCustomers": 0,
                 "myBindings": 0,
                 "myMonthlyConsumption": 0,
+                "myMonthlyPoints": 0,
                 "pendingFollowups": 0,
             },
             "quickLinks": [
@@ -148,6 +149,11 @@ async def get_workbench(
     my_consumption = (await consumption_by_distributor(
         db, [prom_id], f"{now.year}-{now.month:02d}"
     )).get(prom_id, 0)
+    from ...services.commission_service import points_balance_for_distributor
+
+    my_monthly_points = await points_balance_for_distributor(
+        db, prom_id, f"{now.year}-{now.month:02d}"
+    )
 
     # Pending followups
     from ...models.followup import FollowupRecord, ReminderStatus
@@ -170,6 +176,7 @@ async def get_workbench(
             "myCustomers": my_customers,
             "myBindings": my_bindings,
             "myMonthlyConsumption": my_consumption,
+            "myMonthlyPoints": my_monthly_points,
             "pendingFollowups": pending_followups,
         },
         "quickLinks": [
