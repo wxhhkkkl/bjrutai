@@ -31,7 +31,6 @@ INSTALL_DEPS="${INSTALL_DEPS:-1}"
 SKIP_MIGRATIONS="${SKIP_MIGRATIONS:-0}"
 
 PYTHON_BIN="$VENV_DIR/bin/python"
-UVICORN_BIN="$VENV_DIR/bin/uvicorn"
 
 log() {
   printf '[deploy] %s\n' "$*"
@@ -87,7 +86,6 @@ check_environment() {
   [[ -d "$BACKEND_DIR" ]] || fail "后端目录不存在：$BACKEND_DIR"
   [[ -f "$BACKEND_DIR/.env" ]] || fail "未找到 $BACKEND_DIR/.env；请保留服务器上的生产配置，不要用 .env.example 覆盖它"
   [[ -x "$PYTHON_BIN" ]] || fail "Python 虚拟环境不存在或不可执行：$PYTHON_BIN"
-  [[ -x "$UVICORN_BIN" ]] || fail "虚拟环境中未找到 uvicorn：$UVICORN_BIN"
   [[ -f "$BACKEND_DIR/requirements.txt" ]] || fail "未找到 requirements.txt"
   [[ -f "$BACKEND_DIR/alembic.ini" ]] || fail "未找到 alembic.ini"
 
@@ -138,6 +136,12 @@ install_dependencies() {
     cd "$BACKEND_DIR"
     "$PYTHON_BIN" -m pip install --disable-pip-version-check -r requirements.txt
   )
+}
+
+check_runtime_dependencies() {
+  if ! "$PYTHON_BIN" -c 'import uvicorn' >/dev/null 2>&1; then
+    fail "当前虚拟环境未安装 uvicorn；请确认 requirements.txt 安装成功，或不要使用 --skip-deps"
+  fi
 }
 
 run_migrations() {
@@ -195,7 +199,7 @@ start_service() {
   log "启动 uvicorn（端口 $PORT）……"
   cd "$BACKEND_DIR"
   printf '\n===== deploy %s =====\n' "$(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
-  nohup "$UVICORN_BIN" src.main:app \
+  nohup "$PYTHON_BIN" -m uvicorn src.main:app \
     --host 0.0.0.0 \
     --port "$PORT" \
     >> "$LOG_FILE" 2>&1 < /dev/null &
@@ -232,6 +236,7 @@ main() {
   check_environment
   backup_code
   install_dependencies
+  check_runtime_dependencies
   run_migrations
   stop_existing_service
   start_service
