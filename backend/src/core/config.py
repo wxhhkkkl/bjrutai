@@ -1,5 +1,7 @@
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -28,6 +30,16 @@ class Settings(BaseSettings):
     cos_secret_key: str = ""
     cos_bucket: str = ""
     cos_region: str = "ap-beijing"
+
+    # Tencent Cloud VOD (browser direct upload; separate, least-privilege credentials)
+    vod_secret_id: str = Field("", repr=False)
+    vod_secret_key: str = Field("", repr=False)
+    vod_sub_app_id: int = 0
+    vod_region: str = "ap-beijing"
+    vod_procedure: str = ""
+    vod_callback_sign_key: str = Field("", repr=False)
+    vod_playback_hosts: str = ""  # Exact HTTPS hosts, comma separated
+    vod_cleanup_enabled: bool = False  # Enable only after reviewing the deployment
 
     # Rate limiting
     rate_limit_enabled: bool = True

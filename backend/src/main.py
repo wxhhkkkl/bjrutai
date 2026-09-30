@@ -210,6 +210,17 @@ async def lifespan(app: FastAPI):
             replace_existing=True,
         )
 
+        from .services.article_video_cleanup import article_video_cleanup_job
+        scheduler.add_job(
+            article_video_cleanup_job,
+            trigger=CronTrigger(hour=3, minute=40),
+            id="article_video_cleanup",
+            name="Clear unbound article VOD media after seven days",
+            coalesce=True,
+            max_instances=1,
+            replace_existing=True,
+        )
+
         # T191: Idempotency key cleanup — every hour
         from .tasks.maintenance_tasks import idempotency_cleanup_job
         scheduler.add_job(
@@ -301,6 +312,7 @@ from .api.v1.admin_comments import router as admin_comments_router
 from .api.v1.admin_feedbacks import router as admin_feedbacks_router
 from .api.v1.articles import router as articles_router
 from .api.v1.article_comments import router as article_comments_router
+from .api.v1.article_videos import router as article_videos_router
 from .api.v1.banners import router as banners_router
 from .api.v1.auth import router as auth_router
 from .api.v1.app import router as app_router
@@ -328,6 +340,7 @@ app.include_router(article_comments_router, prefix="/api/v1")
 app.include_router(banners_router, prefix="/api/v1")
 app.include_router(admin_categories_router, prefix="/api/v1")
 app.include_router(admin_articles_router, prefix="/api/v1")
+app.include_router(article_videos_router, prefix="/api/v1")
 app.include_router(admin_banners_router, prefix="/api/v1")
 app.include_router(cos_upload_router, prefix="/api/v1")
 app.include_router(admin_sync_router, prefix="/api/v1")

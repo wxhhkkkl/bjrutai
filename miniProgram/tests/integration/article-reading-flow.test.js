@@ -36,13 +36,17 @@ function loadPage(relativePath, service) {
     navigateBack() {},
     switchTab() {},
     previewImage(options) { imagePreviews.push(options) },
+    getStorageSync() { return '' },
     stopPullDownRefresh() {}
   }
   require(pagePath)
 
   const page = Object.assign({}, definition, {
     data: JSON.parse(JSON.stringify(definition.data)),
-    setData(values) { this.data = Object.assign({}, this.data, values) }
+    setData(values, callback) {
+      this.data = Object.assign({}, this.data, values)
+      if (callback) callback()
+    }
   })
   return {
     page,
@@ -67,6 +71,29 @@ const detail = {
   ...item, content: '<p>正文</p>', tags: [], status: 'published',
   createdAt: '2026-08-09T03:00:00Z', updatedAt: '2026-08-10T07:30:00Z', viewCount: 7
 }
+
+test('video pauses on hide/unload; playback retry preserves article and reading count', async () => {
+  let fetches = 0
+  let pauses = 0
+  const fixture = loadPage('pages/article-detail/index.js', {
+    getArticle() { fetches += 1; return Promise.resolve({ ...detail, video: { playbackUrl: 'https://vod.example.cn/a.mp4' } }) }
+  })
+  global.wx.createVideoContext = () => ({ pause() { pauses += 1 } })
+  try {
+    fixture.page.onLoad({ articleId: '12' })
+    await flush()
+    fixture.page.onVideoError()
+    assert.equal(fixture.page.data.videoError, true)
+    fixture.page.retryVideo()
+    assert.equal(fixture.page.data.videoError, false)
+    assert.equal(fixture.page.data.videoMounted, true)
+    assert.equal(fetches, 1)
+    assert.equal(fixture.page.data.article.viewCount, 7)
+    fixture.page.onHide()
+    fixture.page.onUnload()
+    assert.equal(pauses, 2)
+  } finally { fixture.restore() }
+})
 
 test('detail validates id locally, loads once on entry and uses server view count', async () => {
   const calls = []

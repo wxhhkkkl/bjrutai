@@ -31,6 +31,7 @@ class ArticleCreate(BaseModel):
     tags: Optional[list[str]] = Field(
         None, max_length=20, description="Tags (max 20 items, each max 30 chars)"
     )
+    videoId: Optional[str] = Field(None, pattern=r"^[1-9][0-9]{0,9}$")
 
     @field_validator("content", mode="before")
     @classmethod
@@ -58,6 +59,7 @@ class ArticleUpdate(BaseModel):
         None, max_length=20, description="Tags (max 20 items, each max 30 chars)"
     )
     version: int = Field(..., ge=1, description="Current version for optimistic locking")
+    videoId: Optional[str] = Field(None, pattern=r"^[1-9][0-9]{0,9}$")
 
     @field_validator("content", mode="before")
     @classmethod

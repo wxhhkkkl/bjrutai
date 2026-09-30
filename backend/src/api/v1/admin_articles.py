@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.database import get_db
 from ...core.error_handler import _build_response
+from ...core.exceptions import ForbiddenException
 from ...schemas.article import (
     ArticleCreate,
     ArticleCreateResponse,
@@ -63,7 +64,11 @@ async def admin_create_article(
 ):
     """Create a new article. New articles start in draft status."""
     author_name = current_admin.get("sub", "admin")
-    article = await create_article(db, data, author_name=author_name)
+    if data.videoId is not None and "articles.write" not in current_admin.get("permissions", []):
+        raise ForbiddenException(message="缺少权限: articles.write")
+    article = await create_article(
+        db, data, author_name=author_name, admin_id=int(current_admin["sub"])
+    )
     return _build_response(
         0,
         "success",
@@ -85,7 +90,13 @@ async def admin_update_article(
     _current_admin: dict = Depends(get_admin_user),
 ):
     """Update an article. Uses optimistic locking via the version field."""
-    article = await update_article(db, article_id, data)
+    if "videoId" in data.model_fields_set and "articles.write" not in _current_admin.get(
+        "permissions", []
+    ):
+        existing = await get_admin_detail(db, article_id)
+        if existing.video_id != (int(data.videoId) if data.videoId else None):
+            raise ForbiddenException(message="缺少权限: articles.write")
+    article = await update_article(db, article_id, data, admin_id=int(_current_admin["sub"]))
     return _build_response(
         0,
         "success",

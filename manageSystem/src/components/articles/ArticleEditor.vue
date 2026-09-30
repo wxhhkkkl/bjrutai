@@ -85,6 +85,10 @@
         />
       </el-form-item>
 
+      <el-form-item label="文章视频">
+        <ArticleVideoUpload v-model="form.video" :active="visible" :enabled="canEditVideo && !saving" @busy="videoUploading = $event" />
+      </el-form-item>
+
       <el-form-item label="文章内容" prop="content">
         <div class="article-content-field">
           <ArticleEditor v-model="form.content" />
@@ -103,12 +107,16 @@
         <el-button
           type="primary"
           :loading="saving"
+          :disabled="videoUploading"
           @click="handleSave"
         >
           {{ isEditing ? '保存修改' : '保存草稿' }}
         </el-button>
       </div>
     </template>
+    <el-dialog v-model="previewVisible" title="文章预览" width="820px" append-to-body destroy-on-close>
+      <iframe class="article-preview-frame" title="文章预览" sandbox="" :srcdoc="previewHtml" />
+    </el-dialog>
   </el-dialog>
 </template>
 
@@ -120,6 +128,9 @@ import http from '@/api/http'
 import { useArticlesStore } from '@/stores/articles'
 import { useCategoriesStore } from '@/stores/categories'
 import ArticleEditor from '@/components/ArticleEditor.vue'
+import ArticleVideoUpload from './ArticleVideoUpload.vue'
+import { useAuthStore } from '@/stores/auth'
+import { buildArticlePreview } from '@/utils/article-preview'
 
 const categoriesStore = useCategoriesStore()
 const categories = computed(() => categoriesStore.categories)
@@ -134,6 +145,11 @@ const emit = defineEmits(['update:visible', 'saved'])
 const store = useArticlesStore()
 const formRef = ref(null)
 const saving = ref(false)
+const videoUploading = ref(false)
+const previewVisible = ref(false)
+const authStore = useAuthStore()
+const canEditVideo = computed(() => authStore.hasPermission('articles.write'))
+const previewHtml = computed(() => buildArticlePreview(form))
 const tagsInput = ref('')
 
 const isEditing = computed(() => !!props.article)
@@ -148,6 +164,7 @@ const form = reactive({
   coverImageUrl: '',
   tags: [],
   content: '',
+  video: null,
 })
 
 const rules = {
@@ -171,8 +188,9 @@ const rules = {
 
 // Watch for article prop to populate form
 watch(
-  () => props.article,
-  (val) => {
+  () => [props.article, props.visible],
+  ([val, visible]) => {
+    if (!visible) return
     if (val) {
       form.title = val.title || ''
       form.summary = val.summary || ''
@@ -181,6 +199,7 @@ watch(
       form.coverImageUrl = val.coverImageUrl || ''
       form.tags = val.tags || []
       form.content = val.content || ''
+      form.video = val.video || null
       tagsInput.value = (val.tags || []).join(', ')
     } else {
       resetForm()
@@ -245,6 +264,8 @@ function resetForm() {
   form.coverImageUrl = ''
   form.tags = []
   form.content = ''
+  form.video = null
+  previewVisible.value = false
   tagsInput.value = ''
   saving.value = false
   // Do not call resetFields here: Element Plus restores the field snapshot it
@@ -258,29 +279,34 @@ function handleCancel() {
 }
 
 function handlePreview() {
-  // Open preview in new tab using current form content
-  const previewWin = window.open('', '_blank')
-  if (previewWin) {
-    previewWin.document.write(`<!DOCTYPE html><html><head><meta charset=utf-8><title>预览: ${form.title || '文章'}</title><style>body{max-width:780px;margin:40px auto;padding:0 20px;font-family:"PingFang SC","Microsoft YaHei",sans-serif;font-size:16px;line-height:1.9;color:#303133} img{max-width:100%;height:auto;border-radius:4px} h1{font-size:28px} .meta{color:#909399;font-size:14px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #eee}</style></head><body><h1>${form.title||'无标题'}</h1><div class=meta>${form.category||''}</div>${form.content||'<p style=color:#999>暂无内容</p>'}</body></html>`)
-    previewWin.document.close()
-  }
+  previewVisible.value = true
 }
 
 async function handleSave() {
-  if (!formRef.value) return
+  if (!formRef.value || saving.value) return
+  if (videoUploading.value) return
+  if (form.video && ['failed', 'deleting', 'deleted'].includes(form.video.status)) {
+    ElMessage.error('视频不可用，请重新上传或移除视频后保存')
+    return
+  }
+  const videoChanged = (form.video?.videoId || null) !== (props.article?.video?.videoId || null)
+  if (props.article?.status === 'published' && videoChanged && form.video && form.video.status !== 'ready') {
+    ElMessage.warning('新视频尚未就绪，请等待处理完成后保存')
+    return
+  }
 
   if (hasInlineImageData.value) {
     ElMessage.error('检测到内嵌图片，请删除该图片后使用编辑器的图片上传按钮重新插入')
     return
   }
 
+  saving.value = true
   try {
     await formRef.value.validate()
   } catch {
+    saving.value = false
     return
   }
-
-  saving.value = true
   try {
     const data = {
       title: form.title,
@@ -293,6 +319,7 @@ async function handleSave() {
       category_id: form.category_id || null,
       tags: form.tags.length > 0 ? form.tags : undefined,
     }
+    if (videoChanged || (!isEditing.value && form.video)) data.videoId = form.video?.videoId || null
 
     if (isEditing.value) {
       data.version = props.article.version
@@ -312,6 +339,7 @@ async function handleSave() {
 
 <style scoped>
 .cover-upload { width: 100%; }
+.article-preview-frame { width: 100%; height: 65vh; border: 0; }
 .cover-preview {
   width: 240px; height: 135px;
   border: 1px dashed #dcdfe6; border-radius: 6px;

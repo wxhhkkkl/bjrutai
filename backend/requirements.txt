@@ -12,6 +12,8 @@ passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 python-multipart==0.0.12
 openpyxl==3.1.5
+tencentcloud-sdk-python-common[async]==3.1.183
+tencentcloud-sdk-python-vod==3.1.181
 
 # Testing
 pytest==8.3.3

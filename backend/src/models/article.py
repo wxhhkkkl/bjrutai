@@ -4,9 +4,10 @@ from typing import Any, Optional
 
 from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.mysql import JSON
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.database import Base
+from .article_video import ArticleVideo
 
 
 class ArticleStatus(str, enum.Enum):
@@ -28,6 +29,10 @@ class Article(Base):
     category_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("article_categories.id", ondelete="SET NULL"), nullable=True
     )
+    video_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("article_videos.id", ondelete="RESTRICT"), nullable=True, unique=True
+    )
+    video: Mapped[Optional["ArticleVideo"]] = relationship(lazy="selectin")
     tags: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
     status: Mapped[ArticleStatus] = mapped_column(
         SAEnum(ArticleStatus, name="article_status_enum"), default=ArticleStatus.DRAFT

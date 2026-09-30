@@ -538,6 +538,38 @@ def assert_response_envelope(data: dict):
     assert isinstance(data["serverTime"], str)
 
 
+@pytest.fixture
+def vod_settings(monkeypatch):
+    """Isolated VOD configuration; never reads or calls a real cloud account."""
+    from src.core.config import get_settings
+    settings = get_settings()
+    values = {"vod_secret_id": "test-id", "vod_secret_key": "test-secret",
+              "vod_sub_app_id": 123, "vod_procedure": "ArticleMp4",
+              "vod_callback_sign_key": "test-callback", "vod_playback_hosts": "vod.example.cn"}
+    for key, value in values.items():
+        monkeypatch.setattr(settings, key, value)
+    return None
+
+
+def vod_upload_event(session_id, file_id="cloud-file", task_id="cloud-task"):
+    return {"EventType": "NewFileUpload", "FileUploadEvent": {
+        "FileId": file_id, "ProcedureTaskId": task_id,
+        "MediaBasicInfo": {"SourceInfo": {"SourceContext": session_id}}}}
+
+
+def vod_procedure_event(session_id, file_id="cloud-file", task_id="cloud-task"):
+    return {"EventType": "ProcedureStateChanged", "ProcedureStateChangeEvent": {
+        "SessionContext": session_id, "FileId": file_id, "TaskId": task_id, "Status": "FINISH",
+        "MediaProcessResultSet": [{"Type": "Transcode", "TranscodeTask": {"Status": "SUCCESS", "ErrCode": 0}}]}}
+
+
+def vod_media(session_id, file_id="cloud-file", size=100):
+    return {"FileId": file_id, "BasicInfo": {"SourceInfo": {"SourceContext": session_id}, "CoverUrl": "https://vod.example.cn/poster.jpg"},
+            "MetaData": {"Size": size, "Duration": 12},
+            "TranscodeInfo": {"TranscodeSet": [{"Definition": 10, "Url": "https://vod.example.cn/clip.mp4",
+                "VideoStreamSet": [{"Codec": "h264"}], "AudioStreamSet": [{"Codec": "aac"}]}]}}
+
+
 # ---------------------------------------------------------------------------
 # Mock builders (for contract/integration tests with mocked DB)
 # ---------------------------------------------------------------------------

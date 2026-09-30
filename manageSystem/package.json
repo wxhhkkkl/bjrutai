@@ -19,6 +19,7 @@
     "element-plus": "^2.8.0",
     "pinia": "^2.2.0",
     "quill": "^2.0.3",
+    "vod-js-sdk-v6": "1.8.0",
     "vue": "^3.5.0",
     "vue-router": "^4.4.0"
   },

@@ -24,6 +24,7 @@ from .bill import Bill  # noqa: F401
 from .sharing import SharingRule, sharing_rule_change_logs  # noqa: F401
 from .category import ArticleCategory  # noqa: F401
 from .article import Article  # noqa: F401
+from .article_video import ArticleVideo, VideoStatus  # noqa: F401
 from .banner import Banner  # noqa: F401
 from .followup import FollowupRecord  # noqa: F401
 from .consent import Agreement, ConsentRecord  # noqa: F401

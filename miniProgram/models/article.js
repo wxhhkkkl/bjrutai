@@ -225,6 +225,7 @@ function adaptArticleDetail(value) {
   const content = normalizeArticleContent(value.content)
 
   return Object.assign({}, base, {
+    video: adaptArticleVideo(value.video, base.coverImageUrl),
     content,
     contentNodes: parseRichTextNodes(content),
     contentBlocks: createArticleContentBlocks(content),
@@ -236,6 +237,23 @@ function adaptArticleDetail(value) {
     createdAt: optionalText(value.createdAt),
     updatedAt: optionalText(value.updatedAt)
   })
+}
+
+function httpsVideoUrl(value) {
+  const url = optionalText(value)
+  const match = /^https:\/\/([^/\s?#]+)(?:\/[^\s]*)?$/.exec(url)
+  return match && !match[1].includes('@') ? url : ''
+}
+
+function adaptArticleVideo(value, coverImageUrl) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const playbackUrl = httpsVideoUrl(value.playbackUrl)
+  if (!playbackUrl) return null
+  return {
+    playbackUrl,
+    posterUrl: httpsVideoUrl(value.posterUrl) || httpsVideoUrl(coverImageUrl),
+    durationSeconds: Number.isFinite(value.durationSeconds) && value.durationSeconds >= 0 ? value.durationSeconds : null
+  }
 }
 
 function createArticleShare(value) {

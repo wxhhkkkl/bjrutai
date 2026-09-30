@@ -12,6 +12,9 @@ Page({
     state: 'loading',
     stateMessage: '',
     article: null,
+    videoError: false,
+    videoLoading: false,
+    videoMounted: true,
     commentsVisible: false,
     commentsState: 'hidden',
     comments: [],
@@ -46,7 +49,37 @@ Page({
   },
 
   onUnload() {
+    this.pauseVideo()
     this.requestVersion += 1
+  },
+
+  onHide() {
+    this.pauseVideo()
+  },
+
+  pauseVideo() {
+    if (this.data.article && this.data.article.video && typeof wx.createVideoContext === 'function') {
+      wx.createVideoContext('articleVideo', this).pause()
+    }
+  },
+
+  onVideoError() {
+    this.setData({ videoError: true, videoLoading: false })
+  },
+
+  onVideoWaiting() {
+    if (!this.data.videoLoading) this.setData({ videoLoading: true })
+  },
+
+  onVideoReady() {
+    if (this.data.videoLoading) this.setData({ videoLoading: false })
+  },
+
+  retryVideo() {
+    if (!this.data.article || !this.data.article.video) return
+    this.setData({ videoMounted: false, videoError: false, videoLoading: false }, () => {
+      this.setData({ videoMounted: true })
+    })
   },
 
   syncCommentVisibility() {
@@ -64,8 +97,9 @@ Page({
 
   async loadArticle() {
     if (!this.data.articleId) return
+    this.pauseVideo()
     const version = ++this.requestVersion
-    this.setData({ state: 'loading', stateMessage: '', article: null })
+    this.setData({ state: 'loading', stateMessage: '', article: null, videoError: false, videoLoading: false, videoMounted: true })
 
     try {
       const payload = await articleService.getArticle(this.data.articleId)

@@ -60,3 +60,8 @@ page { min-height: 100%; background: #f6f8fb; }
 .article-detail-state__message { margin-top: 14rpx; color: #7b8492; font-size: 27rpx; line-height: 1.6; }
 .article-detail-state__action { min-width: 190rpx; height: 76rpx; margin-top: 34rpx; display: flex; align-items: center; justify-content: center; color: #ffffff; font-size: 27rpx; background: #1677ff; border: 0; border-radius: 999rpx; }
 @media (max-width: 350px) { .article-detail-page { padding-right: 22rpx; padding-left: 22rpx; } .article-detail-card { padding-right: 26rpx; padding-left: 26rpx; } .article-detail-title { font-size: 41rpx; } }
+.article-video-section { margin: 24rpx 0 32rpx; }
+.article-video { display: block; width: 100%; height: 370rpx; border-radius: 16rpx; background: #000; }
+.article-video-hint { display: block; padding: 16rpx 0; color: #777; font-size: 24rpx; }
+.article-video-error { padding: 32rpx 24rpx; border-radius: 16rpx; background: #f5f5f5; color: #666; font-size: 26rpx; line-height: 1.7; }
+.article-video-retry { margin-top: 20rpx; padding: 0 24rpx; min-height: 88rpx; border-radius: 44rpx; background: #000; color: #fff; font-size: 26rpx; }

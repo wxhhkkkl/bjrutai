@@ -88,7 +88,7 @@ export const useArticlesStore = defineStore('articles', () => {
       currentArticle.value = { ...currentArticle.value, ...res.data, version: (currentArticle.value?.version || 0) + 1 }
       return res.data
     } catch (e) {
-      if (e.response?.status === 409) {
+      if (e.response?.status === 409 && !e.userMessage) {
         ElMessage.error('版本冲突：文章已被其他用户修改，请刷新后重试')
       } else {
         ElMessage.error(e.userMessage || '更新文章失败')

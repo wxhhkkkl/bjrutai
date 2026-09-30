@@ -20,13 +20,24 @@
     </view>
     <image wx:if="{{article.coverImageUrl}}" class="article-detail-cover" src="{{article.coverImageUrl}}" mode="widthFix" bindtap="previewArticleImage" data-src="{{article.coverImageUrl}}" />
     <text wx:if="{{article.summary}}" class="article-detail-summary">{{article.summary}}</text>
+    <view wx:if="{{article.video}}" class="article-video-section">
+      <video wx:if="{{videoMounted && !videoError}}" id="articleVideo" class="article-video"
+        src="{{article.video.playbackUrl}}" poster="{{article.video.posterUrl}}" controls="{{true}}" autoplay="{{false}}"
+        show-fullscreen-btn="{{true}}" object-fit="contain" binderror="onVideoError" bindwaiting="onVideoWaiting"
+        bindloadedmetadata="onVideoReady" bindplay="onVideoReady" bindpause="onVideoReady" bindtimeupdate="onVideoReady" />
+      <text wx:if="{{videoLoading && !videoError}}" class="article-video-hint">视频缓冲中…</text>
+      <view wx:if="{{videoError}}" class="article-video-error">
+        <text>视频暂时无法播放，你可以重试或继续阅读正文</text>
+        <button class="article-video-retry tap-target" bindtap="retryVideo" hover-class="tap-feedback">重新加载视频</button>
+      </view>
+    </view>
     <view wx:if="{{article.contentBlocks.length}}" class="article-content">
       <block wx:for="{{article.contentBlocks}}" wx:key="index">
         <rich-text wx:if="{{item.type === 'rich-text'}}" class="article-rich-text" nodes="{{item.nodes}}"></rich-text>
         <image wx:elif="{{item.type === 'image'}}" class="article-content-image" src="{{item.src}}" mode="widthFix" bindtap="previewContentImage" data-src="{{item.src}}" />
       </block>
     </view>
-    <view wx:else class="article-empty-content">暂无正文内容</view>
+    <view wx:elif="{{!article.video}}" class="article-empty-content">暂无正文内容</view>
 
     <view wx:if="{{commentsVisible}}" class="article-comments">
       <view class="article-comments__header">

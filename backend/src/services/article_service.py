@@ -9,7 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.exceptions import BadRequestException, ConflictException, NotFoundException
 from ..models.article import Article, ArticleStatus
 from ..models.article_comment import ArticleComment
+from ..models.article_video import VideoStatus
 from ..schemas.article import ArticleCreate, ArticleUpdate
+from .article_video_service import bind_video, serialize_video
 
 STATUS_LABELS = {
     ArticleStatus.DRAFT: "draft_label",
@@ -99,7 +101,9 @@ async def list_public(
 
 async def get_detail(db: AsyncSession, article_id: int, public_only: bool = True) -> dict:
     """Get a single article detail. If public_only, only published articles are visible."""
-    result = await db.execute(select(Article).where(Article.id == article_id))
+    result = await db.execute(
+        select(Article).where(Article.id == article_id).execution_options(populate_existing=True)
+    )
     article = result.scalar_one_or_none()
 
     if article is None:
@@ -217,6 +221,8 @@ async def delete_article(db: AsyncSession, article_id: int) -> dict:
     if article.status == ArticleStatus.PUBLISHED:
         raise ConflictException(message="上架中的文章不能删除，请先下架")
 
+    await bind_video(db, article, None, None)
+
     comment_delete = await db.execute(
         delete(ArticleComment).where(ArticleComment.article_id == article_id)
     )
@@ -233,7 +239,10 @@ async def delete_article(db: AsyncSession, article_id: int) -> dict:
 # ============================================================================
 # Admin mutations
 # ============================================================================
-async def create_article(db: AsyncSession, data: ArticleCreate, author_name: str | None = None) -> Article:
+async def create_article(
+    db: AsyncSession, data: ArticleCreate,
+    author_name: str | None = None, admin_id: int | None = None,
+) -> Article:
     """Create a new article in draft status."""
     article = Article(
         title=data.title,
@@ -251,15 +260,23 @@ async def create_article(db: AsyncSession, data: ArticleCreate, author_name: str
     )
     db.add(article)
     await db.flush()
+    if data.videoId is not None:
+        await bind_video(db, article, int(data.videoId), admin_id)
+        await db.flush()
     await db.refresh(article)
     return article
 
 
 async def update_article(
-    db: AsyncSession, article_id: int, data: ArticleUpdate
+    db: AsyncSession, article_id: int, data: ArticleUpdate, admin_id: int | None = None
 ) -> Article:
     """Update an article with optimistic locking."""
-    article = await get_admin_detail(db, article_id)
+    article = await db.scalar(
+        select(Article).where(Article.id == article_id).with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if article is None:
+        raise NotFoundException(message="Article not found")
 
     # Check version for optimistic locking
     if data.version != article.version:
@@ -272,6 +289,9 @@ async def update_article(
     update_data = data.model_dump(exclude_unset=True, by_alias=False)
     # Remove version from update data (handled separately)
     update_data.pop("version", None)
+    if "videoId" in update_data:
+        video_id = update_data.pop("videoId")
+        await bind_video(db, article, int(video_id) if video_id is not None else None, admin_id)
 
     # Map schema field names to model column names
     field_mapping = {
@@ -292,10 +312,20 @@ async def update_article(
 
 async def publish_article(db: AsyncSession, article_id: int) -> Article:
     """Publish an article (draft or unpublished -> published)."""
-    article = await get_admin_detail(db, article_id)
+    article = await db.scalar(
+        select(Article).where(Article.id == article_id).with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if article is None:
+        raise NotFoundException(message="Article not found")
 
     if article.status == ArticleStatus.PUBLISHED:
         raise BadRequestException(message="Article is already published")
+
+    if article.video_id is not None and (
+        not article.video or article.video.status != VideoStatus.READY
+    ):
+        raise ConflictException(message="视频尚未就绪，暂时无法发布")
 
     article.status = ArticleStatus.PUBLISHED
     article.published_at = datetime.now(timezone.utc)
@@ -353,6 +383,7 @@ def _article_to_detail(article: Article) -> dict:
         "title": article.title,
         "summary": article.summary,
         "content": article.content,
+        "video": serialize_video(article.video, public=True),
         "coverImageUrl": article.cover_url,
         "category": article.category,
         "tags": article.tags or [],
@@ -373,6 +404,7 @@ def _article_to_admin_item(article: Article) -> dict:
         "summary": article.summary,
         "coverImageUrl": article.cover_url,
         "content": article.content,
+        "video": serialize_video(article.video),
         "tags": article.tags or [],
         "category": article.category,
         "category_id": article.category_id,
