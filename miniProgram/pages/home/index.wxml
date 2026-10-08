@@ -96,7 +96,7 @@
             <view wx:if="{{womenState === 'success'}}" class="women-content">
                 <view class="women-feature tap-target" data-id="{{womenLead.articleId}}" bindtap="openArticle" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
                     <view class="women-feature__media">
-                        <image wx:if="{{womenLead.coverImageUrl}}" class="women-feature__image" src="{{womenLead.coverImageUrl}}" mode="aspectFill" />
+                        <image wx:if="{{womenLead.coverImageUrl}}" class="women-feature__image" src="{{womenLead.coverImageUrl}}" mode="aspectFit" />
                         <view wx:else class="women-feature__placeholder"><view class="women-feature__placeholder-shape"></view></view>
                     </view>
                     <view class="women-feature__copy">

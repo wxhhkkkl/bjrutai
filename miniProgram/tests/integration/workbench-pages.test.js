@@ -19,6 +19,7 @@ test('home is a public health-content page while profile keeps its workbench int
   assert.match(homeMarkup, /class="home-section home-section--about"/)
   assert.match(homeMarkup, /class="home-section home-section--wellness"/)
   assert.match(homeMarkup, /class="home-section home-section--women"/)
+  assert.match(homeMarkup, /class="women-feature__image"[^>]*mode="aspectFit"/)
   assert.match(homeMarkup, /class="home-section home-section--articles"/)
   assert.match(homeMarkup, /关于儒泰/)
   assert.match(homeMarkup, /心脑维养/)
