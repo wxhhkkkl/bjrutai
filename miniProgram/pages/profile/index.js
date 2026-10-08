@@ -1,5 +1,6 @@
 const {
   getCurrentSession,
+  getAccessToken,
   getEntry
 } = require('../../services/session-service')
 const authService = require('../../services/auth-service')
@@ -91,16 +92,23 @@ Page({
 
   onShow() {
     const session = getCurrentSession()
+    if (!getAccessToken() || !session.userId) {
+      this.setData({ state: 'loading', session: {}, metrics: [] })
+      wx.reLaunch({ url: '/pages/auth/login/index?from=profile' })
+      return
+    }
     const entry = getEntry(session)
     if (entry.type === 'reLaunch') {
-      wx.reLaunch({ url: entry.url })
+      const url = entry.url === '/pages/auth/profile-setup/index'
+        ? `${entry.url}?from=profile` : entry.url
+      wx.reLaunch({ url })
       return
     }
 
     // Public visitors can browse before entering a name.  The profile tab is
     // the intentional point where we collect that information.
     if (!session.profileCompleted) {
-      wx.reLaunch({ url: '/pages/auth/profile-setup/index' })
+      wx.reLaunch({ url: '/pages/auth/profile-setup/index?from=profile' })
       return
     }
 
@@ -192,7 +200,8 @@ Page({
         } catch (error) {
           // logoutAndClear always removes the local real-session state.
         }
-        wx.reLaunch({ url: '/pages/auth/login/index' })
+        this.setData({ state: 'loading', session: {}, metrics: [] })
+        wx.switchTab({ url: '/pages/home/index' })
       }
     })
   }

@@ -13,15 +13,22 @@ Page({
     session: {},
     form: createProfileForm(),
     invalidField: '',
-    saving: false
+    saving: false,
+    from: '',
+    articleId: ''
   },
 
-  onLoad() {
+  onLoad(options = {}) {
     const session = getCurrentSession();
+    const from = options.from === 'profile' || options.from === 'comment' ? options.from : '';
+    const articleId = from === 'comment' && /^[1-9]\d*$/.test(String(options.articleId || ''))
+      ? String(options.articleId) : '';
 
     this.setData({
       session,
-      form: createProfileForm(session)
+      form: createProfileForm(session),
+      from,
+      articleId
     });
   },
 
@@ -75,7 +82,15 @@ Page({
         name: result.name || this.data.form.name,
         organization: result.organization || session.organization || this.data.form.organization
       }));
-      wx.switchTab({ url: '/pages/home/index' });
+      if (this.data.from === 'profile') {
+        wx.switchTab({ url: '/pages/profile/index' });
+      } else if (this.data.from === 'comment' && typeof getCurrentPages === 'function' && getCurrentPages().length > 1) {
+        wx.navigateBack({ delta: 1 });
+      } else if (this.data.from === 'comment' && this.data.articleId) {
+        wx.redirectTo({ url: `/pages/article-detail/index?articleId=${this.data.articleId}` });
+      } else {
+        wx.switchTab({ url: '/pages/home/index' });
+      }
     } catch (error) {
       wx.showToast({ title: '保存失败，请重试', icon: 'none' });
     } finally {

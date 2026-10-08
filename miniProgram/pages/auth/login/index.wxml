@@ -56,3 +56,5 @@
     </view>
     <text class="login-role-hint">登录后将自动识别您的业务角色</text>
 </view>
+
+<view class="login-guest-link tap-target" bindtap="browseAsGuest" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" aria-role="button" aria-label="暂不登录">暂不登录</view>

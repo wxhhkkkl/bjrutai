@@ -109,7 +109,7 @@ function clearAuthenticatedSession() {
 function getEntry(session) {
   const value = normalizeSession(session)
   if (!value.userId || value.role === 'unknown') {
-    return { type: 'reLaunch', url: '/pages/auth/login/index' }
+    return { type: 'switchTab', url: '/pages/home/index' }
   }
   if (value.activationStatus === 'inactive') {
     return {

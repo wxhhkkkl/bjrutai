@@ -72,6 +72,20 @@ const detail = {
   createdAt: '2026-08-09T03:00:00Z', updatedAt: '2026-08-10T07:30:00Z', viewCount: 7
 }
 
+test('guest can read an article and is asked to log in when commenting', async () => {
+  const fixture = loadPage('pages/article-detail/index.js', {
+    getArticle() { return Promise.resolve(detail) }
+  })
+  try {
+    fixture.page.onLoad({ articleId: '12' })
+    await flush()
+    assert.equal(fixture.page.data.state, 'success')
+    assert.equal(fixture.page.data.commentsVisible, false)
+    await fixture.page.submitComment()
+    assert.deepEqual(fixture.navigations, ['/pages/auth/login/index?from=comment&articleId=12'])
+  } finally { fixture.restore() }
+})
+
 test('video pauses on hide/unload; playback retry preserves article and reading count', async () => {
   let fetches = 0
   let pauses = 0

@@ -16,10 +16,7 @@ Page({
       this.openEntry(sessionService.getEntry(session))
     } catch (error) {
       sessionService.clearAuthenticatedSession()
-      this.openEntry({
-        type: 'reLaunch',
-        url: '/pages/auth/login/index'
-      })
+      this.openEntry(sessionService.getEntry(null))
     } finally {
       this.restoring = false
     }

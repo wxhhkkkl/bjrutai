@@ -2,11 +2,27 @@ page {
   background: #ffffff;
 }
 
+.login-guest-link {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(112rpx + constant(safe-area-inset-bottom));
+  bottom: calc(112rpx + env(safe-area-inset-bottom));
+  z-index: 10;
+  height: 76rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #697382;
+  font-size: 27rpx;
+}
+
 .login-page {
   min-height: 100vh;
-  padding: 103rpx 35rpx calc(32rpx + constant(safe-area-inset-bottom));
-  padding: 103rpx 35rpx calc(32rpx + env(safe-area-inset-bottom));
+  padding: 32rpx 35rpx calc(150rpx + constant(safe-area-inset-bottom));
+  padding: 32rpx 35rpx calc(150rpx + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, #ffffff 0%, #fbfdff 64%, #f8fbff 100%);
+  box-sizing: border-box;
 }
 
 .login-welcome {

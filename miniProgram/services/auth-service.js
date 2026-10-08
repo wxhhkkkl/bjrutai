@@ -177,16 +177,16 @@ async function logoutAndClear() {
   }
 }
 
-function clearSessionAndReturnToLogin() {
+function clearSessionAndReturnToHome() {
   sessionService.clearAuthenticatedSession()
-  if (typeof wx !== 'undefined' && wx.reLaunch) {
-    wx.reLaunch({ url: '/pages/auth/login/index' })
+  if (typeof wx !== 'undefined' && wx.switchTab) {
+    wx.switchTab({ url: '/pages/home/index' })
   }
 }
 
 setAuthHandlers({
   refreshAccessToken: refreshTokens,
-  onAuthExpired: clearSessionAndReturnToLogin
+  onAuthExpired: clearSessionAndReturnToHome
 })
 
 module.exports = {

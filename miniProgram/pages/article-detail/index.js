@@ -84,15 +84,28 @@ Page({
 
   syncCommentVisibility() {
     const loggedIn = Boolean(sessionService.getAccessToken())
-    this.setData({
-      commentsVisible: loggedIn,
-      commentsState: loggedIn ? 'loading' : 'hidden',
-      commentsError: loggedIn ? this.data.commentsError : '',
-      commentSubmitMessage: loggedIn ? this.data.commentSubmitMessage : ''
-    })
-    if (loggedIn && this.data.articleId && this.data.state === 'success' && !this.data.comments.length) {
-      this.loadComments(false)
+    if (!loggedIn) {
+      this.setData({
+        commentsVisible: false,
+        commentsState: 'hidden',
+        comments: [],
+        commentsTotal: 0,
+        commentsNextCursor: '',
+        commentsHasMore: false,
+        commentsLoadingMore: false,
+        commentsError: '',
+        commentDraft: '',
+        commentSubmitMessage: ''
+      })
+      return
     }
+    const shouldLoad = this.data.articleId && this.data.state === 'success'
+      && (!this.data.commentsVisible || this.data.commentsState === 'hidden')
+    this.setData({
+      commentsVisible: true,
+      commentsState: shouldLoad ? 'loading' : this.data.commentsState
+    })
+    if (shouldLoad) this.loadComments(false)
   },
 
   async loadArticle() {
@@ -110,7 +123,6 @@ Page({
         article: adaptArticleDetail(payload)
       })
       this.syncCommentVisibility()
-      if (sessionService.getAccessToken()) this.loadComments(false)
     } catch (error) {
       if (version !== this.requestVersion) return
       const notFound = error && error.kind === 'NOT_FOUND'
@@ -165,7 +177,8 @@ Page({
   },
 
   async loadComments(loadMore) {
-    if (!this.data.articleId || !sessionService.getAccessToken()) return
+    const accessToken = sessionService.getAccessToken()
+    if (!this.data.articleId || !accessToken) return
     if (loadMore && (!this.data.commentsHasMore || this.data.commentsLoadingMore)) return
     const version = this.requestVersion
     const cursor = loadMore ? this.data.commentsNextCursor : ''
@@ -174,7 +187,7 @@ Page({
       : { commentsState: 'loading', commentsError: '', comments: [], commentsNextCursor: '', commentsHasMore: false })
     try {
       const payload = await commentService.listComments(this.data.articleId, { cursor, limit: 20 })
-      if (version !== this.requestVersion) return
+      if (version !== this.requestVersion || sessionService.getAccessToken() !== accessToken) return
       const page = adaptCommentPage(payload)
       const comments = loadMore ? this.data.comments.concat(page.items) : page.items
       this.setData({
@@ -188,7 +201,7 @@ Page({
         commentsError: ''
       })
     } catch (error) {
-      if (version !== this.requestVersion) return
+      if (version !== this.requestVersion || sessionService.getAccessToken() !== accessToken) return
       const authExpired = error && error.kind === 'AUTH'
       this.setData({
         commentsVisible: !authExpired,
@@ -241,7 +254,7 @@ Page({
   },
 
   promptCommentLogin() {
-    wx.navigateTo({ url: '/pages/auth/login/index' })
+    wx.navigateTo({ url: `/pages/auth/login/index?from=comment&articleId=${this.data.articleId}` })
   },
 
   async toggleCommentLike(event) {

@@ -8,7 +8,29 @@ Page({
     phone: '',
     password: '',
     passwordVisible: false,
-    loggingIn: false
+    loggingIn: false,
+    from: '',
+    articleId: ''
+  },
+
+  onLoad(options = {}) {
+    const from = options.from === 'profile' || options.from === 'comment' ? options.from : '';
+    const articleId = from === 'comment' && /^[1-9]\d*$/.test(String(options.articleId || ''))
+      ? String(options.articleId) : '';
+    this.setData({ from, articleId });
+  },
+
+  returnQuery() {
+    if (!this.data.from) return '';
+    return `?from=${this.data.from}${this.data.articleId ? `&articleId=${this.data.articleId}` : ''}`;
+  },
+
+  browseAsGuest() {
+    if (this.data.from === 'comment' && typeof getCurrentPages === 'function' && getCurrentPages().length > 1) {
+      wx.navigateBack({ delta: 1 });
+      return;
+    }
+    wx.switchTab({ url: '/pages/home/index' });
   },
 
   toggleAgreement() {
@@ -109,12 +131,28 @@ Page({
     const established = await authService.establishSession(result);
 
     if (established.requiresWechatBinding) {
-      wx.redirectTo({ url: '/pages/auth/bind-wechat/index' });
+      wx.redirectTo({ url: `/pages/auth/bind-wechat/index${this.returnQuery()}` });
       return;
     }
     const entry = sessionService.getEntry(established.session);
     if (entry.type === 'reLaunch') {
-      wx.redirectTo({ url: entry.url });
+      const url = entry.url === '/pages/auth/profile-setup/index'
+        ? `${entry.url}${this.returnQuery()}` : entry.url;
+      wx.redirectTo({ url });
+      return;
+    }
+    if (this.data.from === 'profile') {
+      wx.switchTab({ url: '/pages/profile/index' });
+      return;
+    }
+    if (this.data.from === 'comment') {
+      if (typeof getCurrentPages === 'function' && getCurrentPages().length > 1) {
+        wx.navigateBack({ delta: 1 });
+      } else if (this.data.articleId) {
+        wx.redirectTo({ url: `/pages/article-detail/index?articleId=${this.data.articleId}` });
+      } else {
+        wx.switchTab({ url: '/pages/home/index' });
+      }
       return;
     }
     wx.switchTab({ url: entry.url });

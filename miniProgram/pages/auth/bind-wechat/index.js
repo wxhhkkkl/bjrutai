@@ -3,7 +3,46 @@ const sessionService = require('../../../services/session-service');
 
 Page({
   data: {
-    binding: false
+    binding: false,
+    from: '',
+    articleId: ''
+  },
+
+  onLoad(options = {}) {
+    const from = options.from === 'profile' || options.from === 'comment' ? options.from : '';
+    const articleId = from === 'comment' && /^[1-9]\d*$/.test(String(options.articleId || ''))
+      ? String(options.articleId) : '';
+    this.setData({ from, articleId });
+  },
+
+  returnQuery() {
+    if (!this.data.from) return '';
+    return `?from=${this.data.from}${this.data.articleId ? `&articleId=${this.data.articleId}` : ''}`;
+  },
+
+  finishBinding(session) {
+    const entry = sessionService.getEntry(session);
+    if (entry.type === 'reLaunch') {
+      const url = entry.url === '/pages/auth/profile-setup/index'
+        ? `${entry.url}${this.returnQuery()}` : entry.url;
+      wx.redirectTo({ url });
+      return;
+    }
+    if (this.data.from === 'profile') {
+      wx.switchTab({ url: '/pages/profile/index' });
+      return;
+    }
+    if (this.data.from === 'comment') {
+      if (typeof getCurrentPages === 'function' && getCurrentPages().length > 1) {
+        wx.navigateBack({ delta: 1 });
+      } else if (this.data.articleId) {
+        wx.redirectTo({ url: `/pages/article-detail/index?articleId=${this.data.articleId}` });
+      } else {
+        wx.switchTab({ url: '/pages/home/index' });
+      }
+      return;
+    }
+    wx.switchTab({ url: entry.url });
   },
 
   // 首登强制绑定微信（FR-027）：用 wx.login 换取 code 后调用 /auth/bind-wechat。
@@ -21,13 +60,13 @@ Page({
           if (result.accessToken) {
             authService.setTokens(result.accessToken, result.refreshToken);
           }
-          await authService.restoreSession({
+          const session = await authService.restoreSession({
             preserveSession: sessionService.getCurrentSession(),
             wechatBound: true
           });
           wx.showToast({ title: '微信绑定成功', icon: 'success', duration: 900 });
           setTimeout(() => {
-            wx.switchTab({ url: '/pages/home/index' });
+            this.finishBinding(session);
           }, 900);
         } catch (err) {
           wx.showToast({ title: (err && err.message) || '绑定失败，请重试', icon: 'none' });
@@ -42,6 +81,6 @@ Page({
   },
 
   handleBack() {
-    wx.reLaunch({ url: '/pages/auth/login/index' });
+    wx.reLaunch({ url: `/pages/auth/login/index${this.returnQuery()}` });
   }
 });
