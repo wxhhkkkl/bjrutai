@@ -10,6 +10,14 @@ const CATEGORY_LABELS = Object.freeze({
   qualification: '资质'
 })
 
+function getNotificationFilters(role) {
+  const categoryIds = ['all', 'unread', 'system', 'binding', 'bill']
+  const visibleIds = role === 'personal'
+    ? categoryIds.filter((id) => id !== 'binding' && id !== 'bill')
+    : categoryIds
+  return visibleIds.map((id) => ({ id, label: id === 'unread' ? '未读' : CATEGORY_LABELS[id] }))
+}
+
 const TARGET_PATHS = Object.freeze([
   '/pages/binding-records/index',
   '/pages/customer-detail/index',
@@ -45,4 +53,4 @@ function adaptNotifications(payload = {}) {
   }
 }
 
-module.exports = { CATEGORY_LABELS, adaptNotifications, resolveNotificationTarget }
+module.exports = { CATEGORY_LABELS, getNotificationFilters, adaptNotifications, resolveNotificationTarget }

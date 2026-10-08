@@ -1,5 +1,23 @@
 const DOCUMENT_VERSION = '1.0';
 const EFFECTIVE_DATE = '2026年8月10日';
+const CUSTOMER_AGREEMENT_PARAGRAPH_OVERRIDES = {
+  '一、服务说明': { 0: '具体功能以小程序当前展示和后台配置为准。' },
+  '二、账号与身份': { 1: null },
+  '三、客户信息与业务协作': {
+    0: '不得提交与业务无关、虚假、违法或侵犯他人权益的内容。',
+    1: null
+  }
+};
+const CUSTOMER_PRIVACY_INTRO = '儒泰医联重视您的个人信息和隐私保护。';
+const CUSTOMER_PRIVACY_PARAGRAPH_OVERRIDES = {
+  '一、我们处理的信息': { 1: null },
+  '二、使用目的': {
+    0: '我们使用上述信息用于创建和维护账号、完成微信或手机号登录、发送必要的服务通知、处理反馈以及保障服务安全。'
+  },
+  '三、共享与委托处理': {
+    0: '如因提供具体功能需要共享信息，我们会将共享范围限制在实现该功能所必需的范围内。'
+  }
+};
 
 const USER_AGREEMENT = Object.freeze({
   type: 'agreement',
@@ -36,8 +54,44 @@ const PRIVACY_POLICY = Object.freeze({
   ]
 });
 
-function getLegalDocument(type) {
-  return type === 'privacy' ? PRIVACY_POLICY : type === 'agreement' ? USER_AGREEMENT : null;
+function getCustomerAgreement() {
+  const sections = USER_AGREEMENT.sections.map((section) => {
+    const overrides = CUSTOMER_AGREEMENT_PARAGRAPH_OVERRIDES[section.title] || {};
+    const paragraphs = section.paragraphs.reduce((visibleParagraphs, paragraph, index) => {
+      if (Object.prototype.hasOwnProperty.call(overrides, index)) {
+        if (overrides[index]) visibleParagraphs.push(overrides[index]);
+      } else {
+        visibleParagraphs.push(paragraph);
+      }
+      return visibleParagraphs;
+    }, []);
+    return { ...section, paragraphs };
+  });
+
+  return { ...USER_AGREEMENT, sections };
+}
+
+function getCustomerPrivacyPolicy() {
+  const sections = PRIVACY_POLICY.sections.map((section) => {
+    const overrides = CUSTOMER_PRIVACY_PARAGRAPH_OVERRIDES[section.title] || {};
+    const paragraphs = section.paragraphs.reduce((visibleParagraphs, paragraph, index) => {
+      if (Object.prototype.hasOwnProperty.call(overrides, index)) {
+        if (overrides[index]) visibleParagraphs.push(overrides[index]);
+      } else {
+        visibleParagraphs.push(paragraph);
+      }
+      return visibleParagraphs;
+    }, []);
+    return { ...section, paragraphs };
+  });
+
+  return { ...PRIVACY_POLICY, intro: CUSTOMER_PRIVACY_INTRO, sections };
+}
+
+function getLegalDocument(type, role) {
+  if (type === 'privacy') return role === 'personal' ? getCustomerPrivacyPolicy() : PRIVACY_POLICY;
+  if (type !== 'agreement') return null;
+  return role === 'personal' ? getCustomerAgreement() : USER_AGREEMENT;
 }
 
 module.exports = { DOCUMENT_VERSION, EFFECTIVE_DATE, USER_AGREEMENT, PRIVACY_POLICY, getLegalDocument };

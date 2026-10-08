@@ -7,6 +7,7 @@
     style="height: {{navigation.menuHeight}}px;"
   >
     <view
+      wx:if="{{showBack}}"
       class="flow-navigation__back tap-target"
       bindtap="goBack"
       hover-class="tap-feedback"

@@ -20,7 +20,7 @@ const HELP_FAQS = Object.freeze([
     id: 'account',
     title: '账号与登录',
     icon: 'idcard',
-    answer: '账号通过微信身份和授权手机号识别。姓名、机构和头像可在账号信息页更新。'
+    answer: '账号通过微信身份和授权手机号识别。姓名和头像可在账号信息页更新。'
   }
 ]);
 

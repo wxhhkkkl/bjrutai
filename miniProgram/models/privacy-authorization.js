@@ -17,7 +17,7 @@ const PRIVACY_DOCUMENTS = Object.freeze([
   {
     id: 'collection',
     title: '个人信息收集清单',
-    content: '为完成账号识别、客户协作和服务记录，我们可能收集微信身份、授权手机号、业务资料及您主动提交的信息。'
+    content: '为完成账号识别和服务记录，我们可能收集微信身份、授权手机号及您主动提交的信息。'
   },
   {
     id: 'sharing',

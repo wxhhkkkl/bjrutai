@@ -1,10 +1,12 @@
 const { getLegalDocument } = require('../../models/legal-document');
+const { getCurrentSession } = require('../../services/session-service');
 
 Page({
   data: { document: null },
 
   onLoad(options) {
-    const document = getLegalDocument(options && options.type);
+    const session = getCurrentSession();
+    const document = getLegalDocument(options && options.type, session.role);
     if (!document) {
       wx.showToast({ title: '协议暂不可用', icon: 'none' });
       return;

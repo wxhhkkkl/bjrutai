@@ -1,11 +1,6 @@
 const notificationService = require('../../services/notification-service')
-const { CATEGORY_LABELS, adaptNotifications } = require('../../models/notification')
-
-const FILTERS = Object.freeze([
-  { id: 'all', label: CATEGORY_LABELS.all },
-  { id: 'unread', label: '未读' },
-  ...['system', 'binding', 'bill'].map((id) => ({ id, label: CATEGORY_LABELS[id] }))
-])
+const { getNotificationFilters, adaptNotifications } = require('../../models/notification')
+const { getCurrentSession } = require('../../services/session-service')
 
 Page({
   requestVersion: 0,
@@ -14,14 +9,21 @@ Page({
     stateMessage: '',
     items: [],
     unreadCount: 0,
-    filters: FILTERS,
+    filters: getNotificationFilters(getCurrentSession().role),
     selectedFilter: 'all',
     nextCursor: '',
     hasMore: false,
     loadingMore: false
   },
 
-  onShow() { this.loadNotifications(true) },
+  onShow() {
+    const filters = getNotificationFilters(getCurrentSession().role)
+    const selectedFilter = filters.some((item) => item.id === this.data.selectedFilter)
+      ? this.data.selectedFilter
+      : 'all'
+    this.setData({ filters, selectedFilter })
+    this.loadNotifications(true)
+  },
   onHide() { this.requestVersion += 1 },
   onUnload() { this.requestVersion += 1 },
 
@@ -68,7 +70,7 @@ Page({
 
   selectFilter(event) {
     const selectedFilter = event.currentTarget.dataset.id
-    if (!FILTERS.some((item) => item.id === selectedFilter)) return
+    if (!this.data.filters.some((item) => item.id === selectedFilter)) return
     this.setData({ selectedFilter, items: [], nextCursor: '', hasMore: false })
     this.loadNotifications(true)
   },

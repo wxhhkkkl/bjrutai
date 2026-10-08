@@ -1,4 +1,4 @@
-<flow-navigation title="确认客户绑定" bind:back="handleBack" />
+<flow-navigation title="确认登陆小程序" show-back="{{false}}" bind:back="handleBack" />
 
 <view class="scan-page">
   <view wx:if="{{state === 'loading'}}" class="scan-state">正在验证客户绑定码…</view>
@@ -21,9 +21,9 @@
       <view class="scan-checkbox {{consentConfirmed ? 'scan-checkbox--checked' : ''}}">
         <van-icon wx:if="{{consentConfirmed}}" name="success" size="14px" color="#ffffff" />
       </view>
-      <text>我同意将手机号用于客户归属与后续服务</text>
+      <text>确认登陆小程序</text>
     </view>
-    <button wx:if="{{consentConfirmed}}" class="scan-submit" open-type="getPhoneNumber" bindgetphonenumber="submit" loading="{{submitting}}" disabled="{{submitting}}">授权手机号并确认绑定</button>
-    <button wx:else class="scan-submit tap-target" bindtap="requestPhoneAuthorization" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" loading="{{submitting}}" disabled="{{submitting}}">授权手机号并确认绑定</button>
+    <button wx:if="{{consentConfirmed}}" class="scan-submit" open-type="getPhoneNumber" bindgetphonenumber="submit" loading="{{submitting}}" disabled="{{submitting}}">确认登陆小程序</button>
+    <button wx:else class="scan-submit tap-target" bindtap="requestPhoneAuthorization" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" loading="{{submitting}}" disabled="{{submitting}}">确认登陆小程序</button>
   </block>
 </view>

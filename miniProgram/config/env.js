@@ -1,6 +1,6 @@
 const DEFAULT_API_BASES = Object.freeze({
-  // Keep local mini-program requests aligned with the LuTai backend dev server.
-  develop: 'http://127.0.0.1:8000',
+  // Point the local developer build at production when inspecting live data.
+  develop: 'https://bjrutai.com',
   trial: 'https://bjrutai.com',
   release: 'https://bjrutai.com'
 })

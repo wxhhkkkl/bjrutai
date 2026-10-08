@@ -1,6 +1,14 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { adaptNotifications, resolveNotificationTarget } = require('../../models/notification')
+const { adaptNotifications, getNotificationFilters, resolveNotificationTarget } = require('../../models/notification')
+
+test('personal customers do not see binding or bill notification filters', () => {
+  const customerFilterIds = getNotificationFilters('personal').map((item) => item.id)
+  const collaboratorFilterIds = getNotificationFilters('collaborator').map((item) => item.id)
+
+  assert.deepEqual(customerFilterIds, ['all', 'unread', 'system'])
+  assert.deepEqual(collaboratorFilterIds, ['all', 'unread', 'system', 'binding', 'bill'])
+})
 
 test('notification adapter formats dates and keeps only safe internal targets', () => {
   const result = adaptNotifications({
