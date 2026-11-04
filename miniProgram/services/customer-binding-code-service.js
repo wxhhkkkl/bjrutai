@@ -16,4 +16,11 @@ function claimCustomer(refToken, data) {
   })
 }
 
-module.exports = { getCodeInfo, claimCustomer }
+function claimWithSession(refToken) {
+  return request(`/api/v1/customer-binding-codes/${encodeURIComponent(refToken)}/claim-session`, {
+    method: 'POST',
+    data: { consentConfirmed: true }
+  })
+}
+
+module.exports = { getCodeInfo, claimCustomer, claimWithSession }

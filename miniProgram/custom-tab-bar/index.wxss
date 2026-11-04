@@ -45,28 +45,6 @@
     flex: none;
 }
 
-.contribution-tab-icon__shape {
-    width: 39rpx;
-    height: 39rpx;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #8490a8;
-    border: 4rpx solid currentColor;
-    border-radius: 7rpx;
-    transform: rotate(45deg);
-}
-
-.contribution-tab-icon__plus {
-    display: flex;
-    transform: rotate(-45deg);
-}
-
-.selected .contribution-tab-icon__shape {
-    color: #1677ff;
-    background: #1677ff;
-}
-
 .tab text {
     line-height: 1.2;
 }

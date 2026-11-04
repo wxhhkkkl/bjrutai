@@ -73,7 +73,7 @@
       </el-table-column>
     </el-table>
 
-    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑轮播图' : '新建轮播图'" width="620px" destroy-on-close>
+    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑轮播图' : '新建轮播图'" width="620px" top="6vh" destroy-on-close>
       <el-form ref="formRef" :model="form" :rules="rules" label-width="92px">
         <el-form-item label="轮播图片" prop="imageUrl">
           <div class="image-control">
@@ -90,11 +90,12 @@
               </div>
             </el-upload>
             <el-input v-model="form.imageUrl" class="image-url" placeholder="或输入 HTTPS 图片地址" clearable />
-            <p class="field-hint">建议使用 5:2 横图，JPG/PNG/GIF/WebP，最大 10 MB。</p>
+            <p class="field-hint">建议图片宽高比约 3:4（宽:高）。</p>
+            <p class="field-hint">小程序首屏自适应高度，图片等比铺满，可能裁切边缘。支持 JPG/PNG/GIF/WebP，最大 10 MB。</p>
           </div>
         </el-form-item>
         <el-form-item label="标题" prop="title">
-          <el-input v-model="form.title" maxlength="100" show-word-limit placeholder="选填，展示在图片底部" />
+          <el-input v-model="form.title" maxlength="100" show-word-limit placeholder="选填，用于后台识别轮播图" />
         </el-form-item>
         <el-form-item label="点击动作" prop="actionType">
           <el-radio-group v-model="form.actionType" @change="clearArticleWhenNone">
@@ -334,9 +335,9 @@ onMounted(loadBanners)
 .page-title { margin: 0; color: #18202c; font-size: 22px; line-height: 1.35; }
 .page-subtitle { margin: 8px 0 0; color: #7a8493; font-size: 13px; }
 .filter-bar { margin-bottom: 14px; }
-.banner-thumb { width: 160px; height: 64px; border-radius: 6px; background: #f3f5f8; }
+.banner-thumb { width: 100px; height: auto; aspect-ratio: 413 / 544; border-radius: 6px; background: #f3f5f8; }
 .image-control { width: 100%; }
-.image-preview, .image-placeholder { width: 300px; height: 120px; overflow: hidden; border: 1px dashed #ccd3dd; border-radius: 8px; background: #f7f9fc; }
+.image-preview, .image-placeholder { width: 240px; max-width: 100%; aspect-ratio: 413 / 544; overflow: hidden; border: 1px dashed #ccd3dd; border-radius: 8px; background: #f7f9fc; }
 .image-preview img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .image-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #8490a0; cursor: pointer; }
 .image-placeholder .el-icon { font-size: 24px; }

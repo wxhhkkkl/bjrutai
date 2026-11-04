@@ -7,7 +7,8 @@ const projectRoot = path.resolve(__dirname, '../..');
 const tabPages = [
   'pages/home/index.wxml',
   'pages/customers/index.wxml',
-  'pages/contribution/index.wxml',
+  'pages/internet-hospital/index.wxml',
+  'pages/mall/index.wxml',
   'pages/profile/index.wxml'
 ];
 const interactiveRoots = ['pages', 'components', 'custom-tab-bar'];

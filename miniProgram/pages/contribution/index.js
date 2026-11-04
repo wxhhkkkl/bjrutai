@@ -1,6 +1,6 @@
 const consumptionService = require('../../services/consumption-service')
 const { adaptContributionOverview, adaptContributionTrend, adaptBillList } = require('../../models/contribution-detail')
-const { updateTabBar, openAction } = require('../../services/navigation-service')
+const { openAction } = require('../../services/navigation-service')
 const { getCurrentSession } = require('../../services/session-service')
 
 const PERIODS = [{ id: 'month', label: '本月', api: '3m' }, { id: 'quarter', label: '近3月', api: '6m' }, { id: 'year', label: '本年', api: '12m' }]
@@ -10,8 +10,9 @@ function errorState(error) { return error && error.kind === 'FORBIDDEN' ? 'forbi
 Page({
   requestVersion: 0,
   data: { state: 'loading', stateMessage: '', overview: {}, details: [], hasTrendData: false, hasDetails: false, periods: PERIODS, selectedPeriod: 'month', chartSummary: { label: '本月累计', total: '—' }, trend: { categories: [], values: [], max: 0, interval: 0 } },
-  onShow() { updateTabBar(this, 'contribution'); this.loadData('month') },
+  onShow() { this.loadData('month') },
   onUnload() { this.requestVersion += 1 },
+  handleBack() { wx.navigateBack() },
 
   async loadData(periodId = this.data.selectedPeriod) {
     const version = ++this.requestVersion; const period = PERIODS.find((item) => item.id === periodId) || PERIODS[0]; const month = currentMonth()

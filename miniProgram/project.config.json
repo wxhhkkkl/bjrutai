@@ -12,7 +12,12 @@
       { "type": "folder", "value": "mock" },
       { "type": "file", "value": "README.md" },
       { "type": "file", "value": "AGENTS.md" },
-      { "type": "file", "value": "CLAUDE.md" }
+      { "type": "file", "value": "CLAUDE.md" },
+      { "type": "file", "value": "assets/images/about-lutai-enterprise-cover-v1.png" },
+      { "type": "file", "value": "assets/images/home-category-about-v2.webp" },
+      { "type": "file", "value": "assets/images/home-category-articles-v2.webp" },
+      { "type": "file", "value": "assets/images/home-category-wellness-v2.webp" },
+      { "type": "file", "value": "assets/images/home-category-women-v2.webp" }
     ],
     "include": []
   },

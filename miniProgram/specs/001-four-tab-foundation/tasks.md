@@ -83,6 +83,10 @@ description: "四 Tab 基础工程与角色工作台实施任务"
 - [ ] T041 [US1][US2][US3][SC-003][SC-004] 按 `specs/001-four-tab-foundation/quickstart.md` 的 Scenario 4 在微信开发者工具中完成 iOS 与 Android 代表视口编译验收
 - [ ] T042 [US3][FR-009][SC-005] 检查 `mock/foundation-fixtures.js`、`mock/demo-control.js`、`pages/home/index.wxml`、`pages/customers/index.wxml`、`pages/contribution/index.wxml` 和 `pages/profile/index.wxml`，确认不存在真实个人信息
 - [ ] T043 [US1][US2][US3][SC-008] 按 `specs/001-four-tab-foundation/quickstart.md` 的 Scenario 5 记录四个一级页面首次可交互时间并修复可定位的阻塞项
+- [x] T044 [US2][FR-024] 在 `app.json`、`models/navigation.js` 和 `pages/mall/` 注册公开商城 Tab 与商品列表占位页；普通用户和业务成员均可见，保留客户 Tab 原有权限，不接商品 API。开发者工具 iPhone 414×736 与 Nexus 5 360×640 中页面和 Tab 选中态显示正常，当前无编译错误；更新了既有导航断言，未运行测试。
+- [x] T045 [US2][FR-024] 将商城空状态改为健康主题的原生商品列表视觉占位：加入 68 KB 本地无字主视觉、静态分类与明确标注的示意商品卡片；隐藏价格，不接商品数据、不实现搜索、购物车、下单或支付；按反馈放大分类、说明和商品信息字号。微信开发者工具 iPhone 414×736 与 Nexus 5 360×640 预览中图片、列表、文字和底部 Tab 均正常；该页未见编译错误。`node --check`、JSON 解析与 `git diff --check` 通过；未运行自动化测试。
+- [x] T046 [US2][FR-024] 按用户圈选移除商城顶部快捷分类、健康主视觉卡片及提示条；保留搜索栏、商品标题、左侧分类和商品列表，并移除不再使用的本地主视觉文件。微信开发者工具热重载和 iPhone / Nexus 5 窄屏预览确认页面层级与底部 Tab 正常，未运行自动化测试。
+- [x] T047 [US2][FR-024] 按用户圈选移除“健康好物”标题、说明及“示意内容”标记，使分类与示意商品列表直接承接搜索栏。
 
 ## Dependencies
 
@@ -110,7 +114,7 @@ Analysis Gate
 
 ## Format Validation
 
-- 全部 43 项任务均包含复选框和连续任务 ID。
+- 全部 44 项任务均包含复选框和连续任务 ID。
 - 每项任务均包含用户故事或 FR/SC 需求追踪，以及具体文件或验收输入。
 - 可并行任务使用 `[P]` 标记。
 - T001 是已完成的实施前 Analyze 门禁；后续实现从 T002 开始。

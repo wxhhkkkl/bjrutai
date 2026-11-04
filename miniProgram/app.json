@@ -2,6 +2,8 @@
     "pages": [
         "pages/home/index",
         "pages/customers/index",
+        "pages/internet-hospital/index",
+        "pages/mall/index",
         "pages/customer-detail/index",
         "pages/customer-edit/index",
         "pages/followup-record/index",
@@ -58,8 +60,12 @@
                 "text": "客户"
             },
             {
-                "pagePath": "pages/contribution/index",
-                "text": "消费"
+                "pagePath": "pages/internet-hospital/index",
+                "text": "互联网医院"
+            },
+            {
+                "pagePath": "pages/mall/index",
+                "text": "商城"
             },
             {
                 "pagePath": "pages/profile/index",

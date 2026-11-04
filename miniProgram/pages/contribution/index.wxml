@@ -1,6 +1,6 @@
-<app-header title="消费" />
+<flow-navigation title="消费记录" bind:back="handleBack" />
 
-<view class="contribution-screen tab-screen">
+<view class="contribution-screen">
   <view class="contribution-banner">
     <image
       class="contribution-banner__visual"
@@ -70,7 +70,7 @@
 
     <view class="detail-card">
       <view class="detail-card__header">
-        <text class="contribution-title">近期消费明细</text>
+        <text class="contribution-title">近期消费记录</text>
         <view
           class="detail-card__all tap-target"
           bindtap="openAllDetails"
@@ -78,7 +78,7 @@
           hover-start-time="0"
           hover-stay-time="80"
           aria-role="button"
-          aria-label="查看全部消费明细"
+          aria-label="查看全部消费记录"
         >
           <text>查看全部</text>
           <van-icon name="arrow" size="19px" color="#1677ff" />
@@ -101,11 +101,11 @@
           </view>
         </view>
       </view>
-      <view wx:else class="contribution-empty contribution-empty--details" aria-label="暂无消费明细">
+      <view wx:else class="contribution-empty contribution-empty--details" aria-label="暂无消费记录">
         <view class="contribution-empty__icon contribution-empty__icon--details">
           <van-icon name="records-o" size="40px" color="#9aaed0" />
         </view>
-        <text class="contribution-empty__title">暂无消费明细</text>
+        <text class="contribution-empty__title">暂无消费记录</text>
         <text class="contribution-empty__hint">产生消费记录后，会显示在这里</text>
       </view>
     </view>

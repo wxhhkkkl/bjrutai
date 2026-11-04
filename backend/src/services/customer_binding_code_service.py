@@ -6,7 +6,7 @@ from typing import Optional
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.exceptions import BadRequestException, ConflictException, NotFoundException
+from ..core.exceptions import BadRequestException, ConflictException, ForbiddenException, NotFoundException
 from ..models.binding import (
     BindingRequest,
     BindingRequestStatus,
@@ -19,7 +19,7 @@ from ..models.consent import ConsentRecord, ConsentScene, EvidenceType, SubjectT
 from ..models.distributor import Distributor, DistributorStatus
 from ..models.organization import Organization, OrgStatus
 from ..models.promotion import PromotionCode, PromotionCodeStatus
-from ..models.user import ActivationStatus, User
+from ..models.user import ActivationStatus, User, UserType
 from .auth_service import get_auth_service
 from .binding_service import _mask_phone, _normalize_phone, ensure_phone_not_business_member
 
@@ -75,7 +75,7 @@ async def claim_customer(
 ) -> dict:
     if not consent_confirmed:
         raise BadRequestException(message="请先同意客户资料授权后再绑定")
-    code, distributor, distributor_user, organization = await _valid_code(db, ref_token)
+    await _valid_code(db, ref_token)
     # Phone authorization credentials are single-use. Resolve the WeChat
     # identity and phone once, then keep attribution and login atomic.
     login_result = await get_auth_service().wechat_login(
@@ -84,11 +84,42 @@ async def claim_customer(
         phone_code=phone_code,
     )
     patient_user = await db.get(User, int(login_result["user"]["userId"]))
-    if patient_user is None or not patient_user.phone:
+    result = await _bind_customer(
+        db, ref_token, patient_user, name=name, consent_confirmed=consent_confirmed
+    )
+    result["session"] = login_result
+    return result
+
+
+async def claim_authenticated_customer(
+    db: AsyncSession, ref_token: str, *, user_id: int, consent_confirmed: bool
+) -> dict:
+    # Lock the authenticated user as well as the customer so simultaneous
+    # claims cannot both create the first customer for this account.
+    patient_user = (
+        await db.execute(select(User).where(User.id == user_id).with_for_update())
+    ).scalars().first()
+    return await _bind_customer(
+        db, ref_token, patient_user, name=None, consent_confirmed=consent_confirmed
+    )
+
+
+async def _bind_customer(
+    db: AsyncSession, ref_token: str, patient_user: Optional[User], *,
+    name: Optional[str], consent_confirmed: bool,
+) -> dict:
+    if not consent_confirmed:
+        raise BadRequestException(message="请先同意客户资料授权后再绑定")
+    if patient_user is None or patient_user.activation_status != ActivationStatus.ACTIVE:
+        raise ForbiddenException(message="当前账号不可用于客户绑定")
+    code, distributor, distributor_user, organization = await _valid_code(db, ref_token)
+    if not patient_user.phone:
         raise BadRequestException(message="手机号授权失败，请重新授权")
 
     phone = _normalize_phone(patient_user.phone)
     await ensure_phone_not_business_member(db, phone)
+    if patient_user.user_type != UserType.PERSONAL:
+        raise ForbiddenException(message="当前账号不可用于客户绑定")
     customer_matchers = [
         Customer.phone_normalized == phone,
         Customer.phone == phone,
@@ -197,5 +228,4 @@ async def claim_customer(
         "rutaiMatchStatus": "pending_match",
         "distributorName": distributor_user.name or "客户顾问",
         "organizationName": organization.name,
-        "session": login_result,
     }

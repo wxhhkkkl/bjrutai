@@ -14,7 +14,7 @@ function restoreModules(originals) {
   }
 }
 
-test('guest sees home and my tabs, and my opens login', () => {
+test('guest sees public hospital and mall tabs, and my opens login', () => {
   const componentPath = path.resolve(__dirname, '../../custom-tab-bar/index.js')
   const sessionPath = path.resolve(__dirname, '../../services/session-service.js')
   const originals = new Map()
@@ -42,11 +42,21 @@ test('guest sees home and my tabs, and my opens login', () => {
       setData(patch) { this.data = { ...this.data, ...patch } }
     }
     definition.lifetimes.attached.call(component)
-    assert.deepEqual(component.data.tabs.map((item) => item.id), ['home', 'profile'])
+    assert.deepEqual(component.data.tabs.map((item) => item.id), ['home', 'internet-hospital', 'mall', 'profile'])
     definition.methods.switchTab.call(component, {
       currentTarget: { dataset: { item: component.data.tabs[1] } }
     })
-    assert.deepEqual(navigation, [['navigateTo', '/pages/auth/login/index?from=profile']])
+    definition.methods.switchTab.call(component, {
+      currentTarget: { dataset: { item: component.data.tabs[2] } }
+    })
+    definition.methods.switchTab.call(component, {
+      currentTarget: { dataset: { item: component.data.tabs[3] } }
+    })
+    assert.deepEqual(navigation, [
+      ['switchTab', '/pages/internet-hospital/index'],
+      ['switchTab', '/pages/mall/index'],
+      ['navigateTo', '/pages/auth/login/index?from=profile']
+    ])
   } finally {
     restoreModules(originals)
     global.Component = previousComponent

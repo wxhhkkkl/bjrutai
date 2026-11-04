@@ -1,0 +1,20 @@
+<view class="hospital-screen">
+  <app-header title="互联网医院" />
+  <view class="hospital-content">
+    <image
+      wx:if="{{!imageFailed}}"
+      class="hospital-poster"
+      src="/assets/images/internet-hospital-coming-soon-v1.jpg"
+      mode="aspectFit"
+      binderror="onImageError"
+      aria-role="img"
+      aria-label="儒泰医联，互联网医院正在建设中。我们正在用心完善服务体验，敬请期待。"
+    />
+    <view wx:else class="hospital-fallback">
+      <text class="hospital-fallback__title">互联网医院</text>
+      <text class="hospital-fallback__status">正在建设中</text>
+      <text class="hospital-fallback__description">我们正在用心完善服务体验</text>
+      <text class="hospital-fallback__description">敬请期待</text>
+    </view>
+  </view>
+</view>

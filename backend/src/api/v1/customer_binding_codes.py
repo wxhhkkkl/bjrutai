@@ -5,7 +5,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.deps import get_db
+from ...api.deps import get_db, require_role
 from ...core.error_handler import _build_response
 from ...integrations.wechat_client import get_wechat_client
 from ...services import customer_binding_code_service
@@ -21,6 +21,10 @@ class CustomerClaimRequest(BaseModel):
 
     class Config:
         populate_by_name = True
+
+
+class SessionClaimRequest(BaseModel):
+    consent_confirmed: bool = Field(..., alias="consentConfirmed")
 
 
 @router.get("/{ref_token}")
@@ -55,3 +59,18 @@ async def get_code_image(ref_token: str, db: AsyncSession = Depends(get_db)):
         "pages/patient-binding/index",
     )
     return Response(content=image, media_type="image/jpeg")
+
+
+@router.post("/{ref_token}/claim-session")
+async def claim_authenticated_customer(
+    ref_token: str,
+    body: SessionClaimRequest,
+    db: AsyncSession = Depends(get_db),
+    payload: dict = Depends(require_role("personal", "promoter", "distributor", "doctor")),
+):
+    result = await customer_binding_code_service.claim_authenticated_customer(
+        db, ref_token, user_id=int(payload["sub"]),
+        consent_confirmed=body.consent_confirmed,
+    )
+    await db.commit()
+    return _build_response(0, "success", result)

@@ -1,4 +1,4 @@
-<flow-navigation title="消费明细" bind:back="handleBack" />
+<flow-navigation title="消费记录" bind:back="handleBack" />
 
 <view class="contribution-detail-page">
   <page-state state="{{state}}" message="{{blockedMessage}}" bind:retry="retry" />

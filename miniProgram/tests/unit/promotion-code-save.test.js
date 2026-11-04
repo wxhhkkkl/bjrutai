@@ -54,18 +54,31 @@ test('explains that the download domain must be configured when the platform blo
   }
 })
 
-test('downloads the image first and then saves its local temporary file', async () => {
+test('sharing uses brand covers while saving still downloads the original QR', async () => {
   let savedPath = ''
+  let downloadedUrl = ''
   let toast
   const fixture = loadPage({
-    downloadFile(options) { options.success({ statusCode: 200, tempFilePath: 'wxfile://tmp/qr.jpg' }) },
+    downloadFile(options) { downloadedUrl = options.url; options.success({ statusCode: 200, tempFilePath: 'wxfile://tmp/qr.jpg' }) },
     saveImageToPhotosAlbum(options) { savedPath = options.filePath; options.success({}) },
     showToast(options) { toast = options }
   })
   try {
     const page = createPage(fixture.definition)
+    page.data.profile.refToken = 'test-ref'
+    const share = page.onShareAppMessage()
+    assert.equal(share.title, '儒泰医联｜您的专属健康服务入口')
+    assert.equal(share.path, '/pages/patient-binding/index?refToken=test-ref')
+    assert.equal(share.imageUrl, '/assets/images/promotion-share-friend-v1.jpg')
+    assert.deepEqual(page.onShareTimeline(), {
+      title: share.title,
+      query: 'refToken=test-ref',
+      imageUrl: '/assets/images/promotion-share-timeline-v1.jpg'
+    })
     await page.savePromotionCode()
 
+    assert.equal(downloadedUrl, page.data.profile.qrImage)
+    assert.notEqual(downloadedUrl, share.imageUrl)
     assert.equal(savedPath, 'wxfile://tmp/qr.jpg')
     assert.equal(toast.title, '已保存到相册')
     assert.equal(page.data.saving, false)

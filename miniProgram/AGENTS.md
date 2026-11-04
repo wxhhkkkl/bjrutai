@@ -98,8 +98,9 @@ Every changed line must be explainable by the current request.
 
 - Build approved screens with real WXML/WXSS and reusable components, never with
   a screenshot as the interactive page.
-- Bottom Tab pages are 首页、客户、贡献、我的 and must not contain a duplicate
-  page-level back/title navigation bar.
+- Bottom Tab pages are 首页、客户、互联网医院、我的 and must not contain a duplicate
+  page-level back/title navigation bar. 消费记录 is a business-only service
+  entry under 我的服务 and opens as a secondary page with back navigation.
 - Secondary pages must account for the WeChat status bar, fixed menu capsule,
   safe areas, and keyboard behavior.
 - Business icon containers must be true 1:1 rounded squares; do not stretch

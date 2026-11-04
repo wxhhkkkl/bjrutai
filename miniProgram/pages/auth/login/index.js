@@ -1,6 +1,7 @@
 const authService = require('../../../services/auth-service');
 const sessionService = require('../../../services/session-service');
 const { validateLoginConsent } = require('../../../models/auth-onboarding');
+const { resumePendingBinding } = require('../../../services/pending-binding-service');
 
 Page({
   data: {
@@ -134,6 +135,7 @@ Page({
       wx.redirectTo({ url: `/pages/auth/bind-wechat/index${this.returnQuery()}` });
       return;
     }
+    await resumePendingBinding();
     const entry = sessionService.getEntry(established.session);
     if (entry.type === 'reLaunch') {
       const url = entry.url === '/pages/auth/profile-setup/index'

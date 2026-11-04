@@ -26,21 +26,21 @@ test('promotion instructions preserve the approved three-step flow', () => {
   );
 });
 
-test('customer binding share carries the salesperson token without a title', () => {
-  const profile = { name: '张小明', refToken: 'customer-token', qrImage: '/qr.png' };
+test('customer binding share uses a brand cover without a QR and encodes the current token', () => {
+  const profile = { name: '张小明', refToken: 'customer+token/&=' };
   const share = createPromotionShare(profile);
 
-  assert.equal('title' in share, false);
+  assert.equal(share.title, '儒泰医联｜您的专属健康服务入口');
   assert.equal(
     share.path,
-    '/pages/patient-binding/index?refToken=customer-token'
+    '/pages/patient-binding/index?refToken=customer%2Btoken%2F%26%3D'
   );
-  assert.equal(share.imageUrl, '/qr.png');
+  assert.equal(share.imageUrl, '/assets/images/promotion-share-friend-v1.jpg');
 });
 
-test('promotion share omits custom invitation copy and preserves path', () => {
+test('brand invitation cover preserves the backend attribution path', () => {
   const share = createPromotionShare({ name: '张小明', shareTitle: '进入儒泰', sharePath: '/pages/index/index?source=BJTR&ref_token=token', qrImage: '/qr.png' });
-  assert.equal('title' in share, false);
+  assert.equal(share.title, '儒泰医联｜您的专属健康服务入口');
   assert.equal(share.path, '/pages/index/index?source=BJTR&ref_token=token');
-  assert.equal(share.imageUrl, '/qr.png');
+  assert.equal(share.imageUrl, '/assets/images/promotion-share-friend-v1.jpg');
 });

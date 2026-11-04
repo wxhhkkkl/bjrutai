@@ -1,12 +1,16 @@
 page { background: #f6f9fd; }
 .scan-page { min-height: 100vh; padding: 36rpx 38rpx calc(60rpx + env(safe-area-inset-bottom)); box-sizing: border-box; }
+.scan-page--ready { min-height: 0; padding: 0 0 calc(60rpx + env(safe-area-inset-bottom)); }
 .scan-state { padding: 160rpx 20rpx; color: #7c8798; font-size: 27rpx; text-align: center; }
 .scan-title { color: #111318; font-size: 42rpx; font-weight: 700; }
 .scan-description { color: #687383; font-size: 26rpx; line-height: 1.65; }
 .scan-card { padding: 34rpx; background: #fff; border: 1rpx solid #e3eaf4; border-radius: 28rpx; box-shadow: 0 12rpx 32rpx rgba(31, 61, 105, .08); }
 .scan-card--state { margin-top: 100rpx; min-height: 320rpx; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 24rpx; text-align: center; }
 .scan-meta { color: #788293; font-size: 24rpx; }
-.scan-consent { margin: 30rpx 8rpx; display: flex; align-items: flex-start; gap: 14rpx; color: #5f6978; font-size: 23rpx; line-height: 1.55; }
-.scan-checkbox { width: 30rpx; height: 30rpx; flex: none; display: flex; align-items: center; justify-content: center; border: 2rpx solid #9ba4b2; border-radius: 6rpx; box-sizing: border-box; }
-.scan-checkbox--checked { background: #1677ff; border-color: #1677ff; }
+.scan-welcome { display: block; width: 100%; }
+.scan-actions { padding: 38rpx 28rpx 0; }
+.scan-guidance { display: block; margin: 0 16rpx 34rpx; color: #4e5969; font-size: 28rpx; line-height: 1.55; }
 .scan-submit { height: 92rpx; color: #fff; font-size: 30rpx; font-weight: 600; line-height: 92rpx; background: #111318; border-radius: 999rpx; }
+.scan-binding-notice { position: fixed; z-index: 1000; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 600rpx; max-width: calc(100vw - 64rpx); padding: 32rpx; box-sizing: border-box; border-radius: 20rpx; background: rgba(17, 19, 24, .88); color: #fff; text-align: center; white-space: normal; overflow-wrap: break-word; }
+.scan-binding-notice-message { display: block; font-size: 30rpx; line-height: 1.6; }
+.scan-binding-notice-hint { display: block; margin-top: 16rpx; font-size: 25rpx; line-height: 1.5; color: #e1e4eb; }

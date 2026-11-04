@@ -22,14 +22,17 @@ test('app declares dedicated customer and staff scan pages', () => {
   assert.ok(app.pages.includes('pages/staff-invite/index'))
 })
 
-test('phone authorization buttons are gated by consent on scan pages', () => {
-  for (const page of ['patient-binding', 'staff-join']) {
-    const template = fs.readFileSync(path.join(projectRoot, 'pages', page, 'index.wxml'), 'utf8')
-    const controller = fs.readFileSync(path.join(projectRoot, 'pages', page, 'index.js'), 'utf8')
-    assert.match(template, /wx:if="\{\{consentConfirmed\}\}"[^>]*open-type="getPhoneNumber"/)
-    assert.match(template, /wx:else[^>]*bindtap="requestPhoneAuthorization"/)
-    assert.match(controller, /requestPhoneAuthorization\(\)/)
-  }
+test('customer binding directly offers phone authorization while staff join requires consent', () => {
+  const readTemplate = (page) => fs.readFileSync(path.join(projectRoot, 'pages', page, 'index.wxml'), 'utf8')
+  const customer = readTemplate('patient-binding')
+  assert.match(customer, /<button[^>]*open-type="getPhoneNumber"[^>]*bindgetphonenumber="submit"/)
+  assert.doesNotMatch(customer, /consentConfirmed|toggleConsent|requestPhoneAuthorization/)
+
+  const staff = readTemplate('staff-join')
+  const staffController = fs.readFileSync(path.join(projectRoot, 'pages/staff-join/index.js'), 'utf8')
+  assert.match(staff, /wx:if="\{\{consentConfirmed\}\}"[^>]*open-type="getPhoneNumber"/)
+  assert.match(staff, /wx:else[^>]*bindtap="requestPhoneAuthorization"/)
+  assert.match(staffController, /requestPhoneAuthorization\(\)/)
 })
 
 test('customer binding logs the patient in before returning to the home tab', () => {

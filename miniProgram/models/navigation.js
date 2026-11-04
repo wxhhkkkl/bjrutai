@@ -12,11 +12,16 @@ const TAB_ITEMS = [{
         businessOnly: true
     },
     {
-        id: 'contribution',
-        label: '消费',
-        pagePath: '/pages/contribution/index',
-        icon: 'diamond-o',
-        businessOnly: true
+        id: 'internet-hospital',
+        label: '互联网医院',
+        pagePath: '/pages/internet-hospital/index',
+        icon: 'hotel-o'
+    },
+    {
+        id: 'mall',
+        label: '商城',
+        pagePath: '/pages/mall/index',
+        icon: 'cart-o'
     },
     {
         id: 'profile',
@@ -56,8 +61,13 @@ const ACTION_TARGETS = {
         capability: 'customerBinding'
     },
     'contribution-detail': {
-        title: '消费明细',
+        title: '消费记录',
         path: '/pages/contribution-detail/index',
+        capability: 'contribution'
+    },
+    'contribution-records': {
+        title: '消费记录',
+        path: '/pages/contribution/index',
         capability: 'contribution'
     },
     'article-list': {

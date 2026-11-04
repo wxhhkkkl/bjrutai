@@ -3,8 +3,8 @@ page {
 }
 
 .contribution-screen {
-  padding: 18rpx 22rpx calc(168rpx + constant(safe-area-inset-bottom));
-  padding: 18rpx 22rpx calc(168rpx + env(safe-area-inset-bottom));
+  padding: 18rpx 22rpx calc(40rpx + constant(safe-area-inset-bottom));
+  padding: 18rpx 22rpx calc(40rpx + env(safe-area-inset-bottom));
   background: #ffffff;
 }
 

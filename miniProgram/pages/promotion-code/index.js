@@ -86,5 +86,5 @@ Page({
     }
   },
   onShareAppMessage() { return createPromotionShare(this.data.profile) },
-  onShareTimeline() { const share = createPromotionShare(this.data.profile); return { query: share.path.split('?')[1] || '', imageUrl: share.imageUrl } }
+  onShareTimeline() { const share = createPromotionShare(this.data.profile); return { title: share.title, query: share.path.split('?')[1] || '', imageUrl: '/assets/images/promotion-share-timeline-v1.jpg' } }
 })

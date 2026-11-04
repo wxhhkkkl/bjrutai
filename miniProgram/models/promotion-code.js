@@ -40,8 +40,9 @@ function createPromotionShare(profile) {
   const fallbackPath = `/pages/patient-binding/index?refToken=${encodeURIComponent(value.refToken || '')}`;
 
   return {
+    title: '儒泰医联｜您的专属健康服务入口',
     path: value.sharePath || fallbackPath,
-    imageUrl: value.qrImage
+    imageUrl: '/assets/images/promotion-share-friend-v1.jpg'
   };
 }
 

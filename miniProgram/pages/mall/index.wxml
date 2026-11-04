@@ -1,0 +1,56 @@
+<view class="mall-screen">
+  <app-header title="商城" />
+  <scroll-view class="mall-scroll" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
+    <view class="mall-content">
+      <view class="mall-search" aria-role="text" aria-label="商城搜索栏示意">
+        <van-icon name="search" size="19px" color="#8b9b96" />
+        <text class="mall-search__placeholder">搜索健康好物</text>
+        <text class="mall-search__hint">健康生活</text>
+      </view>
+
+      <view class="mall-shelf">
+        <view class="mall-shelf__sidebar" aria-role="list" aria-label="商品分类示意">
+          <view
+            wx:for="{{sideCategories}}"
+            wx:key="id"
+            class="mall-side-category {{item.active ? 'mall-side-category--active' : ''}}"
+            aria-role="listitem"
+          >
+            <text>{{item.name}}</text>
+          </view>
+        </view>
+
+        <view class="mall-products" aria-role="list" aria-label="示意商品列表">
+          <view wx:for="{{products}}" wx:key="id" class="mall-product" aria-role="listitem">
+            <view class="mall-product__art mall-product__art--{{item.visual}}" aria-hidden="true">
+              <view wx:if="{{item.visual === 'monitor'}}" class="product-object product-object--monitor">
+                <view class="product-object__screen"></view>
+                <view class="product-object__button"></view>
+              </view>
+              <view wx:elif="{{item.visual === 'book'}}" class="product-object product-object--book">
+                <view class="product-object__book-page"></view>
+                <view class="product-object__book-line"></view>
+              </view>
+              <view wx:elif="{{item.visual === 'pouch'}}" class="product-object product-object--pouch">
+                <view class="product-object__pouch-seam"></view>
+              </view>
+              <view wx:else class="product-object product-object--care">
+                <view class="product-object__care-ribbon"></view>
+                <view class="product-object__care-bow"></view>
+              </view>
+            </view>
+            <view class="mall-product__info">
+              <view class="mall-product__topline">
+                <text class="mall-product__category">{{item.category}}</text>
+                <text class="mall-product__badge">示意</text>
+              </view>
+              <text class="mall-product__name">{{item.name}}</text>
+              <text class="mall-product__description">{{item.description}}</text>
+              <text class="mall-product__status">尚未上架</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

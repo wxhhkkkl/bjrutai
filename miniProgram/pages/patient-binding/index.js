@@ -1,8 +1,11 @@
 const bindingCodeService = require('../../services/customer-binding-code-service')
 const authService = require('../../services/auth-service')
+const pendingBindingService = require('../../services/pending-binding-service')
 
 function tokenFromOptions(options = {}) {
-  return decodeURIComponent(String(options.refToken || options.scene || '').trim())
+  try {
+    return decodeURIComponent(String(options.refToken || options.scene || '').trim())
+  } catch (error) { return '' }
 }
 
 Page({
@@ -11,8 +14,8 @@ Page({
     state: 'loading',
     stateMessage: '',
     codeInfo: {},
-    consentConfirmed: false,
     submitting: false,
+    bindingErrorMessage: '',
     result: null
   },
 
@@ -26,23 +29,23 @@ Page({
     this.loadCodeInfo()
   },
 
+  onUnload() {
+    this._unloaded = true
+    clearTimeout(this._redirectTimer)
+  },
+
   async loadCodeInfo() {
     this.setData({ state: 'loading', stateMessage: '' })
     try {
-      const codeInfo = await bindingCodeService.getCodeInfo(this.data.refToken)
+      const codeInfo = await pendingBindingService.loadScannedCode(this.data.refToken)
+      if (this._unloaded) {
+        pendingBindingService.resumePendingBinding()
+        return
+      }
       this.setData({ state: 'ready', codeInfo })
     } catch (error) {
+      if (this._unloaded) return
       this.setData({ state: 'invalid', stateMessage: error.message || '客户绑定码已失效' })
-    }
-  },
-
-  toggleConsent() {
-    this.setData({ consentConfirmed: !this.data.consentConfirmed })
-  },
-
-  requestPhoneAuthorization() {
-    if (!this.data.consentConfirmed) {
-      wx.showToast({ title: '请先同意客户资料授权', icon: 'none' })
     }
   },
 
@@ -59,10 +62,6 @@ Page({
   },
 
   async submit(event) {
-    if (!this.data.consentConfirmed) {
-      wx.showToast({ title: '请先同意客户资料授权', icon: 'none' })
-      return
-    }
     const phoneCode = event && event.detail && event.detail.code
     if (!phoneCode) {
       wx.showToast({ title: '需要授权手机号才能完成绑定', icon: 'none' })
@@ -77,13 +76,27 @@ Page({
         phoneCode,
         consentConfirmed: true
       })
+      const pending = pendingBindingService.getPendingBinding()
+      if (pending && pending.refToken === this.data.refToken) pendingBindingService.clearPendingBinding(pending)
       await authService.establishSession(result.session)
       wx.showToast({ title: '绑定成功', icon: 'success' })
       wx.switchTab({ url: '/pages/home/index' })
     } catch (error) {
-      wx.showToast({ title: error.message || '绑定失败，请稍后重试', icon: 'none' })
+      if ([40023, 40024].includes(Number(error.code)) || ['NOT_FOUND', 'VALIDATION', 'FORBIDDEN'].includes(error.kind)) {
+        const pending = pendingBindingService.getPendingBinding()
+        if (pending && pending.refToken === this.data.refToken) pendingBindingService.clearPendingBinding(pending)
+      }
+      if (this._unloaded) return
+      if (Number(error.code) === 40024) {
+        this.setData({ bindingErrorMessage: error.message || '该手机号已是客户顾问账号，不能作为客户绑定' })
+        this._redirectTimer = setTimeout(() => {
+          wx.switchTab({ url: '/pages/home/index' })
+        }, 3000)
+      } else {
+        wx.showToast({ title: error.message || '绑定失败，请稍后重试', icon: 'none' })
+      }
     } finally {
-      this.setData({ submitting: false })
+      if (!this._unloaded) this.setData({ submitting: Boolean(this.data.bindingErrorMessage) })
     }
   },
 

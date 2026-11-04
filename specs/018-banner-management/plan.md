@@ -16,6 +16,8 @@
 
 ## Files
 
+首屏适配调整（2026-11-03）：使用首页局部 flex 容器，将共享导航、轮播、提示和四个入口组合；容器高度为视口减去现有 132rpx Tab 内容、1rpx 边线及底部安全区，轮播分配剩余空间。按最新反馈，原生图片使用 aspectFill 和宽高 100% 铺满，移除轮播上的文案展示；标题字段继续用于后台识别。仅在轮播成功时约束首屏高度，保留其他状态的自然文档流；不增加设备判断或接口。
+
 - `backend/src/models/banner.py`
 - `backend/src/schemas/banner.py`
 - `backend/src/services/banner_service.py`

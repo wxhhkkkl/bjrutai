@@ -4,6 +4,9 @@ const bannerService = require('../../services/banner-service')
 const { normalizeArticleId, adaptArticlePage } = require('../../models/article')
 const { adaptBannerList } = require('../../models/banner')
 const { openAction, updateTabBar } = require('../../services/navigation-service')
+const { resumePendingBinding } = require('../../services/pending-binding-service')
+
+const HOME_SHARE_TITLE = '儒泰医联｜让健康知识，走进日常'
 
 Page({
   articleRequestVersion: 0,
@@ -32,6 +35,26 @@ Page({
     openingBannerId: ''
   },
 
+  onLoad() {
+    wx.showShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
+  },
+
+  onShareAppMessage() {
+    return {
+      title: HOME_SHARE_TITLE,
+      path: '/pages/home/index',
+      imageUrl: '/assets/images/home-share-friend-v1.jpg'
+    }
+  },
+
+  onShareTimeline() {
+    return {
+      title: HOME_SHARE_TITLE,
+      query: '',
+      imageUrl: '/assets/images/home-share-timeline-v1.jpg'
+    }
+  },
+
   onShow() {
     const session = getCurrentSession()
     const entry = getEntry(session)
@@ -43,6 +66,7 @@ Page({
 
     updateTabBar(this, 'home')
     this.setData({ session })
+    resumePendingBinding()
     if (this.data.openingArticleId || this.data.openingBannerId) {
       this.setData({ openingArticleId: '', openingBannerId: '' })
     }
@@ -226,6 +250,11 @@ Page({
       bannerItems,
       bannerState: bannerItems.length ? 'success' : 'empty'
     })
+  },
+
+  onHomeCategoryIconError(e) {
+    const iconKey = e.currentTarget.dataset.iconKey
+    console.error('[home] category icon failed to load', iconKey, e.detail && e.detail.errMsg)
   },
 
   openArticle(e) {

@@ -42,6 +42,28 @@ test('home is a public health-content page while profile keeps its workbench int
   assert.doesNotMatch(home, /mock\/demo-control|mock\/foundation-fixtures/)
 })
 
+test('home category icons use packaged PNG assets and report real-device load failures', () => {
+  const home = fs.readFileSync(path.join(root, 'pages/home/index.js'), 'utf8')
+  const homeMarkup = fs.readFileSync(path.join(root, 'pages/home/index.wxml'), 'utf8')
+  const projectConfig = JSON.parse(fs.readFileSync(path.join(root, 'project.config.json'), 'utf8'))
+  const icons = ['about', 'wellness', 'women', 'articles']
+
+  for (const icon of icons) {
+    const asset = `assets/images/home-category-${icon}-v2.png`
+    assert.ok(fs.existsSync(path.join(root, asset)), `${asset} must exist`)
+    assert.ok(
+      homeMarkup.includes(`src="/${asset}" data-icon-key="${icon}" binderror="onHomeCategoryIconError"`),
+      `${icon} icon must load its PNG and report failures`
+    )
+    assert.ok(
+      !projectConfig.packOptions.ignore.some((entry) => entry.type === 'file' && entry.value === asset),
+      `${asset} must be included in the mini-program package`
+    )
+  }
+
+  assert.match(home, /onHomeCategoryIconError\(e\)/)
+})
+
 test('content requests and profile workbench requests discard stale responses', () => {
   const home = fs.readFileSync(path.join(root, 'pages/home/index.js'), 'utf8')
   const profile = fs.readFileSync(path.join(root, 'pages/profile/index.js'), 'utf8')
@@ -80,7 +102,7 @@ test('profile exposes role-gated customer binding and staff invite entries', () 
   assert.match(source, /title:\s*['"]文章资讯['"]/)
   assert.match(source, /description:\s*['"]阅读最新内容['"]/)
   assert.match(source, /profile-article-icon\.png/)
-  assert.ok(source.indexOf("id: 'article-list'") > source.indexOf("id: 'contribution-detail'"))
+  assert.ok(source.indexOf("id: 'article-list'") > source.indexOf("id: 'contribution-records'"))
   assert.match(source, /adminOnly/)
   assert.match(source, /businessOnly/)
 })
@@ -150,6 +172,24 @@ function loadHome(articleService, bannerService = { listBanners() { return Promi
     }
   }
 }
+
+test('home category icon load errors are logged with the icon key', () => {
+  const fixture = loadHome({ listArticles() { return Promise.resolve({ items: [] }) } })
+  const originalError = console.error
+  const errors = []
+  console.error = (...args) => errors.push(args)
+
+  try {
+    fixture.page.onHomeCategoryIconError({
+      currentTarget: { dataset: { iconKey: 'about' } },
+      detail: { errMsg: 'image decode failed' }
+    })
+    assert.deepEqual(errors, [['[home] category icon failed to load', 'about', 'image decode failed']])
+  } finally {
+    console.error = originalError
+    fixture.restore()
+  }
+})
 
 test('article request failure does not affect the rest of the home content', async () => {
   const fixture = loadHome({

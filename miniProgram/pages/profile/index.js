@@ -43,8 +43,8 @@ const SERVICE_ITEMS = [{
   icon: '/assets/images/profile-records-icon.png',
   businessOnly: true
 }, {
-  id: 'contribution-detail',
-  title: '消费明细',
+  id: 'contribution-records',
+  title: '消费记录',
   description: '查看每笔消费来源',
   icon: '/assets/images/contribution-icon.png',
   businessOnly: true
