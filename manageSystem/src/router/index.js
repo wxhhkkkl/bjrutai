@@ -109,6 +109,12 @@ const routes = [
     meta: { title: '轮播图管理', icon: 'Picture' },
   },
   {
+    path: '/share-configs',
+    name: 'MiniProgramShareConfigs',
+    component: () => import('@/pages/share-configs/index.vue'),
+    meta: { title: '小程序分享配置', icon: 'Share', permission: 'mini_program_shares.read' },
+  },
+  {
     path: '/accounts',
     name: 'Accounts',
     redirect: '/accounts/admins',

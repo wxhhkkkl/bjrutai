@@ -42,26 +42,22 @@ test('home is a public health-content page while profile keeps its workbench int
   assert.doesNotMatch(home, /mock\/demo-control|mock\/foundation-fixtures/)
 })
 
-test('home category icons use packaged PNG assets and report real-device load failures', () => {
-  const home = fs.readFileSync(path.join(root, 'pages/home/index.js'), 'utf8')
+test('home first screen uses a full-banner scroll hint without category icons', () => {
   const homeMarkup = fs.readFileSync(path.join(root, 'pages/home/index.wxml'), 'utf8')
   const projectConfig = JSON.parse(fs.readFileSync(path.join(root, 'project.config.json'), 'utf8'))
   const icons = ['about', 'wellness', 'women', 'articles']
 
+  assert.match(homeMarkup, /class="home-banners__hint"/)
+  assert.match(homeMarkup, /更多精彩请上划/)
+  assert.doesNotMatch(homeMarkup, /home-category|home-categories/)
+
   for (const icon of icons) {
     const asset = `assets/images/home-category-${icon}-v2.png`
-    assert.ok(fs.existsSync(path.join(root, asset)), `${asset} must exist`)
     assert.ok(
-      homeMarkup.includes(`src="/${asset}" data-icon-key="${icon}" binderror="onHomeCategoryIconError"`),
-      `${icon} icon must load its PNG and report failures`
-    )
-    assert.ok(
-      !projectConfig.packOptions.ignore.some((entry) => entry.type === 'file' && entry.value === asset),
-      `${asset} must be included in the mini-program package`
+      projectConfig.packOptions.ignore.some((entry) => entry.type === 'file' && entry.value === asset),
+      `${asset} must be excluded after removing the category icons`
     )
   }
-
-  assert.match(home, /onHomeCategoryIconError\(e\)/)
 })
 
 test('content requests and profile workbench requests discard stale responses', () => {
@@ -172,24 +168,6 @@ function loadHome(articleService, bannerService = { listBanners() { return Promi
     }
   }
 }
-
-test('home category icon load errors are logged with the icon key', () => {
-  const fixture = loadHome({ listArticles() { return Promise.resolve({ items: [] }) } })
-  const originalError = console.error
-  const errors = []
-  console.error = (...args) => errors.push(args)
-
-  try {
-    fixture.page.onHomeCategoryIconError({
-      currentTarget: { dataset: { iconKey: 'about' } },
-      detail: { errMsg: 'image decode failed' }
-    })
-    assert.deepEqual(errors, [['[home] category icon failed to load', 'about', 'image decode failed']])
-  } finally {
-    console.error = originalError
-    fixture.restore()
-  }
-})
 
 test('article request failure does not affect the rest of the home content', async () => {
   const fixture = loadHome({

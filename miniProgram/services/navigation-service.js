@@ -23,8 +23,10 @@ function openAction(actionId, session) {
 function updateTabBar(page, selected) {
   const bar = page.getTabBar && page.getTabBar()
   if (bar) {
-    const session = require('./session-service').getCurrentSession()
-    bar.setData({ selected, tabs: getVisibleTabs(session) })
+    const sessionService = require('./session-service')
+    const session = sessionService.getCurrentSession()
+    const authenticated = Boolean(sessionService.getAccessToken() && session.userId)
+    bar.setData({ selected, tabs: getVisibleTabs(session, authenticated) })
   }
 }
 module.exports = {

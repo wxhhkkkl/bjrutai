@@ -30,6 +30,8 @@ Page({
   },
 
   onLoad(options = {}) {
+    wx.showShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
+
     let articleId
     try {
       articleId = normalizeArticleId(options.articleId)

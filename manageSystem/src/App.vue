@@ -69,6 +69,10 @@
           <el-icon><Picture /></el-icon>
           <span>轮播图管理</span>
         </el-menu-item>
+        <el-menu-item v-if="authStore.hasPermission('mini_program_shares.read')" index="/share-configs">
+          <el-icon><Link /></el-icon>
+          <span>小程序分享配置</span>
+        </el-menu-item>
         <el-menu-item v-if="authStore.hasPermission('feedbacks.read')" index="/feedbacks">
           <el-icon><Document /></el-icon>
           <span>意见与反馈</span>

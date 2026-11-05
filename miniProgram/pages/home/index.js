@@ -1,22 +1,31 @@
 const { getCurrentSession, getEntry } = require('../../services/session-service')
 const articleService = require('../../services/article-service')
 const bannerService = require('../../services/banner-service')
-const { normalizeArticleId, adaptArticlePage } = require('../../models/article')
+const shareConfigService = require('../../services/share-config-service')
+const { normalizeArticleId, adaptArticlePage, adaptArticleCategories } = require('../../models/article')
 const { adaptBannerList } = require('../../models/banner')
 const { openAction, updateTabBar } = require('../../services/navigation-service')
 const { resumePendingBinding } = require('../../services/pending-binding-service')
 
 const HOME_SHARE_TITLE = '儒泰医联｜让健康知识，走进日常'
+const DEFAULT_HOME_CATEGORIES = {
+  about: { id: '', name: '关于儒泰' },
+  wellness: { id: '', name: '心脑维养' },
+  women: { id: '', name: '女性专区' },
+  articles: { id: '', name: '健康资讯' },
+}
 
 Page({
   articleRequestVersion: 0,
   bannerRequestVersion: 0,
+  homeCategoryRequestVersion: 0,
   aboutRequestVersion: 0,
   wellnessRequestVersion: 0,
   womenRequestVersion: 0,
 
   data: {
     session: {},
+    homeCategories: DEFAULT_HOME_CATEGORIES,
     articleState: 'loading',
     articleStateMessage: '',
     articleItems: [],
@@ -40,18 +49,20 @@ Page({
   },
 
   onShareAppMessage() {
+    const config = shareConfigService.getCachedShareConfig('home')
     return {
-      title: HOME_SHARE_TITLE,
-      path: '/pages/home/index',
-      imageUrl: '/assets/images/home-share-friend-v1.jpg'
+      title: config && config.friendTitle || HOME_SHARE_TITLE,
+      path: config && config.landingPath || '/pages/home/index',
+      imageUrl: config && config.friendImageUrl || '/assets/images/home-share-friend-v1.jpg'
     }
   },
 
   onShareTimeline() {
+    const config = shareConfigService.getCachedShareConfig('home')
     return {
-      title: HOME_SHARE_TITLE,
+      title: config && config.timelineTitle || HOME_SHARE_TITLE,
       query: '',
-      imageUrl: '/assets/images/home-share-timeline-v1.jpg'
+      imageUrl: config && config.timelineImageUrl || '/assets/images/home-share-timeline-v1.jpg'
     }
   },
 
@@ -64,22 +75,21 @@ Page({
       return
     }
 
+    shareConfigService.loadShareConfig('home')
     updateTabBar(this, 'home')
     this.setData({ session })
     resumePendingBinding()
     if (this.data.openingArticleId || this.data.openingBannerId) {
       this.setData({ openingArticleId: '', openingBannerId: '' })
     }
-    this.loadArticles()
-    this.loadAboutArticle()
-    this.loadWellnessArticle()
-    this.loadWomenArticle()
+    this.loadHomeCategories()
     this.loadBanners()
   },
 
   onHide() {
     this.articleRequestVersion += 1
     this.bannerRequestVersion += 1
+    this.homeCategoryRequestVersion += 1
     this.aboutRequestVersion += 1
     this.wellnessRequestVersion += 1
     this.womenRequestVersion += 1
@@ -88,12 +98,38 @@ Page({
   onUnload() {
     this.articleRequestVersion += 1
     this.bannerRequestVersion += 1
+    this.homeCategoryRequestVersion += 1
     this.aboutRequestVersion += 1
     this.wellnessRequestVersion += 1
     this.womenRequestVersion += 1
   },
 
-  async loadArticles() {
+  async loadHomeCategories() {
+    const version = ++this.homeCategoryRequestVersion
+    const homeCategories = Object.assign({}, DEFAULT_HOME_CATEGORIES)
+
+    try {
+      const payload = await articleService.listArticleCategories()
+      if (version !== this.homeCategoryRequestVersion) return
+      const categories = adaptArticleCategories(payload)
+      categories.forEach((category) => {
+        if (Object.prototype.hasOwnProperty.call(homeCategories, category.homeSectionKey)) {
+          homeCategories[category.homeSectionKey] = { id: category.id, name: category.name }
+        }
+      })
+    } catch (error) {
+      console.warn('[home] load category names failed; use defaults', error)
+    }
+
+    if (version !== this.homeCategoryRequestVersion) return
+    this.setData({ homeCategories })
+    this.loadArticles(homeCategories.articles)
+    this.loadAboutArticle(homeCategories.about)
+    this.loadWellnessArticle(homeCategories.wellness)
+    this.loadWomenArticle(homeCategories.women)
+  },
+
+  async loadArticles(category = this.data.homeCategories.articles) {
     const version = ++this.articleRequestVersion
     this.setData({
       articleState: 'loading',
@@ -102,13 +138,18 @@ Page({
     })
 
     try {
-      const payload = await articleService.listArticles({ limit: 20 })
+      const payload = await articleService.listArticles(category && category.id
+        ? { categoryId: category.id, limit: 20 }
+        : { limit: 20 })
       if (version !== this.articleRequestVersion) return
       const page = adaptArticlePage(payload)
-      // 资讯优先展示其他分类，再用女性专区未在上方展示的文章补足。
-      const womenItems = page.items.filter((item) => item.category === '女性专区')
-      const otherItems = page.items.filter((item) => item.category !== '关于儒泰' && item.category !== '女性专区')
-      const items = otherItems.concat(womenItems.slice(3)).slice(0, 3)
+      let items = page.items.slice(0, 3)
+      if (!category || !category.id) {
+        const womenItems = page.items.filter((item) => item.category === this.data.homeCategories.women.name)
+        const otherItems = page.items.filter((item) => item.category !== this.data.homeCategories.about.name
+          && item.category !== this.data.homeCategories.women.name)
+        items = otherItems.concat(womenItems.slice(3)).slice(0, 3)
+      }
       this.setData({
         articleState: items.length ? 'success' : 'empty',
         articleStateMessage: items.length ? '' : '暂无已发布文章',
@@ -125,10 +166,10 @@ Page({
   },
 
   retryArticles() {
-    this.loadArticles()
+    this.loadArticles(this.data.homeCategories.articles)
   },
 
-  async loadAboutArticle() {
+  async loadAboutArticle(category = this.data.homeCategories.about) {
     const version = ++this.aboutRequestVersion
     this.setData({
       aboutState: 'loading',
@@ -137,7 +178,9 @@ Page({
     })
 
     try {
-      const payload = await articleService.listArticles({ category: '关于儒泰', limit: 3 })
+      const payload = await articleService.listArticles(category && category.id
+        ? { categoryId: category.id, limit: 3 }
+        : { category: '关于儒泰', limit: 3 })
       if (version !== this.aboutRequestVersion) return
       const page = adaptArticlePage(payload)
       const items = page.items.slice(0, 3)
@@ -156,7 +199,7 @@ Page({
     }
   },
 
-  async loadWellnessArticle() {
+  async loadWellnessArticle(category = this.data.homeCategories.wellness) {
     const version = ++this.wellnessRequestVersion
     this.setData({
       wellnessState: 'loading',
@@ -165,7 +208,9 @@ Page({
     })
 
     try {
-      const payload = await articleService.listArticles({ category: '心脑维养', limit: 3 })
+      const payload = await articleService.listArticles(category && category.id
+        ? { categoryId: category.id, limit: 3 }
+        : { category: '心脑维养', limit: 3 })
       if (version !== this.wellnessRequestVersion) return
       const page = adaptArticlePage(payload)
       const items = page.items.slice(0, 3)
@@ -184,7 +229,7 @@ Page({
     }
   },
 
-  async loadWomenArticle() {
+  async loadWomenArticle(category = this.data.homeCategories.women) {
     const version = ++this.womenRequestVersion
     this.setData({
       womenState: 'loading',
@@ -193,7 +238,9 @@ Page({
     })
 
     try {
-      const payload = await articleService.listArticles({ category: '女性专区', limit: 3 })
+      const payload = await articleService.listArticles(category && category.id
+        ? { categoryId: category.id, limit: 3 }
+        : { category: '女性专区', limit: 3 })
       if (version !== this.womenRequestVersion) return
       const page = adaptArticlePage(payload)
       const items = page.items.slice(0, 3)
@@ -273,12 +320,28 @@ Page({
   },
 
   openArticleCategory(e) {
-    const category = typeof e.currentTarget.dataset.category === 'string'
+    const rawCategoryId = e.currentTarget.dataset.categoryId
+    let categoryId = ''
+    if (rawCategoryId !== undefined && rawCategoryId !== null && String(rawCategoryId).trim()) {
+      try {
+        categoryId = normalizeArticleId(rawCategoryId)
+      } catch (error) {
+        // Fall back to the legacy name query when a category ID is unavailable.
+      }
+    }
+    const homeCategory = categoryId
+      ? Object.values(this.data.homeCategories || {}).find((item) => item.id === categoryId)
+      : null
+    const category = homeCategory && homeCategory.name || (typeof e.currentTarget.dataset.category === 'string'
       ? e.currentTarget.dataset.category.trim()
-      : ''
+      : '')
     if (!category) return
+
+    const query = categoryId
+      ? `categoryId=${encodeURIComponent(categoryId)}`
+      : `category=${encodeURIComponent(category)}`
     wx.navigateTo({
-      url: `/pages/articles/index?category=${encodeURIComponent(category)}`
+      url: `/pages/articles/index?${query}&categoryName=${encodeURIComponent(category)}`
     })
   },
 

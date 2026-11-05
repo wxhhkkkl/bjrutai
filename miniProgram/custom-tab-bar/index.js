@@ -9,7 +9,9 @@ Component({
     },
     lifetimes: {
         attached() {
-            this.setData({ tabs: getVisibleTabs(getCurrentSession()) })
+            const session = getCurrentSession()
+            const authenticated = Boolean(getAccessToken() && session.userId)
+            this.setData({ tabs: getVisibleTabs(session, authenticated) })
         }
     },
     methods: {

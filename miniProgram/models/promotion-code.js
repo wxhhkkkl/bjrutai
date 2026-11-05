@@ -35,14 +35,18 @@ function getPromotionProfile(session = {}) {
   };
 }
 
-function createPromotionShare(profile) {
+function createPromotionShare(profile, shareConfig) {
   const value = profile || getPromotionProfile();
+  const config = shareConfig || {};
   const fallbackPath = `/pages/patient-binding/index?refToken=${encodeURIComponent(value.refToken || '')}`;
+  const configuredPath = config.landingPath
+    ? config.landingPath.replace('{refToken}', encodeURIComponent(value.refToken || ''))
+    : '';
 
   return {
-    title: '儒泰医联｜您的专属健康服务入口',
-    path: value.sharePath || fallbackPath,
-    imageUrl: '/assets/images/promotion-share-friend-v1.jpg'
+    title: config.friendTitle || '儒泰医联｜您的专属健康服务入口',
+    path: configuredPath || value.sharePath || fallbackPath,
+    imageUrl: config.friendImageUrl || '/assets/images/promotion-share-friend-v1.jpg'
   };
 }
 

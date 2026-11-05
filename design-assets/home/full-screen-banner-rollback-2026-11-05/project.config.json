@@ -1,0 +1,65 @@
+{
+  "appid": "wxbc6c9855274949f4",
+  "compileType": "miniprogram",
+  "libVersion": "trial",
+  "packOptions": {
+    "ignore": [
+      { "type": "folder", "value": "node_modules" },
+      { "type": "folder", "value": "tests" },
+      { "type": "folder", "value": "specs" },
+      { "type": "folder", "value": ".agents" },
+      { "type": "folder", "value": ".specify" },
+      { "type": "folder", "value": "mock" },
+      { "type": "file", "value": "README.md" },
+      { "type": "file", "value": "AGENTS.md" },
+      { "type": "file", "value": "CLAUDE.md" },
+      { "type": "file", "value": "assets/images/about-lutai-enterprise-cover-v1.png" },
+      { "type": "file", "value": "assets/images/home-category-about-v2.webp" },
+      { "type": "file", "value": "assets/images/home-category-articles-v2.webp" },
+      { "type": "file", "value": "assets/images/home-category-wellness-v2.webp" },
+      { "type": "file", "value": "assets/images/home-category-women-v2.webp" },
+      { "type": "file", "value": "assets/images/home-about-icon-v1.png" },
+      { "type": "file", "value": "assets/images/home-article-icon-v1.png" },
+      { "type": "file", "value": "assets/images/home-brand-icon-v1.png" },
+      { "type": "file", "value": "assets/images/home-banner-visual-v2.jpg" },
+      { "type": "file", "value": "assets/images/home-wellness-icon-v1.png" },
+      { "type": "file", "value": "assets/images/customer-bind-icon.png" },
+      { "type": "file", "value": "assets/images/team-pending-icon.png" }
+    ],
+    "include": []
+  },
+  "miniprogramRoot": "./",
+  "setting": {
+    "urlCheck": false,
+    "coverView": true,
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "enhance": true,
+    "showShadowRootInWxmlPanel": true,
+    "packNpmRelationList": [],
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    },
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": false,
+    "packNpmManually": false,
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false
+  },
+  "condition": {},
+  "editorSetting": {
+    "tabIndent": "auto",
+    "tabSize": 2
+  },
+  "simulatorPluginLibVersion": {}
+}

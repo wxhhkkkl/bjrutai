@@ -2,7 +2,6 @@ const articleService = require('../../services/article-service')
 const {
   normalizeArticleId,
   adaptArticlePage,
-  adaptArticleCategories,
   mergeArticlePage
 } = require('../../models/article')
 
@@ -17,8 +16,9 @@ Page({
     hasMore: false,
     loadingMore: false,
     loadMoreError: '',
-    categories: [{ id: 'all', name: '全部', value: '' }],
+    pageTitle: '文章资讯',
     selectedCategory: '',
+    selectedCategoryId: '',
     openingArticleId: ''
   },
 
@@ -30,9 +30,23 @@ Page({
       // 保留原始参数，后续由接口返回统一错误。
     }
     if (category.length > 50) category = category.slice(0, 50)
+    let categoryName = typeof options.categoryName === 'string' ? options.categoryName.trim() : ''
+    try {
+      categoryName = decodeURIComponent(categoryName).trim()
+    } catch (error) {
+      // 保留原始参数，标题仍限制为分类名称长度。
+    }
+    if (categoryName.length > 50) categoryName = categoryName.slice(0, 50)
+    let categoryId = ''
+    try {
+      categoryId = options.categoryId ? normalizeArticleId(options.categoryId) : ''
+    } catch (error) {
+      categoryId = ''
+    }
+    const pageTitle = categoryName || category || '文章资讯'
     this.data.selectedCategory = category
-    this.setData({ selectedCategory: category })
-    this.loadCategories()
+    this.data.selectedCategoryId = categoryId
+    this.setData({ pageTitle, selectedCategory: category, selectedCategoryId: categoryId })
     this.loadFirstPage(false)
   },
 
@@ -58,7 +72,10 @@ Page({
     })
 
     try {
-      const payload = await articleService.listArticles({ limit: 20, category })
+      const query = { limit: 20 }
+      if (this.data.selectedCategoryId) query.categoryId = this.data.selectedCategoryId
+      else if (category) query.category = category
+      const payload = await articleService.listArticles(query)
       if (version !== this.requestVersion) return
       const page = adaptArticlePage(payload)
       this.setData({
@@ -95,11 +112,10 @@ Page({
     this.setData({ loadingMore: true, loadMoreError: '' })
 
     try {
-      const payload = await articleService.listArticles({
-        limit: 20,
-        cursor: currentCursor,
-        category
-      })
+      const query = { limit: 20, cursor: currentCursor }
+      if (this.data.selectedCategoryId) query.categoryId = this.data.selectedCategoryId
+      else if (category) query.category = category
+      const payload = await articleService.listArticles(query)
       if (version !== this.requestVersion) return
       const page = adaptArticlePage(payload)
       const merged = mergeArticlePage(this.data.items, page, currentCursor)
@@ -125,32 +141,6 @@ Page({
 
   retryLoadMore() {
     this.loadMore()
-  },
-
-  async loadCategories() {
-    try {
-      const payload = await articleService.listArticleCategories()
-      const categories = adaptArticleCategories(payload).map((category) => ({
-        id: category.id,
-        name: category.name,
-        value: category.name
-      }))
-      this.setData({
-        categories: [{ id: 'all', name: '全部', value: '' }].concat(categories)
-      })
-    } catch (error) {
-      // 分类只是辅助筛选；读取失败时仍允许用户浏览全部文章。
-      this.setData({ categories: [{ id: 'all', name: '全部', value: '' }] })
-    }
-  },
-
-  selectCategory(event) {
-    const category = typeof event.currentTarget.dataset.category === 'string'
-      ? event.currentTarget.dataset.category
-      : ''
-    if (category === this.data.selectedCategory) return
-    this.setData({ selectedCategory: category })
-    this.loadFirstPage(false)
   },
 
   openArticle(event) {

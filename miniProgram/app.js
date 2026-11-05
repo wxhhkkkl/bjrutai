@@ -1,9 +1,11 @@
 const { getRuntimeEnvironment } = require('./config/env')
 const sessionService = require('./services/session-service')
 const { clearPendingBinding } = require('./services/pending-binding-service')
+const shareConfigService = require('./services/share-config-service')
 // 首页是小程序的首个页面，启动时先注册认证刷新处理器，
 // 确保访问令牌过期后 request-service 能自动刷新或返回访客首页。
 require('./services/auth-service')
+shareConfigService.installGlobalShareHooks()
 
 const SESSION_API_BASE_KEY = 'lutai_session_api_base'
 

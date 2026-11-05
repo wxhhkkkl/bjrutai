@@ -17,7 +17,14 @@
       { "type": "file", "value": "assets/images/home-category-about-v2.webp" },
       { "type": "file", "value": "assets/images/home-category-articles-v2.webp" },
       { "type": "file", "value": "assets/images/home-category-wellness-v2.webp" },
-      { "type": "file", "value": "assets/images/home-category-women-v2.webp" }
+      { "type": "file", "value": "assets/images/home-category-women-v2.webp" },
+      { "type": "file", "value": "assets/images/home-about-icon-v1.png" },
+      { "type": "file", "value": "assets/images/home-article-icon-v1.png" },
+      { "type": "file", "value": "assets/images/home-brand-icon-v1.png" },
+      { "type": "file", "value": "assets/images/home-banner-visual-v2.jpg" },
+      { "type": "file", "value": "assets/images/home-wellness-icon-v1.png" },
+      { "type": "file", "value": "assets/images/customer-bind-icon.png" },
+      { "type": "file", "value": "assets/images/team-pending-icon.png" }
     ],
     "include": []
   },

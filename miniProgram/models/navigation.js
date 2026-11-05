@@ -15,13 +15,15 @@ const TAB_ITEMS = [{
         id: 'internet-hospital',
         label: '互联网医院',
         pagePath: '/pages/internet-hospital/index',
-        icon: 'hotel-o'
+        icon: 'hotel-o',
+        requiresLogin: true
     },
     {
         id: 'mall',
         label: '商城',
         pagePath: '/pages/mall/index',
-        icon: 'cart-o'
+        icon: 'cart-o',
+        requiresLogin: true
     },
     {
         id: 'profile',
@@ -31,12 +33,15 @@ const TAB_ITEMS = [{
     }
 ]
 
-function getVisibleTabs(session) {
+function getVisibleTabs(session, authenticated = Boolean(session && session.userId)) {
     const businessReady = Boolean(
         session && session.hasBusinessMembership === true &&
         session.membershipStatus !== 'disabled' && session.orgStatus !== 'disabled'
     )
-    return TAB_ITEMS.filter((item) => !item.businessOnly || businessReady)
+    return TAB_ITEMS.filter((item) => (
+        (!item.businessOnly || businessReady) &&
+        (!item.requiresLogin || authenticated)
+    ))
 }
 
 const ACTION_TARGETS = {

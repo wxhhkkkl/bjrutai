@@ -10,7 +10,7 @@
         </view> -->
 
         <view wx:if="{{bannerState === 'success'}}" class="home-banners">
-            <swiper class="home-banners__swiper" autoplay="{{bannerItems.length > 1}}" circular="{{bannerItems.length > 1}}" interval="4500" duration="380" indicator-dots="{{bannerItems.length > 1}}" indicator-color="rgba(255,255,255,.42)" indicator-active-color="#ffffff">
+            <swiper class="home-banners__swiper" autoplay="{{bannerItems.length > 1}}" circular="{{bannerItems.length > 1}}" interval="4500" duration="380" indicator-dots="{{bannerItems.length > 1}}" indicator-color="rgba(35, 105, 98, .35)" indicator-active-color="#237b74">
                 <swiper-item wx:for="{{bannerItems}}" wx:key="bannerId">
                     <view class="home-banners__item tap-target" data-id="{{item.bannerId}}" bindtap="openBanner" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
                         <image class="home-banners__image" src="{{item.imageUrl}}" mode="aspectFill" binderror="hideBrokenBanner" data-id="{{item.bannerId}}" />
@@ -27,21 +27,21 @@
                 <view class="home-categories__line"></view>
             </view>
             <view class="home-categories__list">
-                <button class="home-category tap-target" data-category="关于儒泰" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" aria-label="查看关于儒泰文章">
+                <button class="home-category tap-target" data-category-id="{{homeCategories.about.id}}" data-category="关于儒泰" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" aria-label="查看{{homeCategories.about.name || '关于儒泰'}}文章">
                     <image class="home-category__image" src="/assets/images/home-category-about-v2.png" data-icon-key="about" binderror="onHomeCategoryIconError" mode="aspectFit" />
-                    <text class="home-category__label">关于儒泰</text>
+                    <text class="home-category__label">{{homeCategories.about.name || '关于儒泰'}}</text>
                 </button>
-                <button class="home-category tap-target" data-category="心脑维养" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" aria-label="查看心脑维养文章">
+                <button class="home-category tap-target" data-category-id="{{homeCategories.wellness.id}}" data-category="心脑维养" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" aria-label="查看{{homeCategories.wellness.name || '心脑维养'}}文章">
                     <image class="home-category__image" src="/assets/images/home-category-wellness-v2.png" data-icon-key="wellness" binderror="onHomeCategoryIconError" mode="aspectFit" />
-                    <text class="home-category__label">心脑维养</text>
+                    <text class="home-category__label">{{homeCategories.wellness.name || '心脑维养'}}</text>
                 </button>
-                <button class="home-category tap-target" data-category="女性专区" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" aria-label="查看女性专区文章">
+                <button class="home-category tap-target" data-category-id="{{homeCategories.women.id}}" data-category="女性专区" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" aria-label="查看{{homeCategories.women.name || '女性专区'}}文章">
                     <image class="home-category__image" src="/assets/images/home-category-women-v2.png" data-icon-key="women" binderror="onHomeCategoryIconError" mode="aspectFit" />
-                    <text class="home-category__label">女性专区</text>
+                    <text class="home-category__label">{{homeCategories.women.name || '女性专区'}}</text>
                 </button>
-                <button class="home-category tap-target" data-id="article-list" bindtap="action" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" aria-label="查看全部健康资讯">
+                <button class="home-category tap-target" data-id="article-list" data-category-id="{{homeCategories.articles.id}}" data-category="健康资讯" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" aria-label="查看{{homeCategories.articles.name || '健康资讯'}}">
                     <image class="home-category__image" src="/assets/images/home-category-articles-v2.png" data-icon-key="articles" binderror="onHomeCategoryIconError" mode="aspectFit" />
-                    <text class="home-category__label">健康资讯</text>
+                    <text class="home-category__label">{{homeCategories.articles.name || '健康资讯'}}</text>
                 </button>
             </view>
         </view>
@@ -52,10 +52,10 @@
         <view class="home-section home-section--about">
             <view class="section-heading about-heading">
                 <view>
-                    <text class="section-title">关于儒泰</text>
+                    <text class="section-title">{{homeCategories.about.name || '关于儒泰'}}</text>
                     <text class="section-subtitle">以专业与温度，陪伴每一次健康选择</text>
                 </view>
-                <text class="section-more tap-target" data-category="关于儒泰" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">了解更多 <text>›</text></text>
+                <text class="section-more tap-target" data-category-id="{{homeCategories.about.id}}" data-category="关于儒泰" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">了解更多 <text>›</text></text>
             </view>
             <view wx:if="{{aboutState === 'success'}}">
                 <view class="about-story tap-target" data-id="{{aboutLead.articleId}}" bindtap="openArticle" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
@@ -72,17 +72,17 @@
                 </view>
             </view>
             <view wx:elif="{{aboutState === 'loading'}}" class="about-state">正在载入儒泰故事…</view>
-            <view wx:elif="{{aboutState === 'empty'}}" class="about-state">暂无“关于儒泰”分类文章</view>
+            <view wx:elif="{{aboutState === 'empty'}}" class="about-state">暂无“{{homeCategories.about.name || '关于儒泰'}}”分类文章</view>
             <view wx:else class="about-state about-state--error">关于儒泰文章加载失败，请稍后重试</view>
         </view>
 
         <view class="home-section home-section--wellness">
             <view class="section-heading">
                 <view>
-                    <text class="section-title">心脑维养</text>
+                    <text class="section-title">{{homeCategories.wellness.name || '心脑维养'}}</text>
                     <text class="section-subtitle">从日常开始，守护心脑健康</text>
                 </view>
-                <text class="section-more tap-target" data-category="心脑维养" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">查看全部 <text>›</text></text>
+                <text class="section-more tap-target" data-category-id="{{homeCategories.wellness.id}}" data-category="心脑维养" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">查看全部 <text>›</text></text>
             </view>
             <view wx:if="{{wellnessState === 'success'}}">
                 <view class="wellness-feature tap-target" data-id="{{wellnessLead.articleId}}" bindtap="openArticle" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
@@ -98,14 +98,14 @@
                 <view wx:if="{{wellnessSupportingItems.length}}" class="wellness-grid">
                     <view wx:for="{{wellnessSupportingItems}}" wx:key="articleId" class="wellness-mini tap-target" data-id="{{item.articleId}}" bindtap="openArticle" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
                         <text class="wellness-mini__index">0{{index + 2}}</text>
-                        <text class="wellness-mini__category">心脑维养</text>
+                        <text class="wellness-mini__category">{{homeCategories.wellness.name || '心脑维养'}}</text>
                         <text class="wellness-mini__title">{{item.title}}</text>
                         <text class="wellness-mini__more">阅读全文 <text>›</text></text>
                     </view>
                 </view>
             </view>
-            <view wx:elif="{{wellnessState === 'loading'}}" class="content-state">正在整理心脑维养内容…</view>
-            <view wx:elif="{{wellnessState === 'empty'}}" class="content-state">暂无“心脑维养”分类文章</view>
+            <view wx:elif="{{wellnessState === 'loading'}}" class="content-state">正在整理{{homeCategories.wellness.name || '心脑维养'}}内容…</view>
+            <view wx:elif="{{wellnessState === 'empty'}}" class="content-state">暂无“{{homeCategories.wellness.name || '心脑维养'}}”分类文章</view>
             <view wx:else class="content-state content-state--error">心脑维养文章加载失败，请稍后重试</view>
         </view>
 
@@ -113,10 +113,10 @@
             <text class="women-heading__eyebrow">WOMEN'S HEALTH</text>
             <view class="women-heading">
                 <view class="women-heading__copy">
-                    <text class="women-heading__title">女性专区</text>
+                    <text class="women-heading__title">{{homeCategories.women.name || '女性专区'}}</text>
                     <text class="women-heading__subtitle">每个阶段，都值得被好好照顾</text>
                 </view>
-                <view class="women-heading__link tap-target" data-category="女性专区" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">全部文章 <text>↗</text></view>
+                <view class="women-heading__link tap-target" data-category-id="{{homeCategories.women.id}}" data-category="女性专区" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">全部文章 <text>↗</text></view>
             </view>
 
             <view wx:if="{{womenState === 'success'}}" class="women-content">
@@ -144,18 +144,18 @@
                     </view>
                 </view>
             </view>
-            <view wx:elif="{{womenState === 'loading'}}" class="women-state">正在载入女性专区内容…</view>
-            <view wx:elif="{{womenState === 'empty'}}" class="women-state">暂无“女性专区”分类文章</view>
+            <view wx:elif="{{womenState === 'loading'}}" class="women-state">正在载入{{homeCategories.women.name || '女性专区'}}内容…</view>
+            <view wx:elif="{{womenState === 'empty'}}" class="women-state">暂无“{{homeCategories.women.name || '女性专区'}}”分类文章</view>
             <view wx:else class="women-state women-state--error">女性专区文章加载失败，请稍后重试</view>
         </view>
 
         <view class="home-section home-section--articles">
             <view class="section-heading article-heading">
                 <view>
-                    <text class="section-title">健康资讯</text>
+                    <text class="section-title">{{homeCategories.articles.name || '健康资讯'}}</text>
                     <text class="section-subtitle">看见健康，也看见更好的生活</text>
                 </view>
-                <text class="section-more tap-target" data-id="article-list" bindtap="action" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">查看全部 <text>›</text></text>
+                <text class="section-more tap-target" data-category-id="{{homeCategories.articles.id}}" data-category="健康资讯" bindtap="openArticleCategory" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">查看全部 <text>›</text></text>
             </view>
 
             <view wx:if="{{articleState === 'loading'}}" class="content-state">资讯加载中…</view>

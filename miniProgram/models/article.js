@@ -313,7 +313,10 @@ function adaptArticleCategories(value) {
     }
     if (!name || name.length > 50 || knownIds.has(id)) return categories
     knownIds.add(id)
-    categories.push({ id, name })
+    const category = { id, name }
+    const homeSectionKey = optionalText(item && item.homeSectionKey)
+    if (homeSectionKey) category.homeSectionKey = homeSectionKey
+    categories.push(category)
     return categories
   }, [])
 }

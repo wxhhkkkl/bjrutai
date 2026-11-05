@@ -124,8 +124,10 @@ async def lifespan(app: FastAPI):
 
         # T019: Seed system admin role and assign to default admin (idempotent)
         from .services.seed_service import seed_default_category, seed_system_admin_role
+        from .services.share_config_service import seed_share_configs
         await seed_system_admin_role(seed_db)
         await seed_default_category(seed_db)
+        await seed_share_configs(seed_db)
         await seed_db.commit()
 
     try:
@@ -306,6 +308,7 @@ from .api.v1.org_performance import router as org_performance_router
 from .api.v1.admin_categories import router as admin_categories_router
 from .api.v1.admin_articles import router as admin_articles_router
 from .api.v1.admin_banners import router as admin_banners_router
+from .api.v1.admin_share_configs import router as admin_share_configs_router
 from .api.v1.cos_upload import router as cos_upload_router
 from .api.v1.admin_sync import router as admin_sync_router
 from .api.v1.admin_comments import router as admin_comments_router
@@ -314,6 +317,7 @@ from .api.v1.articles import router as articles_router
 from .api.v1.article_comments import router as article_comments_router
 from .api.v1.article_videos import router as article_videos_router
 from .api.v1.banners import router as banners_router
+from .api.v1.share_configs import router as share_configs_router
 from .api.v1.auth import router as auth_router
 from .api.v1.app import router as app_router
 from .api.v1.binding import router as binding_router
@@ -342,6 +346,8 @@ app.include_router(admin_categories_router, prefix="/api/v1")
 app.include_router(admin_articles_router, prefix="/api/v1")
 app.include_router(article_videos_router, prefix="/api/v1")
 app.include_router(admin_banners_router, prefix="/api/v1")
+app.include_router(admin_share_configs_router, prefix="/api/v1")
+app.include_router(share_configs_router, prefix="/api/v1")
 app.include_router(cos_upload_router, prefix="/api/v1")
 app.include_router(admin_sync_router, prefix="/api/v1")
 app.include_router(admin_feedbacks_router, prefix="/api/v1")

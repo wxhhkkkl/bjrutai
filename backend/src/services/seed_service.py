@@ -31,6 +31,7 @@ _ALL_PERMISSIONS = {
         "distributor.read", "distributor.write",
         "org_admin.write",
         "sharing_rules.read", "sharing_rules.write",
+        "mini_program_shares.read", "mini_program_shares.write",
         "performance.settle",
         "sync.read", "sync.write",
     ]

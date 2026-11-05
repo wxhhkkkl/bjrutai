@@ -1,18 +1,18 @@
 page {
     height: 100%;
     overflow: hidden;
-    background: #f5f8f7;
+    background: #ffffff;
 }
 
 .home-scroll {
     height: 100vh;
-    background: #f5f8f7;
+    background: #ffffff;
 }
 
 .home-first-screen {
     display: flex;
     flex-direction: column;
-    background: #123f42;
+    background: #ffffff;
 }
 
 .home-first-screen--with-banner {
@@ -67,7 +67,7 @@ page {
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    background: #123f42;
+    background: #ffffff;
 }
 
 .home-banners__swiper,
@@ -92,20 +92,20 @@ page {
     bottom: 0;
     left: 0;
     height: 210rpx;
-    background: linear-gradient(180deg, rgba(18, 63, 66, 0) 0%, rgba(18, 63, 66, 0.62) 56%, #123f42 100%);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.62) 56%, #ffffff 100%);
 }
 
 .home-categories {
     flex-shrink: 0;
     padding: 26rpx 24rpx 24rpx;
-    background: #123f42;
+    background: #ffffff;
 }
 
 .home-categories__hint {
     display: flex;
     align-items: center;
     gap: 12rpx;
-    color: #d6eae5;
+    color: #637976;
     font-size: 28rpx;
     font-weight: 500;
     line-height: 1.5;
@@ -120,7 +120,7 @@ page {
     flex: 1;
     height: 3rpx;
     border-radius: 3rpx;
-    background: #7ca8a1;
+    background: #d5e2df;
 }
 
 .home-categories__list {
@@ -150,7 +150,7 @@ page {
 }
 
 .home-category__label {
-    color: #f4f6ed;
+    color: #294b49;
     font-size: 26rpx;
     font-weight: 600;
     white-space: nowrap;
@@ -172,7 +172,7 @@ page {
 .home-section--about {
     margin-top: 0;
     padding: 48rpx 24rpx 42rpx;
-    background: #123f42;
+    background: #ffffff;
 }
 
 .section-heading {
@@ -722,15 +722,15 @@ page {
 }
 
 .about-heading .section-title {
-    color: #ffffff;
+    color: #173137;
 }
 
 .about-heading .section-subtitle {
-    color: rgba(223, 241, 238, 0.7);
+    color: #657475;
 }
 
 .about-heading .section-more {
-    color: #b8e2da;
+    color: #27847e;
 }
 
 .about-story {
@@ -763,7 +763,7 @@ page {
     padding: 20rpx 2rpx;
     box-sizing: border-box;
     align-items: center;
-    border-bottom: 1rpx solid rgba(206, 233, 227, 0.18);
+    border-bottom: 1rpx solid #e2ebe8;
 }
 
 .about-link:last-child {
@@ -780,7 +780,7 @@ page {
 .about-link__title {
     display: block;
     overflow: hidden;
-    color: #ffffff;
+    color: #243b40;
     font-size: 28rpx;
     font-weight: 600;
     line-height: 1.35;
@@ -792,7 +792,7 @@ page {
     display: block;
     margin-top: 5rpx;
     overflow: hidden;
-    color: rgba(218, 239, 234, 0.67);
+    color: #829194;
     font-size: 23rpx;
     line-height: 1.35;
     white-space: nowrap;
@@ -801,7 +801,7 @@ page {
 
 .about-link__arrow {
     margin-left: 16rpx;
-    color: #b3dcd4;
+    color: #438980;
     font-size: 36rpx;
     font-weight: 300;
     line-height: 1;
@@ -815,16 +815,16 @@ page {
     box-sizing: border-box;
     align-items: center;
     justify-content: center;
-    color: rgba(225, 242, 238, 0.73);
+    color: #748582;
     font-size: 26rpx;
     line-height: 1.5;
     text-align: center;
-    border: 1rpx solid rgba(206, 233, 227, 0.22);
+    border: 1rpx solid #e2ebe8;
     border-radius: 18rpx;
 }
 
 .about-state--error {
-    color: #f0c6b8;
+    color: #a45f50;
 }
 
 .tap-feedback {

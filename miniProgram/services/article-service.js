@@ -16,10 +16,19 @@ function normalizeCategory(value) {
   return category
 }
 
+function normalizeCategoryId(value) {
+  if (value === undefined || value === null || value === '') return ''
+  const categoryId = String(value).trim()
+  if (!/^[1-9]\d*$/.test(categoryId)) throw new Error('文章分类 ID 必须为正整数')
+  return categoryId
+}
+
 function listArticles(options = {}) {
   const data = { limit: normalizeLimit(options.limit) }
   const category = normalizeCategory(options.category)
+  const categoryId = normalizeCategoryId(options.categoryId)
   if (category) data.category = category
+  if (categoryId) data.category_id = categoryId
   if (options.cursor !== undefined && options.cursor !== null && options.cursor !== '') {
     data.cursor = String(options.cursor)
   }

@@ -26,13 +26,21 @@ async def list_article_categories(
     )
     categories = result.scalars().all()
     return _build_response(0, "success", {
-        "items": [{"id": str(category.id), "name": category.name} for category in categories]
+        "items": [
+            {
+                "id": str(category.id),
+                "name": category.name,
+                "homeSectionKey": category.home_section_key,
+            }
+            for category in categories
+        ]
     })
 
 
 @router.get("")
 async def list_articles(
     category: str | None = Query(None, max_length=50, description="Category filter"),
+    category_id: int | None = Query(None, ge=1, description="Stable category ID filter"),
     keyword: str | None = Query(None, max_length=100, description="Search title or summary"),
     cursor: str | None = Query(None, max_length=256, description="Pagination cursor"),
     limit: int = Query(20, ge=1, le=100, description="Page size"),
@@ -40,7 +48,12 @@ async def list_articles(
 ):
     """List published articles. Supports category filter, keyword search, and cursor pagination."""
     result = await list_public(
-        db, category=category, keyword=keyword, cursor=cursor, page_size=limit
+        db,
+        category=category,
+        category_id=category_id,
+        keyword=keyword,
+        cursor=cursor,
+        page_size=limit,
     )
     return _build_response(0, "success", result)
 

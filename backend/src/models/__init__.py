@@ -26,6 +26,7 @@ from .category import ArticleCategory  # noqa: F401
 from .article import Article  # noqa: F401
 from .article_video import ArticleVideo, VideoStatus  # noqa: F401
 from .banner import Banner  # noqa: F401
+from .share_config import MiniProgramShareConfig  # noqa: F401
 from .followup import FollowupRecord  # noqa: F401
 from .consent import Agreement, ConsentRecord  # noqa: F401
 from .notification import Notification  # noqa: F401

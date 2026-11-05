@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.database import get_db
@@ -35,6 +35,7 @@ async def list_categories(
     )
     categories = result.scalars().all()
     items = [{"id": str(c.id), "name": c.name, "sort_order": c.sort_order,
+              "home_section_key": c.home_section_key,
               "created_at": c.created_at.isoformat() if c.created_at else None}
              for c in categories]
     return _build_response(0, "success", {"items": items})
@@ -76,7 +77,12 @@ async def update_category(
             select(ArticleCategory).where(ArticleCategory.name == body.name))
         if existing.scalars().first() and body.name != cat.name:
             raise ConflictException(message="分类名称已存在", code=40901)
+        name_changed = body.name != cat.name
         cat.name = body.name
+        if name_changed:
+            await db.execute(
+                update(Article).where(Article.category_id == cat.id).values(category=cat.name)
+            )
     if body.sort_order is not None:
         cat.sort_order = body.sort_order
 
@@ -96,6 +102,9 @@ async def delete_category(
     cat = result.scalars().first()
     if cat is None:
         raise NotFoundException(message="分类不存在")
+
+    if cat.home_section_key:
+        raise ConflictException(message="该分类固定用于小程序首页，不能删除", code=40903)
 
     # Check if articles reference this category
     usage = await db.execute(

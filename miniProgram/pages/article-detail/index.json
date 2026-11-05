@@ -1,6 +1,4 @@
 {
-  "enableShareAppMessage": true,
-  "enableShareTimeline": true,
   "usingComponents": {
     "flow-navigation": "/components/flow-navigation/index",
     "page-state": "/components/page-state/index",

@@ -46,6 +46,7 @@ async def list_public(
     db: AsyncSession,
     *,
     category: str | None = None,
+    category_id: int | None = None,
     keyword: str | None = None,
     cursor: str | None = None,
     page_size: int = 20,
@@ -55,7 +56,9 @@ async def list_public(
 
     stmt = select(Article).where(Article.status == ArticleStatus.PUBLISHED)
 
-    if category:
+    if category_id is not None:
+        stmt = stmt.where(Article.category_id == category_id)
+    elif category:
         stmt = stmt.where(Article.category == category)
 
     if keyword:

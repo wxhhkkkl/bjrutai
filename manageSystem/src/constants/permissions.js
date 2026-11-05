@@ -110,6 +110,14 @@ export const PERMISSION_MODULES = [
     ],
   },
   {
+    module: 'mini_program_shares',
+    label: '小程序分享配置',
+    permissions: [
+      { key: 'mini_program_shares.read', label: '查看小程序分享配置' },
+      { key: 'mini_program_shares.write', label: '编辑小程序分享配置' },
+    ],
+  },
+  {
     module: 'performance',
     label: '绩效计算',
     permissions: [
