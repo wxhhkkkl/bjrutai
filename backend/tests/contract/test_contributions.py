@@ -126,7 +126,16 @@ class TestContributionTrend:
         assert "values" in data
         assert len(data["categories"]) == len(data["values"]) == 6
 
-    async def test_trend_returns_correct_monthly_data(self, client: AsyncClient, db_session: AsyncSession):
+    async def test_trend_returns_correct_monthly_data(self, client: AsyncClient, db_session: AsyncSession, monkeypatch):
+        from src.services import contribution_query_service
+
+        class TrendClock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return datetime(2026, 7, 15, tzinfo=timezone.utc).astimezone(tz)
+
+        # Keep the six-month window stable as the actual calendar advances.
+        monkeypatch.setattr(contribution_query_service, "datetime", TrendClock)
         user_id, _node_id, distributor_id = await setup_promoter_with_hierarchy(db_session)
         await seed_customer_bill(db_session, distributor_id=distributor_id, paid_cent=15000,
                                  txn_id="txn_trend_apr", occurred_at=datetime(2026, 4, 10, tzinfo=timezone.utc))

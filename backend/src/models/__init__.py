@@ -1,3 +1,4 @@
+# ruff: noqa: F401, I001
 # Import all models so Alembic can discover them for autogenerate.
 # Order matters for FK resolution – import leaf/parent models first.
 
@@ -9,12 +10,18 @@ from .organization import Organization, OrgStatus  # noqa: F401
 from .distributor import Distributor, DistributorStatus, OrgRole  # noqa: F401
 from .org_qualification import OrganizationQualification, OrgQualStatus  # noqa: F401
 from .org_history import OrgHistory, OrgHistoryAction  # noqa: F401
+
 # 废弃模型（表已迁移重命名，映射 _deprecated_*）保留注册，兼容旧数据查询与测试
 from .hierarchy import HierarchyNode, Promoter, hierarchy_snapshots  # noqa: F401
 from .qualification import Qualification  # noqa: F401
 from .binding import BindingChangeLog, BindingRequest, Customer  # noqa: F401
 from .customer_change_log import ChangeOperationType, CustomerChangeLog  # noqa: F401
-from .performance_rule import PerformanceRule, PerformanceRuleChangeLog, RuleStatus, RuleType  # noqa: F401
+from .performance_rule import (
+    PerformanceRule,
+    PerformanceRuleChangeLog,
+    RuleStatus,
+    RuleType,
+)  # noqa: F401
 from .personal_performance_rule import PersonalPerformanceRule  # noqa: F401
 from .commission_result import CommissionResult  # noqa: F401
 from .performance_settlement import PerformanceSettlement, SettlementStatus  # noqa: F401
@@ -37,3 +44,42 @@ from .report import Report  # noqa: F401
 from .article_comment import ArticleComment  # noqa: F401
 from .comment_like import CommentLike  # noqa: F401
 from .comment_action import CommentAction  # noqa: F401
+
+# Independent mall and immutable performance-evidence records.  Keep these
+# imports here so ordinary application startup and Alembic share one metadata
+# registry; migrations must never depend on a special test-only import path.
+from .mall_catalog import MallCategory, MallProduct, MallSku, MallStockMovement  # noqa: F401
+from .mall_trade import (  # noqa: F401
+    MallAddress,
+    MallAftersale,
+    MallAftersaleItem,
+    MallCartItem,
+    MallOrder,
+    MallOrderItem,
+    MallShipment,
+)
+from .mall_finance import (  # noqa: F401
+    MallInvoice,
+    MallInvoiceRequest,
+    MallPayment,
+    MallReconciliationBatch,
+    MallReconciliationDifference,
+    MallRefund,
+)
+from .mall_operations import (
+    MallCommand,
+    MallFile,
+    MallGatewayEvent,
+    MallJob,
+    MallSettings,
+)  # noqa: F401
+from .mall_consumption import MallConsumption  # noqa: F401
+from .performance_evidence import (  # noqa: F401
+    PerformanceEvidence,
+    PerformanceEvidenceSource,
+    PerformancePeriodVersion,
+)
+from .performance_adjustment import (
+    PerformanceAdjustment,
+    PerformanceAdjustmentApplication,
+)  # noqa: F401

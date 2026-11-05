@@ -1,7 +1,15 @@
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan:
-specs/016-admin-consumption-entry/plan.md
+For the active feature, read:
+specs/022-independent-mall/plan.md
+Specification: specs/022-independent-mall/spec.md
+Contracts: specs/022-independent-mall/contracts/README.md
+Tasks: specs/022-independent-mall/tasks.md
+Logistics: specs/022-independent-mall/logistics-integration.md
+Setup implementation in progress; actual evidence and Docker/MySQL blocker: specs/022-independent-mall/implementation-log.md
+Do not implement mini-program visual design before reminding the user and receiving the current style references.
+The fulfillment/billing data-release exception is a proposal, not an active change to the constitution.
+Review remediation: specs/022-independent-mall/remediation-review.md
+G-PROTOCOL is inactive: do not implement/deploy the two WeChat notification endpoints before the separate constitution amendment is formally adopted. Non-notification work may continue.
 <!-- SPECKIT END -->
 
 # CLAUDE.md

@@ -77,7 +77,8 @@ class COSClient:
         # --- validation ---
         if content_type not in ALLOWED_CONTENT_TYPES:
             raise ValueError(
-                f"Unsupported file type: {content_type}. Allowed: {', '.join(ALLOWED_CONTENT_TYPES)}"
+                f"Unsupported file type: {content_type}. "
+                f"Allowed: {', '.join(ALLOWED_CONTENT_TYPES)}"
             )
 
         if file_size <= 0 or file_size > MAX_FILE_SIZE:
@@ -272,6 +273,96 @@ class COSClient:
         upload_url = f"https://{host}{http_uri}?{auth}"
 
         return upload_url
+
+
+class MallCOSStore:
+    """Fail-closed mall adapter; HEAD metadata plus bounded byte verification.
+
+    HEAD cannot prove a SHA256 checksum.  Read the object under its ETag and
+    hash the actual bytes rather than trusting user-supplied metadata.
+    """
+
+    def __init__(
+        self,
+        client: COSClient,
+        *,
+        outbound_enabled: bool = False,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ):
+        self.client = client
+        self.outbound_enabled = outbound_enabled
+        self.transport = transport
+
+    def _check(self, object_key: str):
+        if not self.outbound_enabled:
+            raise ValueError("商城存储出站未开启")
+        if not all((self.client._bucket, self.client._secret_id, self.client._secret_key)):
+            raise ValueError("商城私有存储凭据未配置")
+        if (
+            not object_key.startswith("mall/")
+            or ".." in object_key
+            or any(c in object_key for c in ("?", "#", "\\", "\r", "\n"))
+        ):
+            raise ValueError("商城对象路径不合法")
+
+    async def issue_upload_ticket(
+        self, *, object_key: str, mime: str, size: int, sha256: str, expires_seconds: int = 600
+    ):
+        self._check(object_key)
+        return {
+            "uploadToken": self.client._build_presigned_put_url(
+                object_key,
+                mime,
+                expire_seconds=expires_seconds,
+            )
+        }
+
+    async def head(self, object_key: str):
+        self._check(object_key)
+
+        def url(method):
+            return self.client._build_presigned_put_url(
+                object_key, "application/octet-stream", 60, method=method
+            )
+
+        async with httpx.AsyncClient(
+            timeout=15, transport=self.transport, follow_redirects=False
+        ) as remote:
+            metadata = await remote.head(url("HEAD"))
+            if metadata.status_code == 404:
+                return None
+            metadata.raise_for_status()
+            size = int(metadata.headers.get("Content-Length", "-1"))
+            if not 0 < size <= 10 * 1024 * 1024:
+                raise ValueError("商城对象大小不合法")
+            etag = metadata.headers.get("ETag")
+            if not etag:
+                raise ValueError("商城对象版本无法核验")
+            digest, total = hashlib.sha256(), 0
+            async with remote.stream(
+                "GET", url("GET"), headers={"If-Match": etag, "Accept-Encoding": "identity"}
+            ) as content:
+                content.raise_for_status()
+                async for chunk in content.aiter_raw():
+                    total += len(chunk)
+                    if total > size:
+                        raise ValueError("商城对象大小已变化")
+                    digest.update(chunk)
+            if total != size:
+                raise ValueError("商城对象内容不完整")
+            return {
+                "mime": metadata.headers.get("Content-Type", "").split(";")[0],
+                "size": total,
+                "sha256": digest.hexdigest(),
+            }
+
+    async def sign_get(self, object_key: str, *, expires_seconds: int = 60):
+        self._check(object_key)
+        if not 1 <= expires_seconds <= 300:
+            raise ValueError("文件访问期限不合法")
+        return self.client._build_presigned_put_url(
+            object_key, "application/octet-stream", expires_seconds, method="GET"
+        )
 
 
 # ------------------------------------------------------------------

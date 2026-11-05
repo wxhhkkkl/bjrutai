@@ -1,0 +1,24 @@
+# Disposable, loopback-only tests. Never used by the application deployment.
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: malltest_${MALL_TEST_RUN_ID:?runner required}
+    labels:
+      com.bjrutai.mall-test-run: ${MALL_TEST_RUN_ID}
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?runner required}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?runner required}
+      MYSQL_USER: ${MYSQL_USER:?runner required}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?runner required}
+    command: ["--require-secure-transport=ON"]
+    ports:
+      - "127.0.0.1:0:3306"
+    volumes:
+      - mall_test_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -h 127.0.0.1 --ssl-mode=REQUIRED -u root --silent"]
+      interval: 2s
+      timeout: 3s
+      retries: 50
+volumes:
+  mall_test_data:

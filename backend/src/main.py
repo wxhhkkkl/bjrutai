@@ -48,6 +48,10 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
             "/api/v1/feedbacks",
             "/api/v1/admin/contributions/manual",
         }
+        # Mall writes use mall_commands' actor/action/key/payload-hash rows.
+        # Do not let a process-local cache decide a payment, refund or order retry.
+        if request.url.path.startswith(("/api/v1/mall/", "/api/v1/admin/mall/")):
+            return await call_next(request)
         if request.method == "POST" and request.url.path in persistent_idempotency_paths:
             return await call_next(request)
 
@@ -96,10 +100,11 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
 # ---------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup — auto-create tables on first run (dev convenience)
+    # Explicit development-only opt-in; production schemas use Alembic.
     from .core.database import engine, Base
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    if settings.schema_auto_create_enabled:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
 
     # Seed default admin account if none exists
     from .core.database import async_session
@@ -136,6 +141,12 @@ async def lifespan(app: FastAPI):
         scheduler = AsyncIOScheduler()
         scheduler.start()
         app.state.scheduler = scheduler
+        if settings.mall_worker_enabled:
+            from .tasks.mall_tasks import mall_worker_job
+            scheduler.add_job(
+                mall_worker_job, trigger=IntervalTrigger(seconds=5),
+                id="mall_worker", max_instances=1, coalesce=True, replace_existing=True,
+            )
 
         # T116a: Bind user polling — every 60 seconds
         from .tasks.sync_tasks import (
@@ -331,6 +342,10 @@ from .api.v1.reports import router as reports_router
 from .api.v1.team import router as team_router
 from .api.v1.users import router as users_router
 from .api.v1.workbench import router as workbench_router
+from .api.v1.mall_commands import (
+    admin_router as admin_mall_commands_router,
+    router as mall_commands_router,
+)
 
 # Core / existing routers
 app.include_router(auth_router, prefix="/api/v1")
@@ -378,3 +393,15 @@ app.include_router(feedback_files_router, prefix="/api/v1")
 app.include_router(notifications_router, prefix="/api/v1")
 app.include_router(customer_analysis_router, prefix="/api/v1")
 app.include_router(health_router, prefix="/api/v1")
+app.include_router(mall_commands_router, prefix="/api/v1")
+app.include_router(admin_mall_commands_router, prefix="/api/v1")
+from .api.v1.mall_catalog import router as mall_catalog_router
+from .api.v1.admin_mall_catalog import router as admin_mall_catalog_router
+app.include_router(mall_catalog_router, prefix="/api/v1")
+app.include_router(admin_mall_catalog_router, prefix="/api/v1")
+from .api.v1.mall_files import router as mall_files_router
+from .api.v1.admin_mall_files import router as admin_mall_files_router
+app.include_router(mall_files_router, prefix="/api/v1")
+app.include_router(admin_mall_files_router, prefix="/api/v1")
+from .api.v1.admin_mall_settings import router as admin_mall_settings_router
+app.include_router(admin_mall_settings_router, prefix="/api/v1")
