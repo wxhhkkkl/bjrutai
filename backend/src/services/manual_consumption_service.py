@@ -23,6 +23,7 @@ from ..models.distributor import Distributor, DistributorStatus
 from ..models.organization import Organization, OrgStatus
 from ..models.user import AdminAccount, User
 from ..schemas.admin_contribution import ManualConsumptionCreateRequest
+from .performance_period_service import bump_unfrozen_periods, period_for_datetime
 
 
 def _mask_phone(phone: Optional[str]) -> Optional[str]:
@@ -182,65 +183,75 @@ async def create_manual_consumption(
         return await _serialize_bill(db, existing, replayed=True)
 
     customer_id = int(data.customer_id)
-    row = (
-        await db.execute(
-            select(Customer, Distributor, User.name, Organization)
-            .join(Distributor, Distributor.id == Customer.distributor_id)
-            .join(User, User.id == Distributor.user_id)
-            .join(Organization, Organization.id == Distributor.org_id)
-            .where(Customer.id == customer_id)
-        )
-    ).first()
-    if row is None:
-        exists = (
-            await db.execute(select(Customer.id).where(Customer.id == customer_id))
-        ).scalar_one_or_none()
-        if exists is None:
-            raise NotFoundException(message="客户不存在")
-        raise ConflictException(message="该客户当前不可录入消费", code=40921)
-
-    customer, distributor, person_name, organization = row
-    if customer.version != data.customer_version:
-        raise ConflictException(message="客户资料或归属已变化，请重新选择客户", code=40920)
-    if (
-        customer.binding_status != BindingStatus.BOUND
-        or distributor.status != DistributorStatus.ACTIVE
-        or organization.status != OrgStatus.ACTIVE
-    ):
-        raise ConflictException(message="该客户当前不可录入消费", code=40921)
-
-    if not admin_username:
-        admin_username = (
-            await db.execute(select(AdminAccount.username).where(AdminAccount.id == admin_id))
-        ).scalar_one_or_none()
-    if not admin_username:
-        raise NotFoundException(message="管理员账号不存在")
-
-    bill = Bill(
-        customer_id=customer.id,
-        rutai_user_id=customer.rutai_user_id,
-        transaction_id=_record_no(),
-        transaction_time=data.consumed_at.astimezone(timezone.utc).replace(tzinfo=None),
-        consultation_fee_cent=0,
-        medicine_fee_cent=0,
-        total_amount_cent=data.amount_cent,
-        discount_amount_cent=0,
-        paid_amount_cent=data.amount_cent,
-        refund_amount_cent=0,
-        transaction_status=TransactionStatus.PAID,
-        source="manual",
-        attributed_distributor_id=distributor.id,
-        attributed_person_name=person_name,
-        attributed_org_id=organization.id,
-        attributed_org_name=organization.name,
-        entry_note=data.note,
-        created_by_admin_id=admin_id,
-        idempotency_key=idempotency_key,
-        submission_fingerprint=fingerprint,
-    )
-
+    period = period_for_datetime(data.consumed_at)
     try:
         async with db.begin_nested():
+            changed_periods = await bump_unfrozen_periods(db, [period])
+            if period not in changed_periods:
+                raise ConflictException(message="消费月份已冻结，不能直接补录")
+
+            row = (
+                await db.execute(
+                    select(Customer, Distributor, User.name, Organization)
+                    .join(Distributor, Distributor.id == Customer.distributor_id)
+                    .join(User, User.id == Distributor.user_id)
+                    .join(Organization, Organization.id == Distributor.org_id)
+                    .where(Customer.id == customer_id)
+                    .with_for_update(read=True)
+                    .execution_options(populate_existing=True)
+                )
+            ).first()
+            if row is None:
+                exists = (
+                    await db.execute(select(Customer.id).where(Customer.id == customer_id))
+                ).scalar_one_or_none()
+                if exists is None:
+                    raise NotFoundException(message="客户不存在")
+                raise ConflictException(message="该客户当前不可录入消费", code=40921)
+
+            customer, distributor, person_name, organization = row
+            if customer.version != data.customer_version:
+                raise ConflictException(
+                    message="客户资料或归属已变化，请重新选择客户", code=40920
+                )
+            if (
+                customer.binding_status != BindingStatus.BOUND
+                or distributor.status != DistributorStatus.ACTIVE
+                or organization.status != OrgStatus.ACTIVE
+            ):
+                raise ConflictException(message="该客户当前不可录入消费", code=40921)
+
+            if not admin_username:
+                admin_username = (
+                    await db.execute(
+                        select(AdminAccount.username).where(AdminAccount.id == admin_id)
+                    )
+                ).scalar_one_or_none()
+            if not admin_username:
+                raise NotFoundException(message="管理员账号不存在")
+
+            bill = Bill(
+                customer_id=customer.id,
+                rutai_user_id=customer.rutai_user_id,
+                transaction_id=_record_no(),
+                transaction_time=data.consumed_at.astimezone(timezone.utc).replace(tzinfo=None),
+                consultation_fee_cent=0,
+                medicine_fee_cent=0,
+                total_amount_cent=data.amount_cent,
+                discount_amount_cent=0,
+                paid_amount_cent=data.amount_cent,
+                refund_amount_cent=0,
+                transaction_status=TransactionStatus.PAID,
+                source="manual",
+                attributed_distributor_id=distributor.id,
+                attributed_person_name=person_name,
+                attributed_org_id=organization.id,
+                attributed_org_name=organization.name,
+                entry_note=data.note,
+                created_by_admin_id=admin_id,
+                idempotency_key=idempotency_key,
+                submission_fingerprint=fingerprint,
+            )
             db.add(bill)
             await db.flush()
             db.add(

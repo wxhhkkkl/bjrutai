@@ -1,0 +1,25 @@
+<view class="mall-flow-page mall-orders-page">
+  <flow-navigation title="商城订单" bind:back="goBack" />
+  <view class="mall-order-status-scroll">
+    <scroll-view scroll-x="{{true}}" show-scrollbar="{{false}}" class="mall-order-status-row">
+      <view wx:for="{{statusOptions}}" wx:key="value" class="mall-order-status {{activeStatus === item.value ? 'mall-order-status--active' : ''}} tap-target" data-status="{{item.value}}" bindtap="selectStatus" hover-class="tap-feedback">
+        {{item.label}}
+      </view>
+    </scroll-view>
+  </view>
+  <scroll-view class="mall-flow-scroll" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}" refresher-enabled="{{true}}" refresher-triggered="{{refreshing}}" bindrefresherrefresh="onPullDownRefresh" bindscrolltolower="onReachBottom">
+    <view wx:if="{{state === 'loading' && !orders.length}}" class="mall-flow-state"><van-icon name="replay" size="30px" color="#27645B" /><text>正在读取订单</text></view>
+    <view wx:elif="{{state === 'recoverable-error' && !orders.length}}" class="mall-flow-state"><text class="mall-flow-state__title">订单暂时不可用</text><text>{{stateMessage}}</text><button class="mall-primary-button tap-target" bindtap="retry" hover-class="tap-feedback">重新加载</button></view>
+    <view wx:elif="{{state === 'empty'}}" class="mall-flow-state"><view class="mall-empty-mark"><van-icon name="records" size="34px" color="#7D938A" /></view><text class="mall-flow-state__title">这里还没有订单</text><text class="mall-flow-state__hint">选好商品后，订单进度会显示在这里</text><button class="mall-primary-button tap-target" bindtap="browseMall" hover-class="tap-feedback">去商城看看</button></view>
+    <view wx:else class="mall-orders-list">
+      <view wx:for="{{orders}}" wx:key="id" class="mall-order-card tap-target" data-id="{{item.id}}" bindtap="openOrder" hover-class="tap-feedback">
+        <view class="mall-order-card__head"><text>订单号 {{item.orderNo}}</text><text class="mall-order-card__status">{{item.statusLabel}}</text></view>
+        <view class="mall-order-card__body"><view class="mall-order-card__icon"><van-icon name="records" size="28px" color="#71877B" /></view><view class="mall-order-card__copy"><text class="mall-order-card__items">{{item.itemSummary || '订单商品'}}</text><text class="mall-order-card__meta">{{item.itemCount}} 件商品 · {{item.createdLabel}}</text></view></view>
+        <view class="mall-order-card__foot"><text>{{item.status === 'pending_payment' ? '应付金额' : '订单金额'}}</text><text class="mall-order-card__amount">¥{{item.amountText}}</text><van-icon name="arrow" size="17px" color="#A1AAA4" /></view>
+      </view>
+      <view wx:if="{{stateMessage}}" class="mall-orders-message">{{stateMessage}}</view>
+      <text wx:if="{{loadingMore}}" class="mall-orders-loading">正在加载更多…</text>
+      <text wx:elif="{{!hasMore && orders.length}}" class="mall-orders-loading">没有更多订单了</text>
+    </view>
+  </scroll-view>
+</view>

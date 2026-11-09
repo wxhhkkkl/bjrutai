@@ -49,6 +49,7 @@ async def test_seed_creates_system_admin_role(db_session: AsyncSession):
     assert isinstance(system_role.permissions, dict)
     perms = system_role.permissions.get("permissions", [])
     assert len(perms) >= 20  # At least 20 permissions
+    assert "mall.attribution.write" in perms
 
 
 # ────────────────────────────────────────────────────────────────

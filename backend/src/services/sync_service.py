@@ -18,8 +18,8 @@ from ..integrations.rutai_client import RutaiClient, get_rutai_client
 from ..models.bill import Bill, TransactionStatus
 from ..models.binding import BindingStatus, Customer
 from ..models.distributor import Distributor
-from ..models.organization import Organization
 from ..models.notification import Notification, NotificationCategory
+from .performance_period_service import bump_unfrozen_periods, period_for_datetime
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -330,13 +330,24 @@ class SyncService:
 
         if existing_bill is not None:
             if is_refund and existing_bill.transaction_status != TransactionStatus.REFUNDED:
-                # Process refund
-                existing_bill.transaction_status = (
+                # Process refund. An identical polling response must not dirty
+                # the same month repeatedly.
+                new_status = (
                     TransactionStatus.REFUNDED
                     if transaction_status == "refunded"
                     else TransactionStatus.PARTIALLY_REFUNDED
                 )
-                existing_bill.refund_amount_cent = item.get("refund_amount_cent", 0)
+                new_refund = item.get("refund_amount_cent", 0)
+                if (
+                    existing_bill.transaction_status == new_status
+                    and existing_bill.refund_amount_cent == new_refund
+                ):
+                    return "skipped"
+                await bump_unfrozen_periods(
+                    db, [period_for_datetime(existing_bill.transaction_time)]
+                )
+                existing_bill.transaction_status = new_status
+                existing_bill.refund_amount_cent = new_refund
                 existing_bill.updated_at = datetime.now(timezone.utc)
                 db.add(existing_bill)
                 await db.flush()
@@ -344,26 +355,25 @@ class SyncService:
                 return "refund_processed"
 
             # Update existing bill fields if changed
-            updated = False
             new_paid = item.get("paid_amount_cent", 0)
             new_total = item.get("total_amount_cent", 0)
             new_discount = item.get("discount_amount_cent", 0)
             new_refund = item.get("refund_amount_cent", 0)
-
-            if existing_bill.paid_amount_cent != new_paid:
-                existing_bill.paid_amount_cent = new_paid
-                updated = True
-            if existing_bill.total_amount_cent != new_total:
-                existing_bill.total_amount_cent = new_total
-                updated = True
-            if existing_bill.discount_amount_cent != new_discount:
-                existing_bill.discount_amount_cent = new_discount
-                updated = True
-            if existing_bill.refund_amount_cent != new_refund:
-                existing_bill.refund_amount_cent = new_refund
-                updated = True
+            updated = (
+                existing_bill.paid_amount_cent != new_paid
+                or existing_bill.total_amount_cent != new_total
+                or existing_bill.discount_amount_cent != new_discount
+                or existing_bill.refund_amount_cent != new_refund
+            )
 
             if updated:
+                await bump_unfrozen_periods(
+                    db, [period_for_datetime(existing_bill.transaction_time)]
+                )
+                existing_bill.paid_amount_cent = new_paid
+                existing_bill.total_amount_cent = new_total
+                existing_bill.discount_amount_cent = new_discount
+                existing_bill.refund_amount_cent = new_refund
                 existing_bill.updated_at = datetime.now(timezone.utc)
                 db.add(existing_bill)
                 await db.flush()
@@ -421,6 +431,7 @@ class SyncService:
             refund_amount_cent=item.get("refund_amount_cent", 0),
             transaction_status=tx_status,
         )
+        await bump_unfrozen_periods(db, [period_for_datetime(tx_time)])
         db.add(bill)
         await db.flush()
         await db.refresh(bill)

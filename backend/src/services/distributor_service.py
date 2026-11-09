@@ -22,6 +22,7 @@ from ..schemas.distributor import (
     ResetPassword,
 )
 from . import organization_service
+from .performance_period_service import bump_unfrozen_periods, periods_for_distributors
 
 
 # ---------------------------------------------------------------------------
@@ -38,6 +39,45 @@ async def get_distributor_or_404(db: AsyncSession, distributor_id: int) -> Distr
 async def get_distributor_by_user(db: AsyncSession, user_id: int) -> Optional[Distributor]:
     result = await db.execute(select(Distributor).where(Distributor.user_id == user_id))
     return result.scalars().first()
+
+
+async def _distributors_in_affected_org_scopes(db, org_ids: set[int]) -> list[int]:
+    """Return members below old/new ancestors whose management totals can change."""
+    if not org_ids:
+        return []
+    rows = (await db.execute(select(Organization.id, Organization.parent_id))).all()
+    parents = {int(org_id): parent_id for org_id, parent_id in rows}
+    ancestors = set()
+    for org_id in org_ids:
+        current = org_id
+        while current is not None and current not in ancestors:
+            ancestors.add(current)
+            current = parents.get(current)
+
+    children: dict[int | None, list[int]] = {}
+    for org_id, parent_id in rows:
+        children.setdefault(parent_id, []).append(int(org_id))
+    affected_orgs = set()
+    stack = list(ancestors)
+    while stack:
+        current = stack.pop()
+        if current in affected_orgs:
+            continue
+        affected_orgs.add(current)
+        stack.extend(children.get(current, []))
+    return list(
+        (
+            await db.execute(
+                select(Distributor.id).where(Distributor.org_id.in_(affected_orgs))
+            )
+        ).scalars().all()
+    )
+
+
+async def _mark_org_scope_dirty(db, org_ids: set[int]) -> None:
+    distributor_ids = await _distributors_in_affected_org_scopes(db, org_ids)
+    periods = await periods_for_distributors(db, distributor_ids)
+    await bump_unfrozen_periods(db, periods)
 
 
 async def is_distributor_selectable(db: AsyncSession, distributor: Distributor) -> bool:
@@ -163,6 +203,17 @@ async def attach_existing_user(
 ) -> dict:
     """Turn an existing personal account into an organization member/admin."""
     await organization_service._get_org_or_404(db, org_id)
+    role = OrgRole(data.org_role)
+    if role == OrgRole.ADMIN:
+        existing_admin = await db.execute(
+            select(Distributor.id).where(
+                Distributor.org_id == org_id,
+                Distributor.org_role == OrgRole.ADMIN,
+            )
+        )
+        if existing_admin.scalars().first() is not None:
+            raise BadRequestException(message="该组织已有管理员，请先撤销")
+        await _mark_org_scope_dirty(db, {org_id})
     user = await db.get(User, data.user_id, with_for_update=True)
     if user is None:
         raise NotFoundException(message="未找到该个人账号")
@@ -171,7 +222,6 @@ async def attach_existing_user(
     if await get_distributor_by_user(db, user.id) is not None:
         raise ConflictException(message="该账号已加入组织")
 
-    role = OrgRole(data.org_role)
     if role == OrgRole.ADMIN:
         existing_admin = await db.execute(
             select(Distributor.id).where(
@@ -252,17 +302,33 @@ async def update_distributor(
 ) -> dict:
     """Adjust a distributor's org and/or status."""
     d = await get_distributor_or_404(db, distributor_id)
+    original = (d.org_id, d.status, d.org_role)
+    target_org_id = data.org_id if data.org_id is not None else d.org_id
 
     if data.org_id is not None:
         if d.org_role == OrgRole.ADMIN:
             raise BadRequestException(message="组织管理员不可调整组织，请先撤销其管理员身份")
         await organization_service._get_org_or_404(db, data.org_id)
-        d.org_id = data.org_id
 
     if data.status is not None:
         if data.status not in {s.value for s in DistributorStatus}:
             raise BadRequestException(message=f"Invalid distributor status: {data.status}")
-        d.status = DistributorStatus(data.status)
+    target_status = DistributorStatus(data.status) if data.status is not None else d.status
+
+    if target_org_id != d.org_id or target_status != d.status:
+        await _mark_org_scope_dirty(db, {d.org_id, target_org_id})
+        d = (
+            await db.execute(
+                select(Distributor)
+                .where(Distributor.id == distributor_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one()
+        if (d.org_id, d.status, d.org_role) != original:
+            raise ConflictException(message="人员组织或状态已变化，请刷新后重试")
+        d.org_id = target_org_id
+        d.status = target_status
 
     db.add(d)
     await db.flush()
@@ -294,8 +360,33 @@ async def set_role(
     if data.org_role not in {r.value for r in OrgRole}:
         raise BadRequestException(message="orgRole must be member or admin")
     d = await get_distributor_or_404(db, distributor_id)
+    original = (d.org_id, d.org_role, d.status)
+    target_role = OrgRole(data.org_role)
 
-    if data.org_role == OrgRole.ADMIN.value:
+    if target_role != d.org_role:
+        if target_role == OrgRole.ADMIN:
+            existing = await db.execute(
+                select(Distributor).where(
+                    Distributor.org_id == d.org_id,
+                    Distributor.org_role == OrgRole.ADMIN,
+                    Distributor.id != d.id,
+                )
+            )
+            if existing.scalars().first() is not None:
+                raise BadRequestException(message="该组织已有管理员，请先撤销")
+        await _mark_org_scope_dirty(db, {d.org_id})
+        d = (
+            await db.execute(
+                select(Distributor)
+                .where(Distributor.id == distributor_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one()
+        if (d.org_id, d.org_role, d.status) != original:
+            raise ConflictException(message="人员组织或角色已变化，请刷新后重试")
+
+    if target_role == OrgRole.ADMIN:
         existing = await db.execute(
             select(Distributor).where(
                 Distributor.org_id == d.org_id,
@@ -306,7 +397,7 @@ async def set_role(
         if existing.scalars().first() is not None:
             raise BadRequestException(message="该组织已有管理员，请先撤销")
 
-    d.org_role = OrgRole(data.org_role)
+    d.org_role = target_role
     db.add(d)
     await db.flush()
     await db.refresh(d)

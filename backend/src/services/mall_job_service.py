@@ -11,6 +11,54 @@ from ..models.mall_base import utc_now
 from ..models.mall_operations import MallJob
 
 
+async def locked_mall_lease(db, item):
+    """Domain handlers lock their parent entity first, then fence their job lease."""
+    job = await db.scalar(
+        select(MallJob)
+        .where(MallJob.id == item.job_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if (
+        job is None
+        or job.status != "running"
+        or job.lease_owner != item.lease_owner
+        or job.entity_version != item.entity_version
+        or job.entity_id != item.entity_id
+        or job.entity_type != item.entity_type
+        or job.kind != item.kind
+        or job.lease_until is None
+        or job.lease_until <= utc_now()
+    ):
+        return None
+    return job
+
+
+async def defer_mall_job(db, *, job_id, worker_id, entity_version, next_run_at):
+    """A successful nonterminal poll waits without consuming the failure budget."""
+    if next_run_at <= utc_now():
+        raise ValueError("continuation must be in the future")
+    job = await db.scalar(
+        select(MallJob)
+        .where(MallJob.id == job_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if (
+        job is None
+        or job.status != "running"
+        or job.lease_owner != worker_id
+        or job.entity_version != entity_version
+        or job.lease_until is None
+        or job.lease_until <= utc_now()
+    ):
+        return False
+    job.status, job.next_run_at, job.attempts = "retry", next_run_at, 0
+    job.lease_owner = job.lease_until = job.last_error_code = None
+    await db.flush()
+    return True
+
+
 async def fail_mall_job(
     db: AsyncSession,
     *,
@@ -58,6 +106,7 @@ async def enqueue_mall_job(
     entity_id: int,
     entity_version: int,
     dedupe_key: str,
+    next_run_at=None,
 ) -> MallJob:
     """Enqueue once per deterministic dedupe key without a process-local cache."""
     existing = (
@@ -74,7 +123,7 @@ async def enqueue_mall_job(
         dedupe_key=dedupe_key,
         status="ready",
         attempts=0,
-        next_run_at=utc_now(),
+        next_run_at=next_run_at or utc_now(),
     )
     try:
         async with db.begin_nested():

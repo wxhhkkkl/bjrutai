@@ -27,7 +27,8 @@ class MallFile(MallRecord, Base):
         CheckConstraint("size >= 0", name="ck_mall_file_size"),
         CheckConstraint(
             "purpose IN ('product_image','aftersale_proof','invoice_pdf',"
-            "'reconciliation_evidence','finance_export')",
+            "'reconciliation_evidence','finance_export','attribution_evidence',"
+            "'performance_adjustment_evidence')",
             name="ck_mall_file_purpose",
         ),
     )
@@ -103,6 +104,17 @@ class MallJob(MallRecord, Base):
     last_error_code: Mapped[str | None] = mapped_column(String(64))
     started_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
     finished_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
+    notification_payload: Mapped[dict | None] = mapped_column(JSON)
+    responsibility_role: Mapped[str | None] = mapped_column(String(32))
+    responsibility_first_discovered_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
+    responsibility_last_verified_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
+    responsibility_evidence: Mapped[dict | None] = mapped_column(JSON)
+    responsibility_next_step: Mapped[str | None] = mapped_column(String(500))
+    resolution_code: Mapped[str | None] = mapped_column(String(64))
+    resolution_summary: Mapped[str | None] = mapped_column(String(500))
+    resolved_by_type: Mapped[str | None] = mapped_column(String(16))
+    resolved_by_id: Mapped[int | None] = mapped_column(BigInteger)
+    resolved_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
 
 
 class MallSettings(MallRecord, Base):

@@ -1,6 +1,6 @@
 # Data Model: 自营独立商城
 
-日期：2026-11-04；状态：逻辑/持久化设计，尚未创建模型或迁移。对应[主规格](spec.md)、[研究](research.md)和[接口](contracts/README.md)。
+日期：2026-11-07；状态：业务约束与持久化模型记录，当前迁移head为033；商城整体仍在分阶段实现与验收。对应[主规格](spec.md)、[研究](research.md)和[接口](contracts/README.md)。
 
 ## 1. 通用约定
 
@@ -40,14 +40,20 @@ erDiagram
 | `mall_products` | id,category_id,name VARCHAR64,summary VARCHAR128,cover_file_id,gallery_file_ids JSON,description TEXT,instructions TEXT,status draft/on_sale/off_sale/archived,sort,version | index(status,sort,id),(category_id,status,sort,id)；发布检查完整性及有效SKUs；有历史不删 |
 | `mall_skus` | id,product_id,sku_code VARCHAR64,options JSON,sale_price_cent,available_qty,reserved_qty,warning_qty,version,status | unique(sku_code)；available/reserved≥0，正售价；index(product_id,status)；最多20组合、2维属于商品内规则 |
 | `mall_stock_movements` | id,sku_id,event_key VARCHAR128,order_item_id nullable,aftersale_item_id nullable,kind,available_delta,reserved_delta,before/after JSON,actor_type,actor_id,reason | unique(sku_id,event_key)；index(sku_id,id)；订单占用、收款转换、关闭释放、取消回库、实物验收分别独立键 |
-| `mall_addresses` | id,user_id,recipient_name,phone,phone_masked,province/city/district codes,address_line,is_default,archived_at,version,consent_record_id | index(user_id,archived_at,id)；一用户一个默认用用户级锁维护，或nullable默认slot唯一；GET只脱敏，原值只用履约目的 |
+| `mall_addresses` | id,user_id,recipient_name,phone,phone_masked,province/city/district codes,nullable `region_names` JSON,address_line,is_default,archived_at,version,consent_record_id | index(user_id,archived_at,id)；地区展示名与编码一起保存，旧地址可为空；一用户一个默认用用户级锁维护，或nullable默认slot唯一；GET只脱敏，原值只用履约目的；region_names由迁移030增加 |
 | `mall_cart_items` | id,user_id,sku_id,quantity,version | unique(user_id,sku_id)，qty>0；无库存占用/消费事实；结算按当前状态重验 |
 
 商品图与说明图片可以公开，需与票据/售后私有文件分purpose和权限；不得把同一私有对象的public URL挂进商品gallery。
 
 ## 4. 交易与资金（7表）
 
+后台订单续作（0.4.0）增加读模型FulfillmentCheck；本地履约续作（0.5.0）增加锁内包裹登记、运单版本更正及本人/规则收货，迁移029增加auto_receive_at，head为029。后台详情投影含最小buyer.id/displayName与内部备注，买家投影禁止内部备注及内部事件。订单读日志只记录订单ID/版本或批量ID与筛选摘要；备注修改日志只保留摘要和明确adminAccountId，user_id为NULL。业务检查从原付款/订单/明细/售后/包裹/资金异常待办计算，不用当前商品可售库存二扣或推断已收款。
+
 ### 4.1 mall_orders
+
+028实施补充：新增可空close_requested_at（UTC微秒）与close_request_reason（VARCHAR500，私有）。它们记录买家取消或系统到期关闭意图，不等于渠道关闭结果；旧订单保持NULL。已申请关闭即阻止准备付款、交付预付参数及地址修改；有付款历史仍须查原号，核实后才释放库存。已确认收款与取消竞争时保留正常订单/资金/来源事实，关闭任务转manual，后续履约必须先处理此待办。任何关闭申请事实存在时028拒绝有损降级。
+
+订单地址修改仅更新独立地址快照及订单版本，按policy_snapshot中的原运费/禁配重新校验，不套用后来新购规则，不改商品/支付/金额快照。当前原因留在私有地址快照changeReason；审计保留操作者、地址ID/版本、前后快照及原因摘要，不输出原文收件资料或任意原因正文。已发货、有效售后、关闭申请及过期未付均拒绝修改。
 
 `id, order_no VARCHAR32 unique, buyer_user_id, status, version, currency CNY, goods_amount_cent, freight_amount_cent, payable_amount_cent, paid_amount_cent, refunded_goods_cent, refunded_freight_cent, refund_reserved_cent, address_snapshot JSON, policy_snapshot JSON, buyer_note VARCHAR200, internal_note VARCHAR200, expires_at, paid_at, business_period, shipped_at, received_at, closed_at, close_reason, active_payment_id nullable, current_invoice_request_id nullable, consent_record_id`。
 
@@ -61,9 +67,11 @@ erDiagram
 
 ### 4.3 mall_payments
 
-`id,order_id,out_trade_no VARCHAR32,channel_transaction_id VARCHAR64 nullable,status creating/pending/unknown/succeeded/closed/failed,active_slot nullable TINYINT,amount_cent,currency,appid_snapshot,mchid_snapshot,prepay_ciphertext nullable,expires_at,confirmed_at,last_query_at,last_error_code,version`。
+`id,order_id,out_trade_no VARCHAR32,channel_transaction_id VARCHAR64 nullable,status creating/pending/unknown/succeeded/closed/failed,active_slot nullable TINYINT,amount_cent,currency,appid_snapshot,mchid_snapshot,prepay_ciphertext nullable,expires_at,confirmed_at,last_query_at,unknown_since nullable,last_error_code,version`。`unknown_since`保存当前未知区间的首次发现时刻；重复查单和worker重试不重置，回到pending或成功/关闭等确定状态时清空。未知持续超过10分钟才进入资金责任待办。
 
-unique(out_trade_no)、unique(channel_transaction_id)（NULL允许多行）、unique(order_id,active_slot)，活动slot为1，终态置NULL（MySQL不能使用PostgreSQL式条件唯一索引）。同一订单活动指针与行约束同事务维护。调起参数仅在本人有效支付请求中临时签发，不缓存进通用幂等响应。
+实施补充（2026-11-06恢复续作）：复用已有prepay_ciphertext，不新增表/迁移。令牌编码为v1.keyId.base64url(nonce+ciphertext+tag)，AES-256-GCM的AAD绑定付款ID、商户单号、AppID、商户号、金额、币种及到期时间；密钥仅环境配置，轮换保留旧解密key，不落调起签名。预付/查单/关单前提交unknown；任务失租约后的结果不能写回。正常非终态查单延后同一任务并重置连续失败计数，未知连续5次进入manual，付款和库存事实仍保留。
+
+unique(out_trade_no)、unique(channel_transaction_id)（NULL允许多行）、unique(order_id,active_slot)、index(status,unknown_since)，活动slot为1，终态置NULL（MySQL不能使用PostgreSQL式条件唯一索引）。同一订单活动指针与行约束同事务维护。调起参数仅在本人有效支付请求中临时签发，不缓存进通用幂等响应。035迁移为既有unknown记录按最近查证/更新时间回填首次未知时刻，便于后续责任任务按首个未知时间判断，不被重复查证延后。
 
 ### 4.4 mall_aftersales / mall_aftersale_items
 
@@ -75,23 +83,27 @@ unique(out_trade_no)、unique(channel_transaction_id)（NULL允许多行）、un
 
 ### 4.5 mall_refunds
 
-`id,aftersale_id,payment_id,order_id,out_refund_no VARCHAR64,channel_refund_id nullable,status prepared/processing/unknown/succeeded/closed/abnormal/rejected_unaccepted,goods_refund_cent,freight_refund_cent,total_cent,original_amount_cent,requested_by,submitted_at,confirmed_at,last_query_at,last_error_code,version`。
+`id,aftersale_id,payment_id,order_id,out_refund_no VARCHAR64,channel_refund_id nullable,status prepared/processing/unknown/succeeded/closed/abnormal/rejected_unaccepted,goods_refund_cent,freight_refund_cent,total_cent,original_amount_cent,requested_by,submitted_at,confirmed_at,last_query_at,unknown_since nullable,last_error_code,version`。
 
-unique(out_refund_no)、unique(channel_refund_id)，index(status,last_query_at)。同售后一个有效退款请求由锁+active_slot约束（增加active_slot nullable字段及unique(aftersale_id,active_slot)）。同请求安全重试复用原号；旧请求关闭后需要新请求，保存predecessor_refund_id，不混淆“未受理失败”与“资金未知”。异常不释放原额度。
+unique(out_refund_no)、unique(channel_refund_id)，index(status,last_query_at)和index(status,unknown_since)。同售后一个有效退款请求由锁+active_slot约束（增加active_slot nullable字段及unique(aftersale_id,active_slot)）。同请求安全重试复用原号；旧请求关闭后需要新请求，保存predecessor_refund_id，不混淆“未受理失败”与“资金未知”。异常不释放原额度。
 
-### 4.6 mall_shipments
+### 4.6 mall_finance_export_requests
 
-`id,order_id unique,courier_code,tracking_no,shipped_at,shipped_by,version,platform_sync_status not_required/pending/succeeded/failed/unknown,platform_last_error,platform_synced_at,platform_confirmation_status,platform_confirmed_at`。
+`id, kind payments/refunds, from_at, to_at, status_filter nullable, format csv/xlsx, status queued/processing/ready/failed, requested_by, command_id unique, file_id unique, row_count nullable, error_code nullable, completed_at, version`。范围为明确的UTC半开区间`[from_at,to_at)`，最多31天；服务拒绝超限，不截断或改写。成功收/退款按各自confirmed_at落范围；处理中、未知等非成功行以记录created_at落范围展示，但不计为成功金额。请求表只保存生成所需的有限筛选与状态，不保存原始请求或文件内容。每条请求固定关联一条服务端生成的`finance_export`私有文件和一个幂等命令；任务失败保留失败状态和原文件引用，重试不得创建新意图。渠道费用/到账仅在后续存在可核实来源时作为独立字段呈现；当前商城支付/退款表无费用字段，不估算。
 
-包裹变更进审计及任务版本，不能新建第二包裹重复发货。真实出库与平台上传、平台确认分别留证；任务以shipment_id+version去重，旧版本任务不得覆盖新运单。
+### 4.7 mall_shipments
+
+`id,order_id unique,courier_code,tracking_no,shipped_at,auto_receive_at nullable for legacy rows,shipped_by,version,platform_sync_status not_required/pending/succeeded/failed/unknown,platform_last_error,platform_synced_at,platform_confirmation_status,platform_confirmed_at`。
+
+包裹变更进审计及任务版本，不能新建第二包裹重复发货。实际登记本地出库与平台上传、平台确认分别留证；任务以shipment_id+version去重，旧版本任务不得覆盖新运单。`auto_receive_at`在本地出库登记时按订单冻结的`autoReceiveDays`计算；老行保留null，不从当前商城设置推算。029只增该字段，自动收货任务仍按包裹版本防重。
 
 ## 5. 票据、文件、消费与配置（5表）
 
 | 表 | 主要字段 | 约束 |
 |---|---|---|
-| `mall_invoice_requests` | id,request_no,order_id,buyer_user_id,buyer_type personal/company,title,tax_no,email nullable,invoice_type,requested_goods_cent,requested_freight_cent,source_order_version,status,active_slot,claimed_by,claimed_at,version | unique(request_no)、unique(order_id,active_slot)，在途slot=1；金额不可任填；一单一有效标准申请 |
+| `mall_invoice_requests` | id,request_no,order_id,buyer_user_id,nullable consent_record_id,buyer_type personal/company,title,tax_no,email nullable,invoice_type,requested_goods_cent,requested_freight_cent,source_order_version,status,active_slot,claimed_by,claimed_at,version | unique(request_no)、unique(order_id,active_slot)，在途slot=1；`consent_record_id`引用最近一次明确开票用途确认，旧申请可为空，历史确认仍在consent_records保留；金额不可任填；一单一有效标准申请 |
 | `mall_invoices` | id,request_id,order_id,kind blue/red,invoice_no,issued_at,total_cent,seller_snapshot JSON,file_id,status,original_invoice_id nullable,replacement_for_id nullable,issued_by,recorded_by,version | unique(seller_identity,invoice_no)（seller_identity另列稳定字符串，不只JSON）；red必须关联blue，金额覆盖原票剩余；全冲重开不删历史 |
-| `mall_files` | id,object_key,purpose product_image/aftersale_proof/invoice_pdf/reconciliation_evidence/finance_export,owner_actor_type,owner_actor_id,order_id nullable,invoice_id nullable,mime,size,sha256,status uploading/verified/bound/rejected,expires_at | unique(object_key)；票据PDF≤10MB、凭证JPG/PNG≤5MB；HEAD真实校验，生产缺凭据失败，signed URL不落库 |
+| `mall_files` | id,object_key,purpose product_image/aftersale_proof/invoice_pdf/reconciliation_evidence/finance_export/attribution_evidence/performance_adjustment_evidence,owner_actor_type,owner_actor_id,order_id nullable,invoice_id nullable,mime,size,sha256,status uploading/verified/bound/rejected,expires_at | unique(object_key)；归属凭证仅后台核实权限可用；对账证据CSV/XLSX/PDF/JPG/PNG≤10MB；归属/绩效补证JPG/PNG/PDF≤10MB；票据PDF≤10MB、售后凭证JPG/PNG≤5MB；HEAD真实校验，生产缺凭据失败，signed URL不落库 |
 | `mall_consumptions` | id,order_id unique,buyer_user_id,customer_id nullable,attributed_distributor_id nullable,trade_org_id nullable,name snapshots,paid_at,business_period,original_goods_cent,successful_goods_refund_cent,performance_base_cent,status unassigned/paid/partially_refunded/refunded,source_version,attribution_evidence JSON | index(distributor_id,business_period,id)、(customer_id,paid_at,id)、(status,paid_at,id)；部分退base=original，全商品退base=0；无客户不造Bill |
 | `mall_settings` | id=1,version,enabled,purchase_enabled,freight_mode,freight_cent,blocked_regions JSON,payment_minutes,auto_receive_days,aftersale_days,dispatch/return address snapshots,contact,policy_versions JSON | 单主体配置而非通用配置中心；敏感值只受控交付，商户密钥不存此表；发布与下单取快照 |
 
@@ -103,9 +115,11 @@ unique(out_refund_no)、unique(channel_refund_id)，index(status,last_query_at)�
 |---|---|---|
 | `mall_commands` | id,actor_type,actor_id,action,key VARCHAR128,payload_hash CHAR64,status running/completed,entity_type,entity_id,lease_until,result_code,created_at | unique(actor_type,actor_id,action,key)；同键异摘要409；回查原实体时重新授权，不存明文请求或旧敏感响应。财务身份与唯一资金号永久保留 |
 | `mall_gateway_events` | id,channel,event_id,event_type,resource_id,payload_ciphertext,verified_digest,received_at,status pending/applied/rejected,last_error | unique(channel,event_id)；通知原密文非解密全量日志，限定保留/访问；查单结果用业务唯一事件身份参与同处理器 |
-| `mall_jobs` | id,kind,entity_type,entity_id,entity_version,dedupe_key,status ready/running/retry/done/manual,attempts,next_run_at,lease_owner,lease_until,last_error_code,started_at,finished_at | unique(dedupe_key)、index(status,next_run_at,id)、index(lease_until)；崩溃租约过期可领取；触发通知不重复库存/资金效果 |
+| `mall_jobs` | id,kind,entity_type,entity_id,entity_version,dedupe_key,status ready/running/retry/done/manual,attempts,next_run_at,lease_owner,lease_until,last_error_code,started_at,finished_at,notification_payload nullable,responsibility_role/first_discovered_at/last_verified_at/evidence/next_step,resolution_code/summary/resolved_by/at | unique(dedupe_key)、index(status,next_run_at,id)、index(lease_until)；崩溃租约过期可领取；通知outbox保存最少展示数据并按唯一事件键重试；未知资金任务保存责任证据和确切结果 |
 
 inbox和jobs在同一提交事务建立关系；无法持久化不ACK。任务claim与finish核对lease_owner和版本，延迟旧任务无权覆盖新版本。MySQL跳锁只用于任务领取。
+
+商城站内通知复用既有`notifications`表，新增`MALL`分类和nullable unique `event_key`，通过现有通知API按用户范围读取。写入先尝试同事务落库；失败时在独立保存点加入`mall_notification_deliver` outbox任务，worker用相同事件键重试。`mall_jobs`责任字段记录财务角色、首次发现、最近核实、最小资金状态证据、下一步和解析结果。未知支付/退款区间严格超过10分钟才首次建任务；读到明确状态后按该状态记录系统关闭结果。当前未配置微信订阅授权记录、模板或出站客户端，因此只使用站内通知，交易不会等待订阅权限或外部发送。
 
 ## 7. 人工对账（2表）
 
@@ -137,7 +151,7 @@ inbox和jobs在同一提交事务建立关系；无法持久化不ACK。任务cl
 
 ### 8.4 performance_adjustments
 
-`id,adjustment_no unique,origin_period,origin_result_id nullable,evidence_id,trigger_source_type,trigger_source_id,trigger_version,beneficiary_id,rule_type,original_commission_cent,replayed_commission_cent,prior_confirmed_adjustment_cent,delta_cent,status proposed/manual_required/reviewed/rejected,reviewed_by,reviewed_at,reason,remaining_cent,version`。
+`id,adjustment_no unique,origin_period,origin_result_id nullable,evidence_id,trigger_source_type,trigger_source_id,trigger_version,beneficiary_id,rule_type,original_commission_cent,replayed_commission_cent,prior_confirmed_adjustment_cent,delta_cent,status proposed/manual_required/reviewed/rejected,reviewed_by,reviewed_at,reason,remaining_cent,evidence_file_ids JSON,version`。补证文件ID只关联已核验的`performance_adjustment_evidence`文件；文件转为bound并由绩效差额权限读取。详情保留补证说明和文件ID，不返回文件原文或永久URL。原期证据不完整时，即使上传补证也保持`manual_required`，不得据附件自动推算或确认金额。
 
 unique(evidence_id,trigger_source_type,trigger_source_id,trigger_version)；先按统一锁序锁原证据锚点，存在原结果时再按约定锁该结果及对应调整，不能依赖nullable原结果ID做幂等。`delta=C*−C0−A`，A按同证据锚点累计此前已审核且未兑现的调整，不仅实际扣过的部分。原结果不存在但原期完整证据表明有资格时C0=0，按原规则模拟；origin_result_id=NULL不得阻止合法差额。未审核计算期间若有新变更须重新核实版本，不按旧delta直接确认。全商品退款可能影响多条原管理结果，各自正确产生差额。
 
@@ -163,6 +177,8 @@ unique(evidence_id,trigger_source_type,trigger_source_id,trigger_version)；先�
 
 计划迁移拆为024商品/订单/地址库存及配置、025资金/售后/票据/文件/任务/对账、026消费/绩效证据与差额。编号在实施时核验；降级只允许隔离空测试库，线上有事实不drop表。
 
+实施补充：核对legacy023空结构中的consent_records.scene为REGISTRATION/BINDING/PROMOTION/FOLLOWUP后，027仅附加MALL_ADDRESS/MALL_CHECKOUT两个场景，保留旧记录与枚举值。T119新增034扩展MALL_INVOICE并为发票申请增加可空consent_record_id；旧申请不回填伪造的历史同意，降级遇到商城票据同意事实即拒绝。证据只保存买家ID、场景、版本、用途scope和点击证据，不存收件/税号/邮箱原值；收件、支付/履约、开票各自作用域分离，发票补资料新增凭证但不覆盖旧凭证。告知文案版本为草案，需业务/法务审阅；撤回申请不会删除依法须留存的订单/财税事实。不把旧注册同意复用为新目的。G-DATA资料原文交付门禁仍关闭。
+
 ## 10. 核心不变量与校验
 
 1. `paid >= successful_refund + reserved_refund >= 0`，商品/运费各不超原分项；活动售后/退款slot与父订单指针同事务。
@@ -177,4 +193,4 @@ unique(evidence_id,trigger_source_type,trigger_source_id,trigger_version)；先�
 
 ## 11. 快递100补充字段（不新增表）
 
-`mall_shipments`增加`logistics_provider VARCHAR32`、`logistics_status`、`provider_state VARCHAR32 nullable`、`tracking_identity_hash CHAR64`、`tracking_snapshot JSON`、`logistics_fetched_at`、`logistics_next_query_at`、`logistics_last_error_code`。更新按shipment.version与身份摘要条件写入；同票共享数据库限流，旧运单响应不能覆盖新版本。安全快照不含key/sign/原文手机号/私密地图访问令牌。查询签收、用户收货、微信确认分别保存。迁移仍在025包裹变更中落实，逻辑表仍28张。
+`mall_shipments`增加`logistics_provider VARCHAR32`、`logistics_status`、`provider_state VARCHAR32 nullable`、`tracking_identity_hash CHAR64`、`tracking_snapshot JSON`、`logistics_fetched_at`、`logistics_next_query_at`、`logistics_last_error_code`。更新按shipment.version与身份摘要条件写入；同票共享数据库限流，旧运单响应不能覆盖新版本。安全快照不含key/sign/原文手机号/私密地图访问令牌。查询签收、用户收货、微信确认分别保存。025实现包裹逻辑字段；033新增财务导出请求表后商城新增逻辑表共29张。

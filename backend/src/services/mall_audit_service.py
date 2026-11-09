@@ -20,11 +20,29 @@ _SENSITIVE_DETAIL_KEYS = {
     "authorization",
     "ciphertext",
     "email",
+    "externalreference",
     "idcard",
     "invoiceemail",
+    "invoicetitle",
+    "buyername",
+    "companyname",
+    "recipient",
     "phone",
     "prepayciphertext",
     "recipientname",
+    "trackingno",
+    "trackingnumber",
+    "beforetrackingno",
+    "aftertrackingno",
+    # Free-form operational text is stored on its authorized business record;
+    # it is deliberately omitted from the broader, append-only audit stream.
+    "reason",
+    "resolution",
+    "description",
+    "note",
+    "remark",
+    "comment",
+    "internalnote",
     "secret",
     "signature",
     "taxno",
@@ -37,7 +55,7 @@ def _normalized_key(value: object) -> str:
 
 
 def redact_mall_audit_detail(value: Any) -> Any:
-    """Remove original personal/contact/credential fields recursively."""
+    """Remove personal/contact/credential and free-form text recursively."""
     if isinstance(value, dict):
         return {
             str(key): redact_mall_audit_detail(item)

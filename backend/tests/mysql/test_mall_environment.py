@@ -10,7 +10,9 @@ async def test_mysql_is_owned_encrypted_and_migrated(mall_mysql_engine):
         assert (await connection.scalar(text("SELECT DATABASE()"))) == (
             "bjrutai_mall_test_" + os.environ["MALL_TEST_RUN_ID"]
         )
-        assert (await connection.scalar(text("SELECT VERSION()"))).startswith("8.")
+        version = await connection.scalar(text("SELECT VERSION()"))
+        assert version.startswith("8.")
+        print(f"T129 environment: MySQL {version}")
         assert await connection.scalar(text("SELECT version_num FROM alembic_version"))
 
 

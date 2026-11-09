@@ -12,6 +12,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import quote
+from xml.etree import ElementTree
 
 import httpx
 
@@ -309,6 +310,8 @@ class MallCOSStore:
         self, *, object_key: str, mime: str, size: int, sha256: str, expires_seconds: int = 600
     ):
         self._check(object_key)
+        if object_key.startswith("mall/verified/"):
+            raise ValueError("已核验对象禁止客户端上传")
         return {
             "uploadToken": self.client._build_presigned_put_url(
                 object_key,
@@ -316,6 +319,79 @@ class MallCOSStore:
                 expire_seconds=expires_seconds,
             )
         }
+
+    async def put_private_bytes(self, object_key: str, content: bytes, *, mime: str):
+        """Upload server-generated, bounded finance output to a private verified key."""
+        self._check(object_key)
+        allowed = {
+            "text/csv": ".csv",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+        }
+        if (
+            not object_key.startswith("mall/verified/finance-exports/")
+            or mime not in allowed
+            or not object_key.endswith(allowed[mime])
+            or not isinstance(content, bytes)
+            or not 0 < len(content) <= 10 * 1024 * 1024
+        ):
+            raise ValueError("服务端资金导出对象不合法")
+        async with httpx.AsyncClient(
+            timeout=15, transport=self.transport, follow_redirects=False
+        ) as remote:
+            response = await remote.put(
+                self.client._build_presigned_put_url(
+                    object_key, mime, expire_seconds=60, method="PUT"
+                ),
+                content=content,
+                headers={"Content-Type": mime, "x-cos-acl": "private"},
+            )
+            response.raise_for_status()
+
+    async def finalize(self, source_key: str, destination_key: str):
+        self._check(source_key)
+        self._check(destination_key)
+        if source_key.startswith("mall/verified/") or not destination_key.startswith(
+            "mall/verified/"
+        ):
+            raise ValueError("文件转存路径不合法")
+        async with httpx.AsyncClient(
+            timeout=15, transport=self.transport, follow_redirects=False
+        ) as remote:
+            metadata = await remote.head(
+                self.client._build_presigned_put_url(
+                    source_key, "application/octet-stream", 60, method="HEAD"
+                )
+            )
+            metadata.raise_for_status()
+            etag = metadata.headers.get("ETag")
+            if not etag:
+                raise ValueError("文件转存源版本无法核验")
+            host = f"{self.client._bucket}.cos.{self.client._region}.myqcloud.com"
+            async with remote.stream(
+                "PUT",
+                self.client._build_presigned_put_url(
+                    destination_key, "application/octet-stream", 60, method="PUT"
+                ),
+                headers={
+                    "x-cos-copy-source": f"{host}/{quote(source_key, safe='/')}",
+                    "x-cos-copy-source-if-match": etag,
+                    "x-cos-acl": "private",
+                },
+            ) as response:
+                response.raise_for_status()
+                payload = bytearray()
+                async for chunk in response.aiter_bytes():
+                    payload.extend(chunk)
+                    if len(payload) > 16384:
+                        raise ValueError("文件转存响应不合法")
+            try:
+                root = ElementTree.fromstring(payload)
+                tag = root.tag.rsplit("}", 1)[-1]
+                has_etag = any(n.tag.rsplit("}", 1)[-1] == "ETag" and n.text for n in root)
+                if tag != "CopyObjectResult" or not has_etag:
+                    raise ValueError("文件转存失败")
+            except ElementTree.ParseError as exc:
+                raise ValueError("文件转存响应不合法") from exc
 
     async def head(self, object_key: str):
         self._check(object_key)

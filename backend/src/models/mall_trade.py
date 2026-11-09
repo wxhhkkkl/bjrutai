@@ -29,6 +29,7 @@ class MallAddress(MallRecord, Base):
     province_code: Mapped[str] = mapped_column(String(12))
     city_code: Mapped[str] = mapped_column(String(12))
     district_code: Mapped[str] = mapped_column(String(12))
+    region_names: Mapped[list | None] = mapped_column(JSON, nullable=True)
     address_line: Mapped[str] = mapped_column(String(200))
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
     archived_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
@@ -100,6 +101,8 @@ class MallOrder(MallRecord, Base):
     received_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
     closed_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
     close_reason: Mapped[str | None] = mapped_column(String(200))
+    close_requested_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
+    close_request_reason: Mapped[str | None] = mapped_column(String(500))
     active_payment_id: Mapped[int | None] = mapped_column(
         MALL_ID,
         ForeignKey(
@@ -166,6 +169,7 @@ class MallShipment(MallRecord, Base):
     courier_code: Mapped[str] = mapped_column(String(32))
     tracking_no: Mapped[str] = mapped_column(String(64))
     shipped_at: Mapped[datetime] = mapped_column(UTC_TIME)
+    auto_receive_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
     shipped_by: Mapped[int] = mapped_column(
         Integer, ForeignKey("admin_accounts.id", ondelete="RESTRICT")
     )

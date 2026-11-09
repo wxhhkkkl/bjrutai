@@ -26,6 +26,20 @@
         </view>
     </view>
 
+    <view class="profile-mall-entry" aria-role="group" aria-label="商城服务">
+        <text class="profile-mall-entry__eyebrow">商城服务</text>
+        <view class="profile-mall-entry__action tap-target" data-id="mall-orders" bindtap="action"
+            hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80"
+            aria-role="button" aria-label="商城订单，查看付款、物流、售后与发票进度">
+            <view class="profile-mall-entry__icon"><van-icon name="records-o" size="24px" color="#27645B" /></view>
+            <view class="profile-mall-entry__copy">
+                <text class="profile-mall-entry__title">商城订单</text>
+                <text class="profile-mall-entry__hint">付款、物流、售后与发票进度</text>
+            </view>
+            <van-icon name="arrow" size="19px" color="#8A938E" />
+        </view>
+    </view>
+
     <page-state state="{{state}}" message="{{stateMessage}}" bind:retry="retry" />
 
     <block wx:if="{{state === 'success'}}">

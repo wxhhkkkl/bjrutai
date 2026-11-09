@@ -222,12 +222,59 @@ async def test_preview_matches_compute(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_monthly_settlement_hook_calls_compute(db_session: AsyncSession):
-    """monthly_settlement_job runs compute_commission for the previous month."""
+async def test_monthly_settlement_hook_calls_compute(monkeypatch):
+    """monthly settlement locks its period, computes, then captures evidence."""
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
     from unittest.mock import AsyncMock, patch
 
     from src.tasks import settlement_task
 
-    with patch("src.services.commission_service.compute_commission", new=AsyncMock(return_value={"period": "2026-07", "computed": 0, "frozen": False})) as mock_compute:
+    period_row = SimpleNamespace(status="open", revision=0)
+
+    class FrozenDateTime:
+        @staticmethod
+        def now(tz=None):
+            return datetime(2026, 8, 1, tzinfo=timezone.utc)
+
+    class FakeDB:
+        async def scalar(self, _query):
+            return None
+
+        async def commit(self):
+            return None
+
+        async def rollback(self):
+            return None
+
+    class FakeContext:
+        async def __aenter__(self):
+            return FakeDB()
+
+        async def __aexit__(self, *_args):
+            return False
+
+    monkeypatch.setattr(settlement_task, "datetime", FrozenDateTime)
+    monkeypatch.setattr(settlement_task, "async_session", FakeContext)
+    monkeypatch.setattr(
+        settlement_task,
+        "lock_period",
+        AsyncMock(return_value=period_row),
+    )
+    with (
+        patch(
+            "src.services.commission_service.compute_commission",
+            new=AsyncMock(return_value={"period": "2026-07", "computed": 0, "frozen": False}),
+        ) as mock_compute,
+        patch(
+            "src.services.performance_evidence_service.capture_period_evidence",
+            new=AsyncMock(),
+        ) as mock_capture,
+        patch(
+            "src.services.report_service.ReportService.ensure_settlement_report",
+            new=AsyncMock(),
+        ),
+    ):
         await settlement_task.monthly_settlement_job()
         mock_compute.assert_awaited_once()
+        mock_capture.assert_awaited_once()

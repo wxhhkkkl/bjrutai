@@ -4,17 +4,17 @@
 
 ## 已知事实与首期决定
 
-官方索引将该文档列为地图轨迹查询，与普通实时查询、订阅推送分列。地图查询提供轨迹、状态、地图链接及可选预计到达等信息，单票查询须控制频率。[地图接口](https://api.kuaidi100.com/document/5ff2c3e7ba1bf00302f5612e.html)、[官方索引](https://api.kuaidi100.com/document/apidocumentation)。用户已开通服务作为产品事实记录；账户具体接口权限、额度、回调及域名条件在接入时核验，不等同已提供密钥或授权发送真实用户资料。
+官方索引将该文档列为地图轨迹查询，与普通实时查询、订阅推送分列。2026-11-06按官方搜索索引重新核对地图API：`POST https://poll.kuaidi100.com/poll/maptrack.do`，表单字段含`customer`、签名和JSON字符串`param`；签名为`MD5(param + key + customer)`并转大写。`param.com`使用小写公司编码，`num`为6–32字符；`from`/`to`为标准行政区格式；`phone`按公司规则可选或必填；`resultv2=5`提供高级状态和区域字段；`needCourierInfo`默认关闭。单票至少间隔30分钟、24小时不超过48次。[官方地图接口](https://api.kuaidi100.com/document/5ff2c3e7ba1bf00302f5612e)、[官方接口索引](https://api.kuaidi100.com/document/apidocumentation)。官方详情页本次仍超时，但搜索索引返回了接口字段和频率说明；已开通服务不等于已提供密钥、额度或授权发送真实用户资料。
 
-首期明确接入快递100查询能力，由后端统一适配、缓存和限流，前端按订单权限读轨迹，不直连第三方。普通轨迹是首期功能；地图视图及预计信息按实际能力与本轮UI参考图确定展示。订阅推送、电子面单、自动寄件/支付运费不因本次链接自动加入范围。
+首期按“本地fake闭环/真实provider请求”分层：后端统一适配、缓存和限流，前端按订单权限读轨迹，不直连第三方。fake闭环已实现；真实请求留在G-LIVE/G-DATA门禁内，须确认买家校验资料用途和账户权限后才能接通。普通轨迹是首期功能；地图视图及预计信息按实际能力与本轮UI参考图确定展示。订阅推送、电子面单、自动寄件/支付运费不因本次链接自动加入范围。
 
 ## 服务端设计
 
 - 新增`backend/src/integrations/kuaidi100_client.py`与`mall_logistics_service.py`，使用现有httpx，独立于微信发货适配器。
-- 地图查询地址采用官方`https://poll.kuaidi100.com/poll/maptrack.do`，表单customer/sign/param；MD5签名按实际发送param字节串、key、customer顺序计算后转大写。该签名算法仅遵循供应商协议，不作为项目自身密码或通用安全算法。
-- 参数只取可信订单包裹：公司小写编码、运单、标准出发/目的行政区；默认只取JSON轨迹，不收集派件员姓名电话。某快递需要电话校验时，优先使用可验证的实际寄件信息；确需买家号码时只按承运商可接受的最小校验值交付，并满足资料目的告知及G-DATA，不能把脱敏电话当可验证号码或向前端下发完整电话。
-- `resultv2`默认采用已核验账户可用的基础行政区/状态能力，不默认开启需额外权限的AI路线或服务。预计到达有返回才展示为“预计”，无值时不承诺到达时间。
-- `KUAIDI100_CUSTOMER`、`KUAIDI100_KEY`、`KUAIDI100_ENABLED`等仅后端环境配置，默认禁真实出站；不把key、签名、完整请求、原文电话或地图链接里的私密令牌写日志。
+- 地图查询地址采用官方`https://poll.kuaidi100.com/poll/maptrack.do`，表单customer/sign/param；签名按序列化后的param字符串、key、customer拼接后MD5大写。该签名算法仅遵循供应商协议，不作为项目自身密码或通用安全算法。
+- 参数只取可信订单包裹：公司小写编码、运单、标准出发/目的行政区。地图接口要求`from`和`to`；这两项以及部分承运商需要的phone均属买家物流资料，真实出站须先满足G-DATA并限定目的。不能以脱敏电话代替校验值，也不能把完整号码发给前端。
+- `resultv2=5`为首期上限，提供高级状态及区域信息；不开`resultv2=7`的AI预计路线，不发送`needCourierInfo=true`，不采集或返回揽件/派件员姓名和私人电话。地图返回的`trailUrl`可能包含令牌，只按临时展示策略处理，不进入快照、普通响应或日志。服务端所有worker共享单票频控：至少30分钟一次且每天不超过48次。
+- `KUAIDI100_CUSTOMER`、`KUAIDI100_KEY`、`KUAIDI100_ENABLED`等仅后端环境配置，默认禁真实出站；实际配置名为`KUAIDI100_CUSTOMER`、`KUAIDI100_KEY`、`MALL_KUAIDI100_MODE=fake`及`MALL_KUAIDI100_OUTBOUND_ENABLED=false`。不把key、签名、完整请求、原文电话或地图链接里的私密令牌写日志。
 
 以上协议摘要参照官方地图文档；当前账户适用的电话规则、可用功能及请求编码由接入测试固定，不推测全部快递相同。
 
@@ -32,7 +32,7 @@
 
 不新增业务表，扩展`mall_shipments`：`logistics_provider=kuaidi100, logistics_status, provider_state, tracking_identity_hash, tracking_snapshot JSON, logistics_fetched_at, logistics_next_query_at, logistics_last_error_code`。snapshot只保留规范化安全节点/行政区、可选预计时间；不存customer/key/sign、完整原始报文或公开永久map URL。
 
-新增三个本项目接口（不是快递100的对外接口）：
+已实现三个本项目接口（不是快递100的对外接口）：
 
 1. `GET /api/v1/mall/orders/{orderId}/logistics`：只允许买家本人，返回快递/运单、缓存状态、规范化节点、更新时间、可选预计信息和是否支持地图；必要查询由唯一任务推进。
 2. `GET /api/v1/admin/mall/orders/{orderId}/logistics`：有订单/履约读取范围的后台人员查询相同安全快照。
@@ -48,4 +48,10 @@
 
 ## 文档获取说明
 
-用户原链接直接抓取一度超时，已通过快递100官方索引与同内容官方`.html`页面及搜索正文核对接口能力；未登录其管理后台、未调用账户接口、未查询真实运单。订阅相关文档只作为后续权益核对来源，本期不定义其回调接口。
+用户原链接直接抓取一度超时；本次仍未能打开地图详情页，但通过快递100官方文档索引的搜索结果核对了查询端点、字段及频控。实时查询官方文档可直接打开，确认单票至少间隔30分钟、24小时不超过48次以及相关phone规则。未登录其管理后台、未调用账户接口、未查询真实运单。订阅相关文档只作为后续权益核对来源，本期不定义其回调接口。
+
+## 当前实现状态（2026-11-06）
+
+适配器按`maptrack.do`构造签名表单，HTTP层有截止时间、响应字节上限且禁用重定向。service把时间、说明、状态及粗粒度区域规范化，过滤电话号码；不接收/返回`trailUrl`、经纬度或派件员信息。`LogisticsSnapshot.source`区分fake/live/null。本人GET、管理员GET及有权限刷新共用持久查询任务和每票至少30分钟冷却，管理员刷新有包裹版本与持久幂等保护。订单所有权、手机号脱敏、不同错误状态、查询签收不代表收货与旧运单响应栅栏均有本地或隔离MySQL测试。
+
+当前worker仅在development/test且模式fake、出站关闭时调用本地fake客户端；production或live模式始终返回安全门禁状态，不调用Kuaidi100 adapter。虽然adapter通过模拟HTTP校验签名/字段，真实商户密钥、电话校验规则、账号额度/订阅和真实运单均未核验；`G-DATA`未生效，真实provider请求仍关闭。地图标记目前固定false；不表示地图/预计到达视觉已完成。全局mall worker也默认关闭。

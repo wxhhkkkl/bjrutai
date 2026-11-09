@@ -16,23 +16,65 @@ logger = logging.getLogger(__name__)
 # Full permission set matching manageSystem/src/constants/permissions.js
 _ALL_PERMISSIONS = {
     "permissions": [
-        "accounts.read", "accounts.write",
-        "roles.read", "roles.write",
-        "customers.read", "customers.write",
-        "qualifications.read", "qualifications.write",
-        "contributions.read", "contributions.write",
+        "accounts.read",
+        "accounts.write",
+        "roles.read",
+        "roles.write",
+        "customers.read",
+        "customers.write",
+        "qualifications.read",
+        "qualifications.write",
+        "contributions.read",
+        "contributions.write",
         "reports.read",
-        "articles.read", "articles.write",
-        "promotions.read", "promotions.write",
-        "notifications.read", "notifications.write",
-        "feedbacks.read", "feedbacks.write", "feedbacks.delete",
-        "comments.read", "comments.write",
-        "org.read", "org.write",
-        "distributor.read", "distributor.write",
+        "articles.read",
+        "articles.write",
+        "promotions.read",
+        "promotions.write",
+        "notifications.read",
+        "notifications.write",
+        "feedbacks.read",
+        "feedbacks.write",
+        "feedbacks.delete",
+        "comments.read",
+        "comments.write",
+        "org.read",
+        "org.write",
+        "distributor.read",
+        "distributor.write",
         "org_admin.write",
-        "sharing_rules.read", "sharing_rules.write",
+        "sharing_rules.read",
+        "sharing_rules.write",
         "performance.settle",
-        "sync.read", "sync.write",
+        "sync.read",
+        "sync.write",
+        "mall.products.read",
+        "mall.products.write",
+        "mall.stock.read",
+        "mall.stock.write",
+        "mall.files.read",
+        "mall.files.write",
+        "mall.orders.read",
+        "mall.orders.write",
+        "mall.shipments.write",
+        "mall.fulfillment.release",
+        "mall.invoices.read",
+        "mall.invoices.write",
+        "mall.billing.release",
+        "mall.aftersales.read",
+        "mall.aftersales.review",
+        "mall.returns.receive",
+        "mall.payments.read",
+        "mall.payments.query",
+        "mall.refunds.read",
+        "mall.refunds.query",
+        "mall.refunds.execute",
+        "mall.finance.export",
+        "mall.reconciliations.read",
+        "mall.reconciliations.write",
+        "mall.settings.read",
+        "mall.settings.write",
+        "mall.attribution.write",
     ]
 }
 
@@ -44,9 +86,7 @@ async def seed_system_admin_role(db: AsyncSession) -> None:
     (username="admin") if not already assigned.
     """
     # ── Create system admin role ──────────────────────────────────
-    result = await db.execute(
-        select(Role).where(Role.is_system == True)
-    )
+    result = await db.execute(select(Role).where(Role.is_system.is_(True)))
     system_role = result.scalars().first()
 
     if system_role is None:
@@ -68,9 +108,7 @@ async def seed_system_admin_role(db: AsyncSession) -> None:
             logger.info("Synced system admin role permissions")
 
     # ── Assign to default admin ───────────────────────────────────
-    admin_result = await db.execute(
-        select(AdminAccount).where(AdminAccount.username == "admin")
-    )
+    admin_result = await db.execute(select(AdminAccount).where(AdminAccount.username == "admin"))
     admin = admin_result.scalars().first()
 
     if admin is not None:
@@ -95,9 +133,7 @@ async def seed_system_admin_role(db: AsyncSession) -> None:
                 )
             )
             await db.flush()
-            logger.info(
-                "Assigned admin '%s' to system admin role", admin.username
-            )
+            logger.info("Assigned admin '%s' to system admin role", admin.username)
 
 
 async def seed_default_category(db: AsyncSession) -> None:

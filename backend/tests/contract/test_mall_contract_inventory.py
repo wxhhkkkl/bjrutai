@@ -89,7 +89,7 @@ def test_planned_inventory_is_internally_consistent(contract):
     tasks = json.loads((FEATURE / "tasks-map.json").read_text())
     operations = [op["operationId"] for ms in contract["paths"].values() for op in ms.values()]
     owners = [op for task in tasks["tasks"] for op in task["operationIds"]]
-    assert len(operations) == len(set(operations)) == 104
+    assert len(operations) == len(set(operations)) == 106
     assert sorted(owners) == sorted(operations)
 
 

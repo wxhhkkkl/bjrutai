@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Protocol
+from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,12 +14,13 @@ from ..core.exceptions import ForbiddenException, NotFoundException, ValidationE
 from ..models.mall_base import utc_now
 from ..models.mall_finance import MallInvoice
 from ..models.mall_operations import MallFile
-from ..models.mall_trade import MallOrder
+from ..models.mall_trade import MallAftersale, MallOrder
 
 
 class MallObjectStore(Protocol):
     async def issue_upload_ticket(self, **kwargs: Any) -> dict: ...
     async def head(self, object_key: str) -> dict | None: ...
+    async def finalize(self, source_key: str, destination_key: str) -> None: ...
     async def sign_get(self, object_key: str, *, expires_seconds: int) -> str: ...
 
 
@@ -32,10 +34,23 @@ async def get_mall_file_access(
     file = await db.get(MallFile, file_id, populate_existing=True)
     if file is None:
         raise NotFoundException(message="文件不存在")
-    owns_file = file.owner_actor_type == actor.actor_type and file.owner_actor_id == actor.actor_id
+    owns_file = (
+        file.owner_actor_type == actor.actor_type
+        and file.owner_actor_id == actor.actor_id
+        and (actor.actor_type != "user" or file.purpose == "aftersale_proof")
+    )
     bound_access = False
     if file.status == "bound" and actor.actor_type == "admin":
         bound_access = True  # domain permission below still required
+    if (
+        file.purpose == "aftersale_proof"
+        and file.order_id is not None
+        and actor.actor_type == "admin"
+    ):
+        applications = (
+            await db.scalars(select(MallAftersale).where(MallAftersale.order_id == file.order_id))
+        ).all()
+        bound_access = bound_access or any(file.id in row.proof_file_ids for row in applications)
     if (
         file.status == "bound"
         and actor.actor_type == "user"
@@ -62,6 +77,8 @@ async def get_mall_file_access(
             "aftersale_proof": "mall.aftersales.read",
             "reconciliation_evidence": "mall.reconciliations.read",
             "finance_export": "mall.finance.export",
+            "attribution_evidence": "mall.attribution.write",
+            "performance_adjustment_evidence": "performance.settle",
         }.get(file.purpose)
         if required not in actor.permissions or "mall.files.read" not in actor.permissions:
             raise ForbiddenException(message="缺少文件用途权限")
@@ -89,9 +106,32 @@ class MallUploadTicket:
 _LIMITS = {
     "product_image": ({"image/jpeg", "image/png", "image/webp"}, 5 * 1024 * 1024),
     "aftersale_proof": ({"image/jpeg", "image/png"}, 5 * 1024 * 1024),
+    "attribution_evidence": (
+        {"image/jpeg", "image/png", "application/pdf"},
+        10 * 1024 * 1024,
+    ),
+    "performance_adjustment_evidence": (
+        {"image/jpeg", "image/png", "application/pdf"},
+        10 * 1024 * 1024,
+    ),
     "invoice_pdf": ({"application/pdf"}, 10 * 1024 * 1024),
-    "reconciliation_evidence": ({"image/jpeg", "image/png", "application/pdf"}, 10 * 1024 * 1024),
-    "finance_export": ({"text/csv"}, 10 * 1024 * 1024),
+    "reconciliation_evidence": (
+        {
+            "image/jpeg",
+            "image/png",
+            "application/pdf",
+            "text/csv",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        },
+        10 * 1024 * 1024,
+    ),
+    "finance_export": (
+        {
+            "text/csv",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        },
+        10 * 1024 * 1024,
+    ),
 }
 
 
@@ -102,6 +142,8 @@ def require_file_write_purpose(actor: MallActor, purpose: str):
             "invoice_pdf": "mall.invoices.write",
             "aftersale_proof": "mall.aftersales.review",
             "reconciliation_evidence": "mall.reconciliations.write",
+            "attribution_evidence": "mall.attribution.write",
+            "performance_adjustment_evidence": "performance.settle",
         }.get(purpose)
         if permission not in actor.permissions:
             raise ForbiddenException(message="缺少文件用途权限")
@@ -127,7 +169,12 @@ async def issue_mall_upload_ticket(
     types, limit = _LIMITS[purpose]
     if mime not in types or not 0 < size <= limit or not re.fullmatch(r"[a-f0-9]{64}", sha256):
         raise ValidationException(message="文件类型、大小或校验摘要不合法")
-    if not object_key.startswith("mall/") or ".." in object_key or len(object_key) > 512:
+    if (
+        not object_key.startswith("mall/")
+        or object_key.startswith("mall/verified/")
+        or ".." in object_key
+        or len(object_key) > 512
+    ):
         raise ValidationException(message="文件对象路径不合法")
     if storage is None:
         raise ValidationException(message="私有存储凭据未配置")
@@ -157,11 +204,20 @@ async def verify_mall_file(
     file_id: int,
     storage: MallObjectStore | None,
 ) -> MallFile:
-    file = await db.get(MallFile, file_id)
+    file = (
+        await db.execute(
+            select(MallFile)
+            .where(MallFile.id == file_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
     if file is None:
         raise NotFoundException(message="文件不存在")
     if file.owner_actor_type != actor.actor_type or file.owner_actor_id != actor.actor_id:
         raise ForbiddenException(message="只能核验本人文件")
+    if actor.actor_type == "user" and file.purpose != "aftersale_proof":
+        raise ForbiddenException(message="买家只能核验售后凭证")
     require_file_write_purpose(actor, file.purpose)
     if file.status != "uploading" or file.expires_at <= utc_now():
         raise ValidationException(message="上传凭证已失效或文件已核验")
@@ -172,6 +228,17 @@ async def verify_mall_file(
         actual.get(field) != getattr(file, field) for field in ("mime", "size", "sha256")
     ):
         raise ValidationException(message="文件实际上传校验失败")
+    # Client PUT credentials only address staging. Each verification attempt gets
+    # a fresh destination, so a still-valid staging URL cannot replace bound data.
+    destination = f"mall/verified/{file.id}/{uuid4().hex}"
+    await storage.finalize(file.object_key, destination)
+    copied = await storage.head(destination)
+    if not copied or any(
+        copied.get(field) != getattr(file, field) for field in ("mime", "size", "sha256")
+    ):
+        raise ValidationException(message="文件转存校验失败")
+    file.object_key = destination
+    file.expires_at = utc_now()
     file.status = "verified"
     file.version += 1
     await db.flush()

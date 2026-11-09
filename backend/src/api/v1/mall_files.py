@@ -36,10 +36,23 @@ from ...services.mall_file_service import (
 
 class UploadRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
-    purpose: Literal["product_image", "aftersale_proof", "invoice_pdf", "reconciliation_evidence"]
+    purpose: Literal[
+        "product_image",
+        "aftersale_proof",
+        "invoice_pdf",
+        "reconciliation_evidence",
+        "attribution_evidence",
+        "performance_adjustment_evidence",
+    ]
     order_id: str | None = Field(default=None, alias="orderId", pattern=r"^[1-9][0-9]*$")
     file_name: str = Field(alias="fileName", min_length=1, max_length=255)
-    content_type: Literal["image/jpeg", "image/png", "application/pdf"] = Field(alias="contentType")
+    content_type: Literal[
+        "image/jpeg",
+        "image/png",
+        "application/pdf",
+        "text/csv",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ] = Field(alias="contentType")
     file_size: int = Field(alias="fileSize", ge=1, le=10485760)
     sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
@@ -64,18 +77,21 @@ async def audit_file(db, actor, action, file_id):
             entity_id=str(file_id),
             detail={},
         )
-    else:
-        from ...models.audit import AuditLog
+        return
+    if actor.actor_type != "user":
+        raise ForbiddenException(message="商城文件审计身份无效")
 
-        db.add(
-            AuditLog(
-                user_id=actor.actor_id,
-                action=action,
-                entity_type="mall_file",
-                entity_id=str(file_id),
-                detail={},
-            )
+    from ...models.audit import AuditLog
+
+    db.add(
+        AuditLog(
+            user_id=actor.actor_id,
+            action=action,
+            entity_type="mall_file",
+            entity_id=str(file_id),
+            detail={},
         )
+    )
 
 
 def build_file_router(prefix, buyer_dep, write_dep, read_dep, admin=False):

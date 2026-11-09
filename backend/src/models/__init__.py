@@ -59,6 +59,7 @@ from .mall_trade import (  # noqa: F401
     MallShipment,
 )
 from .mall_finance import (  # noqa: F401
+    MallFinanceExportRequest,
     MallInvoice,
     MallInvoiceRequest,
     MallPayment,

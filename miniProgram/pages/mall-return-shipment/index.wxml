@@ -1,0 +1,27 @@
+<view class="mall-flow-page mall-return-page">
+  <flow-navigation title="填写退货运单" bind:back="goBack" />
+  <scroll-view class="mall-flow-scroll" scroll-y="{{true}}" scroll-into-view="{{errorTarget}}" enhanced="{{true}}" show-scrollbar="{{false}}">
+    <view wx:if="{{state === 'loading'}}" class="mall-flow-state"><van-icon name="replay" size="30px" color="#27645B" /><text>正在核对售后审核结果</text></view>
+    <view wx:elif="{{state === 'recoverable-error'}}" class="mall-flow-state"><text class="mall-flow-state__title">当前无法提交退货运单</text><text>{{stateMessage}}</text><button class="mall-primary-button tap-target" bindtap="retry" hover-class="tap-feedback">重新核对</button></view>
+    <view wx:elif="{{state === 'success'}}" class="mall-return-content">
+      <view class="mall-return-banner"><view class="mall-return-banner__mark"><van-icon name="logistics" size="24px" color="#27645B" /></view><view><text class="mall-return-banner__title">请按商家审核信息寄回</text><text class="mall-return-banner__hint">寄出后填写承运商和运单号，方便双方跟踪退货</text></view></view>
+      <view class="mall-return-section">
+        <view class="mall-section-heading"><text>商家退货地址</text></view>
+        <text wx:if="{{aftersale.returnInstructions}}" id="mall-field-return-address" class="mall-return-address">{{aftersale.returnInstructions}}</text>
+        <view wx:else id="mall-field-return-address" class="mall-return-address mall-return-address--empty"><text>商家退货地址尚未提供，请先联系商家确认后再寄出。</text></view>
+        <text class="mall-helper">寄出前请核对收件信息；页面不会替你创建快递订单。</text>
+      </view>
+      <view class="mall-return-section">
+        <view class="mall-section-heading"><text>退货物流</text><text class="mall-required">必填</text></view>
+        <picker id="mall-field-courier" mode="selector" range="{{couriers}}" range-key="name" value="{{courierIndex < 0 ? 0 : courierIndex}}" bindchange="onCourierChange">
+          <view class="mall-return-picker tap-target"><text class="{{courierIndex < 0 ? 'mall-placeholder' : ''}}">{{courierIndex < 0 ? '选择承运商' : couriers[courierIndex].name}}</text><van-icon name="arrow-down" size="16px" color="#8E9991" /></view>
+        </picker>
+        <input id="mall-field-trackingNo" class="mall-return-input" value="{{trackingNo}}" bindinput="onTrackingInput" maxlength="64" placeholder="填写快递运单号" focus="{{focusField === 'trackingNo'}}" adjust-position="true" cursor-spacing="80" />
+        <text class="mall-helper">请填写快递面单上的运单号；提交后售后进度会更新为等待商家验收。</text>
+      </view>
+      <view class="mall-return-notice"><van-icon name="info-o" size="17px" color="#9A765E" /><text>退货运费及商品验收结果以售后规则和商家处理为准。</text></view>
+      <text wx:if="{{stateMessage}}" id="mall-field-error-message" class="mall-inline-message" aria-role="alert">{{stateMessage}}</text>
+    </view>
+  </scroll-view>
+  <view wx:if="{{state === 'success'}}" class="mall-return-footer"><button class="mall-primary-button mall-return-submit tap-target" bindtap="submitReturnShipment" loading="{{submitting}}" disabled="{{submitting || !returnAddressAvailable}}" hover-class="tap-feedback">提交退货运单</button></view>
+</view>

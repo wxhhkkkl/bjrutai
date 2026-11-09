@@ -2,6 +2,7 @@ import pytest
 
 from src.models.mall_operations import MallFile
 from tests.conftest import auth_header, make_access_token, seed_user
+from tests.contract.test_admin_mall_orders import admin
 
 
 class Store:
@@ -13,6 +14,9 @@ class Store:
 
     async def head(self, key):
         return {"mime": "image/jpeg", "size": 32, "sha256": "a" * 64}
+
+    async def finalize(self, source_key, destination_key):
+        pass
 
     async def sign_get(self, key, *, expires_seconds):
         return "https://storage.invalid/download"
@@ -77,3 +81,32 @@ async def test_default_storage_is_closed_without_outbound_permission(client, db_
         },
     )
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_bill_accepts_private_csv_upload_ticket(client, db_session):
+    from src.api.v1.mall_files import get_mall_store
+    from src.main import app
+
+    class EvidenceStore:
+        async def issue_upload_ticket(self, **_kwargs):
+            return {"uploadToken": "https://storage.invalid/reconciliation-upload"}
+
+    store = EvidenceStore()
+    app.dependency_overrides[get_mall_store] = lambda: store
+    _, _, headers = await admin(
+        db_session, ["mall.reconciliations.write", "mall.files.write"]
+    )
+    response = await client.post(
+        "/api/v1/admin/mall/files/upload-ticket",
+        headers={**headers, "Idempotency-Key": "reconciliation-csv-ticket-001"},
+        json={
+            "purpose": "reconciliation_evidence",
+            "fileName": "synthetic-daily-statement.csv",
+            "contentType": "text/csv",
+            "fileSize": 1024,
+            "sha256": "b" * 64,
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["contentType"] == "text/csv"

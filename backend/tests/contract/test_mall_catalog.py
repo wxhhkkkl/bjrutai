@@ -81,6 +81,10 @@ async def test_admin_create_retry_stock_retry_and_public_visibility(client, db_s
     first = await client.post("/api/v1/admin/mall/products", headers=headers, json=body)
     assert first.status_code == 200, first.text
     product = first.json()["data"]
+    assert product["coverFileId"] == str(file.id)
+    assert product["galleryFileIds"] == [] and product["sort"] == 0
+    assert product["skus"][0]["reservedQuantity"] == 0
+    assert product["skus"][0]["warningQuantity"] == 0
     retry = await client.post("/api/v1/admin/mall/products", headers=headers, json=body)
     assert retry.json()["data"]["id"] == product["id"]
     assert (await client.get("/api/v1/mall/products")).json()["data"]["total"] == 0
@@ -93,6 +97,8 @@ async def test_admin_create_retry_stock_retry_and_public_visibility(client, db_s
     assert published.status_code == 200, published.text
     public = (await client.get("/api/v1/mall/products?q=燕麦&sort=price_asc")).json()["data"]
     assert public["total"] == 1 and public["items"][0]["skus"][0]["stockStatus"] == "sold_out"
+    assert "coverFileId" not in public["items"][0]
+    assert "reservedQuantity" not in public["items"][0]["skus"][0]
     sku = product["skus"][0]
     headers["Idempotency-Key"] = "catalog-stock-replenish"
     change = {"expectedVersion": sku["version"], "deltaAvailableQuantity": 5, "reason": "补货"}

@@ -8,8 +8,89 @@ from sqlalchemy import select
 from src.api.mall_deps import MallActor
 from src.models.mall_base import utc_now
 from src.models.mall_operations import MallCommand, MallJob
+from src.models.performance_evidence import PerformancePeriodVersion
+from src.models.performance_settlement import PerformanceSettlement, SettlementStatus
 from src.services.mall_command_service import reserve_mall_command
 from src.services.mall_job_service import claim_next_mall_job, enqueue_mall_job, finish_mall_job
+from src.services.performance_period_service import bump_unfrozen_periods
+from src.services.settlement_service import review_settlement
+
+
+async def test_two_innodb_writers_lock_periods_in_sorted_order(mall_mysql_sessions):
+    periods = ["2099-10", "2099-11"]
+    async with mall_mysql_sessions() as setup:
+        for period in periods:
+            version = await setup.get(PerformancePeriodVersion, period)
+            if version is None:
+                setup.add(PerformancePeriodVersion(period=period, revision=0, status="open"))
+            else:
+                version.revision = 0
+                version.status = "open"
+        await setup.commit()
+
+    async def bump(requested_periods):
+        async with mall_mysql_sessions() as session:
+            changed = await bump_unfrozen_periods(session, requested_periods)
+            await session.commit()
+            return changed
+
+    changed = await asyncio.wait_for(
+        asyncio.gather(bump(periods), bump(list(reversed(periods)))), timeout=10
+    )
+    assert changed == [set(periods), set(periods)]
+
+    async with mall_mysql_sessions() as check:
+        revisions = {
+            row.period: row.revision
+            for row in (
+                await check.execute(
+                    select(PerformancePeriodVersion).where(
+                        PerformancePeriodVersion.period.in_(periods)
+                    )
+                )
+            ).scalars()
+        }
+    assert revisions == {period: 2 for period in periods}
+
+
+async def test_review_freeze_serializes_before_later_innodb_input_change(mall_mysql_sessions):
+    period = "2099-12"
+    async with mall_mysql_sessions() as setup:
+        setup.add(PerformancePeriodVersion(period=period, revision=0, status="open"))
+        settlement = PerformanceSettlement(period=period, status=SettlementStatus.PENDING)
+        setup.add(settlement)
+        await setup.flush()
+        settlement_id = settlement.id
+        await setup.commit()
+
+    writer_started = asyncio.Event()
+
+    async def write_input():
+        async with mall_mysql_sessions() as writer:
+            writer_started.set()
+            changed = await bump_unfrozen_periods(writer, [period])
+            await writer.commit()
+            return changed
+
+    pending_writer = None
+    try:
+        async with mall_mysql_sessions() as reviewer:
+            await review_settlement(reviewer, period, operator_id=1)
+            pending_writer = asyncio.create_task(write_input())
+            await asyncio.wait_for(writer_started.wait(), timeout=5)
+            done, _ = await asyncio.wait({pending_writer}, timeout=0.1)
+            assert not done
+            await reviewer.commit()
+            assert await asyncio.wait_for(pending_writer, timeout=5) == set()
+    finally:
+        if pending_writer and not pending_writer.done():
+            await asyncio.wait_for(pending_writer, timeout=5)
+
+    async with mall_mysql_sessions() as check:
+        version = await check.get(PerformancePeriodVersion, period)
+        settlement = await check.get(PerformanceSettlement, settlement_id)
+        assert version.status == "frozen" and version.revision == 0
+        assert settlement.status == SettlementStatus.REVIEWED
 
 
 async def test_two_workers_claim_distinct_jobs_and_expired_worker_cannot_finish(

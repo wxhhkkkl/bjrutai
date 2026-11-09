@@ -62,6 +62,8 @@ def test_mysql_suite_is_migrated_and_cleaned_up_even_after_test_failure(runner):
     commands = [" ".join(map(str, args)) for args, _ in calls]
     assert any("mall_bootstrap.py" in command for command in commands)
     assert any("tests/mysql" in command for command in commands)
+    pytest_command = next(args for args, _ in calls if "-m" in args and "pytest" in args)
+    assert "-s" in pytest_command and "--durations=0" in pytest_command
     assert "down --volumes" in commands[-1]
     assert all("prune" not in command for command in commands)
 

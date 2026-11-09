@@ -2,13 +2,14 @@
 
 本表仅表示计划覆盖，不代表接口、测试或验收已完成。操作来自当前OpenAPI（已纳入快递100补充），详细依赖见[tasks.md](tasks.md)与[tasks-map.json](tasks-map.json)。
 
-## 104个操作归属
+## 105个操作归属
 
 | operationId | 方法/路径 | 实现任务 | 条件 |
 |---|---|---|---|
 | `listMallCategories` | GET `/api/v1/mall/categories` | T032 | 通用实时授权/状态/幂等 |
 | `listMallProducts` | GET `/api/v1/mall/products` | T032 | 通用实时授权/状态/幂等 |
 | `getMallProduct` | GET `/api/v1/mall/products/{productId}` | T032 | 通用实时授权/状态/幂等 |
+| `getMallCheckoutSettings` | GET `/api/v1/mall/checkout/settings` | T047 | 公开仅返回购买开关、运费策略与当前规则版本；no-store |
 | `listMallAddresses` | GET `/api/v1/mall/addresses` | T047 | 通用实时授权/状态/幂等 |
 | `createMallAddress` | POST `/api/v1/mall/addresses` | T047 | 通用实时授权/状态/幂等 |
 | `updateMallAddress` | PATCH `/api/v1/mall/addresses/{addressId}` | T047 | 通用实时授权/状态/幂等 |

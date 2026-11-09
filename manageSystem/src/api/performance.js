@@ -61,4 +61,13 @@ export const performanceApi = {
   settle(period) {
     return http.post(`/admin/performance/settlements/${period}/settle`).then(payload)
   },
+  listAdjustments(params = {}) {
+    const query = {}
+    if (params.cursor) query.cursor = params.cursor
+    if (params.pageSize !== undefined) query.pageSize = params.pageSize
+    return http.get('/admin/performance/adjustments', { params: query }).then(payload)
+  },
+  netEntitlement(resultId) {
+    return http.get(`/admin/performance/results/${resultId}/net-entitlement`).then(payload)
+  },
 }

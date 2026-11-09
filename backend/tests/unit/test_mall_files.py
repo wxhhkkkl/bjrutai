@@ -18,8 +18,41 @@ class FakeObjectStore:
     async def head(self, _object_key):
         return self.head_result
 
+    async def finalize(self, source_key, destination_key):
+        self.finalized = (source_key, destination_key)
+
     async def sign_get(self, object_key, *, expires_seconds):
         return "https://storage.invalid/short-lived"
+
+
+@pytest.mark.asyncio
+async def test_changed_copy_is_rejected_and_does_not_bind_mutable_source(db_session):
+    from src.services.mall_file_service import issue_mall_upload_ticket, verify_mall_file
+
+    class ChangedCopy(FakeObjectStore):
+        async def head(self, key):
+            return (
+                {**self.head_result, "sha256": "b" * 64}
+                if key.startswith("mall/verified/")
+                else self.head_result
+            )
+
+    owner = MallActor("user", 7, frozenset())
+    store = ChangedCopy({"mime": "image/jpeg", "size": 32, "sha256": "a" * 64})
+    ticket = await issue_mall_upload_ticket(
+        db_session,
+        actor=owner,
+        purpose="aftersale_proof",
+        object_key="mall/staging/proof",
+        mime="image/jpeg",
+        size=32,
+        sha256="a" * 64,
+        storage=store,
+    )
+    with pytest.raises(ValidationException, match="转存校验"):
+        await verify_mall_file(db_session, actor=owner, file_id=ticket.file.id, storage=store)
+    assert ticket.file.object_key == "mall/staging/proof"
+    assert ticket.file.status == "uploading"
 
 
 @pytest.mark.asyncio
@@ -95,6 +128,13 @@ async def test_file_ticket_and_head_verification_are_private_and_owner_scoped(db
         db_session, actor=owner, file_id=ticket.file.id, storage=storage
     )
     assert verified.status == "verified"
+    assert verified.object_key.startswith("mall/verified/")
+    assert storage.finalized[0] == "mall/aftersale/file-1.jpg"
+    from src.services.mall_file_service import get_mall_file_access
+
+    assert (
+        await get_mall_file_access(db_session, actor=owner, file_id=verified.id, storage=storage)
+    )["expiresIn"] == 60
     with pytest.raises(ForbiddenException, match="本人"):
         await verify_mall_file(
             db_session,
@@ -167,6 +207,34 @@ async def test_admin_upload_requires_domain_permission(db_session):
 
 
 @pytest.mark.asyncio
+async def test_attribution_evidence_file_requires_its_domain_permission(db_session):
+    from src.services.mall_file_service import issue_mall_upload_ticket
+
+    with pytest.raises(ForbiddenException):
+        await issue_mall_upload_ticket(
+            db_session,
+            actor=MallActor("admin", 2, frozenset({"mall.files.write"})),
+            purpose="attribution_evidence",
+            object_key="mall/attribution/evidence-denied.pdf",
+            mime="application/pdf",
+            size=64,
+            sha256="a" * 64,
+            storage=FakeObjectStore(None),
+        )
+    ticket = await issue_mall_upload_ticket(
+        db_session,
+        actor=MallActor("admin", 2, frozenset({"mall.attribution.write"})),
+        purpose="attribution_evidence",
+        object_key="mall/attribution/evidence.pdf",
+        mime="application/pdf",
+        size=64,
+        sha256="a" * 64,
+        storage=FakeObjectStore(None),
+    )
+    assert ticket.file.purpose == "attribution_evidence"
+
+
+@pytest.mark.asyncio
 async def test_bound_invoice_file_uses_order_buyer_not_uploading_admin(db_session):
     from datetime import timedelta
 
@@ -228,3 +296,81 @@ async def test_bound_invoice_file_uses_order_buyer_not_uploading_admin(db_sessio
             file_id=file.id,
             storage=store,
         )
+
+
+@pytest.mark.asyncio
+async def test_admin_may_access_only_proofs_attached_to_an_aftersale(db_session, monkeypatch):
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    from src.models.mall_base import utc_now
+    from src.models.mall_operations import MallFile
+    from src.schemas.mall_aftersale import AftersaleCreate
+    from src.services.mall_aftersale_service import apply_aftersale
+    from src.services.mall_file_service import get_mall_file_access
+    from tests.unit.test_mall_aftersale_service import paid_order
+
+    buyer, order, _, items = await paid_order(db_session, monkeypatch)
+    file = MallFile(
+        object_key="mall/verified/aftersale-proof.jpg",
+        purpose="aftersale_proof",
+        owner_actor_type="user",
+        owner_actor_id=buyer.actor_id,
+        order_id=order.id,
+        mime="image/jpeg",
+        size=32,
+        sha256="a" * 64,
+        status="verified",
+        expires_at=utc_now() - timedelta(minutes=1),
+    )
+    db_session.add(file)
+    await db_session.flush()
+    aftersale = await apply_aftersale(
+        db_session,
+        buyer,
+        AftersaleCreate(
+            orderId=str(order.id),
+            expectedOrderVersion=order.version,
+            method="refund_only",
+            items=[{"orderItemId": str(items[1].id), "quantity": 1}],
+            reason="包装损坏",
+            proofFileIds=[str(file.id)],
+        ),
+        key="proof-access-aftersale-001",
+    )
+    reviewer = MallActor("admin", 9, frozenset({"mall.files.read", "mall.aftersales.read"}))
+    storage = FakeObjectStore({"mime": "image/jpeg", "size": 32, "sha256": "a" * 64})
+    result = await get_mall_file_access(
+        db_session, actor=reviewer, file_id=file.id, storage=storage
+    )
+    assert result["accessUrl"] == "https://storage.invalid/short-lived"
+
+    detached = MallFile(
+        object_key="mall/verified/detached-proof.jpg",
+        purpose="aftersale_proof",
+        owner_actor_type="user",
+        owner_actor_id=buyer.actor_id,
+        order_id=order.id,
+        mime="image/jpeg",
+        size=32,
+        sha256="a" * 64,
+        status="verified",
+        expires_at=utc_now() - timedelta(minutes=1),
+    )
+    db_session.add(detached)
+    await db_session.flush()
+    with pytest.raises(ForbiddenException):
+        await get_mall_file_access(db_session, actor=reviewer, file_id=detached.id, storage=storage)
+    without_aftersale_scope = MallActor("admin", 10, frozenset({"mall.files.read"}))
+    with pytest.raises(ForbiddenException):
+        await get_mall_file_access(
+            db_session, actor=without_aftersale_scope, file_id=file.id, storage=storage
+        )
+    assert (
+        await db_session.scalar(
+            select(MallFile.id).where(MallFile.id == file.id, MallFile.order_id == order.id)
+        )
+        == file.id
+    )
+    assert aftersale.proof_file_ids == [file.id]

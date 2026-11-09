@@ -53,7 +53,7 @@ async def mutate(db, actor, action, key, body, entity_type, model, apply):
         if model is MallCategory:
             result = queries.serialize_category(entity)
         elif model is MallProduct:
-            result = await queries.serialize_product(db, entity)
+            result = await queries.serialize_product(db, entity, admin=True)
         else:
             result = queries.serialize_movement(entity)
         return _build_response(0, "success", result)
@@ -149,7 +149,9 @@ async def product(
     db: AsyncSession = Depends(get_db),
 ):
     return _build_response(
-        0, "success", await queries.serialize_product(db, await queries.get_product(db, product_id))
+        0,
+        "success",
+        await queries.serialize_product(db, await queries.get_product(db, product_id), admin=True),
     )
 
 

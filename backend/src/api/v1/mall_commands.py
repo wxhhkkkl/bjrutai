@@ -35,6 +35,11 @@ async def get_my_mall_command(
         raise NotFoundException(message="商城异步请求不存在")
     if command.actor_type != actor.actor_type or command.actor_id != actor.actor_id:
         raise ForbiddenException(message="只能访问本人商城资料")
+    if command.action == "cancelMallOrder":
+        from ...services.mall_order_action_service import cancel_progress
+        from .mall_checkout import response
+
+        return response(await cancel_progress(db, command))
     return _build_response(0, "success", _serialize(command))
 
 
@@ -58,4 +63,9 @@ async def get_admin_mall_command(
     actor = await require_mall_admin_permission(payload, db, permission)
     if command.actor_type != "admin" or command.actor_id != actor.actor_id:
         raise ForbiddenException(message="只能访问本人商城请求")
+    if command.action == "cancelAdminMallOrder":
+        from ...services.mall_order_action_service import cancel_progress
+        from .mall_checkout import response
+
+        return response(await cancel_progress(db, command))
     return _build_response(0, "success", _serialize(command))

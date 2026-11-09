@@ -120,6 +120,20 @@ Page({
     this.requestVersion += 1
   },
 
+  onPullDownRefresh() {
+    const session = getCurrentSession()
+    if (!getAccessToken() || !session.userId) {
+      wx.stopPullDownRefresh()
+      return
+    }
+    const refresh = this.loadProfile(session)
+    if (refresh && typeof refresh.finally === 'function') {
+      return refresh.finally(() => wx.stopPullDownRefresh())
+    }
+    wx.stopPullDownRefresh()
+    return refresh
+  },
+
   onUnload() {
     this.requestVersion += 1
   },

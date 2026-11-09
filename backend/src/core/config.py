@@ -15,6 +15,17 @@ class Settings(BaseSettings):
     # Mall dispatch remains opt-in; domain handlers are independently registered.
     mall_worker_enabled: bool = False
     mall_storage_outbound_enabled: bool = False
+    mall_wechat_mchid: str = ""
+    mall_wechat_merchant_serial: str = ""
+    mall_wechat_private_key_pem: str = Field("", repr=False)
+    mall_wechat_verify_keys: dict[str, str] = Field(default_factory=dict, repr=False)
+    mall_prepay_keys: dict[str, str] = Field(default_factory=dict, repr=False)
+    mall_prepay_active_key: str = ""
+    mall_wechat_notify_url: str = ""
+    mall_kuaidi100_mode: Literal["fake", "live"] = "fake"
+    mall_kuaidi100_outbound_enabled: bool = False
+    kuaidi100_customer: str = Field("", repr=False)
+    kuaidi100_key: str = Field("", repr=False)
     # Database
     database_url: str = Field(
         "mysql+aiomysql://user:password@host:3306/bjrutai?charset=utf8mb4", repr=False
@@ -67,6 +78,8 @@ class Settings(BaseSettings):
             raise ValueError("production schema must be managed by Alembic")
         if self.mall_gateway_mode == "test" and self.mall_gateway_outbound_enabled:
             raise ValueError("test gateway cannot perform external money requests")
+        if self.app_environment == "test" and self.mall_kuaidi100_outbound_enabled:
+            raise ValueError("tests cannot perform external logistics requests")
         return self
 
     class Config:

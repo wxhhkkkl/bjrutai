@@ -2,7 +2,15 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    CheckConstraint,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..core.database import Base
@@ -54,6 +62,7 @@ class PerformanceAdjustment(MallRecord, Base):
     reviewed_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
     reason: Mapped[str] = mapped_column(String(1000), default="")
     remaining_cent: Mapped[int] = mapped_column(BigInteger)
+    evidence_file_ids: Mapped[list] = mapped_column(JSON, default=list)
 
 
 class PerformanceAdjustmentApplication(MallRecord, Base):

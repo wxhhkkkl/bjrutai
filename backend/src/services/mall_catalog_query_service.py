@@ -21,8 +21,8 @@ def serialize_category(category):
     }
 
 
-def serialize_sku(sku):
-    return {
+def serialize_sku(sku, *, admin=False):
+    result = {
         "id": str(sku.id),
         "skuCode": sku.sku_code,
         "options": [{"name": name, "value": value} for name, value in sku.options.items()],
@@ -31,9 +31,12 @@ def serialize_sku(sku):
         "stockStatus": "available" if sku.available_qty > 0 else "sold_out",
         "version": sku.version,
     }
+    if admin:
+        result.update(reservedQuantity=sku.reserved_qty, warningQuantity=sku.warning_qty)
+    return result
 
 
-async def serialize_product(db, product):
+async def serialize_product(db, product, *, admin=False):
     result = {
         "id": str(product.id),
         "name": product.name,
@@ -43,11 +46,19 @@ async def serialize_product(db, product):
         "status": product.status,
         "version": product.version,
         "skus": [
-            serialize_sku(s) for s in await product_skus(db, product.id) if s.status == "active"
+            serialize_sku(s, admin=admin)
+            for s in await product_skus(db, product.id)
+            if s.status == "active"
         ],
     }
     if product.category_id:
         result["categoryId"] = str(product.category_id)
+    if admin:
+        result.update(
+            sort=product.sort,
+            coverFileId=str(product.cover_file_id) if product.cover_file_id else None,
+            galleryFileIds=[str(identity) for identity in product.gallery_file_ids],
+        )
     from ..core.config import get_settings
     from ..integrations.cos_client import MallCOSStore, get_cos_client
 
@@ -185,7 +196,7 @@ async def list_products(
         descending=sort == "price_desc",
     )
     return {
-        "items": [await serialize_product(db, p) for p in items],
+        "items": [await serialize_product(db, p, admin=not public) for p in items],
         "nextCursor": next_cursor,
         "total": total,
     }

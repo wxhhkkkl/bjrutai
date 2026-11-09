@@ -484,10 +484,12 @@ async def _seed_settlement_report(
     generated_by: str = "User 7",
 ) -> str:
     """Insert a performance_settlement report record and return its id."""
+    from src.models.bill import Bill, TransactionStatus
+    from src.models.binding import BindingStatus, Customer
     from src.models.commission_result import CommissionResult
     from src.models.distributor import Distributor, OrgRole
     from src.models.organization import Organization
-    from src.models.performance_rule import RuleType
+    from src.models.performance_rule import PerformanceRule, RuleStatus, RuleType
     from src.models.report import Report
 
     org = Organization(name="总部", org_type="headquarters", level=1, sort_order=0)
@@ -500,11 +502,47 @@ async def _seed_settlement_report(
     await db.flush()
     await db.refresh(dist)
 
-    db.add(CommissionResult(
-        period=period, distributor_id=dist.id, org_id=org.id,
-        rule_type=RuleType.INTRA_ORG, base_cent=800000, ratio="0.050000",
-        commission_cent=40000, rule_snapshot={"ruleType": "intra_org", "tiers": [], "version": 1},
-    ))
+    customer = Customer(
+        distributor_id=dist.id,
+        name="报表测试客户",
+        phone="13800138000",
+        phone_masked="138****8000",
+        id_card_masked="110***********1234",
+        binding_status=BindingStatus.BOUND,
+        version=1,
+    )
+    db.add(customer)
+    db.add(
+        PerformanceRule(
+            org_id=org.id,
+            rule_type=RuleType.INTRA_ORG,
+            tiers=[{"minCent": 0, "maxCent": None, "ratio": 0.05}],
+            status=RuleStatus.ACTIVE,
+        )
+    )
+    await db.flush()
+    db.add(
+        Bill(
+            customer_id=customer.id,
+            transaction_id=f"report-test-{period}",
+            transaction_time=datetime(int(period[:4]), int(period[5:7]), 10),
+            paid_amount_cent=800000,
+            total_amount_cent=800000,
+            transaction_status=TransactionStatus.PAID,
+        )
+    )
+    db.add(
+        CommissionResult(
+            period=period,
+            distributor_id=dist.id,
+            org_id=org.id,
+            rule_type=RuleType.INTRA_ORG,
+            base_cent=800000,
+            ratio="0.050000",
+            commission_cent=40000,
+            rule_snapshot={"ruleType": "intra_org", "tiers": [], "version": 1},
+        )
+    )
     await db.flush()
 
     report = Report(

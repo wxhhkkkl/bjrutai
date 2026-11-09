@@ -1,12 +1,16 @@
 import enum
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, DateTime, Enum as SAEnum, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.mysql import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.database import Base
+
+if TYPE_CHECKING:
+    from .binding import Customer
 
 
 class AgreementType(str, enum.Enum):
@@ -26,6 +30,9 @@ class ConsentScene(str, enum.Enum):
     BINDING = "binding"
     PROMOTION = "promotion"
     FOLLOWUP = "followup"
+    MALL_ADDRESS = "mall_address"
+    MALL_CHECKOUT = "mall_checkout"
+    MALL_INVOICE = "mall_invoice"
 
 
 class EvidenceType(str, enum.Enum):
@@ -55,7 +62,9 @@ class ConsentRecord(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
-    customer_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("customers.id"), nullable=True, index=True)
+    customer_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("customers.id"), nullable=True, index=True
+    )
     subject_type: Mapped[SubjectType] = mapped_column(
         SAEnum(SubjectType, name="subject_type_enum"), nullable=False
     )

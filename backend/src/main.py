@@ -48,9 +48,16 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
             "/api/v1/feedbacks",
             "/api/v1/admin/contributions/manual",
         }
-        # Mall writes use mall_commands' actor/action/key/payload-hash rows.
-        # Do not let a process-local cache decide a payment, refund or order retry.
-        if request.url.path.startswith(("/api/v1/mall/", "/api/v1/admin/mall/")):
+        # Mall writes and performance adjustment commands use durable command
+        # rows with actor/action/key/payload hashes. A process-local response
+        # cache must not hide a reused key carrying different request content.
+        if request.url.path.startswith(
+            (
+                "/api/v1/mall/",
+                "/api/v1/admin/mall/",
+                "/api/v1/admin/performance/adjustments/",
+            )
+        ):
             return await call_next(request)
         if request.method == "POST" and request.url.path in persistent_idempotency_paths:
             return await call_next(request)
@@ -102,6 +109,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI):
     # Explicit development-only opt-in; production schemas use Alembic.
     from .core.database import engine, Base
+
     if settings.schema_auto_create_enabled:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -129,6 +137,7 @@ async def lifespan(app: FastAPI):
 
         # T019: Seed system admin role and assign to default admin (idempotent)
         from .services.seed_service import seed_default_category, seed_system_admin_role
+
         await seed_system_admin_role(seed_db)
         await seed_default_category(seed_db)
         await seed_db.commit()
@@ -143,9 +152,14 @@ async def lifespan(app: FastAPI):
         app.state.scheduler = scheduler
         if settings.mall_worker_enabled:
             from .tasks.mall_tasks import mall_worker_job
+
             scheduler.add_job(
-                mall_worker_job, trigger=IntervalTrigger(seconds=5),
-                id="mall_worker", max_instances=1, coalesce=True, replace_existing=True,
+                mall_worker_job,
+                trigger=IntervalTrigger(seconds=5),
+                id="mall_worker",
+                max_instances=1,
+                coalesce=True,
+                replace_existing=True,
             )
 
         # T116a: Bind user polling — every 60 seconds
@@ -154,6 +168,7 @@ async def lifespan(app: FastAPI):
             sync_bind_users_job,
             sync_user_bills_job,
         )
+
         scheduler.add_job(
             sync_bind_users_job,
             trigger=IntervalTrigger(seconds=60),
@@ -188,6 +203,7 @@ async def lifespan(app: FastAPI):
 
         # T116e: Monthly settlement — 1st day of month at 00:05
         from .tasks.settlement_task import monthly_settlement_job
+
         scheduler.add_job(
             monthly_settlement_job,
             trigger=CronTrigger(day=1, hour=0, minute=5),
@@ -200,6 +216,7 @@ async def lifespan(app: FastAPI):
 
         # T116c: Qualification expiry check — daily at 09:00
         from .tasks.maintenance_tasks import qualification_expiry_check_job
+
         scheduler.add_job(
             qualification_expiry_check_job,
             trigger=CronTrigger(hour=9, minute=0),
@@ -211,6 +228,7 @@ async def lifespan(app: FastAPI):
         )
 
         from .tasks.maintenance_tasks import deleted_comment_cleanup_job
+
         scheduler.add_job(
             deleted_comment_cleanup_job,
             trigger=CronTrigger(hour=3, minute=20),
@@ -222,6 +240,7 @@ async def lifespan(app: FastAPI):
         )
 
         from .services.article_video_cleanup import article_video_cleanup_job
+
         scheduler.add_job(
             article_video_cleanup_job,
             trigger=CronTrigger(hour=3, minute=40),
@@ -234,6 +253,7 @@ async def lifespan(app: FastAPI):
 
         # T191: Idempotency key cleanup — every hour
         from .tasks.maintenance_tasks import idempotency_cleanup_job
+
         scheduler.add_job(
             idempotency_cleanup_job,
             trigger=IntervalTrigger(hours=1),
@@ -248,6 +268,7 @@ async def lifespan(app: FastAPI):
         # feedback transaction, so an intermittent notification failure never
         # rolls back an already-resolved feedback record.
         from .tasks.feedback_tasks import retry_feedback_notifications_job
+
         scheduler.add_job(
             retry_feedback_notifications_job,
             trigger=IntervalTrigger(seconds=60),
@@ -311,6 +332,7 @@ from .api.v1.admin_distributors import router as admin_distributors_router
 from .api.v1.admin_customers import router as admin_customers_router
 from .api.v1.admin_performance_rules import router as admin_performance_rules_router
 from .api.v1.admin_performance import router as admin_performance_router
+from .api.v1.admin_performance_adjustments import router as admin_performance_adjustments_router
 from .api.v1.my_performance import router as my_performance_router
 from .api.v1.admin_contributions import router as admin_contributions_router
 from .api.v1.org_performance import router as org_performance_router
@@ -369,6 +391,7 @@ app.include_router(admin_distributors_router, prefix="/api/v1")
 app.include_router(admin_customers_router, prefix="/api/v1")
 app.include_router(admin_performance_rules_router, prefix="/api/v1")
 app.include_router(admin_performance_router, prefix="/api/v1")
+app.include_router(admin_performance_adjustments_router, prefix="/api/v1")
 app.include_router(my_performance_router, prefix="/api/v1")
 app.include_router(admin_contributions_router, prefix="/api/v1")
 app.include_router(org_performance_router, prefix="/api/v1")
@@ -397,11 +420,65 @@ app.include_router(mall_commands_router, prefix="/api/v1")
 app.include_router(admin_mall_commands_router, prefix="/api/v1")
 from .api.v1.mall_catalog import router as mall_catalog_router
 from .api.v1.admin_mall_catalog import router as admin_mall_catalog_router
+
 app.include_router(mall_catalog_router, prefix="/api/v1")
 app.include_router(admin_mall_catalog_router, prefix="/api/v1")
 from .api.v1.mall_files import router as mall_files_router
 from .api.v1.admin_mall_files import router as admin_mall_files_router
+
 app.include_router(mall_files_router, prefix="/api/v1")
 app.include_router(admin_mall_files_router, prefix="/api/v1")
 from .api.v1.admin_mall_settings import router as admin_mall_settings_router
+
 app.include_router(admin_mall_settings_router, prefix="/api/v1")
+from .api.v1.mall_checkout import router as mall_checkout_router
+
+app.include_router(mall_checkout_router, prefix="/api/v1")
+from .api.v1.mall_orders import router as mall_orders_router
+
+app.include_router(mall_orders_router, prefix="/api/v1")
+from .api.v1.mall_payments import router as mall_payments_router
+
+app.include_router(mall_payments_router, prefix="/api/v1")
+from .api.v1.admin_mall_orders import (
+    router as admin_mall_orders_router,
+    shipment_router as admin_mall_shipments_router,
+)
+
+app.include_router(admin_mall_orders_router, prefix="/api/v1")
+app.include_router(admin_mall_shipments_router, prefix="/api/v1")
+from .api.v1.mall_aftersales import router as mall_aftersales_router
+from .api.v1.admin_mall_aftersales import router as admin_mall_aftersales_router
+from .api.v1.admin_mall_refunds import router as admin_mall_refunds_router
+from .api.v1.admin_mall_consumptions import router as admin_mall_consumptions_router
+
+app.include_router(mall_aftersales_router, prefix="/api/v1")
+app.include_router(admin_mall_aftersales_router, prefix="/api/v1")
+app.include_router(admin_mall_refunds_router, prefix="/api/v1")
+app.include_router(admin_mall_consumptions_router, prefix="/api/v1")
+from .api.v1.mall_logistics import router as mall_logistics_router
+from .api.v1.admin_mall_logistics import (
+    router as admin_mall_logistics_router,
+    shipment_router as admin_mall_logistics_shipments_router,
+)
+
+app.include_router(mall_logistics_router, prefix="/api/v1")
+app.include_router(admin_mall_logistics_router, prefix="/api/v1")
+app.include_router(admin_mall_logistics_shipments_router, prefix="/api/v1")
+from .api.v1.admin_mall_finance_exports import router as admin_mall_finance_exports_router
+from .api.v1.admin_mall_invoices import router as admin_mall_invoices_router
+from .api.v1.admin_mall_payments import router as admin_mall_payments_router
+from .api.v1.admin_mall_reconciliations import (
+    difference_router as admin_mall_differences_router,
+    router as admin_mall_reconciliations_router,
+)
+from .api.v1.admin_mall_workbench import router as admin_mall_workbench_router
+from .api.v1.mall_invoices import router as mall_invoices_router
+
+app.include_router(mall_invoices_router, prefix="/api/v1")
+app.include_router(admin_mall_invoices_router, prefix="/api/v1")
+app.include_router(admin_mall_payments_router, prefix="/api/v1")
+app.include_router(admin_mall_reconciliations_router, prefix="/api/v1")
+app.include_router(admin_mall_differences_router, prefix="/api/v1")
+app.include_router(admin_mall_finance_exports_router, prefix="/api/v1")
+app.include_router(admin_mall_workbench_router, prefix="/api/v1")

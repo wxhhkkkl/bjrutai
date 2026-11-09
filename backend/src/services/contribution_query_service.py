@@ -1,20 +1,20 @@
 """消费业绩查询服务（业绩贡献 = 消费金额）：overview / trend / list / detail。
 
-按账单（Bill.paid_amount_cent）实时统计，金额单位为分（整数）。分类构成
+账单与商城订单通过统一来源投影实时统计；金额单位为分（整数）。分类构成
 （composition）已随「业绩贡献值」概念移除。
 """
 
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.exceptions import NotFoundException
 from ..models.bill import Bill
 from ..models.binding import Customer
 from ..models.distributor import Distributor
-from .consumption_service import consumption_by_distributor, period_start_end
+from .consumption_service import consumption_by_distributor
 
 
 class ConsumptionQueryService:
@@ -39,7 +39,9 @@ class ConsumptionQueryService:
         promoter = await self._get_promoter(db, user_id)
         monthly = (await consumption_by_distributor(db, [promoter.id], month)).get(promoter.id, 0)
         total = (await consumption_by_distributor(db, [promoter.id], None)).get(promoter.id, 0)
-        prev = (await consumption_by_distributor(db, [promoter.id], _previous_month(month))).get(promoter.id, 0)
+        prev = (await consumption_by_distributor(db, [promoter.id], _previous_month(month))).get(
+            promoter.id, 0
+        )
 
         growth_rate = None
         if prev > 0 and monthly > 0:
@@ -59,11 +61,13 @@ class ConsumptionQueryService:
         months = _generate_month_labels(_parse_period(period))
         values = []
         for m in months:
-            values.append((await consumption_by_distributor(db, [promoter.id], m)).get(promoter.id, 0))
+            values.append(
+                (await consumption_by_distributor(db, [promoter.id], m)).get(promoter.id, 0)
+            )
         return {"categories": months, "values": values}
 
     # ------------------------------------------------------------------
-    # List (cursor-paginated bills)
+    # List (globally cursor-paginated contribution sources)
     # ------------------------------------------------------------------
     async def list_details(
         self,
@@ -75,33 +79,16 @@ class ConsumptionQueryService:
         page_size: int = 20,
     ) -> dict:
         promoter = await self._get_promoter(db, user_id)
-        conditions = [Customer.distributor_id == promoter.id]
-        if month:
-            start, end = period_start_end(month)
-            conditions.append(Bill.transaction_time >= start)
-            conditions.append(Bill.transaction_time < end)
-        if status:
-            conditions.append(Bill.transaction_status == status)
-        if cursor:
-            conditions.append(Bill.id < int(cursor))
+        from .consumption_projection_service import ConsumptionProjectionService
 
-        query = (
-            select(Bill, Customer.name, Customer.phone_masked)
-            .join(Customer, Customer.id == Bill.customer_id)
-            .where(and_(*conditions))
-            .order_by(Bill.id.desc())
-            .limit(page_size + 1)
+        return await ConsumptionProjectionService().list_person_details(
+            db,
+            promoter.id,
+            month=month,
+            status=status,
+            cursor=cursor,
+            page_size=page_size,
         )
-        rows = (await db.execute(query)).all()
-        has_more = len(rows) > page_size
-        if has_more:
-            rows = rows[:page_size]
-
-        items = []
-        for bill, cust_name, phone_masked in rows:
-            items.append(_serialize_bill(bill, cust_name, phone_masked))
-        next_cursor = str(rows[-1][0].id) if has_more and rows else None
-        return {"items": items, "nextCursor": next_cursor, "hasMore": has_more}
 
     # ------------------------------------------------------------------
     # Detail (bill)
@@ -135,7 +122,11 @@ def _serialize_bill(
         "id": bill.id,
         "title": bill.transaction_id,
         "amountCent": bill.paid_amount_cent,
-        "status": bill.transaction_status.value if hasattr(bill.transaction_status, "value") else str(bill.transaction_status),
+        "status": (
+            bill.transaction_status.value
+            if hasattr(bill.transaction_status, "value")
+            else str(bill.transaction_status)
+        ),
         "occurredAt": bill.transaction_time.isoformat() if bill.transaction_time else None,
         "customerName": customer_name,
         "phoneMasked": phone_masked,

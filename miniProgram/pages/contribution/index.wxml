@@ -91,12 +91,19 @@
           wx:key="title"
           class="detail-row"
         >
-          <image class="detail-icon" src="{{item.icon}}" mode="aspectFill" />
+          <view wx:if="{{item.sourceType === 'mall_order'}}" class="detail-icon detail-icon--mall">
+            <van-icon name="shop-o" size="32px" color="#16845b" />
+          </view>
+          <image wx:else class="detail-icon" src="{{item.icon}}" mode="aspectFill" />
           <view class="detail-copy">
-            <text class="detail-title">{{item.title}}</text>
+            <view class="detail-title-line">
+              <text class="detail-title">{{item.title}}</text>
+              <text wx:if="{{item.sourceLabel}}" class="detail-source">{{item.sourceLabel}}</text>
+            </view>
             <text class="detail-meta">{{item.meta}}</text>
           </view>
-          <view class="detail-value">
+          <view class="detail-value {{item.valueLabel ? 'detail-value--labeled' : ''}}">
+            <text wx:if="{{item.valueLabel}}" class="detail-value__label">{{item.valueLabel}}</text>
             <text>{{item.value}}</text>
           </view>
         </view>

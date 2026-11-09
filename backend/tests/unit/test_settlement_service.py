@@ -183,3 +183,150 @@ async def test_settle_rejects_non_bill_month(db_session: AsyncSession):
     """settle on a month with no bill data raises (FR-002)."""
     with pytest.raises(BadRequestException):
         await settlement_service.settle(db_session, "2026-07", operator_id=1)
+
+
+@pytest.mark.asyncio
+async def test_settleable_periods_includes_unassigned_mall_only_month_and_open_coordination(
+    db_session: AsyncSession,
+):
+    """Any paid mall source creates a period, even before attribution and while open."""
+    from datetime import datetime
+
+    from src.models.performance_evidence import PerformancePeriodVersion
+    from tests.mall_consumption_fixtures import add_mall_source, performance_context
+
+    context = await performance_context(db_session)
+    _, source = await add_mall_source(
+        db_session, context, 300000, datetime(2026, 7, 15), attributed=False
+    )
+    assert source.business_period == "2026-07"
+    db_session.add(PerformancePeriodVersion(period="2026-07", revision=1, status="open"))
+    await db_session.flush()
+
+    assert await settlement_service.settleable_periods(db_session) == ["2026-07"]
+
+
+@pytest.mark.asyncio
+async def test_settleable_periods_does_not_treat_empty_coordination_as_business_data(
+    db_session: AsyncSession,
+):
+    from src.models.performance_evidence import PerformancePeriodVersion
+
+    db_session.add(PerformancePeriodVersion(period="2026-07", revision=1, status="open"))
+    await db_session.flush()
+    assert "2026-07" not in await settlement_service.settleable_periods(db_session)
+
+
+@pytest.mark.asyncio
+async def test_settleable_periods_uses_beijing_current_month_boundary(
+    db_session: AsyncSession, monkeypatch
+):
+    from datetime import datetime, timezone
+
+    from tests.mall_consumption_fixtures import add_mall_source, performance_context
+
+    context = await performance_context(db_session)
+    _, source = await add_mall_source(
+        db_session, context, 300000, datetime(2026, 7, 31, 16, 30), attributed=False
+    )
+    assert source.business_period == "2026-08"
+
+    class FrozenDateTime:
+        @staticmethod
+        def now(tz=None):
+            return datetime(2026, 7, 31, 16, 30, tzinfo=timezone.utc)
+
+    monkeypatch.setattr(settlement_service, "datetime", FrozenDateTime)
+    assert "2026-08" in await settlement_service.settleable_periods(db_session)
+
+
+@pytest.mark.asyncio
+async def test_settleable_periods_includes_adjustment_only_target_period(
+    db_session: AsyncSession,
+):
+    """An allocated performance adjustment is sufficient business input."""
+    from src.models.commission_result import CommissionResult
+    from src.models.performance_adjustment import (
+        PerformanceAdjustment,
+        PerformanceAdjustmentApplication,
+    )
+    from src.models.performance_rule import RuleType
+    from tests.mall_consumption_fixtures import add_frozen_evidence, performance_context
+
+    context = await performance_context(db_session)
+    evidence = await add_frozen_evidence(
+        db_session,
+        context,
+        period="2026-07",
+        rule_snapshot={"tiers": [{"minCent": 0, "maxCent": None, "ratio": 0.08}]},
+        result_presence="not_generated",
+        result_absence_reason="below_first_tier",
+    )
+    target_result = CommissionResult(
+        period="2026-08",
+        distributor_id=context["distributorId"],
+        org_id=context["orgId"],
+        rule_type=RuleType.INTRA_ORG,
+        base_cent=0,
+        ratio="0.08",
+        commission_cent=0,
+    )
+    db_session.add(target_result)
+    await db_session.flush()
+    adjustment = PerformanceAdjustment(
+        adjustment_no="ADJ-T085-ONLY-001",
+        origin_period="2026-07",
+        origin_result_id=None,
+        evidence_id=evidence.id,
+        trigger_source_type="mall",
+        trigger_source_id=1,
+        trigger_version=1,
+        beneficiary_id=context["distributorId"],
+        rule_type=RuleType.INTRA_ORG.value,
+        original_commission_cent=0,
+        replayed_commission_cent=100,
+        prior_confirmed_adjustment_cent=0,
+        delta_cent=100,
+        status="reviewed",
+        remaining_cent=100,
+    )
+    db_session.add(adjustment)
+    await db_session.flush()
+    cancelled_target_result = CommissionResult(
+        period="2026-09",
+        distributor_id=context["distributorId"],
+        org_id=context["orgId"],
+        rule_type=RuleType.INTRA_ORG,
+        base_cent=0,
+        ratio="0.08",
+        commission_cent=0,
+    )
+    db_session.add(cancelled_target_result)
+    await db_session.flush()
+    db_session.add(
+        PerformanceAdjustmentApplication(
+            adjustment_id=adjustment.id,
+            target_period="2026-08",
+            target_result_id=target_result.id,
+            allocated_cent=100,
+            settled_cent=0,
+            status="allocated",
+            allocation_key="t085-adjustment-only-period",
+        )
+    )
+    db_session.add(
+        PerformanceAdjustmentApplication(
+            adjustment_id=adjustment.id,
+            target_period="2026-09",
+            target_result_id=cancelled_target_result.id,
+            allocated_cent=100,
+            settled_cent=0,
+            status="cancelled",
+            allocation_key="t085-cancelled-adjustment-period",
+        )
+    )
+    await db_session.flush()
+
+    periods = await settlement_service.settleable_periods(db_session)
+    assert "2026-08" in periods
+    assert "2026-09" not in periods

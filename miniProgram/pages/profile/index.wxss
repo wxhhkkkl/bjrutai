@@ -24,6 +24,65 @@ page {
     height: 238rpx;
 }
 
+.profile-mall-entry {
+    margin: 20rpx 0 24rpx;
+    padding: 19rpx 21rpx 14rpx;
+    overflow: hidden;
+    background: #f8faf8;
+    border: 1rpx solid #e5ebe7;
+    border-radius: 26rpx;
+}
+
+.profile-mall-entry__eyebrow {
+    display: block;
+    margin: 0 3rpx 12rpx;
+    color: #718078;
+    font-size: 22rpx;
+    line-height: 1.2;
+}
+
+.profile-mall-entry__action {
+    min-height: 92rpx;
+    display: flex;
+    align-items: center;
+    gap: 17rpx;
+}
+
+.profile-mall-entry__icon {
+    width: 66rpx;
+    height: 66rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    background: #e8f1ec;
+    border-radius: 20rpx;
+}
+
+.profile-mall-entry__copy {
+    min-width: 0;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 8rpx;
+}
+
+.profile-mall-entry__title {
+    color: #17231d;
+    font-size: 29rpx;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.profile-mall-entry__hint {
+    overflow: hidden;
+    color: #758078;
+    font-size: 22rpx;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
 .profile-hero__visual {
     position: absolute;
     top: 0;

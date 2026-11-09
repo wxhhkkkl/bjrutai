@@ -1,0 +1,35 @@
+<view class="mall-flow-page mall-aftersale-page">
+  <flow-navigation title="售后进度" bind:back="goBack" />
+  <scroll-view class="mall-flow-scroll" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}" refresher-enabled="{{true}}" bindrefresherrefresh="refresh">
+    <view wx:if="{{state === 'loading'}}" class="mall-flow-state"><van-icon name="replay" size="30px" color="#27645B" /><text>正在读取售后进度</text></view>
+    <view wx:elif="{{state === 'recoverable-error'}}" class="mall-flow-state"><text class="mall-flow-state__title">售后记录暂时不可用</text><text>{{stateMessage}}</text><button class="mall-primary-button tap-target" bindtap="retry" hover-class="tap-feedback">重新加载</button></view>
+    <block wx:elif="{{state === 'success' && aftersale}}">
+      <view class="mall-after-status"><view class="mall-after-status__icon"><van-icon name="{{aftersale.status === 'completed' ? 'checked' : aftersale.status === 'rejected' ? 'close' : 'clock-o'}}" size="27px" color="#27645B" /></view><view class="mall-after-status__copy"><text class="mall-after-status__title">{{aftersale.statusLabel}}</text><text class="mall-after-status__hint">申请编号 {{aftersale.aftersaleNo || aftersale.id}}</text></view></view>
+      <view class="mall-aftersale-detail-card">
+        <view class="mall-section-heading"><text>申请内容</text><text class="mall-muted">{{aftersale.methodLabel}}</text></view>
+        <text class="mall-after-field">申请原因：{{aftersale.reason || '未提供'}}</text>
+        <view wx:for="{{aftersale.items}}" wx:key="id" class="mall-after-item"><text>商品申请数量 ×{{item.quantity}}</text><text>¥{{item.goodsRefundText}}</text></view>
+        <view class="mall-after-amount"><text>{{aftersale.amountTitle}}</text><text>¥{{aftersale.goodsRefundText}}</text></view>
+        <view class="mall-after-amount"><text>运费退款金额</text><text>¥{{aftersale.freightRefundText}}</text></view>
+        <text wx:if="{{aftersale.auditReason}}" class="mall-after-note">审核说明：{{aftersale.auditReason}}</text>
+      </view>
+      <view wx:if="{{aftersale.returnInstructions || aftersale.returnTrackingNo}}" class="mall-aftersale-detail-card">
+        <view class="mall-section-heading"><text>退货信息</text><text wx:if="{{aftersale.receiptLabel}}" class="mall-muted">{{aftersale.receiptLabel}}</text></view>
+        <text wx:if="{{aftersale.returnInstructions}}" class="mall-return-instructions">{{aftersale.returnInstructions}}</text>
+        <view wx:if="{{aftersale.returnTrackingNo}}" class="mall-after-field">退货运单号：{{aftersale.returnTrackingNo}}</view>
+      </view>
+      <view class="mall-aftersale-detail-card mall-financial-card">
+        <view class="mall-section-heading"><text>退款与发票</text></view>
+        <view class="mall-financial-row"><view><text>退款状态</text><text class="mall-financial-hint">售后审核与退款到账分别更新</text></view><text class="mall-financial-value">{{aftersale.refundStatusLabel}}</text></view>
+        <view class="mall-financial-row"><view><text>发票状态</text><text class="mall-financial-hint">退款到账不代表发票已开具</text></view><text class="mall-financial-value">{{aftersale.invoiceStatusLabel}}</text></view>
+        <text class="mall-financial-note">金额已核定也不等于退款到账；退款和发票是独立状态。</text>
+      </view>
+      <view class="mall-aftersale-detail-card mall-aftersale-meta"><text>售后记录仅展示服务端已提供的状态。</text><text>订单编号 {{aftersale.orderId}}</text><text wx:if="{{stateMessage}}" class="mall-inline-message">{{stateMessage}}</text></view>
+    </block>
+  </scroll-view>
+  <view wx:if="{{state === 'success' && aftersale}}" class="mall-aftersale-footer mall-aftersale-footer--actions">
+    <button class="mall-secondary-button tap-target" bindtap="openOrder" hover-class="tap-feedback">查看原订单</button>
+    <button wx:if="{{aftersale.canWithdraw}}" class="mall-secondary-button tap-target" bindtap="withdrawAftersale" loading="{{withdrawing}}" disabled="{{withdrawing}}" hover-class="tap-feedback">撤回申请</button>
+    <button wx:if="{{aftersale.canSendReturn}}" class="mall-primary-button tap-target" bindtap="openReturnShipment" hover-class="tap-feedback">提交退货运单</button>
+  </view>
+</view>

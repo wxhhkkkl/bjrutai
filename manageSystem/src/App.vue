@@ -69,6 +69,23 @@
           <el-icon><Picture /></el-icon>
           <span>轮播图管理</span>
         </el-menu-item>
+        <el-sub-menu v-if="canSeeMallMenu" index="/mall">
+          <template #title><el-icon><Picture /></el-icon><span>商城管理</span></template>
+          <el-menu-item v-if="canSeeMallWorkbench" index="/mall/workbench">商城工作台</el-menu-item>
+          <el-menu-item v-if="authStore.hasPermission('mall.products.read')" index="/mall/categories">商品分类</el-menu-item>
+          <el-menu-item v-if="authStore.hasPermission('mall.products.read')" index="/mall/products">商品管理</el-menu-item>
+          <el-menu-item v-if="authStore.hasPermission('mall.orders.read')" index="/mall/orders">交易订单</el-menu-item>
+          <el-menu-item v-if="authStore.hasPermission('mall.aftersales.read')" index="/mall/aftersales">售后处理</el-menu-item>
+          <el-menu-item v-if="authStore.hasPermission('mall.payments.read')" index="/mall/payments">支付订单</el-menu-item>
+          <el-menu-item v-if="authStore.hasPermission('mall.reconciliations.read')" index="/mall/payments?view=reconciliation">日对账</el-menu-item>
+          <el-menu-item v-if="authStore.hasPermission('mall.refunds.read')" index="/mall/refunds">退款订单</el-menu-item>
+          <el-menu-item v-if="authStore.hasPermission('mall.invoices.read')" index="/mall/invoices">发票与红冲</el-menu-item>
+          <el-sub-menu v-if="authStore.hasPermission('mall.settings.read')" index="/mall/settings">
+            <template #title>配送与交易设置</template>
+            <el-menu-item index="/mall/settings/delivery">配送设置</el-menu-item>
+            <el-menu-item index="/mall/settings/trade">交易设置</el-menu-item>
+          </el-sub-menu>
+        </el-sub-menu>
         <el-menu-item v-if="authStore.hasPermission('feedbacks.read')" index="/feedbacks">
           <el-icon><Document /></el-icon>
           <span>意见与反馈</span>
@@ -133,7 +150,7 @@
                 <span>消息通知</span>
                 <el-button text size="small" @click="markAllRead">全部已读</el-button>
               </div>
-              <div class="notif-list" v-if="notifications.length">
+              <div v-if="notifications.length" class="notif-list">
                 <div
                   v-for="item in notifications"
                   :key="item.id"
@@ -189,7 +206,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
 import {
-  Odometer, Share, User, Link, TrendCharts,
+  Odometer, Share, User, TrendCharts,
   Setting, DataAnalysis, Document, Picture, Bell,
   Fold, Expand, ArrowDown, UserFilled,
 } from '@element-plus/icons-vue'
@@ -197,6 +214,21 @@ import {
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+
+const mallWorkbenchPermissions = [
+  'mall.orders.read', 'mall.shipments.write', 'mall.aftersales.read',
+  'mall.aftersales.review', 'mall.returns.receive', 'mall.payments.read',
+  'mall.payments.query', 'mall.refunds.read', 'mall.refunds.query',
+  'mall.refunds.execute', 'mall.attribution.write', 'performance.settle',
+  'mall.invoices.read', 'mall.invoices.write', 'mall.stock.read',
+  'mall.stock.write', 'mall.reconciliations.read',
+]
+const canSeeMallWorkbench = computed(() => mallWorkbenchPermissions.some((permission) => authStore.hasPermission(permission)))
+const canSeeMallMenu = computed(() => canSeeMallWorkbench.value || [
+  'mall.products.read', 'mall.orders.read', 'mall.aftersales.read',
+  'mall.invoices.read', 'mall.payments.read', 'mall.refunds.read',
+  'mall.reconciliations.read', 'mall.settings.read',
+].some((permission) => authStore.hasPermission(permission)))
 
 const isCollapsed = ref(false)
 const unreadCount = ref(0)
@@ -255,7 +287,7 @@ function formatNotifTime(t) {
 
 const isLoginPage = computed(() => route.name === 'Login')
 
-const activeMenu = computed(() => route.path)
+const activeMenu = computed(() => route.meta.activeMenu || route.path)
 
 // Restore session on page refresh (user is not persisted)
 onMounted(async () => {

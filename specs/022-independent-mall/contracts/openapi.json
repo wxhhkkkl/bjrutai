@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "022 Independent Mall Planned Contracts",
-    "version": "0.3.0",
-    "description": "实施前契约草案；不是已存在的生产接口。实际代码需先契约测试再实现。所有写操作实时授权、持久化幂等及状态检查。条件性履约原文动作须先完成规范适配。 用户已开通快递100；新增3个订单级物流查询/刷新契约，供应商密钥永不出现在客户端参数。"
+    "version": "0.8.0",
+    "description": "商城接口契约与实施边界文档；未全部接通或部署。所有写操作实时授权、持久幂等并校验业务状态。条件性履约原文动作须先完成规范适配。用户已开通快递100，供应商密钥不出现在客户端。"
   },
   "servers": [
     {
@@ -691,6 +691,45 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/mall/checkout/settings": {
+      "get": {
+        "operationId": "getMallCheckoutSettings",
+        "summary": "公开结算所需配置，不包含后台配送或联系资料",
+        "tags": [
+          "public"
+        ],
+        "x-actor-policy": "public",
+        "x-requirements": [
+          "FR-018",
+          "FR-020",
+          "FR-021"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "成功业务响应",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseMallCheckoutSettings"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "业务错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": []
       }
     },
     "/api/v1/mall/checkout/quote": {
@@ -3039,7 +3078,7 @@
     "/api/v1/admin/mall/orders/{orderId}/ship": {
       "post": {
         "operationId": "shipMallOrder",
-        "summary": "单包裹出库与平台同步任务",
+        "summary": "登记本地单包裹出库；平台同步另行处理",
         "tags": [
           "admin"
         ],
@@ -3178,7 +3217,7 @@
     "/api/v1/admin/mall/shipments/{shipmentId}": {
       "patch": {
         "operationId": "correctMallTracking",
-        "summary": "更正运单并留痕",
+        "summary": "更正运单并留完整审计事实",
         "tags": [
           "admin"
         ],
@@ -3362,6 +3401,25 @@
               "maximum": 100
             },
             "description": "默认20"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "submitted",
+                "awaiting_return",
+                "awaiting_receipt",
+                "awaiting_refund",
+                "refunding",
+                "disputed",
+                "completed",
+                "rejected",
+                "withdrawn"
+              ]
+            },
+            "description": "按售后状态筛选"
           }
         ],
         "x-permission": "mall.aftersales.read"
@@ -3670,6 +3728,53 @@
               "maximum": 100
             },
             "description": "默认20"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "creating",
+                "pending",
+                "unknown",
+                "succeeded",
+                "closed",
+                "failed"
+              ]
+            },
+            "description": "按支付/退款状态筛选"
+          },
+          {
+            "name": "orderNo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32
+            },
+            "description": "完整订单号"
+          },
+          {
+            "name": "fromAt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "范围起点（包含，须带时区）"
+          },
+          {
+            "name": "toAt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "范围终点（不包含，须带时区）"
           }
         ],
         "x-permission": "mall.payments.read"
@@ -3900,6 +4005,54 @@
               "maximum": 100
             },
             "description": "默认20"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "prepared",
+                "processing",
+                "unknown",
+                "succeeded",
+                "closed",
+                "abnormal",
+                "rejected_unaccepted"
+              ]
+            },
+            "description": "按支付/退款状态筛选"
+          },
+          {
+            "name": "orderNo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32
+            },
+            "description": "完整订单号"
+          },
+          {
+            "name": "fromAt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "范围起点（包含，须带时区）"
+          },
+          {
+            "name": "toAt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "范围终点（不包含，须带时区）"
           }
         ],
         "x-permission": "mall.refunds.read"
@@ -4183,6 +4336,22 @@
           }
         },
         "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "submitted",
+                "needs_info",
+                "issuing",
+                "unknown",
+                "delivered",
+                "withdrawn",
+                "closed"
+              ]
+            }
+          },
           {
             "name": "cursor",
             "in": "query",
@@ -6315,6 +6484,53 @@
           }
         }
       }
+    },
+    "/api/v1/admin/mall/finance/exports/{requestId}": {
+      "get": {
+        "operationId": "getAdminMallFinanceExport",
+        "summary": "读取本人异步资金导出状态",
+        "tags": [
+          "admin"
+        ],
+        "x-actor-policy": "admin",
+        "x-requirements": [
+          "FR-080"
+        ],
+        "responses": {
+          "200": {
+            "description": "导出状态；完成后返回私有文件ID，不返回长期访问链接",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseAsyncResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "业务或权限错误，实际HTTP状态与Error对应",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "x-permission": "mall.finance.export"
+      }
     }
   },
   "components": {
@@ -6520,6 +6736,16 @@
             "type": "integer",
             "minimum": 0
           },
+          "reservedQuantity": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "仅后台返回：待付占用数量"
+          },
+          "warningQuantity": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "仅后台返回：库存预警数量"
+          },
           "stockStatus": {
             "type": "string",
             "enum": [
@@ -6595,6 +6821,31 @@
       "Product": {
         "type": "object",
         "properties": {
+          "sort": {
+            "type": "integer",
+            "description": "仅后台返回：编辑排序"
+          },
+          "coverFileId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "仅后台返回：已核验主图引用"
+          },
+          "galleryFileIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "maxItems": 8,
+            "description": "仅后台返回：已核验详情图片引用"
+          },
           "id": {
             "type": "string",
             "pattern": "^[1-9][0-9]*$"
@@ -6833,10 +7084,22 @@
           "regionCodes": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[0-9]{6}$"
             },
             "minItems": 3,
             "maxItems": 3
+          },
+          "regionNames": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
+            },
+            "minItems": 0,
+            "maxItems": 3,
+            "description": "省市区显示名称；旧地址可能为空。"
           },
           "addressMasked": {
             "type": "string"
@@ -6854,6 +7117,7 @@
           "recipientName",
           "phoneMasked",
           "regionCodes",
+          "regionNames",
           "addressMasked",
           "version"
         ],
@@ -6880,6 +7144,23 @@
             "minItems": 3,
             "maxItems": 3
           },
+          "regionNames": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 20
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "addressLine": {
             "type": "string",
             "minLength": 1,
@@ -6890,7 +7171,12 @@
             "type": "boolean"
           },
           "consentVersion": {
+            "minLength": 1,
+            "maxLength": 128,
             "type": "string"
+          },
+          "consentConfirmed": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -6898,7 +7184,8 @@
           "phone",
           "regionCodes",
           "addressLine",
-          "consentVersion"
+          "consentVersion",
+          "consentConfirmed"
         ],
         "additionalProperties": false
       },
@@ -6911,7 +7198,8 @@
           },
           "recipientName": {
             "type": "string",
-            "maxLength": 50
+            "maxLength": 50,
+            "minLength": 1
           },
           "phone": {
             "type": "string",
@@ -6921,15 +7209,34 @@
           "regionCodes": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[0-9]{6}$"
             },
             "minItems": 3,
             "maxItems": 3
           },
+          "regionNames": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 20
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "addressLine": {
             "type": "string",
             "maxLength": 200,
-            "writeOnly": true
+            "writeOnly": true,
+            "minLength": 1
           },
           "isDefault": {
             "type": "boolean"
@@ -7102,11 +7409,44 @@
         ],
         "additionalProperties": false
       },
+      "CheckoutSettings": {
+        "type": "object",
+        "properties": {
+          "purchasingAvailable": {
+            "type": "boolean"
+          },
+          "freightMode": {
+            "type": "string",
+            "enum": [
+              "free",
+              "fixed"
+            ]
+          },
+          "freightCent": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "policyVersion": {
+            "type": "string",
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "purchasingAvailable",
+          "freightMode",
+          "freightCent",
+          "policyVersion"
+        ],
+        "additionalProperties": false,
+        "description": "公开买家结算必需配置；不包含后台地址、联系方式、禁配区域或密钥。"
+      },
       "OrderCreate": {
         "type": "object",
         "properties": {
           "quoteToken": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32768
           },
           "buyerNote": {
             "type": "string",
@@ -7116,12 +7456,18 @@
             "type": "boolean"
           },
           "consentVersion": {
+            "minLength": 1,
+            "maxLength": 128,
             "type": "string"
+          },
+          "consentConfirmed": {
+            "type": "boolean"
           }
         },
         "required": [
           "quoteToken",
-          "consentVersion"
+          "consentVersion",
+          "consentConfirmed"
         ],
         "additionalProperties": false
       },
@@ -7219,12 +7565,24 @@
           "version": {
             "type": "integer",
             "minimum": 1
+          },
+          "autoReceiveAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
           "id",
           "courierCode",
           "trackingNo",
+          "autoReceiveAt",
           "platformSyncStatus",
           "version"
         ],
@@ -7624,12 +7982,13 @@
           },
           "courierCode": {
             "type": "string",
-            "minLength": 1
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,31}$"
           },
           "trackingNo": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 64
+            "minLength": 4,
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9-]+$"
           }
         },
         "required": [
@@ -7648,21 +8007,27 @@
           },
           "courierCode": {
             "type": "string",
-            "minLength": 1
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,31}$"
           },
           "trackingNo": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 64
+            "minLength": 4,
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9-]+$"
           },
           "reason": {
             "type": "string",
             "minLength": 1,
             "maxLength": 200
+          },
+          "shipmentVersion": {
+            "type": "integer",
+            "minimum": 1
           }
         },
         "required": [
           "expectedVersion",
+          "shipmentVersion",
           "courierCode",
           "trackingNo",
           "reason"
@@ -8184,7 +8549,9 @@
               "product_image",
               "aftersale_proof",
               "invoice_pdf",
-              "reconciliation_evidence"
+              "reconciliation_evidence",
+              "attribution_evidence",
+              "performance_adjustment_evidence"
             ]
           },
           "orderId": {
@@ -8201,7 +8568,9 @@
             "enum": [
               "image/jpeg",
               "image/png",
-              "application/pdf"
+              "application/pdf",
+              "text/csv",
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             ]
           },
           "fileSize": {
@@ -8310,6 +8679,14 @@
               "digital_normal",
               "manual_special_request"
             ]
+          },
+          "consentVersion": {
+            "minLength": 1,
+            "maxLength": 128,
+            "type": "string"
+          },
+          "consentConfirmed": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -8317,7 +8694,9 @@
           "expectedOrderVersion",
           "buyerType",
           "title",
-          "invoiceType"
+          "invoiceType",
+          "consentConfirmed",
+          "consentVersion"
         ],
         "additionalProperties": false
       },
@@ -8340,10 +8719,20 @@
           "email": {
             "type": "string",
             "format": "email"
+          },
+          "consentVersion": {
+            "minLength": 1,
+            "maxLength": 128,
+            "type": "string"
+          },
+          "consentConfirmed": {
+            "type": "boolean"
           }
         },
         "required": [
-          "expectedVersion"
+          "expectedVersion",
+          "consentConfirmed",
+          "consentVersion"
         ],
         "additionalProperties": false
       },
@@ -8366,6 +8755,13 @@
             "enum": [
               "personal",
               "company"
+            ]
+          },
+          "invoiceType": {
+            "type": "string",
+            "enum": [
+              "digital_normal",
+              "manual_special_request"
             ]
           },
           "title": {
@@ -8403,6 +8799,11 @@
             "minimum": 0,
             "maximum": 9007199254740991
           },
+          "netPaidCent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
           "claimedBy": {
             "anyOf": [
               {
@@ -8421,6 +8822,12 @@
               "pattern": "^[1-9][0-9]*$"
             }
           },
+          "invoices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Invoice"
+            }
+          },
           "version": {
             "type": "integer",
             "minimum": 1
@@ -8431,10 +8838,13 @@
           "requestNo",
           "orderId",
           "buyerType",
+          "invoiceType",
           "title",
           "status",
           "requestedGoodsCent",
           "requestedFreightCent",
+          "netPaidCent",
+          "invoices",
           "version"
         ],
         "additionalProperties": false
@@ -8502,6 +8912,9 @@
             "type": "string",
             "pattern": "^[1-9][0-9]*$"
           },
+          "sellerIdentity": {
+            "type": "string"
+          },
           "invoiceNo": {
             "type": "string"
           },
@@ -8565,6 +8978,8 @@
         "required": [
           "id",
           "orderId",
+          "requestId",
+          "sellerIdentity",
           "invoiceNo",
           "kind",
           "totalCent",
@@ -8679,6 +9094,16 @@
           },
           "status": {
             "type": "string"
+          },
+          "performanceHandling": {
+            "type": "string",
+            "enum": [
+              "ready_for_settlement",
+              "recomputed",
+              "adjustment_pending",
+              "manual_required"
+            ],
+            "description": "仅归属核实响应返回；历史冻结月份不改写原结果"
           },
           "sourceVersion": {
             "type": "integer",
@@ -8829,6 +9254,19 @@
               "present",
               "not_generated"
             ]
+          },
+          "evidenceFileIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "maxItems": 5,
+            "uniqueItems": true
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1000
           }
         },
         "required": [
@@ -8843,7 +9281,9 @@
           "evidenceStatus",
           "version",
           "originEvidenceId",
-          "originResultPresence"
+          "originResultPresence",
+          "evidenceFileIds",
+          "reason"
         ],
         "additionalProperties": false,
         "description": "以原期证据锚点为稳定身份；原期未生成结果时originResultId为null，不补改冻结结果行"
@@ -8861,7 +9301,9 @@
               "type": "string",
               "pattern": "^[1-9][0-9]*$"
             },
-            "minItems": 1
+            "minItems": 1,
+            "maxItems": 5,
+            "uniqueItems": true
           },
           "reason": {
             "type": "string",
@@ -9096,6 +9538,28 @@
             "type": "string",
             "pattern": "^[1-9][0-9]*$"
           },
+          "orderId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "externalReference": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "differenceType": {
             "type": "string"
           },
@@ -9129,6 +9593,24 @@
               }
             ]
           },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidenceFileIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
           "version": {
             "type": "integer",
             "minimum": 1
@@ -9137,10 +9619,15 @@
         "required": [
           "id",
           "batchId",
+          "orderId",
+          "externalReference",
           "differenceType",
           "expectedCent",
           "actualCent",
           "status",
+          "assignedTo",
+          "resolution",
+          "evidenceFileIds",
           "version"
         ],
         "additionalProperties": false
@@ -9367,12 +9854,58 @@
               "pending",
               "running",
               "completed",
-              "manual"
+              "manual",
+              "failed"
             ]
           },
           "version": {
             "type": "integer",
             "minimum": 1
+          },
+          "requestId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "jobId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "fileId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "rowCount": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -9557,17 +10090,32 @@
       },
       "FinanceExport": {
         "type": "object",
+        "description": "必须提供含时区的UTC半开时间范围，最长31天；超限拒绝，不截断。完成后的私有文件需当前导出与文件读取权限。",
         "properties": {
           "from": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "含时区的范围起点（包含）"
           },
           "to": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "含时区的范围终点（不包含）"
           },
           "status": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "creating",
+              "pending",
+              "unknown",
+              "succeeded",
+              "closed",
+              "failed",
+              "prepared",
+              "processing",
+              "abnormal",
+              "rejected_unaccepted"
+            ]
           },
           "format": {
             "type": "string",
@@ -10083,6 +10631,36 @@
           },
           "data": {
             "$ref": "#/components/schemas/Quote"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "serverTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data",
+          "requestId",
+          "serverTime"
+        ],
+        "additionalProperties": false
+      },
+      "ResponseMallCheckoutSettings": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "const": 0
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CheckoutSettings"
           },
           "requestId": {
             "type": "string"
@@ -11509,6 +12087,20 @@
             "type": "string",
             "const": "kuaidi100"
           },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "fake",
+                  "live"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "courierCode": {
             "type": "string"
           },
@@ -11605,6 +12197,7 @@
           "shipmentId",
           "shipmentVersion",
           "provider",
+          "source",
           "courierCode",
           "trackingNo",
           "queryStatus",
@@ -12311,6 +12904,9 @@
                 "type": "null"
               }
             ]
+          },
+          "fulfillmentCheck": {
+            "$ref": "#/components/schemas/FulfillmentCheck"
           }
         },
         "required": [
@@ -12348,7 +12944,8 @@
           "timeline",
           "availableActions",
           "buyer",
-          "internalNote"
+          "internalNote",
+          "fulfillmentCheck"
         ],
         "additionalProperties": false,
         "description": "有订单读取权的后台详情；对象、字段和动作仍按实时权限过滤"
@@ -12382,6 +12979,39 @@
           "serverTime"
         ],
         "additionalProperties": false
+      },
+      "FulfillmentCheck": {
+        "type": "object",
+        "properties": {
+          "businessReady": {
+            "type": "boolean"
+          },
+          "blockingReasons": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "businessReady",
+          "blockingReasons"
+        ],
+        "additionalProperties": false,
+        "description": "当前业务事实的发货前检查，不代替执行时校验或表示实际发货能力已经开放。"
       }
     }
   }

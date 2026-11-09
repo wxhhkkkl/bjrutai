@@ -1,6 +1,6 @@
 # 操作索引
 
-生成自[openapi.json](openapi.json)。当前104操作、0.3.0计划契约；订单详情按买家/后台分开，通知目标契约受G-PROTOCOL约束。不是页面数或已部署声明。
+生成自[openapi.json](openapi.json)。当前94路径、106操作、0.8.0契约；本地包裹登记/运单更正/本人确认收货及fake快递100查询缓存已实现，生产/真实物流请求仍受G-LIVE/G-DATA门禁，微信平台同步也未接入。买家/后台投影分开，通知目标契约受G-PROTOCOL约束。不是页面数或全量已部署声明。
 
 | 方法 | 路径 | 操作 | 权限/身份 | 请求 | data结果 |
 |---|---|---|---|---|---|
@@ -15,6 +15,7 @@
 | POST | `/api/v1/mall/cart` | 加购不占库存 | `buyer` | `BuyItem` | `ResponseCartItem` |
 | PATCH | `/api/v1/mall/cart/{cartItemId}` | 更改购物车数量 | `buyer` | `CartPatch` | `ResponseCartItem` |
 | POST | `/api/v1/mall/cart/{cartItemId}/remove` | 移除购物车项 | `buyer` | `VersionAction` | `ResponseAck` |
+| GET | `/api/v1/mall/checkout/settings` | 公开结算所需安全配置 | `public` | `-` | `ResponseMallCheckoutSettings` |
 | POST | `/api/v1/mall/checkout/quote` | 当前报价，不占库存 | `buyer` | `QuoteRequest` | `ResponseQuote` |
 | POST | `/api/v1/mall/orders` | 提交订单并唯一占库存 | `buyer` | `OrderCreate` | `ResponseOrder` |
 | GET | `/api/v1/mall/orders` | 本人商城订单 | `buyer` | `-` | `ResponseOrderPage` |
@@ -54,7 +55,7 @@
 | GET | `/api/v1/admin/mall/orders/{orderId}` | 订单业务及资金关联 | `mall.orders.read` | `-` | `ResponseAdminOrderDetail` |
 | PATCH | `/api/v1/admin/mall/orders/{orderId}/note` | 内部备注 | `mall.orders.write` | `OrderNote` | `ResponseOrder` |
 | POST | `/api/v1/admin/mall/orders/{orderId}/cancel` | 授权未付关单 | `mall.orders.write` | `ReasonAction` | `ResponseAsyncResult` |
-| POST | `/api/v1/admin/mall/orders/{orderId}/ship` | 单包裹出库与平台同步任务 | `mall.shipments.write` | `ShipRequest` | `ResponseShipment` |
+| POST | `/api/v1/admin/mall/orders/{orderId}/ship` | 登记本地单包裹已出库事实；不调用微信/快递100 | `mall.shipments.write` | `ShipRequest` | `ResponseShipment` |
 | POST | `/api/v1/admin/mall/orders/{orderId}/fulfillment-release` | 条件性订单级收件资料交付 | `mall.fulfillment.release / governance-proposal.md:资料目的限定窄例外未生效时关闭` | `FulfillmentReleaseRequest` | `ResponseFulfillmentRelease` |
 | PATCH | `/api/v1/admin/mall/shipments/{shipmentId}` | 更正运单并留痕 | `mall.shipments.write` | `TrackingCorrection` | `ResponseShipment` |
 | POST | `/api/v1/admin/mall/shipments/{shipmentId}/sync` | 安全重试平台发货同步 | `mall.shipments.write` | `VersionAction` | `ResponseAsyncResult` |
@@ -71,6 +72,7 @@
 | GET | `/api/v1/admin/mall/refunds/{refundId}` | 资金详情 | `mall.refunds.read` | `-` | `ResponseRefund` |
 | POST | `/api/v1/admin/mall/refunds/{refundId}/query` | 核实原渠道请求 | `mall.refunds.query` | `VersionAction` | `ResponseAsyncResult` |
 | POST | `/api/v1/admin/mall/refunds/export` | 按权限导出资金 | `mall.finance.export` | `FinanceExport` | `ResponseAsyncResult` |
+| GET | `/api/v1/admin/mall/finance/exports/{requestId}` | 读取本人资金导出状态 | `mall.finance.export` | `-` | `ResponseAsyncResult` |
 | POST | `/api/v1/admin/mall/refunds/{refundId}/retry` | 查证后复用原退款号重试 | `mall.refunds.execute` | `ReasonAction` | `ResponseAsyncResult` |
 | GET | `/api/v1/admin/mall/invoice-requests` | 开票待办 | `mall.invoices.read` | `-` | `ResponseInvoiceRequestPage` |
 | GET | `/api/v1/admin/mall/invoice-requests/{requestId}` | 开票申请详情（敏感办理资料另受权） | `mall.invoices.read` | `-` | `ResponseInvoiceRequest` |

@@ -109,6 +109,119 @@ const routes = [
     meta: { title: '轮播图管理', icon: 'Picture' },
   },
   {
+    path: '/mall/workbench',
+    name: 'MallWorkbench',
+    component: () => import('@/pages/mall/workbench/index.vue'),
+    meta: {
+      title: '商城工作台',
+      permissionAny: [
+        'mall.orders.read',
+        'mall.shipments.write',
+        'mall.aftersales.read',
+        'mall.aftersales.review',
+        'mall.returns.receive',
+        'mall.payments.read',
+        'mall.payments.query',
+        'mall.refunds.read',
+        'mall.refunds.query',
+        'mall.refunds.execute',
+        'mall.attribution.write',
+        'performance.settle',
+        'mall.invoices.read',
+        'mall.invoices.write',
+        'mall.stock.read',
+        'mall.stock.write',
+        'mall.reconciliations.read',
+      ],
+    },
+  },
+  {
+    path: '/mall/categories',
+    name: 'MallCategories',
+    component: () => import('@/pages/mall/categories/index.vue'),
+    meta: { title: '商品分类', permission: 'mall.products.read' },
+  },
+  {
+    path: '/mall/products',
+    name: 'MallProducts',
+    component: () => import('@/pages/mall/products/index.vue'),
+    meta: { title: '商品管理', permission: 'mall.products.read' },
+  },
+  {
+    path: '/mall/settings/delivery',
+    name: 'MallDeliverySettings',
+    component: () => import('@/pages/mall/settings/delivery.vue'),
+    meta: { title: '配送设置', permission: 'mall.settings.read', activeMenu: '/mall/settings/delivery' },
+  },
+  {
+    path: '/mall/settings/trade',
+    name: 'MallTradeSettings',
+    component: () => import('@/pages/mall/settings/trade.vue'),
+    meta: { title: '交易设置', permission: 'mall.settings.read', activeMenu: '/mall/settings/trade' },
+  },
+  {
+    path: '/mall/orders',
+    name: 'MallOrders',
+    component: () => import('@/pages/mall/orders/index.vue'),
+    meta: { title: '交易订单', permission: 'mall.orders.read' },
+  },
+  {
+    path: '/mall/payments',
+    name: 'MallPayments',
+    component: () => import('@/pages/mall/payments/index.vue'),
+    meta: {
+      title: '支付订单',
+      permissionAny: ['mall.payments.read', 'mall.reconciliations.read'],
+    },
+  },
+  {
+    path: '/mall/refunds',
+    name: 'MallRefunds',
+    component: () => import('@/pages/mall/refunds/index.vue'),
+    meta: { title: '退款订单', permission: 'mall.refunds.read' },
+  },
+  {
+    path: '/mall/orders/:id',
+    name: 'MallOrderDetail',
+    component: () => import('@/pages/mall/orders/detail.vue'),
+    props: true,
+    meta: { title: '交易订单详情', permission: 'mall.orders.read', activeMenu: '/mall/orders' },
+  },
+  {
+    path: '/mall/invoices',
+    name: 'MallInvoices',
+    component: () => import('@/pages/mall/invoices/index.vue'),
+    meta: { title: '发票与红冲', permission: 'mall.invoices.read' },
+  },
+  {
+    path: '/mall/invoices/:id',
+    name: 'MallInvoiceDetail',
+    component: () => import('@/pages/mall/invoices/detail.vue'),
+    props: true,
+    meta: {
+      title: '发票办理详情',
+      permission: 'mall.invoices.read',
+      activeMenu: '/mall/invoices',
+    },
+  },
+  {
+    path: '/mall/aftersales',
+    name: 'MallAftersales',
+    component: () => import('@/pages/mall/aftersales/index.vue'),
+    meta: { title: '售后处理', permission: 'mall.aftersales.read' },
+  },
+  {
+    path: '/mall/aftersales/:id',
+    name: 'MallAftersaleDetail',
+    component: () => import('@/pages/mall/aftersales/detail.vue'),
+    props: true,
+    meta: {
+      title: '售后详情',
+      permission: 'mall.aftersales.read',
+      activeMenu: '/mall/aftersales',
+    },
+  },
+  {
     path: '/accounts',
     name: 'Accounts',
     redirect: '/accounts/admins',
@@ -181,6 +294,12 @@ router.beforeEach(async (to, from, next) => {
 
   // Permission check for routes that declare required permission
   if (to.meta.permission && !authStore.hasPermission(to.meta.permission)) {
+    return next({ name: 'Dashboard' })
+  }
+  if (
+    to.meta.permissionAny?.length &&
+    !to.meta.permissionAny.some((permission) => authStore.hasPermission(permission))
+  ) {
     return next({ name: 'Dashboard' })
   }
   next()

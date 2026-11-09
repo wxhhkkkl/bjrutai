@@ -6,8 +6,8 @@ test('personal customers do not see binding or bill notification filters', () =>
   const customerFilterIds = getNotificationFilters('personal').map((item) => item.id)
   const collaboratorFilterIds = getNotificationFilters('collaborator').map((item) => item.id)
 
-  assert.deepEqual(customerFilterIds, ['all', 'unread', 'system'])
-  assert.deepEqual(collaboratorFilterIds, ['all', 'unread', 'system', 'binding', 'bill'])
+  assert.deepEqual(customerFilterIds, ['all', 'unread', 'system', 'mall'])
+  assert.deepEqual(collaboratorFilterIds, ['all', 'unread', 'system', 'mall', 'binding', 'bill'])
 })
 
 test('notification adapter formats dates and keeps only safe internal targets', () => {
@@ -21,4 +21,14 @@ test('notification adapter formats dates and keeps only safe internal targets', 
   assert.equal(result.items[0].targetPath, '/pages/binding-records/index?filter=bound')
   assert.equal(resolveNotificationTarget('https://example.com'), '')
   assert.equal(resolveNotificationTarget('/pages/admin/index'), '')
+
+  const mall = adaptNotifications({ items: [{
+    id: 2,
+    category: 'mall',
+    title: '商城发货通知',
+    target: '/pages/mall-order-detail/index?id=31',
+    createdAt: '2026-08-10T01:20:59Z'
+  }] })
+  assert.equal(mall.items[0].categoryLabel, '商城')
+  assert.equal(mall.items[0].targetPath, '/pages/mall-order-detail/index?id=31')
 })

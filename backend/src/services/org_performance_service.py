@@ -1,6 +1,8 @@
-"""Org performance service (US5): subtree 消费金额 aggregation for org admins.
+"""Org performance service (US5): subtree unified consumption aggregation.
 
-业绩贡献 = 消费金额：按账单（Bill.paid_amount_cent）实时统计，单位为分（整数）。
+Legacy bills keep their existing paid-amount attribution. Mall orders use the
+payment-time organization snapshot and goods-only performance base.
+Amounts are stored in integer cents.
 """
 
 from typing import Optional
@@ -48,12 +50,10 @@ def _empty(org_id: int, org_name, month: Optional[str]) -> dict:
     }
 
 
-async def get_org_performance(
-    db: AsyncSession, user_id: int, month: Optional[str] = None
-) -> dict:
+async def get_org_performance(db: AsyncSession, user_id: int, month: Optional[str] = None) -> dict:
     """Return org performance for the current user (must be an org admin).
 
-    业绩贡献 = 消费金额（分），按管理组织子树内分销员的 PAID 账单汇总。
+    业绩贡献 = 消费金额（分），合并旧账单与归属商城商品款。
     """
     dist = await distributor_service.get_distributor_by_user(db, user_id)
     if dist is None or dist.org_role != OrgRole.ADMIN:
@@ -62,8 +62,10 @@ async def get_org_performance(
     name_map, children, org_ids = await _collect_subtree(db, dist.org_id)
 
     dist_rows = (
-        await db.execute(select(Distributor).where(Distributor.org_id.in_(org_ids)))
-    ).scalars().all()
+        (await db.execute(select(Distributor).where(Distributor.org_id.in_(org_ids))))
+        .scalars()
+        .all()
+    )
     if not dist_rows:
         return _empty(dist.org_id, name_map.get(dist.org_id), month)
 
@@ -82,7 +84,9 @@ async def get_org_performance(
         member_detail[d.id] = {"thisMonth": this, "cumulative": cum}
 
     users = (
-        await db.execute(select(User.id, User.name).where(User.id.in_({d.user_id for d in dist_rows})))
+        await db.execute(
+            select(User.id, User.name).where(User.id.in_({d.user_id for d in dist_rows}))
+        )
     ).fetchall()
     user_name_map = {u_id: name for u_id, name in users}
     for d in dist_rows:
@@ -91,13 +95,15 @@ async def get_org_performance(
     members = []
     for d in dist_rows:
         md = member_detail[d.id]
-        members.append({
-            "distributorId": str(d.id),
-            "orgId": str(d.org_id),
-            "name": md["name"],
-            "thisMonth": md["thisMonth"],
-            "cumulative": md["cumulative"],
-        })
+        members.append(
+            {
+                "distributorId": str(d.id),
+                "orgId": str(d.org_id),
+                "name": md["name"],
+                "thisMonth": md["thisMonth"],
+                "cumulative": md["cumulative"],
+            }
+        )
 
     def _org_total(org_id: int) -> dict:
         this, cum = 0, 0
@@ -116,7 +122,9 @@ async def get_org_performance(
     for org_id in org_ids:
         if org_id == dist.org_id:
             continue
-        sub_orgs.append({"orgId": str(org_id), "orgName": name_map.get(org_id), **_org_total(org_id)})
+        sub_orgs.append(
+            {"orgId": str(org_id), "orgName": name_map.get(org_id), **_org_total(org_id)}
+        )
 
     return {
         "orgId": str(dist.org_id),

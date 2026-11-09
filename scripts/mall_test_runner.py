@@ -59,10 +59,16 @@ def run_suite(suite, source_env=None, execute=subprocess.run):
     except subprocess.CalledProcessError:
         compose_cli = ["docker-compose"]
         execute(compose_cli + ["version"], check=True, env=env, capture_output=True)
-    endpoint = env.get("DOCKER_HOST") or execute(
-        ["docker", "context", "inspect", "--format", "{{ .Endpoints.docker.Host }}"],
-        check=True, capture_output=True, text=True, env=env,
-    ).stdout.strip()
+    endpoint = (
+        env.get("DOCKER_HOST")
+        or execute(
+            ["docker", "context", "inspect", "--format", "{{ .Endpoints.docker.Host }}"],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+        ).stdout.strip()
+    )
     if not endpoint.startswith("unix:///") or any(x in endpoint for x in ("\x00", "\n", "\r")):
         raise ValueError("Only a local Docker socket is allowed")
     env["DOCKER_HOST"] = endpoint
@@ -86,14 +92,18 @@ def run_suite(suite, source_env=None, execute=subprocess.run):
         # credential helper that may belong to another Docker installation.
         docker_config = work / "docker-client"
         docker_config.mkdir(mode=0o700)
-        (docker_config / "config.json").write_text(json.dumps({
-            "auths": {},
-            "cliPluginsExtraDirs": [
-                str(Path(env.get("HOME", "/nonexistent")) / ".docker/cli-plugins"),
-                "/opt/homebrew/lib/docker/cli-plugins",
-                "/usr/local/lib/docker/cli-plugins",
-            ],
-        }))
+        (docker_config / "config.json").write_text(
+            json.dumps(
+                {
+                    "auths": {},
+                    "cliPluginsExtraDirs": [
+                        str(Path(env.get("HOME", "/nonexistent")) / ".docker/cli-plugins"),
+                        "/opt/homebrew/lib/docker/cli-plugins",
+                        "/usr/local/lib/docker/cli-plugins",
+                    ],
+                }
+            )
+        )
         env["DOCKER_CONFIG"] = str(docker_config)
         credentials = work / "mysql.env"
         credentials.write_text(
@@ -186,18 +196,22 @@ def run_suite(suite, source_env=None, execute=subprocess.run):
                     str(ROOT / "backend/tests/contract"),
                     str(ROOT / "backend/tests/integration"),
                 ]
+            pytest_command = [
+                str(python),
+                "-m",
+                "pytest",
+                "-c",
+                str(ROOT / "backend/pyproject.toml"),
+                *test_paths,
+                "-q",
+                "--tb=short",
+                "-x",
+            ]
+            if suite == "backend-mysql":
+                # Keep observed workload and per-test timings visible for T129.
+                pytest_command.extend(["-s", "--durations=0"])
             execute(
-                [
-                    str(python),
-                    "-m",
-                    "pytest",
-                    "-c",
-                    str(ROOT / "backend/pyproject.toml"),
-                    *test_paths,
-                    "-q",
-                    "--tb=short",
-                    "-x",
-                ],
+                pytest_command,
                 check=True,
                 cwd=str(work),
                 env=env,
