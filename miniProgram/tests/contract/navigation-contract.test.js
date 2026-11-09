@@ -6,14 +6,17 @@ const {
   ACTION_TARGETS
 } = require('../../models/navigation');
 
-test('five primary tabs have unique routes and mall follows internet hospital', () => {
-  assert.equal(TAB_ITEMS.length, 5);
+test('four visible tabs have unique routes and mall remains a registered hidden page', () => {
+  assert.equal(TAB_ITEMS.length, 4);
   assert.equal(
     new Set(TAB_ITEMS.map((item) => item.pagePath)).size,
-    5
+    4
   );
   assert.equal(TAB_ITEMS[2].id, 'internet-hospital');
-  assert.equal(TAB_ITEMS[3].id, 'mall');
+  assert.equal(TAB_ITEMS[3].id, 'profile');
+  assert.ok(TAB_ITEMS.every((item) => item.id !== 'mall'));
+  assert.ok(appConfig.pages.includes('pages/mall/index'));
+  assert.ok(appConfig.tabBar.list.every((item) => item.pagePath !== 'pages/mall/index'));
 });
 
 test('action routes point to registered mini program pages', () => {

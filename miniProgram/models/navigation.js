@@ -19,13 +19,6 @@ const TAB_ITEMS = [{
         requiresLogin: true
     },
     {
-        id: 'mall',
-        label: '商城',
-        pagePath: '/pages/mall/index',
-        icon: 'cart-o',
-        requiresLogin: true
-    },
-    {
         id: 'profile',
         label: '我的',
         pagePath: '/pages/profile/index',

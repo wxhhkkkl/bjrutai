@@ -64,10 +64,6 @@
                 "text": "互联网医院"
             },
             {
-                "pagePath": "pages/mall/index",
-                "text": "商城"
-            },
-            {
                 "pagePath": "pages/profile/index",
                 "text": "我的"
             }
