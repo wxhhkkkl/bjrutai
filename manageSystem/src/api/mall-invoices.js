@@ -11,6 +11,8 @@ export const getAdminMallInvoiceRequest = (id) =>
   http.get(`${requests}/${id}`).then(unwrap)
 export const claimMallInvoice = ({ id, ...body }, key) =>
   http.post(`${requests}/${id}/claim`, body, headers(key)).then(unwrap)
+export const releaseMallBilling = ({ id, ...body }, key) =>
+  http.post(`${requests}/${id}/billing-release`, body, headers(key)).then(unwrap)
 export const needMallInvoiceInfo = ({ id, ...body }, key) =>
   http.post(`${requests}/${id}/needs-info`, body, headers(key)).then(unwrap)
 export const recordMallInvoice = ({ id, ...body }, key) =>

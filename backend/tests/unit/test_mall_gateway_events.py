@@ -2,9 +2,16 @@
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.dialects import mysql, sqlite
 
 from src.core.exceptions import ConflictException
 from src.models.mall_operations import MallGatewayEvent
+
+
+def test_callback_resource_column_has_mediumblob_capacity_on_mysql():
+    column = MallGatewayEvent.__table__.c["payload_ciphertext"]
+    assert column.type.compile(dialect=mysql.dialect()) == "MEDIUMBLOB"
+    assert column.type.compile(dialect=sqlite.dialect()) == "BLOB"
 
 
 @pytest.mark.asyncio

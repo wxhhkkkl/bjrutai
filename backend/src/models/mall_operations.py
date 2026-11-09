@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.mysql import MEDIUMBLOB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..core.database import Base
@@ -77,7 +78,9 @@ class MallGatewayEvent(MallRecord, Base):
     event_id: Mapped[str] = mapped_column(String(128))
     event_type: Mapped[str] = mapped_column(String(64))
     resource_id: Mapped[str] = mapped_column(String(128))
-    payload_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
+    payload_ciphertext: Mapped[bytes | None] = mapped_column(
+        LargeBinary().with_variant(MEDIUMBLOB(), "mysql")
+    )
     verified_digest: Mapped[str] = mapped_column(String(64))
     received_at: Mapped[datetime] = mapped_column(UTC_TIME)
     status: Mapped[str] = mapped_column(String(16), default="pending")

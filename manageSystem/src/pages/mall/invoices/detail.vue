@@ -102,8 +102,45 @@
             </div>
           </dl>
           <p class="gate-note">
-            完整税号和邮箱原文暂不可读取。若税务办理必须使用原文，需等待资料授权门禁开放。
+            普通查询不返回完整税号和邮箱。仅当前财务领取人且具有独立资料读取权限时，才可为本申请短时读取开票所需资料。
           </p>
+        </el-card>
+
+        <el-card
+          v-if="billingReleaseUiEnabled && canReleaseBilling"
+          class="action-card release-card"
+          data-test="billing-release-card"
+        >
+          <template #header>本申请开票资料</template>
+          <p>
+            只用于办理当前由你领取的申请。资料仅在本页临时显示，最长 60 秒；离开页面或切换标签后立即清除。请勿截图、复制或另存。
+          </p>
+          <el-button
+            v-if="!billingReleased"
+            data-test="release-billing"
+            type="primary"
+            :disabled="billingReleaseBusy"
+            :loading="billingReleaseBusy"
+            @click="billingReleaseOpen = true"
+          >
+            查看本申请开票资料
+          </el-button>
+          <el-alert
+            v-if="billingReleased"
+            type="warning"
+            :closable="false"
+            data-test="billing-release-data"
+          >
+            <template #title>开票资料（{{ billingSecondsRemaining }} 秒后清除）</template>
+            <dl class="released-fields">
+              <div><dt>发票抬头</dt><dd>{{ billingReleased.title }}</dd></div>
+              <div v-if="billingReleased.taxNo"><dt>纳税人识别号</dt><dd>{{ billingReleased.taxNo }}</dd></div>
+              <div><dt>访问审计号</dt><dd>{{ billingReleased.auditId }}</dd></div>
+            </dl>
+            <el-button data-test="clear-billing-release" @click="billingData.clear()">
+              立即清除
+            </el-button>
+          </el-alert>
         </el-card>
 
         <el-card v-if="canClaim" class="action-card">
@@ -379,19 +416,46 @@
       </template>
       <el-empty v-else-if="!loading && !error" description="开票申请暂不可用" />
     </div>
+    <el-dialog
+      v-model="billingReleaseOpen"
+      title="确认查看本申请开票资料"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :show-close="!billingReleaseBusy"
+    >
+      <p>
+        仅查看当前开票申请办理所需的抬头及企业税号。后端会重新核验领取人、权限、订单付款/退款状态和用途同意；成功后资料只在本页临时显示 60 秒。
+      </p>
+      <template #footer>
+        <el-button :disabled="billingReleaseBusy" @click="billingReleaseOpen = false">
+          返回
+        </el-button>
+        <el-button
+          data-test="confirm-billing-release"
+          type="primary"
+          :loading="billingReleaseBusy"
+          @click="releaseBillingData"
+        >
+          确认并查看
+        </el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import * as api from '@/api/mall-invoices'
-import { useMallCommand } from '@/composables/useMallCommand'
+import { commandKey, useMallCommand } from '@/composables/useMallCommand'
+import { useExpiringSensitiveData } from '@/composables/useExpiringSensitiveData'
 
 const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
 const auth = useAuthStore()
+const billingReleaseUiEnabled =
+  import.meta.env.VITE_MALL_DATA_RELEASE_UI_ENABLED === 'true'
 const request = ref(null)
 const loading = ref(false)
 const error = ref('')
@@ -418,6 +482,15 @@ const blueUploadState = ref(null)
 const redUploadStates = reactive({})
 const replacementUploadState = ref(null)
 const command = useMallCommand()
+const billingData = useExpiringSensitiveData((data) => ({
+  title: data.title,
+  taxNo: data.taxNo,
+  auditId: data.auditId,
+}))
+const billingReleased = billingData.value
+const billingSecondsRemaining = billingData.secondsRemaining
+const billingReleaseOpen = ref(false)
+const billingReleaseBusy = ref(false)
 let loadGeneration = 0
 
 const requestStates = {
@@ -438,8 +511,20 @@ const invoiceStates = {
 }
 const writer = computed(() => auth.hasPermission('mall.invoices.write'))
 const reader = computed(() => auth.hasPermission('mall.invoices.read'))
-const claimedByMe = computed(
-  () => request.value?.claimedBy === auth.user?.userId
+const claimedByMe = computed(() => {
+  const claimedBy = request.value?.claimedBy
+  const currentAdmin = currentAdminId()
+  return (
+    claimedBy != null &&
+    currentAdmin != null &&
+    String(claimedBy) === currentAdmin
+  )
+})
+const canReleaseBilling = computed(
+  () =>
+    auth.hasPermission('mall.billing.release') &&
+    request.value?.status === 'issuing' &&
+    claimedByMe.value
 )
 const canClaim = computed(
   () =>
@@ -495,13 +580,15 @@ function stateType(status) {
   return 'primary'
 }
 function currentAdminId() {
-  return auth.user?.userId
+  const identity = auth.user?.userId
+  return identity == null ? null : String(identity)
 }
 function canUploadForRequest() {
   return (
     !!request.value &&
     writer.value &&
-    request.value.claimedBy === currentAdminId()
+    request.value.claimedBy != null &&
+    String(request.value.claimedBy) === currentAdminId()
   )
 }
 function ensureRedForm(invoice) {
@@ -547,6 +634,7 @@ function beginReplacement(invoice) {
 
 async function load() {
   if (command.pending.value) return
+  billingData.clear()
   const generation = ++loadGeneration
   const identity = props.id
   loading.value = true
@@ -559,7 +647,8 @@ async function load() {
       for (const invoice of result.invoices || []) ensureRedForm(invoice)
       if (
         result.status === 'issuing' &&
-        result.claimedBy === currentAdminId()
+        result.claimedBy != null &&
+        String(result.claimedBy) === currentAdminId()
       ) {
         issueForm.fileId = ''
         issueForm.replacementForId = ''
@@ -588,6 +677,46 @@ async function claim() {
     }),
     '已领取开票申请。'
   )
+}
+async function releaseBillingData() {
+  if (
+    !billingReleaseUiEnabled ||
+    !canReleaseBilling.value ||
+    billingReleaseBusy.value
+  )
+    return
+  const identity = props.id
+  const generation = billingData.beginRequest()
+  billingReleaseBusy.value = true
+  error.value = ''
+  try {
+    const result = await api.releaseMallBilling(
+      {
+        id: identity,
+        expectedVersion: request.value.version,
+        purpose: 'invoice_issue',
+        reason: '办理当前领取的开票申请',
+      },
+      commandKey()
+    )
+    if (
+      billingData.isCurrent(generation) &&
+      props.id === identity &&
+      document.visibilityState !== 'hidden'
+    ) {
+      if (!billingData.show(result, generation)) {
+        error.value = '资料响应已过期或无效，请重新核实申请后再试。'
+      } else {
+        billingReleaseOpen.value = false
+      }
+    }
+  } catch {
+    if (billingData.isCurrent(generation)) {
+      error.value = '暂无法读取本申请资料，请核实领取人、权限、订单状态和用途告知配置。'
+    }
+  } finally {
+    billingReleaseBusy.value = false
+  }
 }
 async function requestInfo() {
   if (!canAskForInfo.value || command.pending.value) return
@@ -828,7 +957,36 @@ async function retry() {
   await afterCommand(await command.retry(), '原开票操作已确认。')
 }
 
-onMounted(load)
+function guardSensitiveNavigation() {
+  billingData.clear()
+  billingReleaseOpen.value = false
+  if (billingReleaseBusy.value) {
+    error.value = '安全读取正在完成，请稍后离开本页'
+    return false
+  }
+  return true
+}
+function onVisibilityChange() {
+  if (document.visibilityState === 'hidden') billingReleaseOpen.value = false
+}
+onBeforeRouteLeave(guardSensitiveNavigation)
+onBeforeRouteUpdate(guardSensitiveNavigation)
+watch(
+  () => props.id,
+  () => {
+    billingData.clear()
+    billingReleaseOpen.value = false
+    load()
+  }
+)
+onMounted(() => {
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  load()
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  billingData.clear()
+})
 defineExpose({
   load,
   claim,
@@ -892,6 +1050,23 @@ defineExpose({
 .chain-card,
 .sub-action {
   margin-top: 16px;
+}
+.released-fields {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.released-fields div {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 12px;
+}
+.released-fields dt {
+  color: #6b7280;
+}
+.released-fields dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 .form-grid {
   display: grid;

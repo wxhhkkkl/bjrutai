@@ -102,6 +102,6 @@ with patch("sqlalchemy.ext.asyncio.create_async_engine", tls_engine):
         and "Order close intent facts exist; refusing a lossy downgrade" in result.stderr
     ), result.stderr[-1000:]
     async with mall_mysql_sessions() as db:
-        assert await db.scalar(text("SELECT version_num FROM alembic_version")) == "036"
+        assert await db.scalar(text("SELECT version_num FROM alembic_version")) == "037"
         order = await db.get(MallOrder, identity)
         assert order.close_requested_at and order.close_request_reason == "迁移测试取消"

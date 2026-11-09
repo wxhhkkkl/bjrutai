@@ -5,11 +5,11 @@ Specification: specs/022-independent-mall/spec.md
 Contracts: specs/022-independent-mall/contracts/README.md
 Tasks: specs/022-independent-mall/tasks.md
 Logistics: specs/022-independent-mall/logistics-integration.md
-Setup implementation in progress; actual evidence and Docker/MySQL blocker: specs/022-independent-mall/implementation-log.md
+Implementation evidence and current task state: specs/022-independent-mall/implementation-log.md (T129 isolated MySQL validation completed; 022 implementation continues)
 Do not implement mini-program visual design before reminding the user and receiving the current style references.
-The fulfillment/billing data-release exception is a proposal, not an active change to the constitution.
+The narrow internal mall fulfillment/billing data-release exception is adopted in Constitution 4.0.0 and locally implemented at T063/T102. Production access remains off until an existing retention-policy reference and a reviewed notice version are configured; this does not authorize sending buyer originals to WeChat, carriers, or Kuaidi100.
 Review remediation: specs/022-independent-mall/remediation-review.md
-G-PROTOCOL is inactive: do not implement/deploy the two WeChat notification endpoints before the separate constitution amendment is formally adopted. Non-notification work may continue.
+G-PROTOCOL is adopted and locally implemented at T048. Production callback registration/deployment and real payment activity still require G-LIVE and scope-specific authorization.
 <!-- SPECKIT END -->
 
 # CLAUDE.md

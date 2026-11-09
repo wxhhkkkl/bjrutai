@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     mall_purchase_enabled: bool = False
     mall_gateway_mode: Literal["test", "live"] = "test"
     mall_gateway_outbound_enabled: bool = False
+    # Inbound callbacks are independently disabled until G-LIVE platform setup.
+    mall_gateway_callback_enabled: bool = False
+    # Sensitive mall data views stay off until retention and notice decisions exist.
+    mall_data_release_enabled: bool = False
+    mall_data_release_retention_policy_ref: str = ""
+    mall_data_release_notice_approved_version: str = ""
     # Mall dispatch remains opt-in; domain handlers are independently registered.
     mall_worker_enabled: bool = False
     mall_storage_outbound_enabled: bool = False
@@ -19,6 +25,7 @@ class Settings(BaseSettings):
     mall_wechat_merchant_serial: str = ""
     mall_wechat_private_key_pem: str = Field("", repr=False)
     mall_wechat_verify_keys: dict[str, str] = Field(default_factory=dict, repr=False)
+    mall_wechat_api_v3_key: str = Field("", repr=False)
     mall_prepay_keys: dict[str, str] = Field(default_factory=dict, repr=False)
     mall_prepay_active_key: str = ""
     mall_wechat_notify_url: str = ""
@@ -80,6 +87,11 @@ class Settings(BaseSettings):
             raise ValueError("test gateway cannot perform external money requests")
         if self.app_environment == "test" and self.mall_kuaidi100_outbound_enabled:
             raise ValueError("tests cannot perform external logistics requests")
+        if self.app_environment == "production" and self.mall_data_release_enabled:
+            if not self.mall_data_release_retention_policy_ref.strip():
+                raise ValueError("enabled mall data release requires an approved retention policy")
+            if not self.mall_data_release_notice_approved_version.strip():
+                raise ValueError("enabled mall data release requires an approved notice version")
         return self
 
     class Config:

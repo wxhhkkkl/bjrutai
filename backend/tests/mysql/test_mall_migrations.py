@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 from sqlalchemy import inspect, text
+from sqlalchemy.dialects.mysql import MEDIUMBLOB
 
 MALL_TABLES = {
     "mall_categories",
@@ -74,6 +75,10 @@ async def test_mall_revisions_create_constrained_schema_without_legacy_backfill(
                 "mall_job_columns": {
                     item["name"]: item for item in inspector.get_columns("mall_jobs")
                 },
+                "gateway_columns": {
+                    item["name"]: item
+                    for item in inspector.get_columns("mall_gateway_events")
+                },
                 "address_columns": {
                     item["name"]: item for item in inspector.get_columns("mall_addresses")
                 },
@@ -115,7 +120,10 @@ async def test_mall_revisions_create_constrained_schema_without_legacy_backfill(
         assert ("settlement_id", "distributor_id", "rule_type") in schema["evidence_uniques"]
         assert {"ck_mall_order_total", "ck_mall_order_refund"} <= schema["order_checks"]
         assert "ck_mall_file_purpose" in schema["file_checks"]
-        assert await connection.scalar(text("SELECT version_num FROM alembic_version")) == "036"
+        assert await connection.scalar(text("SELECT version_num FROM alembic_version")) == "037"
+        assert isinstance(
+            schema["gateway_columns"]["payload_ciphertext"]["type"], MEDIUMBLOB
+        )
         assert schema["notification_columns"]["event_key"]["nullable"]
         assert schema["notification_columns"]["event_key"]["type"].length == 191
         assert schema["notification_category"].enums[-1] == "MALL"

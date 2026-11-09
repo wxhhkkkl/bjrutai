@@ -11,6 +11,10 @@ export const cancelOrder = ({ id, ...body }, key) =>
   http.post(`${root}/${id}/cancel`, body, headers(key)).then(unwrap)
 export const registerShipment = ({ id, ...body }, key) =>
   http.post(`${root}/${id}/ship`, body, headers(key)).then(unwrap)
+export const releaseFulfillment = ({ id, ...body }, key) =>
+  http
+    .post(`${root}/${id}/fulfillment-release`, body, headers(key))
+    .then(unwrap)
 export const correctTracking = ({ shipmentId, ...body }, key) =>
   http.patch(`/admin/mall/shipments/${shipmentId}`, body, headers(key)).then(unwrap)
 export const getCommand = (id) =>

@@ -93,9 +93,9 @@ unique(out_refund_no)、unique(channel_refund_id)，index(status,last_query_at)�
 
 ### 4.7 mall_shipments
 
-`id,order_id unique,courier_code,tracking_no,shipped_at,auto_receive_at nullable for legacy rows,shipped_by,version,platform_sync_status not_required/pending/succeeded/failed/unknown,platform_last_error,platform_synced_at,platform_confirmation_status,platform_confirmed_at`。
+id,order_id unique,courier_code,tracking_no,shipped_at,auto_receive_at nullable for legacy rows,shipped_by,version,platform_report_status pending/manual_reported/unknown,platform_reported_at nullable,platform_confirmation_status,platform_confirmed_at。
 
-包裹变更进审计及任务版本，不能新建第二包裹重复发货。实际登记本地出库与平台上传、平台确认分别留证；任务以shipment_id+version去重，旧版本任务不得覆盖新运单。`auto_receive_at`在本地出库登记时按订单冻结的`autoReceiveDays`计算；老行保留null，不从当前商城设置推算。029只增该字段，自动收货任务仍按包裹版本防重。
+包裹变更进审计及任务版本，不能新建第二包裹重复发货。平台登记状态表示员工是否已在微信小程序后台手工录入，人工登记时间与操作者审计和平台确认收货独立；运单更正将其重置为pending。任务以shipment_id+version去重，旧版本任务不得覆盖新运单。auto_receive_at在本地出库登记时按订单冻结的autoReceiveDays计算；老行保留null，不从当前商城设置推算。029只增该字段，自动收货任务仍按包裹版本防重。
 
 ## 5. 票据、文件、消费与配置（5表）
 
@@ -177,7 +177,7 @@ unique(evidence_id,trigger_source_type,trigger_source_id,trigger_version)；先�
 
 计划迁移拆为024商品/订单/地址库存及配置、025资金/售后/票据/文件/任务/对账、026消费/绩效证据与差额。编号在实施时核验；降级只允许隔离空测试库，线上有事实不drop表。
 
-实施补充：核对legacy023空结构中的consent_records.scene为REGISTRATION/BINDING/PROMOTION/FOLLOWUP后，027仅附加MALL_ADDRESS/MALL_CHECKOUT两个场景，保留旧记录与枚举值。T119新增034扩展MALL_INVOICE并为发票申请增加可空consent_record_id；旧申请不回填伪造的历史同意，降级遇到商城票据同意事实即拒绝。证据只保存买家ID、场景、版本、用途scope和点击证据，不存收件/税号/邮箱原值；收件、支付/履约、开票各自作用域分离，发票补资料新增凭证但不覆盖旧凭证。告知文案版本为草案，需业务/法务审阅；撤回申请不会删除依法须留存的订单/财税事实。不把旧注册同意复用为新目的。G-DATA资料原文交付门禁仍关闭。
+实施补充：核对legacy023空结构中的consent_records.scene为REGISTRATION/BINDING/PROMOTION/FOLLOWUP后，027仅附加MALL_ADDRESS/MALL_CHECKOUT两个场景，保留旧记录与枚举值。T119新增034扩展MALL_INVOICE并为发票申请增加可空consent_record_id；旧申请不回填伪造的历史同意，降级遇到商城票据同意事实即拒绝。证据只保存买家ID、场景、版本、用途scope和点击证据，不存收件/税号/邮箱原值；收件、支付/履约、开票各自作用域分离，发票补资料新增凭证但不覆盖旧凭证。告知文案版本仍待业务/法务审阅；撤回申请不会删除依法须留存的订单/财税事实。不把旧注册同意复用为新目的。宪章4.0.0已批准商城内部单对象访问；生产运行仍待留存制度引用和告知审阅版本配置，第三方原文传输未获批准。
 
 ## 10. 核心不变量与校验
 

@@ -2,7 +2,7 @@
 
 本表仅表示计划覆盖，不代表接口、测试或验收已完成。操作来自当前OpenAPI（已纳入快递100补充），详细依赖见[tasks.md](tasks.md)与[tasks-map.json](tasks-map.json)。
 
-## 105个操作归属
+## 106个操作归属
 
 | operationId | 方法/路径 | 实现任务 | 条件 |
 |---|---|---|---|
@@ -60,7 +60,7 @@
 | `shipMallOrder` | POST `/api/v1/admin/mall/orders/{orderId}/ship` | T062 | 通用实时授权/状态/幂等 |
 | `releaseMallFulfillment` | POST `/api/v1/admin/mall/orders/{orderId}/fulfillment-release` | T063 | governance-proposal.md:资料目的限定窄例外未生效时关闭 |
 | `correctMallTracking` | PATCH `/api/v1/admin/mall/shipments/{shipmentId}` | T062 | 通用实时授权/状态/幂等 |
-| `syncMallShipment` | POST `/api/v1/admin/mall/shipments/{shipmentId}/sync` | T062 | 通用实时授权/状态/幂等 |
+| recordMallPlatformShipmentReport | POST /api/v1/admin/mall/shipments/{shipmentId}/platform-report | T056 | 通用实时授权/状态/幂等；只登记管理员的微信后台手工录入确认，不调用微信API |
 | `listAdminMallAftersales` | GET `/api/v1/admin/mall/aftersales` | T072 | 通用实时授权/状态/幂等 |
 | `getAdminMallAftersale` | GET `/api/v1/admin/mall/aftersales/{aftersaleId}` | T072 | 通用实时授权/状态/幂等 |
 | `decideMallAftersale` | POST `/api/v1/admin/mall/aftersales/{aftersaleId}/decision` | T072 | 通用实时授权/状态/幂等 |
@@ -70,10 +70,11 @@
 | `getAdminMallPayment` | GET `/api/v1/admin/mall/payments/{paymentId}` | T112 | 通用实时授权/状态/幂等 |
 | `queryMallPayment` | POST `/api/v1/admin/mall/payments/{paymentId}/query` | T112 | 通用实时授权/状态/幂等 |
 | `exportMallPayment` | POST `/api/v1/admin/mall/payments/export` | T112 | 通用实时授权/状态/幂等 |
-| `listAdminMallRefunds` | GET `/api/v1/admin/mall/refunds` | T073 | 通用实时授权/状态/幂等；G-PROTOCOL仅限制通知子项 |
+| `listAdminMallRefunds` | GET `/api/v1/admin/mall/refunds` | T073 | 通用实时授权/状态/幂等；G-PROTOCOL例外仅适用于两个通知入口 |
 | `getAdminMallRefund` | GET `/api/v1/admin/mall/refunds/{refundId}` | T073 | 通用实时授权/状态/幂等；G-PROTOCOL仅限制通知子项 |
 | `queryMallRefund` | POST `/api/v1/admin/mall/refunds/{refundId}/query` | T073 | 通用实时授权/状态/幂等；G-PROTOCOL仅限制通知子项 |
 | `exportMallRefund` | POST `/api/v1/admin/mall/refunds/export` | T112 | 通用实时授权/状态/幂等 |
+| `getAdminMallFinanceExport` | GET `/api/v1/admin/mall/finance/exports/{requestId}` | T112 | 通用实时授权/状态/幂等；只返回本人授权异步导出状态 |
 | `retryMallRefund` | POST `/api/v1/admin/mall/refunds/{refundId}/retry` | T073 | 通用实时授权/状态/幂等；G-PROTOCOL仅限制通知子项 |
 | `listAdminMallInvoiceRequests` | GET `/api/v1/admin/mall/invoice-requests` | T101 | 通用实时授权/状态/幂等 |
 | `getAdminMallInvoiceRequest` | GET `/api/v1/admin/mall/invoice-requests/{requestId}` | T101 | 通用实时授权/状态/幂等 |
@@ -107,7 +108,7 @@
 | `getMyMallCommand` | GET `/api/v1/mall/commands/{commandId}` | T023 | 通用实时授权/状态/幂等 |
 | `getAdminMallCommand` | GET `/api/v1/admin/mall/commands/{commandId}` | T023 | 通用实时授权/状态/幂等 |
 | `wechatPaymentNotify` | POST `/api/v1/mall-gateway/wechat/payment-notify` | T048 | G-PROTOCOL |
-| `wechatRefundNotify` | POST `/api/v1/mall-gateway/wechat/refund-notify` | T073 | G-PROTOCOL |
+| `wechatRefundNotify` | POST `/api/v1/mall-gateway/wechat/refund-notify` | T048 | G-PROTOCOL |
 | `getMyMallLogistics` | GET `/api/v1/mall/orders/{orderId}/logistics` | T060 | 通用实时授权/状态/幂等 |
 | `getAdminMallLogistics` | GET `/api/v1/admin/mall/orders/{orderId}/logistics` | T060 | 通用实时授权/状态/幂等 |
 | `refreshMallLogistics` | POST `/api/v1/admin/mall/shipments/{shipmentId}/logistics-refresh` | T060 | 通用实时授权/状态/幂等 |
@@ -269,14 +270,39 @@
 
 ## 质量与分析修订追踪
 
-Q-01–09和原故障T01–T14继续由最终集成、并发、角色、平台及真机任务验证；Q-10由T005/T028验证自动环境准备。均未实际执行。
+更新：2026-11-09。以下区分本地/合成证据、现场/生产证据和整体质量目标；“本地通过”不表示真实平台、生产容量或投产门禁已通过。
+
+| 质量项 | 验收要求 | 当前实际证据与状态 |
+|---|---|---|
+| Q-01 / SC-001 | AC-001–053逐例记录实际结果与证据，首期所有目标通过；超退、超卖、重复有效票/消费和越权成功为0 | **部分通过**。53项AC均有任务追踪；T128本地合成闭环10 passed、T129隔离MySQL与T130回归有记录；T048回调本地实现/隔离回归通过；T131真实平台、T132真机/用户、T108真实税票及G-DATA条件仍未通过。见[acceptance-results.md](acceptance-results.md)、[platform-acceptance.md](platform-acceptance.md)、[device-acceptance.md](device-acceptance.md)。 |
+| Q-02 / SC-002 | 5名非开发用户；至少4名无需指导于180秒内到提交支付，外部等待另计 | **未验收**。本地40项页面集成测试通过；5名参与者、iOS/Android真机记录为空，不能据此通过易用性目标。见[device-acceptance.md](device-acceptance.md)。 |
+| Q-03 / SC-003 | 500个在售商品、10,000历史订单、20并发用户，至少100次主要查询且95%在2秒内 | **未验收**。T129的并发窗口与单次耗时是隔离MySQL功能/竞争测量，不是此固定数据集的容量测试。见[performance-results.md](performance-results.md)。 |
+| Q-04 / SC-004–005 | 100次末件争抢及各关键事实20次重放/乱序，金额、数量和唯一关联一致 | **本地部分通过**。T129记录100次末件提交尝试和幂等重放/恢复；T128合成交易检查唯一业务关联。完整的跨所有事实类型/乱序矩阵仍未作为一项整体验收。见[performance-results.md](performance-results.md)、[acceptance-results.md](acceptance-results.md)。 |
+| Q-05 / SC-006 | 核实渠道结果后60秒内多端/待办一致；未知超过10分钟后形成责任异常 | **本地部分通过**。T126工作台和未知资金责任待办、T128合成资金结果有证据；真实渠道响应时间和生产多端SLO未测。 |
+| Q-06 / SC-007–008 | 按F-02手算并核对展示/导出到分；冻结原值不动，调整累计正确 | **本地部分通过**。T096绩效/冻结/差额/核销闭环及T130既有系统回归通过；完整F-02人工样例与所有生产展示/导出逐项核对未形成总体签字。 |
+| Q-07 / SC-009–010 | F-03及样例日账单核对；票据链和资金对应100%，未解决差异不关闭 | **本地部分通过**。T108合成发票、T128合成跨域和日对账验收已记录；真实出票、真实票据文件和真实渠道日账单仍未核实。见[acceptance-results.md](acceptance-results.md)。 |
+| Q-08 / SC-011 | 买家、运营、履约、财务、组织角色及撤权场景；越权拒绝，敏感访问有审计且不含原文 | **内部实现通过，生产配置待办**。T116/T121有权限矩阵、撤权和跨买家回归；T063/T102覆盖单对象领取与元数据审计。生产访问等待留存引用和经审阅告知版本配置，外部传输仍未获批。 |
+| Q-09 / SC-012 | 小程序视觉阶段前取得并记录本轮参考图和采用风格 | **设计输入已通过**。用户列表截图已归档，明确不显示“综合”，样式约定见[ui-reference.md](ui-reference.md)；这不代表T132真机视觉验收通过。 |
+| Q-10 / FR-094 | 单命令准备独立MySQL、迁移、fixtures、自动化和清理；错误目标在建表前失败 | **本地隔离runner通过**。T005/T028的单命令隔离、所有权校验、失败非零退出和清理证据已记录；不代表生产数据库迁移已执行。见[quickstart.md](quickstart.md)、[implementation-log.md](implementation-log.md)。 |
+
+## 当前任务状态与依赖边界
+
+2026-11-09任务表与135项勾选已一致：**130项完成、5项进行中、0项待办**。未完成事项为：
+
+- 待办：无。
+- 进行中：T056、T108、T131、T132、T133。
+- T052完成本地测试模式的地址至支付集成及恢复证据，T062完成本地订单/履约管理路由与AC-053；两者均不表示真实平台或商城整体发布已完成。T135完成本追踪核对也不替代其余门禁。
+
+少数已完成任务的范围只覆盖经记录的独立切片：T062已完成本地订单/履约接口与权限；T054确定第一期通过微信后台手工录入、不接发货API；T056负责商城内人工登记状态回填，尚未完成。T064/T079/T116依赖本地接口/权限；T052和T128分别提供测试支付恢复与合成跨域AC-045证据，均不替代真实支付渠道或T108真实出票核实；T134只完成条件式文档，不打开T133发布门禁。不得把这些局部证据扩张成整项平台验收。
+
+OpenAPI与追踪表核对结果：94条路径、106个HTTP操作、106个operationId及106个operation owner；94条FR、53项AC均在任务图中有覆盖；Q-01至Q-10在上表登记当前实际证据。两个通知operation归T048并仅使用已采纳G-PROTOCOL例外；recordMallPlatformShipmentReport归T056，只记录微信后台手工登记的管理员确认，不调用微信API或冒充平台回执；T063/T102仅按批准的内部范围实现，生产原文访问受配置门禁约束。
 
 | 分析项 | 修订任务 | 剩余条件 |
 |---|---|---|
-| C1 通知协议 | T002、T048、T073、T131、T133 | G-PROTOCOL草案未生效，通知实施仍阻塞 |
-| C2 单命令环境 | T005、T028 | Q-10后续真实执行 |
-| I1 订单详情 | T053、T055、T062、T067 | AC-053后续验证 |
-| U1 无原结果调整 | T006、T012、T013、T018、T081、T082、T087–T091、T096 | AC-052后续验证 |
-| I2 发货预核验 | T054、T056、T131 | 协议预核验与真实账号验收分开 |
+| C1 通知协议 | T002、T048、T073、T131、T133 | 宪章3.0.0例外已采纳、协议已核验，T048本地实现/隔离回归通过；生产登记需G-LIVE授权 |
+| C2 单命令环境 | T005、T028 | Q-10本地隔离runner已有证据；生产环境不适用 |
+| I1 订单详情 | T053、T055、T062、T067 | AC-053本地/合成验收有证据；微信后台人工登记状态回填单列T056 |
+| U1 无原结果调整 | T006、T012、T013、T018、T081、T082、T087–T091、T096 | AC-052本地闭环已记录；完整实际经营数据仍按发布准备核验 |
+| I2 发货登记 | T054、T056、T131 | 第一期开通后台人工录入路径；商城状态回填与真实账号验收分开 |
 
 旧接口兼容仍覆盖T083/T084统一来源、T085–T087月份与冻结、T090/T091净额核销及T130原功能回归，不建立钱包。

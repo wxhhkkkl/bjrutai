@@ -54,4 +54,4 @@
 
 适配器按`maptrack.do`构造签名表单，HTTP层有截止时间、响应字节上限且禁用重定向。service把时间、说明、状态及粗粒度区域规范化，过滤电话号码；不接收/返回`trailUrl`、经纬度或派件员信息。`LogisticsSnapshot.source`区分fake/live/null。本人GET、管理员GET及有权限刷新共用持久查询任务和每票至少30分钟冷却，管理员刷新有包裹版本与持久幂等保护。订单所有权、手机号脱敏、不同错误状态、查询签收不代表收货与旧运单响应栅栏均有本地或隔离MySQL测试。
 
-当前worker仅在development/test且模式fake、出站关闭时调用本地fake客户端；production或live模式始终返回安全门禁状态，不调用Kuaidi100 adapter。虽然adapter通过模拟HTTP校验签名/字段，真实商户密钥、电话校验规则、账号额度/订阅和真实运单均未核验；`G-DATA`未生效，真实provider请求仍关闭。地图标记目前固定false；不表示地图/预计到达视觉已完成。全局mall worker也默认关闭。
+当前worker仅在development/test且模式fake、出站关闭时调用本地fake客户端；production或live模式始终返回安全门禁状态，不调用Kuaidi100 adapter。虽然adapter通过模拟HTTP校验签名/字段，真实商户密钥、电话校验规则、账号额度/订阅和真实运单均未核验；G-DATA已批准的仅是商城内部单对象查看，真实provider请求中的买家原文传输未获授权且保持关闭。地图标记目前固定false；不表示地图/预计到达视觉已完成。全局mall worker也默认关闭。

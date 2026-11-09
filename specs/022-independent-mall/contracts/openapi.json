@@ -3078,7 +3078,7 @@
     "/api/v1/admin/mall/orders/{orderId}/ship": {
       "post": {
         "operationId": "shipMallOrder",
-        "summary": "登记本地单包裹出库；平台同步另行处理",
+        "summary": "登记本地单包裹出库；微信后台人工登记状态另行处理",
         "tags": [
           "admin"
         ],
@@ -3158,7 +3158,7 @@
         ],
         "responses": {
           "200": {
-            "description": "成功业务响应",
+            "description": "成功业务响应。响应必须为Cache-Control: no-store, private, max-age=0；仅返回单笔订单收件姓名/电话/地址及审计ID，expiresAt为60秒后。页面应在到期时清空原文。",
             "content": {
               "application/json": {
                 "schema": {
@@ -3168,7 +3168,7 @@
             }
           },
           "default": {
-            "description": "业务或权限错误，实际HTTP状态与Error对应",
+            "description": "业务或权限错误，实际HTTP状态与Error对应；错误响应同样设置Cache-Control: no-store, private, max-age=0",
             "content": {
               "application/json": {
                 "schema": {
@@ -3197,11 +3197,11 @@
               "minLength": 16,
               "maxLength": 128
             },
-            "description": "同actor/action/key同内容返回原实体；不同内容409；重放仍实时授权"
+            "description": "本次查看事件关联键；不缓存或重放响应。每次请求均实时复核并生成独立审计事件"
           }
         ],
         "x-permission": "mall.fulfillment.release",
-        "x-implementation-gate": "governance-proposal.md:资料目的限定窄例外未生效时关闭",
+        "x-implementation-gate": "governance-proposal.md:内部窄范围已批准；运行开关仅在留存制度引用及经审阅告知版本配置后启用；不授权第三方传输",
         "requestBody": {
           "required": true,
           "content": {
@@ -3276,75 +3276,6 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/TrackingCorrection"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/mall/shipments/{shipmentId}/sync": {
-      "post": {
-        "operationId": "syncMallShipment",
-        "summary": "安全重试平台发货同步",
-        "tags": [
-          "admin"
-        ],
-        "x-actor-policy": "admin",
-        "x-requirements": [
-          "FR-039",
-          "FR-042"
-        ],
-        "responses": {
-          "202": {
-            "description": "待处理；不代表渠道最终成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ResponseAsyncResult"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "业务或权限错误，实际HTTP状态与Error对应",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "shipmentId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "pattern": "^[1-9][0-9]*$"
-            }
-          },
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 16,
-              "maxLength": 128
-            },
-            "description": "同actor/action/key同内容返回原实体；不同内容409；重放仍实时授权"
-          }
-        ],
-        "x-permission": "mall.shipments.write",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VersionAction"
               }
             }
           }
@@ -4436,7 +4367,7 @@
         ],
         "responses": {
           "200": {
-            "description": "成功业务响应",
+            "description": "成功业务响应。响应必须为Cache-Control: no-store, private, max-age=0；仅返回当前财务领取申请的开票抬头/企业税号及审计ID（不含邮箱），expiresAt为60秒后。页面应在到期时清空原文。",
             "content": {
               "application/json": {
                 "schema": {
@@ -4446,7 +4377,7 @@
             }
           },
           "default": {
-            "description": "业务或权限错误，实际HTTP状态与Error对应",
+            "description": "业务或权限错误，实际HTTP状态与Error对应；错误响应同样设置Cache-Control: no-store, private, max-age=0",
             "content": {
               "application/json": {
                 "schema": {
@@ -4475,11 +4406,11 @@
               "minLength": 16,
               "maxLength": 128
             },
-            "description": "同actor/action/key同内容返回原实体；不同内容409；重放仍实时授权"
+            "description": "本次查看事件关联键；不缓存或重放响应。每次请求均实时复核并生成独立审计事件"
           }
         ],
         "x-permission": "mall.billing.release",
-        "x-implementation-gate": "governance-proposal.md:资料目的限定窄例外未生效时关闭",
+        "x-implementation-gate": "governance-proposal.md:内部窄范围已批准；运行开关仅在留存制度引用及经审阅告知版本配置后启用；不授权第三方传输",
         "requestBody": {
           "required": true,
           "content": {
@@ -6175,7 +6106,7 @@
     "/api/v1/mall-gateway/wechat/payment-notify": {
       "post": {
         "operationId": "wechatPaymentNotify",
-        "summary": "验签解密核实→入箱明确提交→204",
+        "summary": "验签解密核对→持久提交事件与任务→204空ACK",
         "tags": [
           "gateway"
         ],
@@ -6231,23 +6162,113 @@
         },
         "responses": {
           "204": {
-            "description": "持久化接收成功，无业务envelope"
+            "description": "事件和恢复任务已经提交；无响应体"
           },
           "400": {
-            "description": "无效报文或验签失败，不返回成功"
+            "description": "签名、报文、支付/退款身份或金额校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "FAIL"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "通知报文超过接收上限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "FAIL"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
           },
           "500": {
-            "description": "持久化失败，允许渠道重试"
+            "description": "事件或恢复任务持久化失败，渠道可重试",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "FAIL"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "回调接收被关闭或超过应答处理时限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "FAIL"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
           }
         },
         "x-implementation-gate": "G-PROTOCOL",
-        "description": "条件性目标协议，宪章II例外尚未采纳；正式落实G-PROTOCOL前不得实现或部署该通知端点。签名工具和fake事件处理可先隔离测试。"
+        "description": "宪章3.0.0限定的唯一外部响应例外。仅适用于该支付/退款通知路由；不使用用户JWT或项目业务envelope。请求按微信支付API v3验签、时间校验并解密；匹配本地支付/退款身份和金额后，将加密resource事件及唯一恢复任务在同一事务提交，提交成功才返回HTTP 204空响应。失败按官方4xx/5xx及FAIL错误体响应。G-PROTOCOL治理/协议核验已通过；T048本地实现与隔离回归已完成，生产登记/部署仍受G-LIVE约束。"
       }
     },
     "/api/v1/mall-gateway/wechat/refund-notify": {
       "post": {
         "operationId": "wechatRefundNotify",
-        "summary": "验签解密核实→入箱明确提交→204",
+        "summary": "验签解密核对→持久提交事件与任务→204空ACK",
         "tags": [
           "gateway"
         ],
@@ -6303,17 +6324,107 @@
         },
         "responses": {
           "204": {
-            "description": "持久化接收成功，无业务envelope"
+            "description": "事件和恢复任务已经提交；无响应体"
           },
           "400": {
-            "description": "无效报文或验签失败，不返回成功"
+            "description": "签名、报文、支付/退款身份或金额校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "FAIL"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "通知报文超过接收上限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "FAIL"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
           },
           "500": {
-            "description": "持久化失败，允许渠道重试"
+            "description": "事件或恢复任务持久化失败，渠道可重试",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "FAIL"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "回调接收被关闭或超过应答处理时限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "FAIL"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
           }
         },
         "x-implementation-gate": "G-PROTOCOL",
-        "description": "条件性目标协议，宪章II例外尚未采纳；正式落实G-PROTOCOL前不得实现或部署该通知端点。签名工具和fake事件处理可先隔离测试。"
+        "description": "宪章3.0.0限定的唯一外部响应例外。仅适用于该支付/退款通知路由；不使用用户JWT或项目业务envelope。请求按微信支付API v3验签、时间校验并解密；匹配本地支付/退款身份和金额后，将加密resource事件及唯一恢复任务在同一事务提交，提交成功才返回HTTP 204空响应。失败按官方4xx/5xx及FAIL错误体响应。G-PROTOCOL治理/协议核验已通过；T048本地实现与隔离回归已完成，生产登记/部署仍受G-LIVE约束。"
       }
     },
     "/api/v1/mall/orders/{orderId}/logistics": {
@@ -6530,6 +6641,78 @@
           }
         ],
         "x-permission": "mall.finance.export"
+      }
+    },
+    "/api/v1/admin/mall/shipments/{shipmentId}/platform-report": {
+      "post": {
+        "operationId": "recordMallPlatformShipmentReport",
+        "summary": "记录已在微信平台手工登记发货信息",
+        "tags": [
+          "admin"
+        ],
+        "x-actor-policy": "admin",
+        "x-requirements": [
+          "FR-039",
+          "FR-042"
+        ],
+        "responses": {
+          "default": {
+            "description": "业务或权限错误，实际HTTP状态与Error对应",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "本商城已记录管理员人工确认；不是微信平台回执",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseShipment"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "shipmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            },
+            "description": "同actor/action/key同内容返回原实体；不同内容409；重放仍实时授权"
+          }
+        ],
+        "x-permission": "mall.shipments.write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionAction"
+              }
+            }
+          }
+        },
+        "description": "仅记录管理员已在微信小程序后台完成手工录入的声明，不调用微信API；不代表微信回执、平台确认收货或资金结算。",
+        "x-manual-attestation": true,
+        "x-platform-call": false
       }
     }
   },
@@ -7541,16 +7724,6 @@
             "type": "string",
             "format": "date-time"
           },
-          "platformSyncStatus": {
-            "type": "string",
-            "enum": [
-              "not_required",
-              "pending",
-              "succeeded",
-              "failed",
-              "unknown"
-            ]
-          },
           "platformConfirmedAt": {
             "anyOf": [
               {
@@ -7576,6 +7749,26 @@
                 "type": "null"
               }
             ]
+          },
+          "platformReportStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "manual_reported",
+              "unknown"
+            ],
+            "description": "商城记录的微信后台人工录入状态；manual_reported为管理员声明，不是微信API回执"
+          },
+          "platformReportedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -7583,8 +7776,9 @@
           "courierCode",
           "trackingNo",
           "autoReceiveAt",
-          "platformSyncStatus",
-          "version"
+          "platformReportStatus",
+          "version",
+          "platformReportedAt"
         ],
         "additionalProperties": false
       },

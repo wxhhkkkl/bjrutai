@@ -1,19 +1,24 @@
-import logging
-import time
-import uuid
 import hashlib
+import logging
+import re
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from .api.v1.mall_gateway_callbacks import router as mall_gateway_callbacks_router
 from .core.config import get_settings
 from .core.error_handler import register_error_handlers
 from .core.logging_middleware import LoggingMiddleware
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+_SENSITIVE_MALL_RELEASE_PATHS = (
+    re.compile(r"^/api/v1/admin/mall/orders/[1-9][0-9]*/fulfillment-release$"),
+    re.compile(r"^/api/v1/admin/mall/invoice-requests/[1-9][0-9]*/billing-release$"),
+)
 
 
 # ---------------------------------------------------------------------------
@@ -37,8 +42,29 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         idempotency_key = request.headers.get("Idempotency-Key")
+        private_release = request.method == "POST" and any(
+            pattern.fullmatch(request.url.path) for pattern in _SENSITIVE_MALL_RELEASE_PATHS
+        )
+
+        async def call_with_release_headers():
+            response = await call_next(request)
+            if private_release:
+                response.headers["Cache-Control"] = "no-store, private, max-age=0"
+                response.headers["Pragma"] = "no-cache"
+                response.headers["Expires"] = "0"
+            return response
+
         if idempotency_key is None or request.method not in ("POST", "PATCH", "PUT"):
-            return await call_next(request)
+            return await call_with_release_headers()
+
+        # Provider callbacks are authenticated per raw request and deduplicated
+        # durably in the gateway inbox. Never let a caller-supplied key reuse a
+        # cached success before the callback signature is verified.
+        if request.url.path in {
+            "/api/v1/mall-gateway/wechat/payment-notify",
+            "/api/v1/mall-gateway/wechat/refund-notify",
+        }:
+            return await call_with_release_headers()
 
         # Feedback has a persistent `(user_id, idempotency_key)` constraint
         # and must distinguish an identical retry from a reused key carrying a
@@ -58,7 +84,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                 "/api/v1/admin/performance/adjustments/",
             )
         ):
-            return await call_next(request)
+            return await call_with_release_headers()
         if request.method == "POST" and request.url.path in persistent_idempotency_paths:
             return await call_next(request)
 
@@ -440,6 +466,7 @@ app.include_router(mall_orders_router, prefix="/api/v1")
 from .api.v1.mall_payments import router as mall_payments_router
 
 app.include_router(mall_payments_router, prefix="/api/v1")
+app.include_router(mall_gateway_callbacks_router, prefix="/api/v1")
 from .api.v1.admin_mall_orders import (
     router as admin_mall_orders_router,
     shipment_router as admin_mall_shipments_router,

@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, Header, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_db
-from ...api.mall_deps import MallActor, require_mall_admin, require_raw_data_delivery
+from ...api.mall_deps import MallActor, require_mall_admin
+from ...core.exceptions import ForbiddenException
 from ...schemas.mall_aftersale import ReasonAction
 from ...schemas.mall_catalog import VersionAction
 from ...schemas.mall_invoice import (
@@ -16,6 +17,7 @@ from ...schemas.mall_invoice import (
     RedInvoiceRecord,
     RedPendingUpdate,
 )
+from ...services.mall_billing_data_release_service import release_billing_data
 from ...services.mall_invoice_query_service import (
     get_admin_invoice_request,
     list_admin_invoice_requests,
@@ -193,5 +195,18 @@ async def billing_release_closed(
     actor: MallActor = Depends(release_billing),
     db: AsyncSession = Depends(get_db),
 ):
-    # G-DATA has not been approved. Never fall through to normal invoice reads.
-    require_raw_data_delivery(raw_data_enabled=False)
+    try:
+        result = await release_billing_data(
+            db,
+            actor,
+            identity,
+            expected_version=body.expected_version,
+            event_key=key,
+        )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+    if result is None:
+        raise ForbiddenException(message="原文资料交付当前未获授权")
+    return response(result)

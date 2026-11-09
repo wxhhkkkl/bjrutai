@@ -1,6 +1,6 @@
 # 操作索引
 
-生成自[openapi.json](openapi.json)。当前94路径、106操作、0.8.0契约；本地包裹登记/运单更正/本人确认收货及fake快递100查询缓存已实现，生产/真实物流请求仍受G-LIVE/G-DATA门禁，微信平台同步也未接入。买家/后台投影分开，通知目标契约受G-PROTOCOL约束。不是页面数或全量已部署声明。
+生成自[openapi.json](openapi.json)。当前94路径、106操作、0.8.0契约；本地包裹登记/运单更正/本人确认收货及fake快递100查询缓存已实现，微信后台人工发货登记回填契约已定义、T056待实现，不调用微信发货API；生产/真实物流请求仍受G-LIVE约束。T063/T102的内部单对象原文领取已按宪章4.0.0实现，运行开关等待留存引用/告知审阅版本。买家/后台投影分开，两个微信通知入口仅受宪章3.0.0限定例外覆盖，T048本地实现与隔离回归已完成。不是全量已部署声明。
 
 | 方法 | 路径 | 操作 | 权限/身份 | 请求 | data结果 |
 |---|---|---|---|---|---|
@@ -58,7 +58,7 @@
 | POST | `/api/v1/admin/mall/orders/{orderId}/ship` | 登记本地单包裹已出库事实；不调用微信/快递100 | `mall.shipments.write` | `ShipRequest` | `ResponseShipment` |
 | POST | `/api/v1/admin/mall/orders/{orderId}/fulfillment-release` | 条件性订单级收件资料交付 | `mall.fulfillment.release / governance-proposal.md:资料目的限定窄例外未生效时关闭` | `FulfillmentReleaseRequest` | `ResponseFulfillmentRelease` |
 | PATCH | `/api/v1/admin/mall/shipments/{shipmentId}` | 更正运单并留痕 | `mall.shipments.write` | `TrackingCorrection` | `ResponseShipment` |
-| POST | `/api/v1/admin/mall/shipments/{shipmentId}/sync` | 安全重试平台发货同步 | `mall.shipments.write` | `VersionAction` | `ResponseAsyncResult` |
+| POST | /api/v1/admin/mall/shipments/{shipmentId}/platform-report | 记录微信后台人工发货登记 | mall.shipments.write | VersionAction | ResponseShipment（员工确认，不是微信回执） |
 | GET | `/api/v1/admin/mall/aftersales` | 售后列表 | `mall.aftersales.read` | `-` | `ResponseAftersalePage` |
 | GET | `/api/v1/admin/mall/aftersales/{aftersaleId}` | 售后详情 | `mall.aftersales.read` | `-` | `ResponseAftersale` |
 | POST | `/api/v1/admin/mall/aftersales/{aftersaleId}/decision` | 审核不等于退钱 | `mall.aftersales.review` | `AftersaleDecision` | `ResponseAftersale` |

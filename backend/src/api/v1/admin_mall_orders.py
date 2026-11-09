@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, Header, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_db
-from ...api.mall_deps import MallActor, require_mall_admin, require_raw_data_delivery
+from ...api.mall_deps import MallActor, require_mall_admin
+from ...core.exceptions import ForbiddenException
 from ...schemas.mall_checkout import OrderCancel
 from ...schemas.mall_fulfillment import (
     FulfillmentReleaseRequest,
@@ -16,6 +17,7 @@ from ...schemas.mall_fulfillment import (
 )
 from ...services.mall_admin_order_query_service import get_admin_order, list_admin_orders
 from ...services.mall_admin_order_service import mutate_admin_order
+from ...services.mall_fulfillment_data_release_service import release_fulfillment_data
 from ...services.mall_fulfillment_service import shipment_view
 from ...services.mall_order_action_service import cancel_progress
 from ...services.mall_order_query_service import serialize_order
@@ -128,8 +130,23 @@ async def release_closed(
     identity: int = Path(alias="orderId", gt=0),
     key: str = Header(alias="Idempotency-Key", min_length=16, max_length=128),
     actor: MallActor = Depends(require_mall_admin("mall.fulfillment.release")),
+    db: AsyncSession = Depends(get_db),
 ):
-    require_raw_data_delivery()
+    try:
+        result = await release_fulfillment_data(
+            db,
+            actor,
+            identity,
+            expected_version=body.expected_version,
+            event_key=key,
+        )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+    if result is None:
+        raise ForbiddenException(message="原文资料交付当前未获授权")
+    return response(result)
 
 
 @shipment_router.patch("/{shipmentId}", operation_id="correctMallTracking")

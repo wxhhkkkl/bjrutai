@@ -27,6 +27,43 @@
     <div v-loading="loading">
       <template v-if="order">
         <OrderFacts :order="order" />
+        <el-card
+          v-if="fulfillmentReleaseUiEnabled && auth.hasPermission('mall.fulfillment.release')"
+          class="release-card"
+          data-test="fulfillment-release-card"
+        >
+          <template #header>本单履约资料</template>
+          <p>
+            仅为当前已付款订单办理面单。资料只在本页临时显示，最长 60 秒；离开页面或切换标签后立即清除。请勿截图、复制或另存。
+          </p>
+          <el-button
+            v-if="!fulfillmentReleased"
+            data-test="release-fulfillment"
+            type="primary"
+            :disabled="!order.fulfillmentCheck.businessReady || fulfillmentReleaseBusy"
+            :loading="fulfillmentReleaseBusy"
+            @click="fulfillmentReleaseOpen = true"
+          >
+            查看本单收件资料
+          </el-button>
+          <el-alert
+            v-if="fulfillmentReleased"
+            type="warning"
+            :closable="false"
+            data-test="fulfillment-release-data"
+          >
+            <template #title>收件资料（{{ fulfillmentSecondsRemaining }} 秒后清除）</template>
+            <dl class="released-fields">
+              <div><dt>收件人</dt><dd>{{ fulfillmentReleased.recipientName }}</dd></div>
+              <div><dt>联系电话</dt><dd>{{ fulfillmentReleased.phone }}</dd></div>
+              <div><dt>收件地址</dt><dd>{{ fulfillmentReleased.addressLine }}</dd></div>
+              <div><dt>访问审计号</dt><dd>{{ fulfillmentReleased.auditId }}</dd></div>
+            </dl>
+            <el-button data-test="clear-fulfillment-release" @click="fulfillmentData.clear()">
+              立即清除
+            </el-button>
+          </el-alert>
+        </el-card>
         <el-button
           v-if="order.invoiceRequestId && auth.hasPermission('mall.invoices.read')"
           data-test="open-invoice-request"
@@ -168,20 +205,47 @@
         </el-button>
       </template>
     </el-dialog>
+    <el-dialog
+      v-model="fulfillmentReleaseOpen"
+      title="确认查看本单履约资料"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :show-close="!fulfillmentReleaseBusy"
+    >
+      <p>
+        仅为当前订单办理面单。后端会重新核验订单、权限和用途同意；成功后资料仅在本页临时显示 60 秒。
+      </p>
+      <template #footer>
+        <el-button :disabled="fulfillmentReleaseBusy" @click="fulfillmentReleaseOpen = false">
+          返回
+        </el-button>
+        <el-button
+          data-test="confirm-fulfillment-release"
+          type="primary"
+          :loading="fulfillmentReleaseBusy"
+          @click="releaseFulfillmentData"
+        >
+          确认并查看
+        </el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import * as api from '@/api/mall-orders'
-import { useMallCommand } from '@/composables/useMallCommand'
+import { commandKey, useMallCommand } from '@/composables/useMallCommand'
+import { useExpiringSensitiveData } from '@/composables/useExpiringSensitiveData'
 import OrderFacts from './OrderFacts.vue'
 
 const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
 const auth = useAuthStore()
+const fulfillmentReleaseUiEnabled =
+  import.meta.env.VITE_MALL_DATA_RELEASE_UI_ENABLED === 'true'
 const order = ref(null),
   loading = ref(false),
   error = ref(''),
@@ -194,6 +258,16 @@ const shipmentForm = ref({ courierCode: '', trackingNo: '' })
 const trackingForm = ref({ courierCode: '', trackingNo: '', reason: '' })
 const shipmentNotice = ref('')
 const command = useMallCommand()
+const fulfillmentData = useExpiringSensitiveData((data) => ({
+  recipientName: data.recipientName,
+  phone: data.phone,
+  addressLine: data.addressLine,
+  auditId: data.auditId,
+}))
+const fulfillmentReleased = fulfillmentData.value
+const fulfillmentSecondsRemaining = fulfillmentData.secondsRemaining
+const fulfillmentReleaseOpen = ref(false)
+const fulfillmentReleaseBusy = ref(false)
 let operation = null
 let loadGeneration = 0
 const receiptLabel = computed(
@@ -216,6 +290,7 @@ function can(action) {
 }
 async function load() {
   if (command.pending.value) return
+  fulfillmentData.clear()
   const generation = ++loadGeneration,
     identity = props.id
   loading.value = true
@@ -313,6 +388,47 @@ async function correctTracking() {
     })
   )
 }
+async function releaseFulfillmentData() {
+  if (
+    !fulfillmentReleaseUiEnabled ||
+    !auth.hasPermission('mall.fulfillment.release') ||
+    !order.value?.fulfillmentCheck?.businessReady ||
+    fulfillmentReleaseBusy.value
+  )
+    return
+  const identity = props.id
+  const generation = fulfillmentData.beginRequest()
+  fulfillmentReleaseBusy.value = true
+  error.value = ''
+  try {
+    const result = await api.releaseFulfillment(
+      {
+        id: identity,
+        expectedVersion: order.value.version,
+        purpose: 'shipping_label',
+        reason: '为当前订单办理面单',
+      },
+      commandKey()
+    )
+    if (
+      fulfillmentData.isCurrent(generation) &&
+      props.id === identity &&
+      document.visibilityState !== 'hidden'
+    ) {
+      if (!fulfillmentData.show(result, generation)) {
+        error.value = '资料响应已过期或无效，请重新核实订单后再试。'
+      } else {
+        fulfillmentReleaseOpen.value = false
+      }
+    }
+  } catch {
+    if (fulfillmentData.isCurrent(generation)) {
+      error.value = '暂无法读取本单资料，请核实授权、订单状态和用途告知配置。'
+    }
+  } finally {
+    fulfillmentReleaseBusy.value = false
+  }
+}
 async function retry() {
   await after(await command.retry())
 }
@@ -334,6 +450,12 @@ async function checkProgress() {
   }
 }
 function guard() {
+  fulfillmentData.clear()
+  fulfillmentReleaseOpen.value = false
+  if (fulfillmentReleaseBusy.value) {
+    error.value = '安全读取正在完成，请稍后离开本页'
+    return false
+  }
   if (command.pending.value) {
     error.value = '操作结果待确认，请先重试原操作'
     return false
@@ -345,6 +467,8 @@ onBeforeRouteUpdate(guard)
 watch(
   () => props.id,
   () => {
+    fulfillmentData.clear()
+    fulfillmentReleaseOpen.value = false
     receipt.value = null
     shipmentNotice.value = ''
     shipmentForm.value = { courierCode: '', trackingNo: '' }
@@ -354,7 +478,20 @@ watch(
     load()
   }
 )
-onMounted(load)
+function onVisibilityChange() {
+  if (document.visibilityState === 'hidden') {
+    fulfillmentData.clear()
+    fulfillmentReleaseOpen.value = false
+  }
+}
+onMounted(() => {
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  load()
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  fulfillmentData.clear()
+})
 </script>
 <style scoped>
 .mall-page {
@@ -372,5 +509,25 @@ header {
 }
 .el-alert {
   margin: 12px 0;
+}
+.release-card {
+  margin: 16px 0;
+}
+.released-fields {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.released-fields div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 12px;
+}
+.released-fields dt {
+  color: #6b7280;
+}
+.released-fields dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 </style>

@@ -99,6 +99,7 @@ async def mall_worker_job():
     from ..core.config import get_settings
     from ..core.database import async_session
     from ..services.mall_export_service import finance_export_handlers
+    from ..services.mall_gateway_callback_service import wechat_callback_handlers
     from ..services.mall_logistics_service import logistics_handlers
     from ..services.mall_notification_service import (
         mall_notification_handlers,
@@ -123,6 +124,7 @@ async def mall_worker_job():
             logger.warning("mall_funds_responsibility_scan_failed")
     handlers = {
         **MALL_HANDLERS,
+        **wechat_callback_handlers(async_session),
         **mall_notification_handlers(async_session),
         **finance_export_handlers(async_session),
         **order_handlers(async_session),
