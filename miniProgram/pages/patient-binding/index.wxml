@@ -24,7 +24,7 @@
       aria-label="欢迎来到儒泰医联"
     />
     <view class="scan-actions">
-      <text class="scan-guidance">点击下方按钮，按微信提示授权手机号。</text>
+      <text class="scan-guidance">点击下方按钮，使用微信授权登录</text>
       <button
         class="scan-submit"
         open-type="getPhoneNumber"

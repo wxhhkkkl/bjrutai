@@ -71,7 +71,7 @@ async def export_customers(
     _admin: dict = Depends(get_admin_user),
     _perm: dict = Depends(require_permission("customers.read")),
 ):
-    """Export a creation-date-scoped, masked customer list as an Excel-friendly CSV."""
+    """Export a creation-date-scoped customer list as an Excel-friendly CSV."""
     if start_date > end_date:
         raise BadRequestException(message="开始日期不能晚于结束日期")
     try:
@@ -116,7 +116,7 @@ async def get_customer(
     _admin: dict = Depends(get_admin_user),
     _perm: dict = Depends(require_permission("customers.read")),
 ):
-    """Get customer detail with masked sensitive fields (FR-009)."""
+    """Get customer detail for authorized management users (FR-009)."""
     result = await customer_admin_service.get_customer_detail(db, customer_id)
     return _build_response(0, "success", result)
 

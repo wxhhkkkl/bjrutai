@@ -223,6 +223,7 @@ async def list_admin_feedbacks(
         .scalars()
         .all()
     )
+    submitter_phones = await _admin_submitter_phones(db, rows)
     names = await _admin_names(db, [row.first_handler_id for row in rows])
     return {
         "items": [
@@ -234,7 +235,7 @@ async def list_admin_feedbacks(
                 "imageCount": len(_attachments(row.image_files)),
                 "submitter": {
                     "name": row.submitter_name_snapshot,
-                    "phoneMasked": row.submitter_phone_masked_snapshot,
+                    "phoneMasked": submitter_phones.get(row.user_id),
                     "available": row.user_id is not None,
                 },
                 "status": row.status,
@@ -262,6 +263,16 @@ async def _admin_names(db: AsyncSession, ids: list[int | None]) -> dict[int, str
     return {row.id: row.username for row in rows}
 
 
+async def _admin_submitter_phones(db: AsyncSession, feedbacks: list[Feedback]) -> dict[int, str]:
+    user_ids = {row.user_id for row in feedbacks if row.user_id is not None}
+    if not user_ids:
+        return {}
+    rows = (
+        await db.execute(select(User.id, User.phone).where(User.id.in_(user_ids)))
+    ).all()
+    return {user_id: phone for user_id, phone in rows if phone}
+
+
 async def get_admin_feedback(
     db: AsyncSession, *, feedback_no: str, cos: COSClient, viewer_admin_id: int | None = None
 ) -> dict:
@@ -272,6 +283,7 @@ async def get_admin_feedback(
     )
     if not feedback:
         raise NotFoundException(message="反馈不存在")
+    submitter = await db.get(User, feedback.user_id) if feedback.user_id else None
     actions = (
         (
             await db.execute(
@@ -326,7 +338,7 @@ async def get_admin_feedback(
         "attachments": attachments,
         "submitter": {
             "name": feedback.submitter_name_snapshot,
-            "phoneMasked": feedback.submitter_phone_masked_snapshot,
+            "phoneMasked": submitter.phone if submitter and submitter.phone else None,
             "available": feedback.user_id is not None,
         },
         "status": feedback.status,

@@ -357,7 +357,7 @@ async function handleRedeemPoints(row) {
   const key = rowKey(row)
   try {
     await ElMessageBox.confirm(
-      `确认核销 ${row.name || '该员工'} 的 ${fmtPoints(row.pointsBalance)} 积分？核销后积分余额归零，提成金额保持不变。`,
+      `确认核销 ${row.name || '该员工'} 的 ${fmtPoints(row.pointsBalance)} 积分？核销后积分余额归零，累计消费金额保持不变。`,
       '积分核销',
       { confirmButtonText: '确认核销', cancelButtonText: '取消', type: 'warning' },
     )
