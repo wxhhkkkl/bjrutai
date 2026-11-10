@@ -1,9 +1,9 @@
 const consumptionService = require('../../services/consumption-service')
-const { adaptContributionOverview, adaptContributionTrend, adaptBillList } = require('../../models/contribution-detail')
+const { formatCents, adaptContributionOverview, adaptContributionTrend, adaptBillList } = require('../../models/contribution-detail')
 const { openAction } = require('../../services/navigation-service')
 const { getCurrentSession } = require('../../services/session-service')
 
-const PERIODS = [{ id: 'month', label: '本月', api: '3m' }, { id: 'quarter', label: '近3月', api: '6m' }, { id: 'year', label: '本年', api: '12m' }]
+const PERIODS = [{ id: 'month', label: '本月', api: '1m' }, { id: 'quarter', label: '近3月', api: '3m' }, { id: 'year', label: '本年' }]
 function currentMonth() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}` }
 function errorState(error) { return error && error.kind === 'FORBIDDEN' ? 'forbidden' : 'recoverable-error' }
 
@@ -16,13 +16,15 @@ Page({
 
   async loadData(periodId = this.data.selectedPeriod) {
     const version = ++this.requestVersion; const period = PERIODS.find((item) => item.id === periodId) || PERIODS[0]; const month = currentMonth()
+    const trendPeriod = period.id === 'year' ? `${Number(month.slice(5))}m` : period.api
     this.setData({ state: 'loading', selectedPeriod: periodId })
     try {
-      const [overviewPayload, trendPayload, billsPayload] = await Promise.all([consumptionService.getOverview(month), consumptionService.getTrend(period.api), consumptionService.listBills({ month, pageSize: 5 })])
+      const [overviewPayload, trendPayload, billsPayload] = await Promise.all([consumptionService.getOverview(month), consumptionService.getTrend(trendPeriod), consumptionService.listBills({ month, pageSize: 5 })])
       if (version !== this.requestVersion) return
       const overview = adaptContributionOverview(overviewPayload); const trend = adaptContributionTrend(trendPayload); const bills = adaptBillList(billsPayload)
       const hasTrendData = trend.values.some((value) => value !== 0)
-      this.setData({ state: 'success', overview, details: bills.items, hasTrendData, hasDetails: bills.items.length > 0, chartSummary: { label: `${period.label}累计`, total: overview.amount }, trend })
+      const trendTotalCent = trend.values.reduce((total, value) => total + value, 0)
+      this.setData({ state: 'success', overview, details: bills.items, hasTrendData, hasDetails: bills.items.length > 0, chartSummary: { label: `${period.label}累计`, total: formatCents(trendTotalCent) }, trend })
     } catch (error) { if (version === this.requestVersion) this.setData({ state: errorState(error), stateMessage: error.message || '请稍后再试' }) }
   },
   retry() { this.loadData(this.data.selectedPeriod) },

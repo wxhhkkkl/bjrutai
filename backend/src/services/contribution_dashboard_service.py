@@ -176,7 +176,7 @@ async def get_dashboard(
             "orgName": bill.attributed_org_name or org_name_map.get(effective_org_id or c_org),
             "customerId": str(customer.id),
             "customerName": customer.name,
-            "phoneMasked": customer.phone_masked,
+            "phoneMasked": customer.phone,
             "title": bill.transaction_id,
             "amountCent": bill.paid_amount_cent,
             "status": bill.transaction_status.value if hasattr(bill.transaction_status, "value") else str(bill.transaction_status),

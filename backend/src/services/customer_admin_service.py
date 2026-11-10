@@ -4,8 +4,8 @@ Covers: org-scoped customer list, manual customer creation with hospital
 binding match (FR-008), sensitive-field profile updates with audit (FR-010),
 and promoter reassignment with full change history (FR-011/FR-012).
 
-Output masking (宪法 IV v2.0.0): phone / id_card / medical_account are stored
-plaintext but every API response exposes only masked values.
+Management responses expose full phone numbers to authorized administrators.
+Identity-card and medical-account fields remain masked in read responses.
 """
 
 import csv
@@ -150,7 +150,7 @@ def _customer_summary(c: Customer, promoter_name, org_id, org_name) -> dict:
     return {
         "id": str(c.id),
         "name": c.name,
-        "phoneMasked": _mask_phone(c.phone),
+        "phoneMasked": c.phone,
         "idCardMasked": c.id_card_masked or _mask_id_card(c.id_card_encrypted),
         "bindingStatus": _binding_status_value(c.binding_status),
         "distributorId": str(c.distributor_id) if c.distributor_id else None,
@@ -293,7 +293,7 @@ async def export_customers_csv(
     status: Optional[str] = None,
     keyword: Optional[str] = None,
 ) -> bytes:
-    """Export masked customer data from an org subtree within a creation-date range."""
+    """Export customer data from an org subtree within a creation-date range."""
     filters = await _customer_scope_filters(
         db,
         org_id,
@@ -329,7 +329,7 @@ async def export_customers_csv(
         writer.writerow([
             index,
             _csv_safe(customer.name),
-            _csv_safe(_mask_phone(customer.phone)),
+            _csv_safe(customer.phone),
             _csv_safe(customer.id_card_masked or _mask_id_card(customer.id_card_encrypted)),
             status_labels.get(status_value, status_value),
             _csv_safe(promoter_name),
@@ -489,7 +489,7 @@ async def get_customer_detail(db: AsyncSession, customer_id: int) -> dict:
     return {
         "id": str(customer.id),
         "name": customer.name,
-        "phoneMasked": _mask_phone(customer.phone),
+        "phoneMasked": customer.phone,
         "idCardMasked": customer.id_card_masked or _mask_id_card(customer.id_card_encrypted),
         "medicalAccountMasked": _mask_medical_account(customer.medical_account_encrypted),
         "familyPhone": customer.family_phone,

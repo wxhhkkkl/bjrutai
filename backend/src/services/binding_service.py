@@ -93,11 +93,11 @@ STATUS_GROUP_LABELS: dict[str, str] = {
     "bound": "已归属",
     "matching": "匹配中",
     "attention": "需处理",
+    "no_consume": "无消费记录",
 }
 
 ATTENTION_STATUSES: tuple[BindingRequestStatus, ...] = (
     BindingRequestStatus.ABNORMAL,
-    BindingRequestStatus.NO_CONSUME,
     BindingRequestStatus.UNBOUND,
     BindingRequestStatus.TRANSFERRED,
 )
@@ -106,6 +106,11 @@ TERMINAL_STATUSES: tuple[BindingRequestStatus, ...] = (
     BindingRequestStatus.BOUND,
     BindingRequestStatus.UNBOUND,
     BindingRequestStatus.TRANSFERRED,
+)
+
+ATTENTION_EXEMPT_STATUSES: tuple[BindingRequestStatus, ...] = (
+    *TERMINAL_STATUSES,
+    BindingRequestStatus.NO_CONSUME,
 )
 
 MATCH_LEVEL_LABELS: dict[str, str] = {
@@ -144,7 +149,7 @@ def _status_group_condition(status_group: str, now: datetime):
     """Return the shared SQL condition for a binding-record display group."""
     expired_unresolved = and_(
         BindingRequest.created_at < now - timedelta(days=BINDING_EXPIRY_DAYS),
-        BindingRequest.status.notin_(TERMINAL_STATUSES),
+        BindingRequest.status.notin_(ATTENTION_EXEMPT_STATUSES),
     )
     needs_attention = or_(
         BindingRequest.status.in_(ATTENTION_STATUSES),
@@ -154,11 +159,14 @@ def _status_group_condition(status_group: str, now: datetime):
         BindingRequest.status == BindingRequestStatus.BOUND,
         Customer.binding_status == BindingStatus.BOUND,
     )
+    no_consumption = BindingRequest.status == BindingRequestStatus.NO_CONSUME
 
+    if status_group == "no_consume":
+        return no_consumption
     if status_group == "bound":
-        return and_(locally_bound, ~needs_attention)
+        return and_(locally_bound, ~needs_attention, ~no_consumption)
     if status_group == "matching":
-        return and_(~locally_bound, ~needs_attention)
+        return and_(~locally_bound, ~needs_attention, ~no_consumption)
     if status_group == "attention":
         return needs_attention
     raise ValidationException(message="无效的绑定状态分组")
@@ -170,6 +178,8 @@ def _status_group_value(
     created_at: Optional[datetime],
     now: datetime,
 ) -> str:
+    if request_status == BindingRequestStatus.NO_CONSUME:
+        return "no_consume"
     if request_status in ATTENTION_STATUSES:
         return "attention"
     if (
@@ -1058,12 +1068,9 @@ class BindingService:
         pending_result = await db.execute(pending_q)
         pending_requests = pending_result.scalar() or 0
 
-        # Rejected / abnormal / expired (anything other than bound/pending)
+        # Abnormal requests; no-consume requests have a separate neutral count.
         rejected_q = select(func.count(BindingRequest.id)).where(
-            BindingRequest.status.in_([
-                BindingRequestStatus.ABNORMAL,
-                BindingRequestStatus.NO_CONSUME,
-            ])
+            BindingRequest.status == BindingRequestStatus.ABNORMAL
         )
         if filters:
             rejected_q = rejected_q.where(and_(*filters))
@@ -1074,11 +1081,7 @@ class BindingService:
         expired_cutoff = datetime.utcnow() - timedelta(days=BINDING_EXPIRY_DAYS)
         expired_q = select(func.count(BindingRequest.id)).where(
             BindingRequest.created_at < expired_cutoff,
-            BindingRequest.status.notin_([
-                BindingRequestStatus.BOUND,
-                BindingRequestStatus.UNBOUND,
-                BindingRequestStatus.TRANSFERRED,
-            ]),
+            BindingRequest.status.notin_(ATTENTION_EXEMPT_STATUSES),
         )
         if filters:
             expired_q = expired_q.where(and_(*filters))
@@ -1099,6 +1102,7 @@ class BindingService:
         owned_bindings = await count_group("bound")
         matching_requests = await count_group("matching")
         attention_requests = await count_group("attention")
+        no_consumption_requests = await count_group("no_consume")
 
         # Last binding
         last_q = select(BindingRequest.bound_at).where(
@@ -1119,6 +1123,7 @@ class BindingService:
             "ownedBindings": owned_bindings,
             "matchingRequests": matching_requests,
             "attentionRequests": attention_requests,
+            "noConsumptionRequests": no_consumption_requests,
             "lastBindingAt": last_binding_at_str,
         }
 

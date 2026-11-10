@@ -25,14 +25,6 @@ from ..models.user import AdminAccount, User
 from ..schemas.admin_contribution import ManualConsumptionCreateRequest
 
 
-def _mask_phone(phone: Optional[str]) -> Optional[str]:
-    if not phone:
-        return None
-    if len(phone) < 7:
-        return "*" * len(phone)
-    return phone[:3] + "****" + phone[-4:]
-
-
 def _mask_id_card(value: Optional[str]) -> Optional[str]:
     if not value:
         return None
@@ -101,7 +93,7 @@ async def search_eligible_customers(
                 "customerId": str(customer.id),
                 "customerVersion": customer.version,
                 "name": customer.name,
-                "phoneMasked": customer.phone_masked or _mask_phone(customer.phone),
+                "phoneMasked": customer.phone,
                 "idCardMasked": customer.id_card_masked
                 or _mask_id_card(customer.id_card_encrypted),
                 "distributorId": str(distributor.id),
@@ -145,9 +137,7 @@ async def _serialize_bill(db: AsyncSession, bill: Bill, *, replayed: bool) -> di
         "recordNo": bill.transaction_id,
         "customerId": str(bill.customer_id),
         "customerName": customer.name if customer else None,
-        "phoneMasked": (
-            customer.phone_masked or _mask_phone(customer.phone) if customer else None
-        ),
+        "phoneMasked": customer.phone if customer else None,
         "distributorId": str(bill.attributed_distributor_id),
         "personName": bill.attributed_person_name,
         "orgId": str(bill.attributed_org_id),

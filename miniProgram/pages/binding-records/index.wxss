@@ -171,14 +171,21 @@ page {
   gap: 10rpx;
 }
 
-.records-filter__pill {
+.records-filter__scroll {
   min-width: 0;
+  height: 88rpx;
+  flex: 1;
+  white-space: nowrap;
+}
+
+.records-filter__pill {
+  flex: none;
   height: 61rpx;
   padding: 0 20rpx;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 1;
+  margin-right: 10rpx;
   color: #565c65;
   font-size: 23rpx;
   line-height: 1;
@@ -186,10 +193,6 @@ page {
   background: #ffffff;
   border: 1rpx solid #e1e5eb;
   border-radius: 999rpx;
-}
-
-.records-filter__pill:first-child {
-  flex: 0.9;
 }
 
 .records-filter__pill--active {

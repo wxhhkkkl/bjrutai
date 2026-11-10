@@ -142,6 +142,7 @@ async def lifespan(app: FastAPI):
         # T116a: Bind user polling — every 60 seconds
         from .tasks.sync_tasks import (
             retry_failed_sync_job,
+            submit_scan_matches_job,
             sync_bind_users_job,
             sync_user_bills_job,
         )
@@ -150,6 +151,16 @@ async def lifespan(app: FastAPI):
             trigger=IntervalTrigger(seconds=60),
             id="sync_bind_users",
             name="Poll Rutai getBindUser every 60s",
+            coalesce=True,
+            max_instances=1,
+            replace_existing=True,
+        )
+
+        scheduler.add_job(
+            submit_scan_matches_job,
+            trigger=IntervalTrigger(seconds=60),
+            id="submit_scan_matches",
+            name="Submit customer QR claims to Rutai",
             coalesce=True,
             max_instances=1,
             replace_existing=True,

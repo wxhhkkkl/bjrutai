@@ -61,7 +61,7 @@ async def _to_dict(db: AsyncSession, d: Distributor) -> dict:
         "orgId": str(d.org_id),
         "orgName": await _org_name(db, d.org_id),
         "name": user.name if user else None,
-        "phone": user.phone_masked or user.phone if user else None,
+        "phone": user.phone if user else None,
         "orgRole": d.org_role.value if hasattr(d.org_role, "value") else str(d.org_role),
         "status": d.status.value if hasattr(d.status, "value") else str(d.status),
         "wechatBound": bool(user and user.wechat_bound),
@@ -148,7 +148,7 @@ async def list_unassigned_users(
             {
                 "userId": str(user.id),
                 "name": user.name,
-                "phone": user.phone_masked or user.phone,
+                "phone": user.phone,
             }
             for user in users
         ]

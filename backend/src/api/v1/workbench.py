@@ -269,12 +269,25 @@ async def get_recent_bindings(
     result = await db.execute(query)
     rows = result.scalars().all()
 
+    admin_customer_phones = {}
+    if user_type == "admin":
+        customer_ids = {br.customer_id for br in rows if br.customer_id is not None}
+        if customer_ids:
+            phone_rows = await db.execute(
+                select(Customer.id, Customer.phone).where(Customer.id.in_(customer_ids))
+            )
+            admin_customer_phones = dict(phone_rows.all())
+
     items = []
     for br in rows:
         items.append({
             "id": str(br.id),
             "customerName": br.customer_name or "未知",
-            "phoneMasked": br.phone_masked,
+            "phoneMasked": (
+                admin_customer_phones.get(br.customer_id)
+                if user_type == "admin"
+                else br.phone_masked
+            ),
             "status": br.status.value if hasattr(br.status, "value") else str(br.status),
             "sourceType": br.source_type.value if hasattr(br.source_type, "value") else str(br.source_type),
             "boundAt": br.bound_at.isoformat() if br.bound_at else None,

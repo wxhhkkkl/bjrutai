@@ -1,12 +1,13 @@
 """Integration coverage for spec 019 role, customer and staff-invite flows."""
 
 from datetime import datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from sqlalchemy import select
 
 from src.core.exceptions import ConflictException
+from src.models.bill import Bill
 from src.models.binding import (
     BindingRequest,
     BindingRequestStatus,
@@ -14,12 +15,14 @@ from src.models.binding import (
     Customer,
     SourceType,
 )
+from src.models.consent import ConsentRecord, ConsentScene, SubjectType
 from src.models.distributor import Distributor, DistributorStatus, OrgRole
 from src.models.organization import Organization, OrgStatus
 from src.models.promotion import PromotionCode, PromotionCodeStatus
 from src.models.user import User, UserType
 from src.services.auth_service import get_auth_service
 from src.services.binding_service import BindingService
+from src.services.sync_service import SyncService
 from tests.conftest import make_access_token, seed_org_qualification
 
 
@@ -320,6 +323,75 @@ async def test_patient_claim_assigns_an_unassigned_pending_customer(client, db_s
     assert response.json()["data"]["customerId"] == str(customer.id)
     assert customer.distributor_id == distributor.id
     assert customer.binding_status == BindingStatus.BOUND
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("result", "has_bill", "expected"),
+    [
+        ({"match_status": "matched", "hrb_user_id": "rutai-test-user"}, False, BindingRequestStatus.BOUND),
+        ({"match_status": "pending"}, False, BindingRequestStatus.MATCHING),
+        ({"match_status": "no_match"}, False, BindingRequestStatus.NO_CONSUME),
+        ({"match_status": "no_match"}, True, BindingRequestStatus.MANUAL_REVIEW),
+        ({}, False, BindingRequestStatus.PENDING_MATCH),
+    ],
+)
+async def test_scan_matches_share_one_rutai_request(db_session, result, has_bill, expected):
+    _org, user, distributor = await _staff(db_session)
+    customer = Customer(
+        distributor_id=distributor.id,
+        phone_normalized="13800138000",
+        phone_masked="138****8000",
+        binding_status=BindingStatus.BOUND,
+    )
+    db_session.add(customer)
+    await db_session.flush()
+    consent = ConsentRecord(
+        customer_id=customer.id,
+        subject_type=SubjectType.CUSTOMER,
+        scene=ConsentScene.BINDING,
+        confirmed=True,
+        scopes={"phone": True, "customer_attribution": True},
+    )
+    db_session.add(consent)
+    if has_bill:
+        db_session.add(Bill(customer_id=customer.id, transaction_id="manual-scan-bill",
+                            transaction_time=datetime.utcnow(), paid_amount_cent=10000))
+    await db_session.flush()
+
+    requests = [
+        BindingRequest(
+            customer_id=customer.id,
+            distributor_id=distributor.id,
+            submitted_by=user.id,
+            phone_masked=customer.phone_masked,
+            source_type=SourceType.SCAN,
+            ref_token=f"scan-token-{index}",
+            consent_record_id=consent.id,
+            created_at=datetime.utcnow() - timedelta(days=30),
+        )
+        for index in range(3)
+    ]
+    db_session.add_all(requests[:2])
+    await db_session.flush()
+
+    service = SyncService()
+    service._rutai_client = AsyncMock()
+    service._rutai_client.bind_bj_user.return_value = result
+    assert await service.pending_scan_customers(db_session) == [customer.id]
+    await service.submit_scan_match(db_session, customer.id)
+    assert [request.status for request in requests[:2]] == [expected, expected]
+    assert customer.rutai_user_id == result.get("hrb_user_id")
+
+    # A later scan inherits the original result or retry time.
+    db_session.add(requests[2])
+    await db_session.flush()
+    await service.submit_scan_match(db_session, customer.id)
+    assert requests[2].status == expected
+    service._rutai_client.bind_bj_user.assert_awaited_once()
+    assert service._rutai_client.bind_bj_user.call_args.kwargs["request_id"] == str(requests[0].id)
+    assert service._rutai_client.bind_bj_user.call_args.kwargs["patient_phone"] == "13800138000"
+    assert await service.pending_scan_customers(db_session) == []
 
 
 @pytest.mark.asyncio

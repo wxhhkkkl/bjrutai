@@ -132,7 +132,7 @@ async def submit_binding_request(
 async def list_binding_requests(
     status: str = Query(None),
     status_group: str = Query(
-        None, alias="statusGroup", pattern="^(bound|matching|attention)$"
+        None, alias="statusGroup", pattern="^(bound|matching|attention|no_consume)$"
     ),
     role: str = Query("initiator", pattern="^(initiator|target)$"),
     cursor: str = Query(None, max_length=256),

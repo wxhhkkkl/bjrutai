@@ -212,6 +212,7 @@ module.exports = {
   getStatusFilters,
   filterContributionDetails,
   groupContributionDetails,
+  formatCents,
   adaptContributionOverview,
   adaptContributionTrend,
   adaptBillList

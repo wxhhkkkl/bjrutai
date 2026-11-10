@@ -169,7 +169,9 @@ class RutaiClient:
                 _consecutive_failures += 1
                 await _log_api_call(
                     f"rutai:{path}",
-                    {"params": params, "body": body},
+                    {"request_id": (body or {}).get("request_id")}
+                    if path == "/api/bind/bj_user"
+                    else {"params": params, "body": body},
                     0, duration_ms, last_error,
                 )
 
