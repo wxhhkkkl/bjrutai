@@ -158,6 +158,7 @@ class BindingSummaryData(BaseModel):
     pendingRequests: int = Field(0, description="Pending requests count")
     rejectedRequests: int = Field(0, description="Rejected count")
     expiredRequests: int = Field(0, description="Expired count")
+    noConsumptionRequests: int = Field(0, description="Requests with no Rutai consumption record")
     lastBindingAt: Optional[str] = Field(None, description="Last binding timestamp")
 
 

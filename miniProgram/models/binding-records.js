@@ -19,6 +19,13 @@ const BINDING_SUMMARY = [
     count: 1,
     icon: 'replay',
     tone: 'orange'
+  },
+  {
+    id: 'no_consume',
+    label: '无消费记录',
+    count: 0,
+    icon: 'records-o',
+    tone: 'blue'
   }
 ];
 
@@ -104,7 +111,7 @@ function sortBindingRecords(records, mode) {
   if (mode === 'name') {
     result.sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
   } else if (mode === 'status') {
-    const order = { attention: 0, matching: 1, bound: 2 };
+    const order = { attention: 0, matching: 1, bound: 2, no_consume: 3 };
 
     result.sort((left, right) => order[left.status] - order[right.status]);
   }
@@ -114,18 +121,33 @@ function sortBindingRecords(records, mode) {
 
 function adaptBindingRecords(payload = {}) {
   const items = Array.isArray(payload.items) ? payload.items : []
-  const labels = { bound: '已归属', matching: '匹配中', attention: '需处理' }
+  const labels = { bound: '已归属', matching: '匹配中', attention: '需处理', no_consume: '无消费记录' }
   return {
     items: items.map((item) => {
       const code = String(item.status || '')
-      const status = String(item.statusGroup || (code === 'bound' ? 'bound' : code === 'pending_match' || code === 'matching' ? 'matching' : 'attention'))
+      const status = String(item.statusGroup || (code === 'no_consume' ? 'no_consume' : code === 'bound' ? 'bound' : code === 'pending_match' || code === 'matching' ? 'matching' : 'attention'))
       const locallyBoundPendingSync = status === 'bound' && code !== 'bound'
       const note = status === 'bound'
         ? (locallyBoundPendingSync ? '客户已归属，儒泰匹配同步中' : '客户归属与儒泰匹配已完成')
         : status === 'matching'
           ? '已提交，正在进行儒泰匹配'
-          : '该记录需要进一步处理'
-      return { id: String(item.requestId || ''), name: String(item.customerInfo && item.customerInfo.name || '未命名客户'), phone: String(item.customerInfo && item.customerInfo.phone || ''), idCard: String(item.customerInfo && item.customerInfo.idCard || ''), status, statusCode: code, statusLabel: String(item.statusGroupLabel || labels[status] || '需处理'), statusIcon: status === 'bound' ? 'link-o' : status === 'matching' ? 'clock-o' : 'warning-o', tone: status === 'bound' ? 'green' : status === 'matching' ? 'blue' : 'orange', note, detail: String(item.failureReason || ''), submittedAt: String(item.submittedAt || '') }
+          : status === 'no_consume'
+            ? '儒泰暂无消费记录，单独展示，不计入需处理'
+            : '该记录需要进一步处理'
+      return {
+        id: String(item.requestId || ''),
+        name: String(item.customerInfo && item.customerInfo.name || '未命名客户'),
+        phone: String(item.customerInfo && item.customerInfo.phone || ''),
+        idCard: String(item.customerInfo && item.customerInfo.idCard || ''),
+        status,
+        statusCode: code,
+        statusLabel: String(item.statusGroupLabel || labels[status] || '需处理'),
+        statusIcon: status === 'bound' ? 'link-o' : status === 'matching' ? 'clock-o' : status === 'no_consume' ? 'records-o' : 'warning-o',
+        tone: status === 'bound' ? 'green' : status === 'attention' ? 'orange' : 'blue',
+        note,
+        detail: String(item.failureReason || ''),
+        submittedAt: String(item.submittedAt || '')
+      }
     }),
     nextCursor: payload.nextCursor ? String(payload.nextCursor) : '', hasMore: payload.hasMore === true
   }
@@ -135,7 +157,16 @@ function adaptBindingSummary(payload = {}) {
   const bound = Number.isSafeInteger(payload.ownedBindings) ? payload.ownedBindings : (Number.isSafeInteger(payload.activeBindings) ? payload.activeBindings : 0)
   const matching = Number.isSafeInteger(payload.matchingRequests) ? payload.matchingRequests : (Number.isSafeInteger(payload.pendingRequests) ? payload.pendingRequests : 0)
   const attention = Number.isSafeInteger(payload.attentionRequests) ? payload.attentionRequests : ((Number.isSafeInteger(payload.rejectedRequests) ? payload.rejectedRequests : 0) + (Number.isSafeInteger(payload.expiredRequests) ? payload.expiredRequests : 0))
-  return { total: Number.isSafeInteger(payload.totalBindings) ? payload.totalBindings : 0, bound, matching, attention, pending: matching, rejected: Number.isSafeInteger(payload.rejectedRequests) ? payload.rejectedRequests : 0, expired: Number.isSafeInteger(payload.expiredRequests) ? payload.expiredRequests : 0 }
+  return {
+    total: Number.isSafeInteger(payload.totalBindings) ? payload.totalBindings : 0,
+    bound,
+    matching,
+    attention,
+    noConsume: Number.isSafeInteger(payload.noConsumptionRequests) ? payload.noConsumptionRequests : 0,
+    pending: matching,
+    rejected: Number.isSafeInteger(payload.rejectedRequests) ? payload.rejectedRequests : 0,
+    expired: Number.isSafeInteger(payload.expiredRequests) ? payload.expiredRequests : 0
+  }
 }
 
 module.exports = {

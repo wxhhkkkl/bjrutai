@@ -7,19 +7,32 @@ Bill.paid_amount_cent 汇总，无需额外贡献记录。
 import asyncio
 import logging
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import get_settings
-from ..integrations.rutai_client import RutaiClient, get_rutai_client
+from ..core.exceptions import ValidationException
+from ..integrations.rutai_client import RutaiApiError, RutaiClient, get_rutai_client
 from ..models.bill import Bill, TransactionStatus
-from ..models.binding import BindingStatus, Customer
+from ..models.binding import (
+    BindingRequest,
+    BindingRequestStatus,
+    BindingStatus,
+    Customer,
+    MatchLevel,
+    SourceType,
+)
+from ..models.consent import ConsentRecord, ConsentScene
+from ..models.customer_change_log import CustomerChangeLog
 from ..models.distributor import Distributor
+from ..models.followup import FollowupRecord
 from ..models.organization import Organization
 from ..models.notification import Notification, NotificationCategory
+from ..models.promotion import PromotionCode
+from .binding_service import MAX_RETRY_COUNT, RETRY_INTERVAL_MINUTES, _mask_phone, _normalize_phone
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -39,6 +52,34 @@ _sync_state: dict[str, Any] = {
     "last_cursor": None,               # last successful bind user cursor
 }
 _state_lock = threading.Lock()
+
+_MATCHABLE_BINDING_REQUEST_STATUSES = (
+    BindingRequestStatus.PENDING_MATCH,
+    BindingRequestStatus.MATCHING,
+    BindingRequestStatus.RETRYING,
+    BindingRequestStatus.NO_CONSUME,
+    BindingRequestStatus.MANUAL_REVIEW,
+    BindingRequestStatus.ABNORMAL,
+    BindingRequestStatus.BOUND,
+)
+
+
+def _authorized_scan_requests(now: datetime):
+    return (
+        select(BindingRequest)
+        .join(ConsentRecord, ConsentRecord.id == BindingRequest.consent_record_id)
+        .where(
+            BindingRequest.source_type == SourceType.SCAN,
+            BindingRequest.ref_token.isnot(None),
+            ConsentRecord.customer_id == BindingRequest.customer_id,
+            ConsentRecord.scene == ConsentScene.BINDING,
+            ConsentRecord.confirmed.is_(True),
+            ConsentRecord.status == "active",
+            ConsentRecord.scopes["phone"].as_boolean().is_(True),
+            ConsentRecord.scopes["customer_attribution"].as_boolean().is_(True),
+            or_(ConsentRecord.expires_at.is_(None), ConsentRecord.expires_at > now),
+        )
+    )
 
 
 def _update_state(**kwargs) -> None:
@@ -67,6 +108,131 @@ class SyncService:
         if self._rutai_client is None:
             self._rutai_client = get_rutai_client()
         return self._rutai_client
+
+    async def pending_scan_customers(self, db: AsyncSession, limit: int = 10) -> list[int]:
+        """Find customers with an authorized scan ready for a matching attempt."""
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        query = (
+            _authorized_scan_requests(now)
+            .with_only_columns(BindingRequest.customer_id)
+            .join(Customer, Customer.id == BindingRequest.customer_id)
+            .where(
+                Customer.binding_status == BindingStatus.BOUND,
+                Customer.distributor_id == BindingRequest.distributor_id,
+                Customer.phone_masked == BindingRequest.phone_masked,
+                BindingRequest.status == BindingRequestStatus.PENDING_MATCH,
+                or_(BindingRequest.next_retry_at.is_(None), BindingRequest.next_retry_at <= now),
+            )
+            .group_by(BindingRequest.customer_id)
+            .order_by(func.min(BindingRequest.id))
+            .limit(limit)
+        )
+        return list((await db.scalars(query)).all())
+
+    async def submit_scan_match(self, db: AsyncSession, customer_id: int) -> None:
+        """Submit one match per customer and apply its outcome to repeat scans."""
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        requests = (await db.scalars(
+            _authorized_scan_requests(now)
+            .where(
+                BindingRequest.customer_id == customer_id,
+                BindingRequest.status.in_(_MATCHABLE_BINDING_REQUEST_STATUSES),
+            )
+            .order_by(BindingRequest.id)
+            .with_for_update()
+        )).all()
+        customer = await db.get(Customer, customer_id, with_for_update=True)
+        if customer is None or customer.binding_status != BindingStatus.BOUND:
+            return
+
+        requests = [
+            request for request in requests
+            if request.distributor_id == customer.distributor_id
+            and request.phone_masked == customer.phone_masked
+        ]
+        waiting = [request for request in requests if request.status == BindingRequestStatus.PENDING_MATCH]
+        if not waiting:
+            return
+
+        # Use the original request ID on retries and share its outcome with later scans.
+        request = next(
+            row for row in requests
+            if row.status in (
+                BindingRequestStatus.PENDING_MATCH, BindingRequestStatus.MATCHING,
+                BindingRequestStatus.RETRYING, BindingRequestStatus.BOUND,
+            ) or row.retry_count > 0
+        )
+        status, level, reason = request.status, request.match_level, request.failure_reason
+        retry_at = request.next_retry_at
+        rutai_id = customer.rutai_user_id
+        if rutai_id and not rutai_id.startswith("hrb_mock_"):
+            status, reason, retry_at = BindingRequestStatus.BOUND, None, None
+        elif status == BindingRequestStatus.BOUND or rutai_id:
+            status, reason, retry_at = BindingRequestStatus.MANUAL_REVIEW, "缺少有效的儒泰用户 ID", None
+        elif status == BindingRequestStatus.PENDING_MATCH and (retry_at is None or retry_at <= now):
+            try:
+                phone = _normalize_phone(customer.phone_normalized or customer.phone)
+                if _mask_phone(phone) != request.phone_masked:
+                    raise ValidationException(message="扫码手机号与当前档案不一致")
+            except ValidationException:
+                status, reason, retry_at = BindingRequestStatus.MANUAL_REVIEW, "扫码手机号无法核实", None
+            else:
+                request.retry_count += 1
+                try:
+                    result = await asyncio.wait_for(self._client.bind_bj_user(
+                        request_id=str(request.id),
+                        patient_name="",
+                        patient_phone=phone,
+                        id_card="",
+                        medical_account="",
+                        family_phone="",
+                        source="BJTR",
+                        ref_token=request.ref_token,
+                    ), timeout=30)
+                except (TimeoutError, RutaiApiError, ValueError):
+                    result = {}
+                if not isinstance(result, dict):
+                    result = {}
+
+                outcome = result.get("match_status")
+                external_id = str(result.get("hrb_user_id") or "").strip()
+                returned_request_id = result.get("request_id") or result.get("binding_request_id")
+                if outcome == "matched" and returned_request_id and str(returned_request_id) != str(request.id):
+                    status, reason, retry_at = BindingRequestStatus.MANUAL_REVIEW, "儒泰返回的申请编号不一致", None
+                elif outcome == "matched" and external_id and not external_id.startswith("hrb_mock_"):
+                    await self._import_customer(db, {
+                        **result,
+                        "request_id": str(request.id),
+                        "ref_token": result.get("ref_token") or request.ref_token,
+                        "phone_masked": result.get("phone_masked") or request.phone_masked,
+                        "hrb_user_id": external_id,
+                    })
+                    if request.status == BindingRequestStatus.BOUND:
+                        return
+                    status, reason, retry_at = BindingRequestStatus.MANUAL_REVIEW, "儒泰匹配结果与本地档案存在冲突", None
+                elif outcome == "pending":
+                    status, reason, retry_at = BindingRequestStatus.MATCHING, None, None
+                elif outcome == "no_match":
+                    has_bill = await db.scalar(select(Bill.id).where(Bill.customer_id == customer_id).limit(1))
+                    status = BindingRequestStatus.MANUAL_REVIEW if has_bill is not None else BindingRequestStatus.NO_CONSUME
+                    reason = "已有消费记录，需核对儒泰账号" if has_bill is not None else "儒泰未匹配到客户"
+                    level, retry_at = MatchLevel.NONE, None
+                else:
+                    reason = "儒泰匹配接口暂未返回有效结果"
+                    if request.retry_count >= MAX_RETRY_COUNT:
+                        status, retry_at = BindingRequestStatus.ABNORMAL, None
+                    else:
+                        retry_at = now + timedelta(minutes=RETRY_INTERVAL_MINUTES)
+
+        for row in waiting:
+            if (row.status, row.match_level, row.failure_reason, row.next_retry_at) == (status, level, reason, retry_at):
+                continue
+            row.status, row.match_level = status, level
+            row.failure_reason, row.next_retry_at = reason, retry_at
+            if status == BindingRequestStatus.BOUND:
+                row.rutai_user_id_masked = rutai_id
+                row.bound_at = customer.bound_at or now
+            row.version += 1
 
     # ------------------------------------------------------------------
     # Alert notification helper
@@ -182,32 +348,235 @@ class SyncService:
             _update_state(is_polling=False)
             raise
 
-    async def _import_customer(self, db: AsyncSession, item: dict) -> bool:
-        """Import a single bound user as a Customer if not already present.
+    async def _find_binding_requests(
+        self, db: AsyncSession, item: dict
+    ) -> Optional[list[BindingRequest]]:
+        """Resolve a Rutai bind-user result to its originating local request."""
+        request_id = item.get("request_id") or item.get("binding_request_id")
+        if request_id is not None:
+            try:
+                parsed_id = int(request_id)
+            except (TypeError, ValueError):
+                parsed_id = None
+            if parsed_id is not None:
+                result = await db.execute(
+                    select(BindingRequest)
+                    .where(BindingRequest.id == parsed_id)
+                    .with_for_update()
+                )
+                request = result.scalars().first()
+                if request is not None:
+                    return [request]
 
-        Returns True if a new customer was created.
-        """
-        hrb_user_id = item.get("hrb_user_id")
-        if not hrb_user_id:
-            return False
-
-        # Check if already exists
-        result = await db.execute(
-            select(Customer).where(Customer.rutai_user_id == hrb_user_id)
-        )
-        existing = result.scalars().first()
-        if existing is not None:
-            return False
-
-        # Find promoter by ref_token
         ref_token = item.get("ref_token")
-        distributor_id = None
-        if ref_token:
-            from ..models.promotion import PromotionCode
-            pc_result = await db.execute(
+        if not ref_token:
+            return []
+
+        query = select(BindingRequest).where(BindingRequest.ref_token == str(ref_token))
+        phone_masked = item.get("phone_masked")
+        if phone_masked:
+            query = query.where(BindingRequest.phone_masked == str(phone_masked))
+        result = await db.execute(query.with_for_update())
+        requests = result.scalars().all()
+        if not requests:
+            return []
+        if len(requests) > 1 and not phone_masked:
+            logger.warning(
+                "Cannot reconcile Rutai user %s: ref token matches multiple requests without a phone key",
+                item.get("hrb_user_id"),
+            )
+            return None
+
+        matchable = [
+            request
+            for request in requests
+            if request.status in _MATCHABLE_BINDING_REQUEST_STATUSES
+        ]
+        if not matchable:
+            return requests[:1]
+        identities = {(request.customer_id, request.distributor_id) for request in matchable}
+        if len(identities) > 1 or (len(matchable) > 1 and None in {item[0] for item in identities}):
+            logger.warning(
+                "Cannot reconcile Rutai user %s: ref token and masked phone match multiple local customers",
+                item.get("hrb_user_id"),
+            )
+            return None
+        return matchable
+
+    async def _merge_imported_customer(
+        self,
+        db: AsyncSession,
+        imported: Customer,
+        local: Customer,
+        distributor_id: int,
+        phone_masked: Optional[str],
+        request_correlated: bool,
+    ) -> bool:
+        """Merge a prior sync-created duplicate into a correlated local customer.
+
+        Only an unowned Rutai import with a matching distributor and phone may be
+        merged. Related bills and audit/follow-up records are moved before deleting
+        the duplicate so no business history is discarded.
+        """
+        if imported.id == local.id:
+            return True
+        if (
+            imported.distributor_id != distributor_id
+            or local.distributor_id not in (None, distributor_id)
+            or imported.user_id is not None
+            or imported.binding_status != BindingStatus.BOUND
+            or imported.name is not None
+            or imported.phone is not None
+            or imported.phone_normalized is not None
+            or imported.id_card_encrypted is not None
+            or imported.id_card_masked is not None
+            or imported.medical_account_encrypted is not None
+            or imported.family_phone is not None
+            or imported.note is not None
+            or local.rutai_user_id not in (None, imported.rutai_user_id)
+            or local.binding_status == BindingStatus.UNBOUND
+            or phone_masked and local.phone_masked and local.phone_masked != phone_masked
+            or phone_masked and imported.phone_masked and imported.phone_masked != phone_masked
+            or imported.phone_masked and local.phone_masked and imported.phone_masked != local.phone_masked
+            or (
+                not request_correlated
+                and (
+                    not phone_masked
+                    or imported.phone_masked != phone_masked
+                    or local.phone_masked != phone_masked
+                )
+            )
+        ):
+            return False
+
+        duplicate_requests_result = await db.execute(
+            select(BindingRequest).where(BindingRequest.customer_id == imported.id)
+        )
+        if any(
+            request.status == BindingRequestStatus.BOUND
+            and request.rutai_user_id_masked not in (None, imported.rutai_user_id)
+            for request in duplicate_requests_result.scalars().all()
+        ):
+            return False
+
+        if local.distributor_id is None:
+            local.distributor_id = distributor_id
+        for field in (
+            "name",
+            "phone",
+            "phone_normalized",
+            "phone_masked",
+            "id_card_encrypted",
+            "id_card_masked",
+            "medical_account_encrypted",
+            "family_phone",
+            "note",
+        ):
+            if getattr(local, field) is None:
+                setattr(local, field, getattr(imported, field))
+
+        for model in (Bill, ConsentRecord, FollowupRecord, CustomerChangeLog):
+            await db.execute(
+                update(model)
+                .where(model.customer_id == imported.id)
+                .values(customer_id=local.id)
+            )
+
+        linked_result = await db.execute(
+            select(BindingRequest).where(BindingRequest.customer_id == imported.id)
+        )
+        for linked_request in linked_result.scalars().all():
+            linked_request.customer_id = local.id
+
+        await db.delete(imported)
+        await db.flush()
+        return True
+
+    async def _import_customer(self, db: AsyncSession, item: dict) -> bool:
+        """Reconcile a Rutai match with its original local customer and request.
+
+        Returns True only when a new customer record had to be created.
+        """
+        raw_hrb_user_id = item.get("hrb_user_id")
+        if not raw_hrb_user_id:
+            return False
+        hrb_user_id = str(raw_hrb_user_id)
+        phone_masked = str(item.get("phone_masked") or "") or None
+        ref_token = str(item.get("ref_token") or "") or None
+
+        now = datetime.utcnow()
+        marked_at = item.get("marked_at")
+        if marked_at:
+            try:
+                parsed = datetime.fromisoformat(str(marked_at).replace("Z", "+00:00"))
+                now = (
+                    parsed.astimezone(timezone.utc).replace(tzinfo=None)
+                    if parsed.tzinfo
+                    else parsed
+                )
+            except (TypeError, ValueError):
+                pass
+
+        match_level = None
+        try:
+            match_level = MatchLevel(str(item.get("bind_method") or item.get("match_level")))
+        except ValueError:
+            pass
+
+        binding_requests = await self._find_binding_requests(db, item)
+        if binding_requests is None:
+            return False
+        if any(
+            request.status not in _MATCHABLE_BINDING_REQUEST_STATUSES
+            for request in binding_requests
+        ):
+            logger.info(
+                "Skip late Rutai result for closed binding request(s): user=%s",
+                hrb_user_id,
+            )
+            return False
+        if ref_token and any(
+            request.ref_token and request.ref_token != ref_token
+            for request in binding_requests
+        ):
+            logger.warning(
+                "Cannot reconcile Rutai user %s: request ID and ref token disagree",
+                hrb_user_id,
+            )
+            return False
+        if any(
+            request.status == BindingRequestStatus.BOUND
+            and request.rutai_user_id_masked not in (None, hrb_user_id)
+            for request in binding_requests
+        ):
+            logger.warning(
+                "Cannot reconcile Rutai user %s: matched request already records another Rutai user ID",
+                hrb_user_id,
+            )
+            return False
+        if phone_masked and any(
+            request.phone_masked and request.phone_masked != phone_masked
+            for request in binding_requests
+        ):
+            logger.warning(
+                "Cannot reconcile Rutai user %s: matched request phone does not match Rutai phone",
+                hrb_user_id,
+            )
+            return False
+        distributor_ids = {request.distributor_id for request in binding_requests}
+        if len(distributor_ids) > 1:
+            logger.warning(
+                "Cannot reconcile Rutai user %s: matched requests belong to different distributors",
+                hrb_user_id,
+            )
+            return False
+        distributor_id = next(iter(distributor_ids), None)
+
+        if distributor_id is None and ref_token:
+            promotion_result = await db.execute(
                 select(PromotionCode).where(PromotionCode.ref_token == ref_token)
             )
-            promotion_code = pc_result.scalars().first()
+            promotion_code = promotion_result.scalars().first()
             if promotion_code is not None:
                 distributor_id = promotion_code.distributor_id
 
@@ -216,16 +585,185 @@ class SyncService:
             # being incorrectly attributed to an arbitrary promoter.
             return False
 
-        customer = Customer(
-            distributor_id=distributor_id,
-            rutai_user_id=hrb_user_id,
-            phone_masked=item.get("phone_masked"),
-            binding_status=BindingStatus.BOUND,
-            bound_at=datetime.now(timezone.utc),
+        linked_customer_ids = {
+            request.customer_id for request in binding_requests if request.customer_id is not None
+        }
+        if len(linked_customer_ids) > 1:
+            logger.warning(
+                "Cannot reconcile Rutai user %s: matched requests point to different local customers",
+                hrb_user_id,
+            )
+            return False
+
+        local_customer = None
+        if linked_customer_ids:
+            local_result = await db.execute(
+                select(Customer)
+                .where(Customer.id == next(iter(linked_customer_ids)))
+                .with_for_update()
+            )
+            local_customer = local_result.scalars().first()
+
+        if local_customer is None and phone_masked:
+            local_result = await db.execute(
+                select(Customer)
+                .where(
+                    Customer.distributor_id == distributor_id,
+                    Customer.phone_masked == phone_masked,
+                    Customer.rutai_user_id.is_(None),
+                    Customer.binding_status != BindingStatus.UNBOUND,
+                )
+                .with_for_update()
+            )
+            local_candidates = local_result.scalars().all()
+            if len(local_candidates) == 1:
+                local_customer = local_candidates[0]
+            elif len(local_candidates) > 1:
+                logger.warning(
+                    "Cannot reconcile Rutai user %s: multiple pending customers share the same owner and masked phone",
+                    hrb_user_id,
+                )
+                return False
+
+        existing_result = await db.execute(
+            select(Customer)
+            .where(Customer.rutai_user_id == hrb_user_id)
+            .with_for_update()
         )
-        db.add(customer)
+        existing_customer = existing_result.scalars().first()
+
+        if local_customer is None and existing_customer is None and not phone_masked and not binding_requests:
+            # Without the original request or a phone key, creating a second local
+            # customer could duplicate an already-entered customer.
+            logger.warning(
+                "Skip Rutai user %s import: no request or masked phone available for safe correlation",
+                hrb_user_id,
+            )
+            return False
+
+        created = False
+        if local_customer is None and existing_customer is None:
+            local_customer = Customer(
+                distributor_id=distributor_id,
+                rutai_user_id=hrb_user_id,
+                phone_masked=phone_masked,
+                binding_status=BindingStatus.BOUND,
+                bound_at=now,
+            )
+            db.add(local_customer)
+            await db.flush()
+            created = True
+        elif local_customer is None:
+            # The Rutai user was already imported; do not make another copy.
+            local_customer = existing_customer
+        if (
+            local_customer.distributor_id not in (None, distributor_id)
+            or local_customer.rutai_user_id not in (None, hrb_user_id)
+            or local_customer.binding_status == BindingStatus.UNBOUND
+            or (
+                phone_masked
+                and local_customer.phone_masked
+                and local_customer.phone_masked != phone_masked
+            )
+        ):
+            logger.warning(
+                "Cannot reconcile Rutai user %s: local customer %s conflicts with the request",
+                hrb_user_id,
+                local_customer.id,
+            )
+            return False
+
+        related_result = await db.execute(
+            select(BindingRequest)
+            .where(
+                BindingRequest.customer_id == local_customer.id,
+                BindingRequest.distributor_id == distributor_id,
+                BindingRequest.status.in_(_MATCHABLE_BINDING_REQUEST_STATUSES),
+            )
+            .with_for_update()
+        )
+        related_requests = {request.id: request for request in related_result.scalars().all()}
+        for request in binding_requests:
+            if request.customer_id in (None, local_customer.id):
+                related_requests[request.id] = request
+
+        if any(
+            request.status == BindingRequestStatus.BOUND
+            and request.rutai_user_id_masked not in (None, hrb_user_id)
+            for request in related_requests.values()
+        ):
+            logger.warning(
+                "Cannot reconcile Rutai user %s: local binding request already records another Rutai user ID",
+                hrb_user_id,
+            )
+            return False
+
+        merged_duplicate = False
+        if existing_customer is not None and existing_customer.id != local_customer.id:
+            merged = await self._merge_imported_customer(
+                db,
+                existing_customer,
+                local_customer,
+                distributor_id,
+                phone_masked,
+                bool(binding_requests),
+            )
+            if not merged:
+                logger.warning(
+                    "Cannot merge duplicate Rutai customer %s into local customer %s due to ownership or identity conflict",
+                    existing_customer.id,
+                    local_customer.id,
+                )
+                return False
+            merged_duplicate = True
+
+            # Include any requests previously attached to the imported duplicate.
+            merged_requests_result = await db.execute(
+                select(BindingRequest).where(
+                    BindingRequest.customer_id == local_customer.id,
+                    BindingRequest.distributor_id == distributor_id,
+                    BindingRequest.status.in_(_MATCHABLE_BINDING_REQUEST_STATUSES),
+                )
+            )
+            related_requests.update({
+                request.id: request for request in merged_requests_result.scalars().all()
+            })
+
+        customer_changed = (
+            merged_duplicate
+            or local_customer.distributor_id != distributor_id
+            or local_customer.rutai_user_id != hrb_user_id
+            or local_customer.binding_status != BindingStatus.BOUND
+            or local_customer.bound_at is None
+            or bool(phone_masked and not local_customer.phone_masked)
+        )
+        local_customer.distributor_id = distributor_id
+        local_customer.rutai_user_id = hrb_user_id
+        local_customer.binding_status = BindingStatus.BOUND
+        local_customer.bound_at = local_customer.bound_at or now
+        if phone_masked and not local_customer.phone_masked:
+            local_customer.phone_masked = phone_masked
+        if not created and customer_changed:
+            local_customer.version += 1
+
+        for request in related_requests.values():
+            request.customer_id = local_customer.id
+            request.status = BindingRequestStatus.BOUND
+            request.rutai_user_id_masked = hrb_user_id
+            request.bound_at = request.bound_at or now
+            request.failure_reason = None
+            request.next_retry_at = None
+            if match_level is not None:
+                request.match_level = match_level
+
         await db.flush()
-        return True
+        logger.info(
+            "Reconciled Rutai user %s with local customer %s and %s binding request(s)",
+            hrb_user_id,
+            local_customer.id,
+            len(related_requests),
+        )
+        return created
 
     def _check_alert_threshold(self, db: AsyncSession) -> None:
         """Check if failure threshold is exceeded and send alert."""

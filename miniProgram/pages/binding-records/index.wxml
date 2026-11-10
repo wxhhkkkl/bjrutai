@@ -58,18 +58,20 @@
   </view>
 
   <view class="records-filter">
-    <view
-      wx:for="{{filters}}"
-      wx:key="id"
-      class="records-filter__pill tap-target {{selectedFilter === item.id ? 'records-filter__pill--active' : ''}}"
-      data-id="{{item.id}}"
-      bindtap="selectFilter"
-      hover-class="tap-feedback"
-      hover-start-time="0"
-      hover-stay-time="80"
-    >
-      {{item.label}} {{item.count}}
-    </view>
+    <scroll-view class="records-filter__scroll" scroll-x="true" show-scrollbar="false">
+      <view
+        wx:for="{{filters}}"
+        wx:key="id"
+        class="records-filter__pill tap-target {{selectedFilter === item.id ? 'records-filter__pill--active' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="selectFilter"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+      >
+        {{item.label}}
+      </view>
+    </scroll-view>
     <view
       class="records-filter__button tap-target"
       bindtap="openSort"

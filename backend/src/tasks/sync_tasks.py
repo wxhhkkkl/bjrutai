@@ -61,6 +61,25 @@ async def sync_bind_users_job():
             logger.error("Bind user sync failed: %s", exc)
 
 
+async def submit_scan_matches_job():
+    """Submit pending QR claims after local attribution has committed."""
+    if settings.rutai_mock or not _is_rutai_configured():
+        return
+    if not settings.rutai_api_secret or settings.rutai_api_secret == "your_api_secret":
+        return
+
+    svc = get_sync_service()
+    async with async_session() as db:
+        customer_ids = await svc.pending_scan_customers(db)
+
+    for customer_id in customer_ids:
+        try:
+            async with async_session() as db, db.begin():
+                await svc.submit_scan_match(db, customer_id)
+        except Exception:
+            logger.exception("Scan match processing failed for customer %s", customer_id)
+
+
 # ---------------------------------------------------------------------------
 # T116b: User bill fetch — triggered after new bindings
 # ---------------------------------------------------------------------------

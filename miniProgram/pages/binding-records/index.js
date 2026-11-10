@@ -1,7 +1,7 @@
 const bindingService = require('../../services/binding-service')
 const { adaptBindingRecords, adaptBindingSummary, filterBindingRecords, sortBindingRecords } = require('../../models/binding-records')
 
-const FILTERS = [{ id: 'all', label: '全部' }, { id: 'bound', label: '已归属' }, { id: 'matching', label: '匹配中' }, { id: 'attention', label: '需处理' }]
+const FILTERS = [{ id: 'all', label: '全部' }, { id: 'bound', label: '已归属' }, { id: 'matching', label: '匹配中' }, { id: 'attention', label: '需处理' }, { id: 'no_consume', label: '无消费记录' }]
 
 Page({
   requestVersion: 0,
@@ -27,15 +27,18 @@ Page({
   onSearch(e) { this.setData({ keyword: e.detail.value }); this.loadRecords(true) },
   selectFilter(e) { this.setData({ selectedFilter: e.currentTarget.dataset.id, records: [], visibleRecords: [] }); this.loadRecords(true) },
   openSort() { wx.showActionSheet({ itemList: ['按最近提交排序', '按客户姓名排序', '优先显示需处理'], success: ({ tapIndex }) => { const sortMode = ['recent', 'name', 'status'][tapIndex] || 'recent'; this.setData({ sortMode, visibleRecords: this.getVisibleRecords(this.data.records, { sortMode }) }) } }) },
-  showStatusDescription() { wx.showModal({ title: '状态说明', content: '已归属：客户已归属当前客户顾问；匹配中：正在同步儒泰匹配；需处理：异常、无匹配结果或已超期，请联系后台处理。', showCancel: false }) },
+  showStatusDescription() { wx.showModal({ title: '状态说明', content: '已归属：客户已归属当前客户顾问；匹配中：正在同步儒泰匹配；需处理：异常、已解绑、已转移或已超期，请联系后台处理；无消费记录：儒泰暂无消费记录，单独展示，不计入需处理。', showCancel: false }) },
   async openRecord(e) {
     const id = e.currentTarget.dataset.id
     try {
       const detail = await bindingService.getBindingRequest(id)
       const retryable = ['rejected', 'expired'].includes(detail.status)
+      const detailMessage = detail.status === 'no_consume'
+        ? '儒泰暂无消费记录，该记录已单独分类展示。'
+        : detail.failureReason || '暂无异常信息'
       wx.showModal({
         title: detail.statusLabel || '绑定详情',
-        content: `${detail.customerInfo && detail.customerInfo.name || '客户'}\n${detail.failureReason || '暂无异常信息'}`,
+        content: `${detail.customerInfo && detail.customerInfo.name || '客户'}\n${detailMessage}`,
         confirmText: retryable ? '重新匹配' : '知道了',
         showCancel: retryable,
         success: async (result) => {
