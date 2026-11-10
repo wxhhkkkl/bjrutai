@@ -1,6 +1,6 @@
 # 平台联调验收预检（T131）
 
-更新：2026-11-09。状态：**本地预检完成；G-LIVE 未通过；T131 未完成**。
+更新：2026-11-10。状态：**本地预检完成；G-LIVE 未通过；T131 未完成**。
 
 本记录基于仓库配置模板、协议审查和运行时配置的布尔状态。没有读取或记录密钥内容，没有调用微信支付、微信发货、快递100、税务平台或COS，没有创建真实支付、退款、物流查询、发票或对象文件。
 
@@ -13,8 +13,11 @@
 | `MALL_ENABLED` / `MALL_PURCHASE_ENABLED` | `false` / `false` | 商城及新购保持关闭。 |
 | `MALL_GATEWAY_MODE` / `MALL_GATEWAY_OUTBOUND_ENABLED` | `test` / `false` | 不允许真实支付或退款出站。 |
 | `MALL_GATEWAY_CALLBACK_ENABLED` | 默认`false` | 新增入站回调接收开关；生产通知仍未启用。 |
+| `WECHAT_APP_ID` | 已配置（只记录字段非空） | 未读取或记录AppID值，也未核对其与支付商户的关联。 |
 | 微信商户号、商户证书序列号、商户私钥、验签key映射、APIv3通知密钥 | 未配置 | 没有可用于本地真实渠道或通知解密的支付身份材料。 |
 | `MALL_WECHAT_NOTIFY_URL` | 未配置 | 通知地址未登记，真实平台未配置。 |
+| `MALL_DATA_RELEASE_ENABLED` / 留存制度引用 / 告知批准版本 | `false` / 未配置 / 未配置 | 生产开票/履约原文领取保持关闭。 |
+| `MALL_WORKER_ENABLED` | `false` | 后台商城任务worker保持关闭。 |
 | `MALL_KUAIDI100_MODE` / `MALL_KUAIDI100_OUTBOUND_ENABLED` | `fake` / `false` | 快递查询使用fake；不请求真实运单。 |
 | 快递100客户号和密钥 | 未配置 | 当前运行配置没有真实查询凭据。 |
 | `MALL_STORAGE_OUTBOUND_ENABLED` | `false` | 不执行商城文件的COS出站操作。 |

@@ -5375,8 +5375,8 @@
         "T128",
         "T121"
       ],
-      "progress": "完成本地无外连预检：只核对运行时模式/开关和配置字段存在性，不读取密钥值、不连接外部；支付及快递100身份凭据未配置，COS字段非空但未验证，商城出站保持关闭。G-LIVE仍需具体授权和平台证据；G-PROTOCOL已于2026-11-09由宪章3.0.0采纳并核验，T048本地实现与隔离回归已完成；G-DATA内部窄范围后续获批并实现T063/T102，但生产引用未配置、第三方原文传输仍未授权。真实通知、发货、物流资料及COS验收均未执行；不要求真实发票或税务平台验真。",
-      "evidence": "2026-11-09运行时Settings核对：MALL_ENABLED=false、MALL_PURCHASE_ENABLED=false、MALL_GATEWAY_MODE=test、MALL_GATEWAY_OUTBOUND_ENABLED=false；MALL_GATEWAY_CALLBACK_ENABLED=false；微信商户身份、APIv3通知密钥、验签公钥及通知地址未配置；快递100为fake、outbound=false且客户号/key未配置；COS字段非空但MALL_STORAGE_OUTBOUND_ENABLED=false，未读取密钥值或发网络请求。protocol-governance-proposal记录G-PROTOCOL采纳/协议核验；shipping-protocol-review显示G-LIVE-SHIPPING未通过。platform-acceptance记录逐平台条件；T131未通过G-LIVE。发票真伪不属于本任务验收。"
+      "progress": "完成本地无外连预检：只核对运行时模式/开关和配置字段存在性，不读取密钥值、不连接外部；支付及快递100身份凭据未配置，COS字段非空但未验证，商城出站保持关闭。G-LIVE仍需具体授权和平台证据；G-PROTOCOL已于2026-11-09由宪章3.0.0采纳并核验，T048本地实现与隔离回归已完成；G-DATA内部窄范围后续获批并实现T063/T102，但生产引用未配置、第三方原文传输仍未授权。真实通知、发货、物流资料及COS验收均未执行；不要求真实发票或税务平台验真。 2026-11-10重新读取后端Settings，只复核非敏感开关及凭据字段是否非空；商城、新购、支付出站/回调、存储出站、数据释放和worker均关闭；支付test、快递100 fake；AppID字段与COS字段非空，商户/快递100凭据为空。没有输出值或发起外部请求，G-LIVE仍未通过。",
+      "evidence": "2026-11-09运行时Settings核对：MALL_ENABLED=false、MALL_PURCHASE_ENABLED=false、MALL_GATEWAY_MODE=test、MALL_GATEWAY_OUTBOUND_ENABLED=false；MALL_GATEWAY_CALLBACK_ENABLED=false；微信商户身份、APIv3通知密钥、验签公钥及通知地址未配置；快递100为fake、outbound=false且客户号/key未配置；COS字段非空但MALL_STORAGE_OUTBOUND_ENABLED=false，未读取密钥值或发网络请求。protocol-governance-proposal记录G-PROTOCOL采纳/协议核验；shipping-protocol-review显示G-LIVE-SHIPPING未通过。platform-acceptance记录逐平台条件；T131未通过G-LIVE。发票真伪不属于本任务验收。 2026-11-10后端Settings只读复核：environment=development；商城/新购false，支付test且outbound/callback=false，数据释放false且留存引用/告知版本缺失，worker/storage outbound=false；WECHAT_APP_ID字段非空但未核对值/商户关联，微信商户号/证书/私钥/验签key/APIv3/notify URL未配置；快递100为fake、outbound=false、客户号/key未配置；COS secret ID/key、bucket、region字段非空但未输出值、未验证凭据/归属，也未访问网络。"
     },
     {
       "id": "T132",
@@ -5424,13 +5424,13 @@
       ],
       "operationIds": [],
       "test": false,
-      "status": "in_progress",
+      "status": "completed",
       "dependencies": [
         "T127",
         "T128"
       ],
-      "progress": "已补齐本地synthetic user journey integration test并运行商城目录、结算、订单/物流、售后、发票、绩效、导航页面集成测试；用户提供的列表参考图和“不显示综合”决策已记录。当前转入五人选购和iOS/Android微信真机观察，尚无现场数据。",
-      "evidence": "miniProgram 8个Node集成文件共40 passed（含mall-user-journey.test.js）；测试只使用页面stub及synthetic request adapter，不证明微信运行时或真实渠道。adb server在创建smartsocket listener时被沙箱拒绝（Operation not permitted），未枚举Android设备；xcrun devicectl工具不存在，未枚举iOS设备。未执行5人非开发用户测试，SC-002和设备视觉验收未通过。device-acceptance.md已准备P01–P05无个人信息记录表和通过条件。"
+      "progress": "用户于2026-11-10确认已经完成真机验收并要求标记完成，按用户验收确认关闭T132。此前本地8个Node集成文件40 passed。具体验收设备、微信版本、逐项流程结果及五人计时未在本轮提供，未补写或虚构。",
+      "evidence": "用户明确报告真机验收已检验完成，并要求将T132标记为已完成；以项目负责人验收确认作为关闭依据。此前远程协作记录中，Android曾识别为SM-S908U/Android 12但截图停在微信会话列表，此历史截图不作为商城流程验收证据。没有本轮提供的iOS/Android版本、具体操作结果或5名参与者计时明细；该部分不宣称具体SC-002数值通过。"
     },
     {
       "id": "T133",
@@ -5465,8 +5465,8 @@
       "operationIds": [],
       "test": false,
       "status": "in_progress",
-      "progress": "已完成离线证据差距初审，逐项列出经营主体、准售SKU、履约、支付/物流/税务/COS能力、内部G-DATA运行条件/G-PROTOCOL及真机条件；建议继续保持新购与各平台出站关闭。G-DATA内部窄范围于2026-11-09获用户批准并采纳为宪章4.0.0，T063/T102已实现并通过合成回归；生产运行仍待留存制度引用和告知审阅版本配置，外部原文传输仍未获授权。G-PROTOCOL及T048本地证据已完成。T056商城本地闭环已完成；T108本地发票申请/经办上传/下载闭环已通过（按工作人员确认，不验真）、T131真实平台账号核验、T132五人/真机验收及其它发布资料仍未完成，本轮不形成投产结论，T133保持进行中。",
-      "evidence": "release-readiness.md引用platform-acceptance.md、device-acceptance.md、payment-protocol-review.md、shipping-protocol-review.md、governance-proposal.md及protocol-governance-proposal.md；T052本地集成、T062本地路由、T048本地范围已验收；T054本地/平台状态隔离测试1 passed；T063/T102专用契约测试3 passed；T108合成发票申请/上传/下载测试通过，不要求真实票据或税务验真；生产COS由T131核验；T131本地无外连预检及T132合成UI自动化已记录。T056已完成本地人工登记闭环；T108已按经办上传确认口径完成；T131/T132/T133仍进行中；真实平台/真机任务未完成。无外部平台、真实支付、设备或真实个人资料操作。",
+      "progress": "已完成离线证据差距初审，逐项列出经营主体、准售SKU、履约、支付/物流/税务/COS能力、内部G-DATA运行条件/G-PROTOCOL及真机条件；建议继续保持新购与各平台出站关闭。G-DATA内部窄范围于2026-11-09获用户批准并采纳为宪章4.0.0，T063/T102已实现并通过合成回归；生产运行仍待留存制度引用和告知审阅版本配置，外部原文传输仍未获授权。G-PROTOCOL及T048本地证据已完成。T056商城本地闭环已完成；T108本地发票申请/经办上传/下载闭环已通过（按工作人员确认，不验真）、T131真实平台账号核验及其它发布资料仍未完成；用户于2026-11-10确认T132真机验收完成，本轮不形成投产结论，T133保持进行中。",
+      "evidence": "release-readiness.md引用platform-acceptance.md、device-acceptance.md、payment-protocol-review.md、shipping-protocol-review.md、governance-proposal.md及protocol-governance-proposal.md；T052本地集成、T062本地路由、T048本地范围已验收；T054本地/平台状态隔离测试1 passed；T063/T102专用契约测试3 passed；T108合成发票申请/上传/下载测试通过，不要求真实票据或税务验真；生产COS由T131核验；T131本地无外连预检及T132合成UI自动化已记录。T056已完成本地人工登记闭环；T108已按经办上传确认口径完成；T132按用户验收确认已完成，T131/T133仍进行中；真机逐设备/逐人原始记录未归档。无外部平台、真实支付、设备或真实个人资料操作。",
       "dependencies": [
         "T129",
         "T130",
@@ -5626,7 +5626,7 @@
       "test": false,
       "status": "completed",
       "progress": "完成交付追踪核对：135项任务状态与tasks.md勾选同步；T056本地人工登记闭环及隔离验证完成；T054/T056已按人工录入方案重分范围；OpenAPI 94路径/106操作与106个operationId/owner对齐，修复缺少的资金导出状态operation及退款通知错误归属；核对94 FR和53 AC的任务覆盖，新增Q-01至Q-10实际证据状态。明确隔离/合成验收、未完成故事、依赖例外和真实发布门禁，不把局部证据标为整体通过。",
-      "evidence": "2026-11-09在用户明确T108上传并确认即按经办人确认有效、不做税务平台真伪验证后，更新T108范围并关闭任务；静态核对tasks.md有135项且复选框与tasks-map一致，状态为132项完成/3项进行中/0项待开始；OpenAPI 94路径/106操作/106归属、FR覆盖94/94、AC覆盖53/53仍一致。未完成项为T131/T132/T133；T135文档审计完成不代表商城可投产。",
+      "evidence": "2026-11-10在用户明确T108上传并确认即按经办人确认有效、不做税务平台真伪验证后，更新T108范围并关闭任务；用户确认T132真机验收完成并授权标记关闭；静态核对tasks.md有135项且复选框与tasks-map一致，状态为133项完成/2项进行中/0项待开始；OpenAPI 94路径/106操作/106归属、FR覆盖94/94、AC覆盖53/53仍一致。未完成项为T131/T133；T135文档审计完成不代表商城可投产。",
       "dependencies": [
         "T134"
       ]
