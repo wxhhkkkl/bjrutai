@@ -93,7 +93,6 @@ test('invoice application requires a paid balance, keeps personal and company fi
     fixture.page.selectBuyerType({ currentTarget: { dataset: { type: 'company' } } })
     fixture.page.onTitleInput({ detail: { value: ' 北京鲁泰有限公司 ' } })
     fixture.page.onTaxNoInput({ detail: { value: '91110108ABCDEFGH12' } })
-    fixture.page.onEmailInput({ detail: { value: 'finance@example.com' } })
     fixture.page.togglePurposeConsent()
     await fixture.page.submitApplication()
 
@@ -101,7 +100,7 @@ test('invoice application requires a paid balance, keeps personal and company fi
       application: {
         orderId: '12', expectedOrderVersion: 5, buyerType: 'company',
         title: '北京鲁泰有限公司', taxNo: '91110108ABCDEFGH12',
-        email: 'finance@example.com', invoiceType: 'digital_normal',
+        invoiceType: 'digital_normal',
         consentVersion: 'mall-invoice-page-policy-v1', consentConfirmed: true
       },
       key: 'mall-invoice-page-key-0001'
@@ -219,7 +218,6 @@ test('resubmits requested missing company data using the invoice request version
     await fixture.page.onLoad({ id: '41' })
     fixture.page.onTitleInput({ detail: { value: '北京鲁泰有限公司' } })
     fixture.page.onTaxNoInput({ detail: { value: '91110108ABCDEFGH12' } })
-    fixture.page.onEmailInput({ detail: { value: 'invoice@example.com' } })
     fixture.page.toggleSupplementConsent()
     await fixture.page.submitSupplement()
     assert.deepEqual(calls, [[
@@ -227,7 +225,6 @@ test('resubmits requested missing company data using the invoice request version
         expectedVersion: 3,
         title: '北京鲁泰有限公司',
         taxNo: '91110108ABCDEFGH12',
-        email: 'invoice@example.com',
         consentVersion: 'mall-invoice-page-policy-v1',
         consentConfirmed: true
       },

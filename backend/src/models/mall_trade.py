@@ -163,6 +163,12 @@ class MallOrderItem(MallRecord, Base):
 
 class MallShipment(MallRecord, Base):
     __tablename__ = "mall_shipments"
+    __table_args__ = (
+        CheckConstraint(
+            "platform_report_status IN ('pending','manual_reported','unknown')",
+            name="ck_mall_shipment_platform_report_status",
+        ),
+    )
     order_id: Mapped[int] = mapped_column(
         MALL_ID, ForeignKey("mall_orders.id", ondelete="RESTRICT"), unique=True
     )
@@ -176,6 +182,10 @@ class MallShipment(MallRecord, Base):
     platform_sync_status: Mapped[str] = mapped_column(String(16), default="pending")
     platform_last_error: Mapped[str | None] = mapped_column(String(64))
     platform_synced_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
+    platform_report_status: Mapped[str] = mapped_column(
+        String(24), default="pending", server_default="unknown", nullable=False, index=True
+    )
+    platform_reported_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
     platform_confirmation_status: Mapped[str] = mapped_column(String(24), default="unknown")
     platform_confirmed_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
     logistics_provider: Mapped[str] = mapped_column(String(32), default="kuaidi100")

@@ -9,7 +9,6 @@ const { setMallFormError } = require('../../utils/mall-form-error')
 const { sha256Hex } = require('../../utils/sha256')
 
 const TAX_NO_PATTERN = /^[A-Za-z0-9]{8,32}$/
-const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 const INVOICE_TYPES = [
   { value: 'digital_normal', label: '普通数电票', hint: '适用于个人或企业普通发票' },
   { value: 'manual_special_request', label: '专票需求', hint: '提交后由财务按经营主体能力人工核实' }
@@ -34,7 +33,7 @@ Page({
   data: {
     orderId: '', order: null, state: 'loading', stateMessage: '',
     focusField: '', errorTarget: '',
-    netPaidText: '--', buyerType: 'personal', title: '', taxNo: '', email: '',
+    netPaidText: '--', buyerType: 'personal', title: '', taxNo: '',
     invoiceType: 'digital_normal', invoiceTypes: INVOICE_TYPES,
     policyVersion: '', purposeNotice: getMallPurposeNotice('invoice'), consentConfirmed: false,
     submitting: false
@@ -108,16 +107,12 @@ Page({
 
   onTitleInput(event) { this.setData({ title: String(event.detail && event.detail.value || '').slice(0, 200), stateMessage: '', focusField: '', errorTarget: '' }) },
   onTaxNoInput(event) { this.setData({ taxNo: String(event.detail && event.detail.value || '').trim().slice(0, 32).toUpperCase(), stateMessage: '', focusField: '', errorTarget: '' }) },
-  onEmailInput(event) { this.setData({ email: String(event.detail && event.detail.value || '').trim().slice(0, 254), stateMessage: '', focusField: '', errorTarget: '' }) },
-
   buildApplication() {
     const title = String(this.data.title || '').trim()
     const taxNo = String(this.data.taxNo || '').trim().toUpperCase()
-    const email = String(this.data.email || '').trim()
     if (!title || title.length > 200) throw new Error('请填写正确的发票抬头')
     if (this.data.buyerType === 'company' && !TAX_NO_PATTERN.test(taxNo)) throw new Error('企业抬头请填写纳税人识别号')
     if (this.data.buyerType === 'personal' && taxNo) throw new Error('个人抬头无需填写纳税人识别号')
-    if (email && !EMAIL_PATTERN.test(email)) throw new Error('邮箱格式不正确')
     const order = this.data.order || {}
     return {
       orderId: this.data.orderId,
@@ -125,7 +120,6 @@ Page({
       buyerType: this.data.buyerType,
       title,
       ...(this.data.buyerType === 'company' ? { taxNo } : {}),
-      ...(email ? { email } : {}),
       invoiceType: this.data.invoiceType,
       consentVersion: this.data.policyVersion,
       consentConfirmed: this.data.consentConfirmed === true
@@ -140,11 +134,9 @@ Page({
     } catch (error) {
       const title = String(this.data.title || '').trim()
       const taxNo = String(this.data.taxNo || '').trim().toUpperCase()
-      const email = String(this.data.email || '').trim()
       const field = !title ? 'title'
         : this.data.buyerType === 'company' && !TAX_NO_PATTERN.test(taxNo) ? 'taxNo'
-          : this.data.buyerType === 'personal' && taxNo ? 'taxNo'
-            : email && !EMAIL_PATTERN.test(email) ? 'email' : ''
+          : this.data.buyerType === 'personal' && taxNo ? 'taxNo' : ''
       setMallFormError(this, safeError(error, '请检查开票资料'), {
         field,
         target: field || 'error-message'

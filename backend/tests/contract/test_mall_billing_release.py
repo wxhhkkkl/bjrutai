@@ -26,7 +26,7 @@ async def test_claimed_company_invoice_release_is_minimal_no_store_and_rechecks_
     monkeypatch.setattr(
         settings,
         "mall_data_release_notice_approved_version",
-        "mall-purpose-2026-11-v1",
+        "mall-purpose-2026-11-v2",
         raising=False,
     )
     buyer, order, _, _ = await paid_order(db_session, monkeypatch)

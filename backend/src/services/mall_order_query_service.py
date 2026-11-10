@@ -148,6 +148,8 @@ async def serialize_order(db, order, *, detail=False, relations=None):
                 "shippedAt": timestamp(shipment.shipped_at),
                 "autoReceiveAt": timestamp(shipment.auto_receive_at),
                 "platformSyncStatus": shipment.platform_sync_status,
+                "platformReportStatus": shipment.platform_report_status,
+                "platformReportedAt": timestamp(shipment.platform_reported_at),
                 "platformConfirmedAt": timestamp(shipment.platform_confirmed_at),
                 "version": shipment.version,
             }
@@ -184,6 +186,11 @@ async def serialize_order(db, order, *, detail=False, relations=None):
             "mall_admin_order_closed": ("closed", "商家关闭未付款订单", "商家"),
             "mall_admin_order_shipped": ("shipped", "商家登记发货", "商家"),
             "mall_admin_tracking_corrected": ("tracking_corrected", "商家更正运单", "商家"),
+            "mall_admin_platform_shipment_reported": (
+                "platform_shipment_reported",
+                "商家登记微信平台发货信息",
+                "商家",
+            ),
             "mall_order_received": ("received", "确认收货", "买家"),
             "mall_order_auto_received": ("received", "系统自动确认收货", "系统"),
         }

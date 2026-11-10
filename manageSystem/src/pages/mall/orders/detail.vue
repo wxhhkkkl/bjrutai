@@ -151,6 +151,34 @@
             保存运单更正
           </el-button>
         </el-form>
+        <el-card
+          v-if="order.shipment"
+          class="shipment-form"
+          data-test="platform-shipment-report"
+        >
+          <template #header>微信平台发货登记</template>
+          <p>
+            请先在微信小程序后台手工录入本包裹的发货信息，再回本页确认。此处只记录员工确认，不调用微信发货 API，也不代表平台回执或确认收货。
+          </p>
+          <el-tag
+            :type="order.shipment.platformReportStatus === 'manual_reported' ? 'success' : 'warning'"
+            data-test="platform-report-status"
+          >
+            {{ platformReportLabels[order.shipment.platformReportStatus] || '登记状态待核实' }}
+          </el-tag>
+          <p v-if="order.shipment.platformReportedAt" data-test="platform-report-time">
+            商城记录时间：{{ timeLabel(order.shipment.platformReportedAt) }}
+          </p>
+          <el-button
+            v-if="can('recordMallPlatformShipmentReport')"
+            data-test="confirm-platform-report"
+            type="primary"
+            :disabled="command.pending.value"
+            @click="platformReportOpen = true"
+          >
+            确认已在微信后台登记
+          </el-button>
+        </el-card>
       </template>
       <el-empty v-else-if="!loading && !error" description="订单暂不可用" />
     </div>
@@ -229,6 +257,31 @@
         </el-button>
       </template>
     </el-dialog>
+    <el-dialog
+      v-model="platformReportOpen"
+      title="确认微信平台发货登记"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :show-close="!command.pending.value"
+    >
+      <p>
+        请确认已在微信小程序后台为当前包裹完成发货信息录入。商城只保存员工声明、时间和包裹版本，不会代你提交到微信平台。
+      </p>
+      <template #footer>
+        <el-button :disabled="command.pending.value" @click="platformReportOpen = false">
+          返回
+        </el-button>
+        <el-button
+          data-test="submit-platform-report"
+          type="primary"
+          :disabled="command.pending.value"
+          :loading="command.busy.value"
+          @click="recordPlatformReport"
+        >
+          确认已完成登记
+        </el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -257,6 +310,12 @@ const cancelReason = ref(''),
 const shipmentForm = ref({ courierCode: '', trackingNo: '' })
 const trackingForm = ref({ courierCode: '', trackingNo: '', reason: '' })
 const shipmentNotice = ref('')
+const platformReportOpen = ref(false)
+const platformReportLabels = {
+  pending: '待登记微信平台发货信息',
+  manual_reported: '已记录员工确认',
+  unknown: '历史登记状态待核实',
+}
 const command = useMallCommand()
 const fulfillmentData = useExpiringSensitiveData((data) => ({
   recipientName: data.recipientName,
@@ -280,13 +339,29 @@ const receiptLabel = computed(
     })[receipt.value?.status] || '进度待核实'
 )
 function can(action) {
-  const permission = ['shipMallOrder', 'correctMallTracking'].includes(action)
+  const permission = [
+    'shipMallOrder',
+    'correctMallTracking',
+    'recordMallPlatformShipmentReport',
+  ].includes(action)
     ? 'mall.shipments.write'
     : 'mall.orders.write'
   return (
     auth.hasPermission(permission) &&
     order.value?.availableActions.includes(action)
   )
+}
+function timeLabel(value) {
+  const date = new Date(value)
+  if (!value || Number.isNaN(date.getTime())) return '时间待核实'
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
 }
 async function load() {
   if (command.pending.value) return
@@ -315,11 +390,14 @@ async function after(result) {
     receipt.value = result
     cancelOpen.value = false
   } else if (operation === 'ship') {
-    shipmentNotice.value = '本地发货事实已登记；微信平台同步和物流轨迹查询尚未启用。'
+    shipmentNotice.value = '本地发货事实已登记；请继续完成微信后台手工登记并核验物流轨迹。'
     shipmentForm.value = { courierCode: '', trackingNo: '' }
   } else if (operation === 'tracking') {
     shipmentNotice.value = '运单已更正；历史出库未重复执行。'
     trackingForm.value = { courierCode: '', trackingNo: '', reason: '' }
+  } else if (operation === 'platform-report') {
+    shipmentNotice.value = '已记录本次包裹的微信后台人工登记确认。'
+    platformReportOpen.value = false
   }
   await load()
 }
@@ -385,6 +463,21 @@ async function correctTracking() {
       courierCode,
       trackingNo,
       reason,
+    })
+  )
+}
+async function recordPlatformReport() {
+  if (
+    !can('recordMallPlatformShipmentReport') ||
+    command.pending.value ||
+    !order.value?.shipment
+  )
+    return
+  operation = 'platform-report'
+  await after(
+    await command.run(api.recordPlatformShipmentReport, {
+      shipmentId: order.value.shipment.id,
+      expectedVersion: order.value.shipment.version,
     })
   )
 }

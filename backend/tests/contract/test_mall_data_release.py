@@ -59,7 +59,7 @@ async def test_enabled_fulfillment_release_is_one_order_no_store_and_rechecks_co
     monkeypatch.setattr(
         settings,
         "mall_data_release_notice_approved_version",
-        "mall-purpose-2026-11-v1",
+        "mall-purpose-2026-11-v2",
         raising=False,
     )
     _, order, _ = await paid_order(db_session, monkeypatch)

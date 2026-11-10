@@ -1,6 +1,6 @@
 # 操作索引
 
-生成自[openapi.json](openapi.json)。当前94路径、106操作、0.8.0契约；本地包裹登记/运单更正/本人确认收货及fake快递100查询缓存已实现，微信后台人工发货登记回填契约已定义、T056待实现，不调用微信发货API；生产/真实物流请求仍受G-LIVE约束。T063/T102的内部单对象原文领取已按宪章4.0.0实现，运行开关等待留存引用/告知审阅版本。买家/后台投影分开，两个微信通知入口仅受宪章3.0.0限定例外覆盖，T048本地实现与隔离回归已完成。不是全量已部署声明。
+生成自[openapi.json](openapi.json)。当前94路径、106操作、0.8.0契约；本地包裹登记/运单更正/本人确认收货及fake快递100查询缓存已实现。微信后台人工发货登记回填由T056实现，记录员工声明、时间和审计，不调用微信发货API；真实账号入口/权限仍由T131核验，生产/真实物流请求仍受G-LIVE约束。T063/T102的内部单对象原文领取已按宪章4.0.0实现，运行开关等待留存引用/告知审阅版本。买家/后台投影分开，两个微信通知入口仅受宪章3.0.0限定例外覆盖，T048本地实现与隔离回归已完成。不是全量已部署声明。
 
 | 方法 | 路径 | 操作 | 权限/身份 | 请求 | data结果 |
 |---|---|---|---|---|---|
@@ -80,7 +80,7 @@
 | POST | `/api/v1/admin/mall/invoice-requests/{requestId}/claim` | 领取开票任务 | `mall.invoices.write` | `VersionAction` | `ResponseInvoiceRequest` |
 | POST | `/api/v1/admin/mall/invoice-requests/{requestId}/needs-info` | 要求补充真实资料 | `mall.invoices.write` | `ReasonAction` | `ResponseInvoiceRequest` |
 | POST | `/api/v1/admin/mall/invoice-requests/{requestId}/record` | 回传实际蓝字开具结果 | `mall.invoices.write` | `InvoiceIssueRecord` | `ResponseInvoice` |
-| PATCH | `/api/v1/admin/mall/invoices/{invoiceId}/file` | 补交同一真实票据文件，不重开 | `mall.invoices.write` | `InvoiceFileReplace` | `ResponseInvoice` |
+| PATCH | `/api/v1/admin/mall/invoices/{invoiceId}/file` | 补交同一发票文件，不重开 | `mall.invoices.write` | `InvoiceFileReplace` | `ResponseInvoice` |
 | POST | `/api/v1/admin/mall/invoices/{invoiceId}/red-record` | 回传关联红字发票 | `mall.invoices.write` | `RedInvoiceRecord` | `ResponseInvoice` |
 | POST | `/api/v1/admin/mall/invoices/{invoiceId}/red-pending` | 登记红冲或对方确认待办 | `mall.invoices.write` | `RedPendingUpdate` | `ResponseInvoice` |
 | POST | `/api/v1/admin/mall/files/upload-ticket` | 受权商品图/票据/对账证据上传 | `mall.files.write` | `UploadRequest` | `ResponseUploadTicket` |

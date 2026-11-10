@@ -24,6 +24,12 @@ def shipment_view(shipment):
             shipment.auto_receive_at.isoformat() + "Z" if shipment.auto_receive_at else None
         ),
         "platformSyncStatus": shipment.platform_sync_status,
+        "platformReportStatus": shipment.platform_report_status,
+        "platformReportedAt": (
+            shipment.platform_reported_at.isoformat() + "Z"
+            if shipment.platform_reported_at
+            else None
+        ),
         "platformConfirmedAt": (
             shipment.platform_confirmed_at.isoformat() + "Z"
             if shipment.platform_confirmed_at

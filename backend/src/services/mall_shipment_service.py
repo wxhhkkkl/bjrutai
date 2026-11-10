@@ -89,6 +89,7 @@ async def ship_order(db, actor, identity, data, *, key):
         auto_receive_at=auto_receive_at,
         shipped_by=actor.actor_id,
         platform_sync_status="not_required",
+        platform_report_status="pending",
         platform_confirmation_status="unknown",
         logistics_provider="kuaidi100",
         logistics_status="pending",
@@ -184,6 +185,8 @@ async def correct_tracking(db, actor, identity, data, *, key):
     shipment.logistics_next_query_at = None
     shipment.logistics_last_error_code = None
     shipment.platform_sync_status = "not_required"
+    shipment.platform_report_status = "pending"
+    shipment.platform_reported_at = None
     shipment.version += 1
     order.version += 1
     await db.flush()
@@ -205,5 +208,76 @@ async def correct_tracking(db, actor, identity, data, *, key):
         },
     )
     await complete_mall_command(db, intent, entity_type="mall_shipment", entity_id=shipment.id)
+    await db.flush()
+    return shipment
+
+
+async def record_platform_shipment_report(db, actor, identity, data, *, key):
+    """Record an administrator's completed manual entry in the WeChat backend."""
+    if actor.actor_type != "admin":
+        raise ForbiddenException(message="仅后台管理员可登记微信平台发货信息")
+    actor = await require_mall_admin_permission(
+        {"sub": str(actor.actor_id), "user_type": "admin"},
+        db,
+        "mall.shipments.write",
+        current=True,
+    )
+    order_id = await db.scalar(select(MallShipment.order_id).where(MallShipment.id == identity))
+    if order_id is None:
+        raise NotFoundException(message="商城包裹不存在")
+    order = await _locked_admin_order(db, order_id)
+    shipment = await db.scalar(
+        select(MallShipment)
+        .where(MallShipment.id == identity, MallShipment.order_id == order.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if shipment is None:
+        raise NotFoundException(message="商城包裹不存在")
+    payload = {"shipmentId": identity, **data.model_dump(mode="json")}
+    replay = await _replay_completed_command(
+        db, actor, "recordMallPlatformShipmentReport", key, payload, MallShipment
+    )
+    if replay is not None:
+        return replay
+    if shipment.version != data.expected_version:
+        raise ConflictException(message="包裹版本已变化，请重新读取订单后办理")
+    if not order.shipped_at:
+        raise ConflictException(message="仅已登记本地出库的包裹可回填微信平台登记状态")
+    if shipment.platform_report_status == "manual_reported":
+        raise ConflictException(message="当前包裹版本已记录微信后台登记状态")
+
+    intent = await reserve_mall_command(
+        db,
+        actor=actor,
+        action="recordMallPlatformShipmentReport",
+        key=key,
+        payload=payload,
+    )
+    if not intent.created:
+        raise ConflictException(message="原登记确认仍在处理中，请查询原请求")
+
+    shipment.platform_report_status = "manual_reported"
+    shipment.platform_reported_at = utc_now()
+    await db.flush()
+    await record_mall_admin_audit(
+        db,
+        actor=actor,
+        action="mall_admin_platform_shipment_reported",
+        entity_type="mall_order",
+        entity_id=str(order.id),
+        detail={
+            "shipmentId": str(shipment.id),
+            "orderVersion": order.version,
+            "shipmentVersion": shipment.version,
+            "platformReportStatus": shipment.platform_report_status,
+        },
+    )
+    await complete_mall_command(
+        db,
+        intent,
+        entity_type="mall_shipment",
+        entity_id=shipment.id,
+    )
     await db.flush()
     return shipment

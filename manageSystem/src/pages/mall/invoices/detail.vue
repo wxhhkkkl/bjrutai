@@ -144,9 +144,9 @@
         </el-card>
 
         <el-card v-if="canClaim" class="action-card">
-          <template #header>领取开票申请</template>
+          <template #header>开始处理申请</template>
           <p>
-            领取后由当前财务人员办理，蓝票回传与资料补充会校验领取归属及申请版本。
+            开始后由当前财务人员负责办理，用于避免重复处理；开具后上传真实发票到本申请，用户即可下载。
           </p>
           <el-button
             data-test="claim-invoice"
@@ -154,7 +154,7 @@
             :disabled="command.pending.value"
             @click="claim"
           >
-            领取办理
+            开始处理
           </el-button>
         </el-card>
 
@@ -181,7 +181,7 @@
           class="action-card"
         >
           <template #header>{{
-            issueForm.replacementForId ? '回传替代蓝票' : '回传实际蓝票'
+            issueForm.replacementForId ? '上传替代发票' : '登记并上传发票'
           }}</template>
           <p v-if="issueForm.replacementForId">
             仅当原蓝票已全额红冲后可重开；金额固定为成功退款后的净实付 ¥{{
@@ -189,11 +189,11 @@
             }}。
           </p>
           <p v-else>
-            按真实税务票据填写票号和主体，金额固定为申请金额；上传PDF完成私有存储校验后才能提交。
+            工作人员录入票面信息、上传PDF并确认后，系统按经办人确认登记为已处理，用户可在同一申请中下载。系统不连接税务平台查验真伪。
           </p>
           <el-form label-position="top" :disabled="command.pending.value">
             <div class="form-grid">
-              <el-form-item label="实际票号"
+              <el-form-item label="票面号码（经办人录入）"
                 ><el-input v-model="issueForm.invoiceNo" maxlength="64"
               /></el-form-item>
               <el-form-item label="开具时间"
@@ -207,7 +207,7 @@
               /></el-form-item>
             </div>
             <label class="file-label"
-              >真实蓝票 PDF
+              >发票 PDF
               <input
                 data-test="blue-file"
                 type="file"
@@ -230,7 +230,7 @@
               data-test="retry-blue-upload"
               :disabled="uploadBusy"
               @click="uploadBlueState"
-              >重试上传/核验</el-button
+              >重试上传/文件校验</el-button
             >
             <el-input
               v-model="issueForm.reason"
@@ -244,13 +244,13 @@
               :disabled="!issueForm.fileId || command.pending.value"
               @click="recordBlue"
             >
-              保存真实蓝票记录
+              确认已开具并上传
             </el-button>
           </el-form>
         </el-card>
 
         <el-card v-if="request.invoices?.length" class="chain-card">
-          <template #header>真实票据链</template>
+          <template #header>发票记录</template>
           <el-table :data="request.invoices" empty-text="暂无票据">
             <el-table-column prop="invoiceNo" label="票号" min-width="190" />
             <el-table-column label="类型" width="90">
@@ -494,16 +494,16 @@ const billingReleaseBusy = ref(false)
 let loadGeneration = 0
 
 const requestStates = {
-  submitted: '待领取',
+  submitted: '待处理',
   needs_info: '待买家补充',
   issuing: '财务办理中',
   unknown: '结果待核实',
-  delivered: '已回传票据',
+  delivered: '已完成（发票已上传）',
   withdrawn: '已撤回',
   closed: '已关闭',
 }
 const invoiceStates = {
-  valid: '有效',
+  valid: '已登记（经办人确认）',
   red_pending: '待红冲',
   awaiting_counterparty: '待对方确认',
   partially_red: '部分红冲',
@@ -675,7 +675,7 @@ async function claim() {
       id: props.id,
       expectedVersion: request.value.version,
     }),
-    '已领取开票申请。'
+    '已开始处理该申请。'
   )
 }
 async function releaseBillingData() {
@@ -797,7 +797,7 @@ async function recordBlue() {
     !issueForm.issuedAt ||
     !issueForm.sellerIdentity.trim()
   ) {
-    error.value = '请填写真实票号、开具时间和销售主体'
+    error.value = '请填写票面号码、开具时间和销售主体'
     return
   }
   const result = await command.run(api.recordMallInvoice, {
@@ -815,7 +815,9 @@ async function recordBlue() {
   })
   await afterCommand(
     result,
-    issueForm.replacementForId ? '已回传替代蓝票事实。' : '已保存实际蓝票事实。'
+    issueForm.replacementForId
+      ? '已登记替代发票，用户可在申请中下载。'
+      : '已确认并登记发票，用户可在申请中下载。'
   )
   if (result)
     Object.assign(issueForm, {

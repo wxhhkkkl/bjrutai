@@ -28,6 +28,7 @@ ADMIN_COMMAND_PERMISSIONS: dict[str, str] = {
     "releaseMallFulfillment": "mall.fulfillment.release",
     "correctMallTracking": "mall.shipments.write",
     "syncMallShipment": "mall.shipments.write",
+    "recordMallPlatformShipmentReport": "mall.shipments.write",
     "decideMallAftersale": "mall.aftersales.review",
     "receiveMallReturn": "mall.returns.receive",
     "executeMallRefund": "mall.refunds.execute",

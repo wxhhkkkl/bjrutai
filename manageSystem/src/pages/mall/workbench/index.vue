@@ -142,6 +142,14 @@ const taskDefinitions = [
     route: '/mall/orders',
   },
   {
+    key: 'pendingPlatformReport',
+    label: '待登记微信平台发货',
+    hint: '本地已出库，员工尚未确认微信后台人工录入',
+    visible: () => auth.hasPermission('mall.shipments.write'),
+    link: () => auth.hasPermission('mall.orders.read'),
+    route: '/mall/orders?pendingPlatformReport=true',
+  },
+  {
     key: 'pendingAftersale',
     label: '待处理售后',
     hint: '新申请或进入争议处理的售后单',

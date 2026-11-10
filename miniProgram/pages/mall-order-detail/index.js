@@ -50,13 +50,11 @@ function viewOrder(order) {
   const refunded = (Number(order && order.refundedGoodsCent) || 0) + (Number(order && order.refundedFreightCent) || 0)
   const netPaidCent = Math.max(0, paid - refunded)
   const canApplyInvoice = order && order.paymentStatus === 'succeeded' && netPaidCent > 0 && !/^[1-9][0-9]*$/.test(invoiceRequestId)
-  const platformStatus = shipment && shipment.platformSyncStatus
-  const platformSyncLabels = {
-    not_required: '平台同步不适用',
-    pending: '平台发货同步待处理',
-    succeeded: '平台已确认发货',
-    failed: '平台发货同步失败',
-    unknown: '平台发货状态待核实'
+  const platformStatus = shipment && shipment.platformReportStatus
+  const platformReportLabels = {
+    pending: '商家待登记微信平台发货信息',
+    manual_reported: '商家已登记微信平台发货信息',
+    unknown: '微信平台登记状态待核实'
   }
   return {
     ...order,
@@ -85,7 +83,7 @@ function viewOrder(order) {
       regionLabel: Array.isArray(address.regionNames) ? address.regionNames.filter(Boolean).join(' ') : '',
       addressLineLabel: address.addressMasked || '详细地址已保存'
     },
-    shipment: shipment ? { ...shipment, platformSyncLabel: platformSyncLabels[platformStatus] || '平台发货状态待核实' } : null,
+    shipment: shipment ? { ...shipment, platformReportLabel: platformReportLabels[platformStatus] || '微信平台登记状态待核实' } : null,
     items: Array.isArray(order && order.items) ? order.items.map((item) => ({
       ...item,
       unitPriceText: money(item.unitPriceCent),

@@ -21,14 +21,13 @@
         <view class="mall-section-heading"><text>补充资料</text><text class="mall-required">必填项请重新填写</text></view>
         <label id="mall-field-supplementTitle" class="mall-form-field"><text class="mall-form-field__label">发票抬头</text><input class="mall-invoice-input" value="{{supplementTitle}}" bindinput="onTitleInput" maxlength="200" placeholder="请核对并填写抬头" focus="{{focusField === 'supplementTitle'}}" adjust-position="true" cursor-spacing="80" /></label>
         <label wx:if="{{request.buyerType === 'company'}}" id="mall-field-supplementTaxNo" class="mall-form-field"><text class="mall-form-field__label">纳税人识别号<text class="mall-required"> *</text></text><input class="mall-invoice-input" value="{{supplementTaxNo}}" bindinput="onTaxNoInput" maxlength="32" placeholder="请重新输入企业税号" focus="{{focusField === 'supplementTaxNo'}}" adjust-position="true" cursor-spacing="80" /></label>
-        <label id="mall-field-supplementEmail" class="mall-form-field"><text class="mall-form-field__label">交付邮箱<text class="mall-optional">如需变更请填写</text></text><input class="mall-invoice-input" value="{{supplementEmail}}" bindinput="onEmailInput" maxlength="254" placeholder="用于电子票交付；留空时保留原资料" focus="{{focusField === 'supplementEmail'}}" adjust-position="true" cursor-spacing="80" /></label>
         <view class="mall-invoice-purpose"><text class="mall-invoice-purpose__title">{{purposeNotice.title}}</text><text>{{purposeNotice.body}}</text><text class="mall-invoice-purpose__version">用途告知版本：{{policyVersion || '未配置'}} · 文案版本：{{purposeNotice.version}}</text></view>
         <view id="mall-field-supplementConsent" class="mall-invoice-consent tap-target" bindtap="toggleSupplementConsent" hover-class="tap-feedback"><view class="mall-invoice-choice__mark {{supplementConsentConfirmed ? 'mall-invoice-choice__mark--selected' : ''}}">{{supplementConsentConfirmed ? '✓' : ''}}</view><text>我已阅读并确认补充资料用途</text></view>
-        <text class="mall-field-helper">提交后申请回到财务处理队列；邮箱通知不等同于税务出票。</text>
+        <text class="mall-field-helper">提交后申请回到后台处理队列；上传完成后可在本页下载发票。</text>
         <button class="mall-primary-button mall-invoice-action tap-target" bindtap="submitSupplement" loading="{{submittingSupplement}}" disabled="{{submittingSupplement || !supplementConsentConfirmed || !policyVersion}}" hover-class="tap-feedback">提交补充资料</button>
       </view>
       <view wx:if="{{invoices.length}}" class="mall-invoice-section">
-        <view class="mall-section-heading"><text>真实票据链</text><text class="mall-muted">蓝票、红票和重开分别留痕</text></view>
+        <view class="mall-section-heading"><text>发票文件</text><text class="mall-muted">工作人员上传后可在这里下载</text></view>
         <view wx:for="{{invoices}}" wx:key="id" class="mall-ticket-card">
           <view class="mall-ticket-card__top"><view><text class="mall-ticket-card__chain">{{item.chainLabel}}</text><text class="mall-ticket-card__number">票号 {{item.invoiceNo}}</text></view><text class="mall-ticket-card__kind {{item.kind === 'red' ? 'mall-ticket-card__kind--red' : ''}}">{{item.kindLabel}}</text></view>
           <view class="mall-ticket-card__meta"><text>销售主体</text><text>{{item.sellerIdentity || '按实际经营主体开具'}}</text></view>
@@ -37,7 +36,7 @@
           <view wx:if="{{item.originalInvoiceId}}" class="mall-ticket-card__meta"><text>关联原蓝票</text><text>{{item.originalInvoiceId}}</text></view>
           <view wx:if="{{item.replacementForId}}" class="mall-ticket-card__meta"><text>重开来源</text><text>{{item.replacementForId}}</text></view>
           <view class="mall-ticket-card__actions">
-            <button wx:if="{{item.canDownload}}" class="mall-ticket-link tap-target" bindtap="downloadInvoice" data-invoice-id="{{item.id}}" data-file-id="{{item.fileId}}" loading="{{downloadingInvoiceId === item.id}}" disabled="{{downloadingInvoiceId}}" hover-class="tap-feedback">{{downloadingInvoiceId === item.id ? '正在获取票据' : '查看PDF票据'}}</button>
+            <button wx:if="{{item.canDownload}}" class="mall-ticket-link tap-target" bindtap="downloadInvoice" data-invoice-id="{{item.id}}" data-file-id="{{item.fileId}}" loading="{{downloadingInvoiceId === item.id}}" disabled="{{downloadingInvoiceId}}" hover-class="tap-feedback">{{downloadingInvoiceId === item.id ? '正在获取票据' : '下载发票'}}</button>
             <button wx:if="{{item.canCorrect}}" class="mall-ticket-correct tap-target" bindtap="startCorrection" data-invoice-id="{{item.id}}" hover-class="tap-feedback">申请更正</button>
           </view>
           <view wx:if="{{correctionInvoiceId === item.id}}" class="mall-correction-form">
@@ -48,12 +47,12 @@
         <text wx:if="{{downloadMessage}}" class="mall-inline-message">{{downloadMessage}}</text>
         <text wx:if="{{correctionMessage}}" class="mall-inline-message">{{correctionMessage}}</text>
       </view>
-      <view wx:else class="mall-invoice-section mall-invoice-empty-chain"><view class="mall-section-heading"><text>真实票据链</text></view><text class="mall-muted">暂未登记实际开具的票据。申请状态不代表税务系统已出票。</text></view>
+      <view wx:else class="mall-invoice-section mall-invoice-empty-chain"><view class="mall-section-heading"><text>发票文件</text></view><text class="mall-muted">工作人员完成开具并上传后，发票会显示在这里供你下载。</text></view>
       <view wx:if="{{request.canWithdraw}}" class="mall-invoice-section">
         <button wx:if="{{!showWithdrawForm}}" class="mall-ticket-correct mall-withdraw-start tap-target" bindtap="startWithdraw" hover-class="tap-feedback">撤回开票申请</button>
         <view wx:if="{{showWithdrawForm}}" class="mall-withdraw-form"><text class="mall-form-field__label">撤回原因</text><textarea id="mall-field-withdrawReason" class="mall-invoice-textarea" value="{{withdrawReason}}" bindinput="onWithdrawReasonInput" maxlength="500" auto-height="{{true}}" placeholder="请填写撤回原因" focus="{{focusField === 'withdrawReason'}}" adjust-position="true" cursor-spacing="80" /><button class="mall-primary-button mall-invoice-action tap-target" bindtap="submitWithdraw" loading="{{submittingWithdraw}}" disabled="{{submittingWithdraw}}" hover-class="tap-feedback">确认撤回</button></view>
       </view>
-      <view class="mall-invoice-disclaimer"><text>申请、邮箱通知、财务待办和实际税务出票是不同事实；请以票据链中的真实票据为准。</text></view>
+      <view class="mall-invoice-disclaimer"><text>申请提交后由后台人工处理；只有真实发票上传到本申请后，才会提供下载。</text></view>
       <text wx:if="{{stateMessage}}" id="mall-field-error-message" class="mall-inline-message" aria-role="alert">{{stateMessage}}</text>
     </block>
   </scroll-view>

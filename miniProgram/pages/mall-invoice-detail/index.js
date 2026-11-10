@@ -12,7 +12,7 @@ const REQUEST_LABELS = {
   needs_info: '待补充资料',
   issuing: '开票处理中',
   unknown: '开票结果核实中',
-  delivered: '已出票，可查看票据',
+  delivered: '已处理，可下载',
   withdrawn: '申请已撤回',
   closed: '申请已关闭'
 }
@@ -97,7 +97,7 @@ function openPdf(filePath) {
 Page({
   data: {
     requestId: '', request: null, invoices: [], state: 'loading', stateMessage: '', focusField: '', errorTarget: '',
-    supplementTitle: '', supplementTaxNo: '', supplementEmail: '', submittingSupplement: false,
+    supplementTitle: '', supplementTaxNo: '', submittingSupplement: false,
     policyVersion: '', purposeNotice: getMallPurposeNotice('invoice'), supplementConsentConfirmed: false,
     correctionInvoiceId: '', correctionReason: '', correctionMessage: '', submittingCorrection: false,
     showWithdrawForm: false, withdrawReason: '', submittingWithdraw: false,
@@ -130,7 +130,7 @@ Page({
       const request = normalizeRequest(requestValue)
       this.setData({
         state: 'success', request, invoices: request.invoices,
-        supplementTitle: request.title || '', supplementTaxNo: '', supplementEmail: '', stateMessage: '',
+        supplementTitle: request.title || '', supplementTaxNo: '', stateMessage: '',
         policyVersion: settings && settings.policyVersion || '', supplementConsentConfirmed: false
       })
     } catch (error) {
@@ -147,7 +147,6 @@ Page({
   retry() { return this.loadRequest() },
   onTitleInput(event) { this.setData({ supplementTitle: String(event.detail && event.detail.value || '').slice(0, 200), stateMessage: '', focusField: '', errorTarget: '' }) },
   onTaxNoInput(event) { this.setData({ supplementTaxNo: String(event.detail && event.detail.value || '').trim().slice(0, 32).toUpperCase(), stateMessage: '', focusField: '', errorTarget: '' }) },
-  onEmailInput(event) { this.setData({ supplementEmail: String(event.detail && event.detail.value || '').trim().slice(0, 254), stateMessage: '', focusField: '', errorTarget: '' }) },
   toggleSupplementConsent() { this.setData({ supplementConsentConfirmed: !this.data.supplementConsentConfirmed, stateMessage: '', focusField: '', errorTarget: '' }) },
 
   async submitSupplement() {
@@ -159,19 +158,16 @@ Page({
     }
     const title = String(this.data.supplementTitle || '').trim()
     const taxNo = String(this.data.supplementTaxNo || '').trim().toUpperCase()
-    const email = String(this.data.supplementEmail || '').trim()
     if (!title) { setMallFormError(this, '请填写发票抬头', { field: 'supplementTitle' }); return }
     if (request.buyerType === 'company' && !/^[A-Za-z0-9]{8,32}$/.test(taxNo)) {
       setMallFormError(this, '企业抬头请重新填写纳税人识别号', { field: 'supplementTaxNo' })
       return
     }
     if (request.buyerType === 'personal' && taxNo) { setMallFormError(this, '个人抬头无需填写纳税人识别号', { field: 'supplementTaxNo' }); return }
-    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setMallFormError(this, '邮箱格式不正确', { field: 'supplementEmail' }); return }
     const changes = {
       expectedVersion: request.version,
       title,
       ...(request.buyerType === 'company' ? { taxNo } : {}),
-      ...(email ? { email } : {}),
       consentVersion: this.data.policyVersion,
       consentConfirmed: true
     }
@@ -183,8 +179,8 @@ Page({
       const updated = normalizeRequest(await invoiceService.updateMallInvoiceRequest(request.id, changes, key))
       this.supplementKeyManager.markSucceeded(flowId)
       this.setData({
-        request: updated, invoices: updated.invoices, supplementTaxNo: '', supplementEmail: '', supplementConsentConfirmed: false,
-        stateMessage: '资料已补交，申请已回到财务处理队列。'
+        request: updated, invoices: updated.invoices, supplementTaxNo: '', supplementConsentConfirmed: false,
+        stateMessage: '资料已提交，后台会继续处理。'
       })
     } catch (error) {
       if (error && ['VALIDATION', 'AUTH', 'FORBIDDEN', 'NOT_FOUND', 'CONFLICT'].includes(error.kind)) this.supplementKeyManager.markFailed(flowId)

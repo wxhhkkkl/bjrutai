@@ -95,13 +95,13 @@ unique(out_refund_no)、unique(channel_refund_id)，index(status,last_query_at)�
 
 id,order_id unique,courier_code,tracking_no,shipped_at,auto_receive_at nullable for legacy rows,shipped_by,version,platform_report_status pending/manual_reported/unknown,platform_reported_at nullable,platform_confirmation_status,platform_confirmed_at。
 
-包裹变更进审计及任务版本，不能新建第二包裹重复发货。平台登记状态表示员工是否已在微信小程序后台手工录入，人工登记时间与操作者审计和平台确认收货独立；运单更正将其重置为pending。任务以shipment_id+version去重，旧版本任务不得覆盖新运单。auto_receive_at在本地出库登记时按订单冻结的autoReceiveDays计算；老行保留null，不从当前商城设置推算。029只增该字段，自动收货任务仍按包裹版本防重。
+包裹变更进审计及任务版本，不能新建第二包裹重复发货。迁移038为platform_report_status增加受约束的枚举值和索引，并增加platform_reported_at；旧platform_sync_*列暂时保留为兼容字段，不再代表本地人工登记结果。平台登记状态表示员工是否已在微信小程序后台手工录入，人工登记时间与操作者审计和平台确认收货独立；运单更正将其重置为pending。任务以shipment_id+version去重，旧版本任务不得覆盖新运单。auto_receive_at在本地出库登记时按订单冻结的autoReceiveDays计算；老行保留null，不从当前商城设置推算。029只增该字段，自动收货任务仍按包裹版本防重。
 
 ## 5. 票据、文件、消费与配置（5表）
 
 | 表 | 主要字段 | 约束 |
 |---|---|---|
-| `mall_invoice_requests` | id,request_no,order_id,buyer_user_id,nullable consent_record_id,buyer_type personal/company,title,tax_no,email nullable,invoice_type,requested_goods_cent,requested_freight_cent,source_order_version,status,active_slot,claimed_by,claimed_at,version | unique(request_no)、unique(order_id,active_slot)，在途slot=1；`consent_record_id`引用最近一次明确开票用途确认，旧申请可为空，历史确认仍在consent_records保留；金额不可任填；一单一有效标准申请 |
+| `mall_invoice_requests` | id,request_no,order_id,buyer_user_id,nullable consent_record_id,buyer_type personal/company,title,tax_no,email nullable (legacy),invoice_type,requested_goods_cent,requested_freight_cent,source_order_version,status,active_slot,claimed_by,claimed_at,version | unique(request_no)、unique(order_id,active_slot)，在途slot=1；`consent_record_id`引用最近一次明确开票用途确认，旧申请可为空，历史确认仍在consent_records保留；当前小程序不采集邮箱，数据库字段保留兼容历史申请；金额不可任填；一单一有效标准申请 |
 | `mall_invoices` | id,request_id,order_id,kind blue/red,invoice_no,issued_at,total_cent,seller_snapshot JSON,file_id,status,original_invoice_id nullable,replacement_for_id nullable,issued_by,recorded_by,version | unique(seller_identity,invoice_no)（seller_identity另列稳定字符串，不只JSON）；red必须关联blue，金额覆盖原票剩余；全冲重开不删历史 |
 | `mall_files` | id,object_key,purpose product_image/aftersale_proof/invoice_pdf/reconciliation_evidence/finance_export/attribution_evidence/performance_adjustment_evidence,owner_actor_type,owner_actor_id,order_id nullable,invoice_id nullable,mime,size,sha256,status uploading/verified/bound/rejected,expires_at | unique(object_key)；归属凭证仅后台核实权限可用；对账证据CSV/XLSX/PDF/JPG/PNG≤10MB；归属/绩效补证JPG/PNG/PDF≤10MB；票据PDF≤10MB、售后凭证JPG/PNG≤5MB；HEAD真实校验，生产缺凭据失败，signed URL不落库 |
 | `mall_consumptions` | id,order_id unique,buyer_user_id,customer_id nullable,attributed_distributor_id nullable,trade_org_id nullable,name snapshots,paid_at,business_period,original_goods_cent,successful_goods_refund_cent,performance_base_cent,status unassigned/paid/partially_refunded/refunded,source_version,attribution_evidence JSON | index(distributor_id,business_period,id)、(customer_id,paid_at,id)、(status,paid_at,id)；部分退base=original，全商品退base=0；无客户不造Bill |

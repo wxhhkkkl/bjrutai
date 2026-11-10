@@ -18,7 +18,12 @@ class InvoiceCreate(CatalogInput):
     buyer_type: Literal["personal", "company"]
     title: str = Field(min_length=1, max_length=200)
     tax_no: str | None = Field(default=None, max_length=32)
-    email: str | None = Field(default=None, max_length=254)
+    email: str | None = Field(
+        default=None,
+        max_length=254,
+        deprecated=True,
+        description="兼容历史客户端的可选字段；当前小程序不再采集邮箱，用户在申请详情下载发票。",
+    )
     invoice_type: Literal["digital_normal", "manual_special_request"]
     consent_version: str = Field(min_length=1, max_length=128)
     consent_confirmed: bool
@@ -48,7 +53,12 @@ class InvoicePatch(CatalogInput):
     expected_version: int = Field(ge=1)
     title: str | None = Field(default=None, min_length=1, max_length=200)
     tax_no: str | None = Field(default=None, max_length=32)
-    email: str | None = Field(default=None, max_length=254)
+    email: str | None = Field(
+        default=None,
+        max_length=254,
+        deprecated=True,
+        description="兼容历史客户端的可选字段；当前小程序不再采集邮箱，用户在申请详情下载发票。",
+    )
     consent_version: str = Field(min_length=1, max_length=128)
     consent_confirmed: bool
 

@@ -17,5 +17,9 @@ export const releaseFulfillment = ({ id, ...body }, key) =>
     .then(unwrap)
 export const correctTracking = ({ shipmentId, ...body }, key) =>
   http.patch(`/admin/mall/shipments/${shipmentId}`, body, headers(key)).then(unwrap)
+export const recordPlatformShipmentReport = ({ shipmentId, ...body }, key) =>
+  http
+    .post(`/admin/mall/shipments/${shipmentId}/platform-report`, body, headers(key))
+    .then(unwrap)
 export const getCommand = (id) =>
   http.get(`/admin/mall/commands/${id}`).then(unwrap)

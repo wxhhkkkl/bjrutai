@@ -103,7 +103,7 @@ test('order detail uses backend actions, confirms receipt once and opens the log
     paymentStatus: 'succeeded', payableAmountCent: 990, goodsAmountCent: 990,
     freightAmountCent: 0, items: [{ productName: '健康商品', optionsText: '标准装', quantity: 1, unitPriceCent: 990 }],
     address: { recipientName: '买家', phoneMasked: '138****8000', addressMasked: '详细地址已保存' },
-    shipment: { id: '9', courierCode: 'zto', trackingNo: '1234567890', platformSyncStatus: 'unknown', version: 2 },
+    shipment: { id: '9', courierCode: 'zto', trackingNo: '1234567890', platformReportStatus: 'manual_reported', version: 2 },
     availableActions: ['confirmMallReceipt'], timeline: []
   }
   const service = {
@@ -120,6 +120,7 @@ test('order detail uses backend actions, confirms receipt once and opens the log
     await flush()
     assert.equal(fixture.page.data.order.status, 'pending_receipt')
     assert.equal(fixture.page.data.order.amountText, '9.90')
+    assert.equal(fixture.page.data.order.shipment.platformReportLabel, '商家已登记微信平台发货信息')
     fixture.page.openLogistics()
     assert.deepEqual(fixture.navigation.at(-1), ['navigateTo', '/pages/mall-logistics/index?id=31'])
     await fixture.page.confirmReceipt()

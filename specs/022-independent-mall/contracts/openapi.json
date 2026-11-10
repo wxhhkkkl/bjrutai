@@ -2886,6 +2886,14 @@
               "type": "string",
               "format": "date-time"
             }
+          },
+          {
+            "name": "pendingPlatformReport",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "true筛选待登记/历史状态未知包裹；false筛选已人工登记包裹"
           }
         ],
         "x-permission": "mall.orders.read"
@@ -4562,7 +4570,7 @@
     "/api/v1/admin/mall/invoice-requests/{requestId}/record": {
       "post": {
         "operationId": "recordMallInvoice",
-        "summary": "回传实际蓝字开具结果",
+        "summary": "登记经办人确认的蓝字开票结果",
         "tags": [
           "admin"
         ],
@@ -4631,7 +4639,7 @@
     "/api/v1/admin/mall/invoices/{invoiceId}/file": {
       "patch": {
         "operationId": "replaceMallInvoiceFile",
-        "summary": "补交同一真实票据文件，不重开",
+        "summary": "补交同一发票文件，不重开",
         "tags": [
           "admin"
         ],
@@ -7769,6 +7777,18 @@
                 "type": "null"
               }
             ]
+          },
+          "platformSyncStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "succeeded",
+              "failed",
+              "not_required",
+              "unknown"
+            ],
+            "deprecated": true,
+            "description": "兼容字段，仅表示旧自动同步状态；微信人工登记以platformReportStatus为准"
           }
         },
         "required": [
@@ -7778,7 +7798,8 @@
           "autoReceiveAt",
           "platformReportStatus",
           "version",
-          "platformReportedAt"
+          "platformReportedAt",
+          "platformSyncStatus"
         ],
         "additionalProperties": false
       },
@@ -8865,7 +8886,9 @@
           },
           "email": {
             "type": "string",
-            "format": "email"
+            "format": "email",
+            "deprecated": true,
+            "description": "兼容历史客户端的可选字段；当前小程序不再采集邮箱，用户在申请详情下载发票。"
           },
           "invoiceType": {
             "type": "string",
@@ -8912,7 +8935,9 @@
           },
           "email": {
             "type": "string",
-            "format": "email"
+            "format": "email",
+            "deprecated": true,
+            "description": "兼容历史客户端的可选字段；当前小程序不再采集邮箱，用户在申请详情下载发票。"
           },
           "consentVersion": {
             "minLength": 1,
@@ -10020,6 +10045,10 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "pendingPlatformReport": {
+            "type": "integer",
+            "minimum": 0
           }
         },
         "required": [
@@ -10027,7 +10056,8 @@
           "pendingAftersale",
           "pendingInvoice",
           "paidTodayCent",
-          "refundedTodayCent"
+          "refundedTodayCent",
+          "pendingPlatformReport"
         ],
         "additionalProperties": false
       },

@@ -8,7 +8,7 @@ permissions or override the G-DATA gate.
 from ..core.exceptions import ConflictException, ForbiddenException, ValidationException
 from ..models.consent import ConsentRecord, ConsentScene, EvidenceType, SubjectType
 
-MALL_NOTICE_COPY_VERSION = "mall-purpose-2026-11-v1"
+MALL_NOTICE_COPY_VERSION = "mall-purpose-2026-11-v2"
 
 PURPOSE_SCENES = {
     "recipient": ConsentScene.MALL_ADDRESS,
@@ -52,9 +52,9 @@ MALL_PURPOSE_NOTICE_DRAFTS = {
     "invoice": {
         "title": "商城发票资料用途说明",
         "body": (
-            "发票抬头、企业税号和选填邮箱用于核验交易、办理真实交易发票、交付电子票据，"
-            "以及处理票据更正或红冲。税号仅在企业抬头时收集；邮箱仅在填写后用于电子票交付。"
-            "开票申请、邮箱通知和实际出票分别记录。申请撤回后，"
+            "发票抬头和企业税号用于核验交易及办理真实交易发票；税号仅在企业抬头时收集。"
+            "当前小程序不收集交付邮箱，也不自动邮件发送。工作人员在现有税务平台开具后，"
+            "将票据上传到申请，用户可在商城查看进度并下载。申请状态和实际出票分别记录；申请撤回后，"
             "依法必须留存的交易与财税记录仍按适用期限保存。"
         ),
     },

@@ -30,6 +30,16 @@
           />
         </el-select>
       </el-form-item>
+      <el-form-item label="微信平台登记">
+        <el-select
+          v-model="filters.pendingPlatformReport"
+          clearable
+          placeholder="全部"
+          style="width: 190px"
+        >
+          <el-option label="待登记" value="true" />
+        </el-select>
+      </el-form-item>
       <el-form-item label="下单时间">
         <el-date-picker
           v-model="filters.range"
@@ -100,12 +110,13 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { listOrders } from '@/api/mall-orders'
 import { money, time, orderStates, paymentStates } from './order-view'
 
 const router = useRouter()
-const filters = reactive({ orderNo: '', status: '', range: [] })
+const route = useRoute()
+const filters = reactive({ orderNo: '', status: '', range: [], pendingPlatformReport: '' })
 const items = ref([]),
   total = ref(0),
   loading = ref(false),
@@ -151,6 +162,7 @@ async function search() {
   applied = {
     ...(filters.orderNo.trim() ? { orderNo: filters.orderNo.trim() } : {}),
     ...(filters.status ? { status: filters.status } : {}),
+    ...(filters.pendingPlatformReport === 'true' ? { pendingPlatformReport: true } : {}),
     ...(range.length
       ? { from: range[0].toISOString(), to: range[1].toISOString() }
       : {}),
@@ -170,7 +182,13 @@ async function previous() {
   cursor.value = history.value.pop()
   await load()
 }
-onMounted(load)
+onMounted(() => {
+  if (route.query.pendingPlatformReport === 'true') {
+    filters.pendingPlatformReport = 'true'
+    applied = { pendingPlatformReport: true }
+  }
+  load()
+})
 </script>
 <style scoped>
 .mall-page {

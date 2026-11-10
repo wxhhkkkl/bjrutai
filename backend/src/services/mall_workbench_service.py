@@ -11,7 +11,7 @@ from ..models.mall_base import utc_now
 from ..models.mall_catalog import MallProduct, MallSku
 from ..models.mall_consumption import MallConsumption
 from ..models.mall_finance import MallInvoice, MallInvoiceRequest, MallPayment, MallRefund
-from ..models.mall_trade import MallAftersale, MallOrder
+from ..models.mall_trade import MallAftersale, MallOrder, MallShipment
 
 _UNKNOWN_FUNDS_DELAY = timedelta(minutes=10)
 _BEIJING = ZoneInfo("Asia/Shanghai")
@@ -66,6 +66,7 @@ async def get_mall_workbench(
     day_start, day_end = _beijing_day_range(instant)
     summary = {
         "pendingShipment": 0,
+        "pendingPlatformReport": 0,
         "pendingAftersale": 0,
         "pendingReturnReceipt": 0,
         "paymentUnknown": 0,
@@ -85,6 +86,14 @@ async def get_mall_workbench(
             select(func.count())
             .select_from(MallOrder)
             .where(MallOrder.status == "pending_shipment"),
+        )
+
+    if "mall.shipments.write" in actor.permissions:
+        summary["pendingPlatformReport"] = await _count(
+            db,
+            select(func.count())
+            .select_from(MallShipment)
+            .where(MallShipment.platform_report_status.in_({"pending", "unknown"})),
         )
 
     if _has(actor, "mall.aftersales.read", "mall.aftersales.review"):

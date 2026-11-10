@@ -12,6 +12,7 @@ from tests.unit.test_mall_payment_service import payable
 
 WORKBENCH_FIELDS = {
     "pendingShipment",
+    "pendingPlatformReport",
     "pendingAftersale",
     "pendingReturnReceipt",
     "paymentUnknown",

@@ -89,11 +89,11 @@ import { useRouter } from 'vue-router'
 import { listAdminMallInvoiceRequests } from '@/api/mall-invoices'
 
 const requestStates = {
-  submitted: '待领取',
+  submitted: '待处理',
   needs_info: '待买家补充',
   issuing: '财务办理中',
   unknown: '结果待核实',
-  delivered: '已回传票据',
+  delivered: '已完成（发票已上传）',
   withdrawn: '已撤回',
   closed: '已关闭',
 }

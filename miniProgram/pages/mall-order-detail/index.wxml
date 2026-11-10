@@ -25,7 +25,7 @@
       <view wx:if="{{order.shipment}}" class="mall-detail-card mall-shipment-card tap-target" bindtap="openLogistics" hover-class="tap-feedback">
         <view class="mall-detail-card__heading"><van-icon name="logistics" size="19px" color="#27645B" /><text>物流信息</text><van-icon class="mall-heading-arrow" name="arrow" size="16px" color="#A1AAA4" /></view>
         <text class="mall-shipment-card__line">{{order.shipment.courierCode}} · {{order.shipment.trackingNo}}</text>
-        <text class="mall-shipment-card__status">{{order.shipment.platformSyncLabel}}</text>
+        <text class="mall-shipment-card__status">{{order.shipment.platformReportLabel}}</text>
         <text class="mall-shipment-card__hint">查看快递100轨迹与更新时间</text>
       </view>
       <view class="mall-detail-card mall-amount-card">

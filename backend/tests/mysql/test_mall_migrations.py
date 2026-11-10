@@ -112,6 +112,8 @@ async def test_mall_revisions_create_constrained_schema_without_legacy_backfill(
         assert schema["order_columns"]["close_requested_at"]["nullable"]
         assert schema["order_columns"]["close_request_reason"]["nullable"]
         assert schema["shipment_columns"]["auto_receive_at"]["nullable"]
+        assert not schema["shipment_columns"]["platform_report_status"]["nullable"]
+        assert schema["shipment_columns"]["platform_reported_at"]["nullable"]
         assert schema["address_columns"]["region_names"]["nullable"]
         for column in ("computed_revision", "input_digest", "evidence_version"):
             assert schema["settlement_columns"][column]["nullable"]
@@ -120,7 +122,7 @@ async def test_mall_revisions_create_constrained_schema_without_legacy_backfill(
         assert ("settlement_id", "distributor_id", "rule_type") in schema["evidence_uniques"]
         assert {"ck_mall_order_total", "ck_mall_order_refund"} <= schema["order_checks"]
         assert "ck_mall_file_purpose" in schema["file_checks"]
-        assert await connection.scalar(text("SELECT version_num FROM alembic_version")) == "037"
+        assert await connection.scalar(text("SELECT version_num FROM alembic_version")) == "038"
         assert isinstance(
             schema["gateway_columns"]["payload_ciphertext"]["type"], MEDIUMBLOB
         )

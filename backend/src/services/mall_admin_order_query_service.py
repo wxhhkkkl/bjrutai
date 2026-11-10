@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from ..core.exceptions import ValidationException
 from ..models.audit import AuditLog
-from ..models.mall_trade import MallOrder
+from ..models.mall_trade import MallOrder, MallShipment
 from ..models.user import User
 from .mall_admin_order_service import admin_order
 from .mall_audit_service import record_mall_admin_audit
@@ -39,6 +39,7 @@ async def list_admin_orders(
     page_size=20,
     status=None,
     order_no=None,
+    pending_platform_report=None,
     from_time=None,
     to_time=None,
 ):
@@ -50,6 +51,22 @@ async def list_admin_orders(
         query = query.where(MallOrder.status == status)
     if order_no:
         query = query.where(MallOrder.order_no == order_no)
+    if pending_platform_report is True:
+        query = query.where(
+            MallOrder.id.in_(
+                select(MallShipment.order_id).where(
+                    MallShipment.platform_report_status.in_({"pending", "unknown"})
+                )
+            )
+        )
+    elif pending_platform_report is False:
+        query = query.where(
+            MallOrder.id.in_(
+                select(MallShipment.order_id).where(
+                    MallShipment.platform_report_status == "manual_reported"
+                )
+            )
+        )
     if start:
         query = query.where(MallOrder.created_at >= start)
     if end:
@@ -58,6 +75,7 @@ async def list_admin_orders(
         {
             "status": status,
             "orderNo": order_no,
+            "pendingPlatformReport": pending_platform_report,
             "from": start.isoformat() if start else None,
             "to": end.isoformat() if end else None,
         }
@@ -119,6 +137,11 @@ async def get_admin_order(db, actor, identity):
             result["availableActions"].append("shipMallOrder")
         if order.status == "pending_receipt" and result["shipment"]:
             result["availableActions"].append("correctMallTracking")
+        if (
+            result["shipment"]
+            and result["shipment"]["platformReportStatus"] != "manual_reported"
+        ):
+            result["availableActions"].append("recordMallPlatformShipmentReport")
     notes = (
         await db.scalars(
             select(AuditLog)
