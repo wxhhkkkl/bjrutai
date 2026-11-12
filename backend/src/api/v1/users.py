@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_current_user, get_db
 from ...core.exceptions import BadRequestException, ConflictException, NotFoundException
 from ...integrations.cos_client import ALLOWED_CONTENT_TYPES, COSClient, get_cos_client
+from ...models.binding import Customer
 from ...models.distributor import Distributor
 from ...models.organization import Organization
 from ...models.user import User
@@ -120,10 +121,18 @@ async def update_profile(
                 code=40901,
             )
 
-    if body.name is not None:
-        user.name = body.name
     if body.organization is not None:
         raise BadRequestException(message="所属机构由系统维护，无法手动修改")
+    if body.name is not None:
+        user.name = body.name
+        customer_result = await db.execute(
+            select(Customer).where(Customer.user_id == user.id).with_for_update()
+        )
+        customer = customer_result.scalars().first()
+        if customer is not None and customer.name != body.name:
+            customer.name = body.name
+            customer.version += 1
+            db.add(customer)
     if body.avatar is not None:
         user.avatar_url = body.avatar
     if user.name and user.name.strip():
