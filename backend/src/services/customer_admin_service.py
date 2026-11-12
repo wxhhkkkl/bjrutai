@@ -146,10 +146,16 @@ async def _change_log_to_dict(db: AsyncSession, log: CustomerChangeLog) -> dict:
     }
 
 
-def _customer_summary(c: Customer, promoter_name, org_id, org_name) -> dict:
+def _customer_display_name(c: Customer, linked_user_name: Optional[str] = None) -> Optional[str]:
+    return c.name if c.name and c.name.strip() else linked_user_name
+
+
+def _customer_summary(
+    c: Customer, promoter_name, org_id, org_name, linked_user_name=None
+) -> dict:
     return {
         "id": str(c.id),
-        "name": c.name,
+        "name": _customer_display_name(c, linked_user_name),
         "phoneMasked": c.phone,
         "idCardMasked": c.id_card_masked or _mask_id_card(c.id_card_encrypted),
         "bindingStatus": _binding_status_value(c.binding_status),
@@ -185,7 +191,12 @@ async def _customer_scope_filters(
     if keyword:
         kw = f"%{keyword}%"
         filters.append(
-            or_(Customer.name.ilike(kw), Customer.phone.ilike(kw), Customer.phone_masked.ilike(kw))
+            or_(
+                Customer.name.ilike(kw),
+                Customer.user.has(User.name.ilike(kw)),
+                Customer.phone.ilike(kw),
+                Customer.phone_masked.ilike(kw),
+            )
         )
     if start_date:
         filters.append(Customer.created_at >= datetime.combine(start_date, time.min))
@@ -210,8 +221,9 @@ async def list_customers_by_org(
     filters = await _customer_scope_filters(db, org_id, status=status, keyword=keyword)
 
     query = (
-        select(Customer, Distributor.org_id)
+        select(Customer, Distributor.org_id, User.name)
         .join(Distributor, Distributor.id == Customer.distributor_id)
+        .outerjoin(User, User.id == Customer.user_id)
         .where(*filters)
     )
     count_stmt = select(Customer.id).join(Distributor, Distributor.id == Customer.distributor_id).where(*filters)
@@ -224,8 +236,16 @@ async def list_customers_by_org(
     ).all()
 
     items = []
-    for c, c_org_id in rows:
-        items.append(_customer_summary(c, await _distributor_name(db, c.distributor_id), c_org_id, await _org_name(db, c_org_id)))
+    for c, c_org_id, linked_user_name in rows:
+        items.append(
+            _customer_summary(
+                c,
+                await _distributor_name(db, c.distributor_id),
+                c_org_id,
+                await _org_name(db, c_org_id),
+                linked_user_name,
+            )
+        )
 
     return {
         "items": items,
@@ -254,22 +274,31 @@ async def list_unassigned_customers(
     if keyword:
         kw = f"%{keyword}%"
         filters.append(
-            or_(Customer.name.ilike(kw), Customer.phone.ilike(kw), Customer.phone_masked.ilike(kw))
+            or_(
+                Customer.name.ilike(kw),
+                Customer.user.has(User.name.ilike(kw)),
+                Customer.phone.ilike(kw),
+                Customer.phone_masked.ilike(kw),
+            )
         )
 
     count_stmt = select(Customer.id).where(*filters)
     total = len((await db.execute(count_stmt)).scalars().all())
     rows = (
         await db.execute(
-            select(Customer)
+            select(Customer, User.name)
+            .outerjoin(User, User.id == Customer.user_id)
             .where(*filters)
             .order_by(Customer.created_at.desc(), Customer.id.desc())
             .limit(page_size)
             .offset((page - 1) * page_size)
         )
-    ).scalars().all()
+    ).all()
     return {
-        "items": [_customer_summary(customer, None, None, None) for customer in rows],
+        "items": [
+            _customer_summary(customer, None, None, None, linked_user_name)
+            for customer, linked_user_name in rows
+        ],
         "total": total,
         "page": page,
         "pageSize": page_size,
@@ -486,9 +515,14 @@ async def get_customer_detail(db: AsyncSession, customer_id: int) -> dict:
 
     dist = await db.get(Distributor, customer.distributor_id) if customer.distributor_id else None
     org_id = dist.org_id if dist else None
+    linked_user_name = None
+    if customer.user_id is not None:
+        linked_user_name = (
+            await db.execute(select(User.name).where(User.id == customer.user_id))
+        ).scalars().first()
     return {
         "id": str(customer.id),
-        "name": customer.name,
+        "name": _customer_display_name(customer, linked_user_name),
         "phoneMasked": customer.phone,
         "idCardMasked": customer.id_card_masked or _mask_id_card(customer.id_card_encrypted),
         "medicalAccountMasked": _mask_medical_account(customer.medical_account_encrypted),
