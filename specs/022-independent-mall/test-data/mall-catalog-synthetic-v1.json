@@ -1,0 +1,230 @@
+{
+  "datasetId": "mall-catalog-synthetic-v1",
+  "purpose": "本地/自动化测试用商城商品目录样例；不代表任何真实商品、资质或经营方批准",
+  "environment": "tests-only",
+  "runtimeImportAllowed": false,
+  "currency": "CNY",
+  "priceUnit": "cent",
+  "imageKeysArePlaceholders": true,
+  "qualificationNotice": "本数据集仅含虚构商品与商品规格，不代表实际经营或准售状态；不得用于生产、上架、销售或对客展示。",
+  "categories": [
+    {
+      "key": "CAT-TEST-HOME",
+      "name": "【测试】家居用品",
+      "status": "enabled"
+    },
+    {
+      "key": "CAT-TEST-OFFICE",
+      "name": "【测试】办公用品",
+      "status": "enabled"
+    },
+    {
+      "key": "CAT-TEST-REVIEW",
+      "name": "【测试】品类待确认",
+      "status": "enabled"
+    }
+  ],
+  "products": [
+    {
+      "fixtureId": "P-TEST-001",
+      "case": "normal_single_specification_available",
+      "productStatus": "on_sale",
+      "categoryKey": "CAT-TEST-HOME",
+      "name": "【测试】桌面收纳盒",
+      "summary": "仅用于商品列表与详情流程测试",
+      "coverImageKey": "TEST-IMAGE-HOME-01",
+      "galleryImageKeys": [
+        "TEST-IMAGE-HOME-01-A"
+      ],
+      "description": "虚构样例商品。不得用于真实销售或宣传。",
+      "instructions": "测试数据，仅演示商品说明区域。",
+      "expectedUse": [
+        "商品浏览",
+        "名称搜索",
+        "商品详情",
+        "加入购物车"
+      ],
+      "specifications": [
+        {
+          "options": [],
+          "salePriceCent": 1990,
+          "availableQuantity": 24,
+          "reservedQuantity": 0,
+          "status": "active",
+          "specificationCode": "SPEC-TEST-P-TEST-001-01",
+          "barcode": "TEST-BARCODE-P-TEST-001-01",
+          "costPriceCent": null,
+          "warningQuantity": 5
+        }
+      ]
+    },
+    {
+      "fixtureId": "P-TEST-002",
+      "case": "multi_specification_mixed_stock",
+      "productStatus": "on_sale",
+      "categoryKey": "CAT-TEST-HOME",
+      "name": "【测试】折叠收纳篮",
+      "summary": "含两个规格，其中一个规格售罄",
+      "coverImageKey": "TEST-IMAGE-HOME-02",
+      "galleryImageKeys": [],
+      "description": "虚构样例商品。两个规格用于测试SKU选择。",
+      "instructions": "测试数据，仅演示规格选择，不表示实际商品信息。",
+      "expectedUse": [
+        "多规格选择",
+        "售罄规格显示",
+        "价格排序",
+        "库存边界"
+      ],
+      "specifications": [
+        {
+          "options": [
+            {
+              "name": "尺寸",
+              "value": "小号"
+            }
+          ],
+          "salePriceCent": 2990,
+          "availableQuantity": 12,
+          "reservedQuantity": 0,
+          "status": "active",
+          "specificationCode": "SPEC-TEST-P-TEST-002-01",
+          "barcode": "TEST-BARCODE-P-TEST-002-01",
+          "costPriceCent": null,
+          "warningQuantity": 5
+        },
+        {
+          "options": [
+            {
+              "name": "尺寸",
+              "value": "大号"
+            }
+          ],
+          "salePriceCent": 3990,
+          "availableQuantity": 0,
+          "reservedQuantity": 0,
+          "status": "active",
+          "specificationCode": "SPEC-TEST-P-TEST-002-02",
+          "barcode": null,
+          "costPriceCent": null,
+          "warningQuantity": 5
+        }
+      ]
+    },
+    {
+      "fixtureId": "P-TEST-003",
+      "case": "all_specifications_sold_out",
+      "productStatus": "on_sale",
+      "categoryKey": "CAT-TEST-OFFICE",
+      "name": "【测试】文件整理夹",
+      "summary": "所有规格均无可售库存",
+      "coverImageKey": "TEST-IMAGE-OFFICE-01",
+      "galleryImageKeys": [],
+      "description": "虚构样例商品，用于售罄状态测试。",
+      "instructions": "测试数据，仅用于界面状态验证。",
+      "expectedUse": [
+        "商品级售罄状态",
+        "阻止加入购物车"
+      ],
+      "specifications": [
+        {
+          "options": [],
+          "salePriceCent": 1290,
+          "availableQuantity": 0,
+          "reservedQuantity": 0,
+          "status": "active",
+          "specificationCode": "SPEC-TEST-P-TEST-003-01",
+          "barcode": null,
+          "costPriceCent": null,
+          "warningQuantity": 5
+        }
+      ]
+    },
+    {
+      "fixtureId": "P-TEST-004",
+      "case": "off_sale_with_stock",
+      "productStatus": "off_sale",
+      "categoryKey": "CAT-TEST-OFFICE",
+      "name": "【测试】便携资料袋",
+      "summary": "下架商品仍有库存",
+      "coverImageKey": "TEST-IMAGE-OFFICE-02",
+      "galleryImageKeys": [],
+      "description": "虚构样例商品，用于下架状态测试。",
+      "instructions": "测试数据，仅用于可售状态验证。",
+      "expectedUse": [
+        "下架商品不可浏览/购买",
+        "保留商品记录"
+      ],
+      "specifications": [
+        {
+          "options": [],
+          "salePriceCent": 1590,
+          "availableQuantity": 10,
+          "reservedQuantity": 0,
+          "status": "active",
+          "specificationCode": "SPEC-TEST-P-TEST-004-01",
+          "barcode": null,
+          "costPriceCent": null,
+          "warningQuantity": 5
+        }
+      ]
+    },
+    {
+      "fixtureId": "P-TEST-005",
+      "case": "draft_missing_cover_image",
+      "productStatus": "draft",
+      "categoryKey": "CAT-TEST-REVIEW",
+      "name": "【测试】品类待核商品",
+      "summary": "商品主图未补齐，保持草稿",
+      "coverImageKey": "TEST-IMAGE-REVIEW-01",
+      "galleryImageKeys": [],
+      "description": "虚构测试商品，用于草稿完整性校验。",
+      "instructions": "测试数据；商品主图缺失时不得上架。",
+      "expectedUse": [
+        "商品草稿完整性校验",
+        "缺少主图时阻止上架"
+      ],
+      "specifications": [
+        {
+          "options": [],
+          "salePriceCent": 4990,
+          "availableQuantity": 8,
+          "reservedQuantity": 0,
+          "status": "active",
+          "specificationCode": "SPEC-TEST-P-TEST-005-01",
+          "barcode": null,
+          "costPriceCent": null,
+          "warningQuantity": 5
+        }
+      ]
+    },
+    {
+      "fixtureId": "P-TEST-006",
+      "case": "incomplete_draft",
+      "productStatus": "draft",
+      "categoryKey": null,
+      "name": "【测试】资料不完整草稿",
+      "summary": "缺分类、图片和完整说明",
+      "coverImageKey": null,
+      "galleryImageKeys": [],
+      "description": "",
+      "instructions": "",
+      "expectedUse": [
+        "完整性校验失败",
+        "草稿不可前台售卖"
+      ],
+      "specifications": [
+        {
+          "options": [],
+          "salePriceCent": 990,
+          "availableQuantity": 3,
+          "reservedQuantity": 0,
+          "status": "active",
+          "specificationCode": "SPEC-TEST-P-TEST-006-01",
+          "barcode": null,
+          "costPriceCent": null,
+          "warningQuantity": 5
+        }
+      ]
+    }
+  ]
+}

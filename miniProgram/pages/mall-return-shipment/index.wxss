@@ -1,7 +1,7 @@
 @import "../../styles/interactions.wxss";
 
 page { background: #f4f3ee; }
-.mall-flow-page { height: 100vh; display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom); background: #f4f3ee; box-sizing: border-box; }
+.mall-flow-page { height: 100vh; display: flex; flex-direction: column; background: #f4f3ee; box-sizing: border-box; }
 .mall-flow-page > flow-navigation { flex: none; }
 .mall-flow-scroll { min-height: 0; flex: 1; }
 .mall-return-content { padding: 18rpx 22rpx 28rpx; }
@@ -9,21 +9,21 @@ page { background: #f4f3ee; }
 .mall-return-banner__mark { width: 70rpx; height: 70rpx; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #edf3ed; }
 .mall-return-banner__title, .mall-return-banner__hint { display: block; }
 .mall-return-banner__title { color: #33443a; font-size: 26rpx; font-weight: 700; }
-.mall-return-banner__hint { margin-top: 7rpx; color: #859188; font-size: 19rpx; line-height: 1.5; }
+.mall-return-banner__hint { margin-top: 7rpx; color: #859188; font-size: 24rpx; line-height: 1.5; }
 .mall-return-section { margin-bottom: 14rpx; padding: 22rpx; border: 1rpx solid #e8e9e2; border-radius: 18rpx; background: #fff; }
 .mall-section-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15rpx; color: #2c3b33; font-size: 25rpx; font-weight: 700; }
-.mall-return-address { display: block; padding: 16rpx; border-radius: 12rpx; color: #46564d; background: #f6f7f3; font-size: 21rpx; line-height: 1.65; white-space: pre-wrap; }
+.mall-return-address { display: block; padding: 16rpx; border-radius: 12rpx; color: #46564d; background: #f6f7f3; font-size: 24rpx; line-height: 1.65; white-space: pre-wrap; }
 .mall-return-address--empty { color: #a24e3d; background: #fbf3ed; }
-.mall-helper { display: block; margin-top: 10rpx; color: #929b95; font-size: 19rpx; line-height: 1.55; }
-.mall-required { color: #bd563f; font-size: 19rpx; font-weight: 500; }
-.mall-return-picker, .mall-return-input { height: 78rpx; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; padding: 0 17rpx; border: 1rpx solid #e8ebe6; border-radius: 12rpx; color: #405047; background: #fbfcfa; font-size: 21rpx; }
+.mall-helper { display: block; margin-top: 10rpx; color: #929b95; font-size: 24rpx; line-height: 1.55; }
+.mall-required { color: #bd563f; font-size: 24rpx; font-weight: 500; }
+.mall-return-picker, .mall-return-input { height: 78rpx; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; padding: 0 17rpx; border: 1rpx solid #e8ebe6; border-radius: 12rpx; color: #405047; background: #fbfcfa; font-size: 24rpx; }
 .mall-return-input { display: block; margin-top: 12rpx; line-height: 78rpx; }
 .mall-placeholder { color: #a4ada7; }
-.mall-return-notice { display: flex; align-items: flex-start; gap: 9rpx; padding: 13rpx 8rpx 20rpx; color: #8c7461; font-size: 19rpx; line-height: 1.55; }
+.mall-return-notice { display: flex; align-items: flex-start; gap: 9rpx; padding: 13rpx 8rpx 20rpx; color: #8c7461; font-size: 24rpx; line-height: 1.55; }
 .mall-return-notice van-icon { flex: none; margin-top: 2rpx; }
-.mall-inline-message { display: block; margin: 8rpx 4rpx 18rpx; color: #a24e3d; font-size: 21rpx; line-height: 1.5; }
+.mall-inline-message { display: block; margin: 8rpx 4rpx 18rpx; color: #a24e3d; font-size: 24rpx; line-height: 1.5; }
 .mall-flow-state { min-height: 55vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16rpx; padding: 40rpx; color: #7a8980; font-size: 24rpx; text-align: center; }
 .mall-flow-state__title { color: #34443b; font-size: 30rpx; font-weight: 700; }
-.mall-primary-button { min-width: 210rpx; height: 82rpx; padding: 0 34rpx; border: 0; border-radius: 999rpx; color: #fff; background: #27645b; font-size: 27rpx; font-weight: 650; line-height: 82rpx; }
+.mall-primary-button { min-width: 210rpx; height: 82rpx; padding: 0 34rpx; border: 0; border-radius: 999rpx; color: #fff; background: #1677ff; font-size: 27rpx; font-weight: 650; line-height: 82rpx; }
 .mall-return-footer { flex: none; padding: 12rpx 24rpx calc(16rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid #e7e8e2; background: #fff; }
 .mall-return-submit { display: block; width: 100%; }

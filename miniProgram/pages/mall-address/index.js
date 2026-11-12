@@ -107,9 +107,13 @@ Page({
     this.setData({
       [field]: String(event.detail && event.detail.value || ''),
       stateMessage: '',
-      focusField: '',
       errorTarget: ''
     })
+  },
+
+  onFieldBlur(event) {
+    const field = event && event.currentTarget && event.currentTarget.dataset.field
+    if (field && this.data.focusField === field) this.setData({ focusField: '' })
   },
 
   onRegionChange(event) {

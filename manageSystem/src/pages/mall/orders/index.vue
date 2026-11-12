@@ -1,12 +1,9 @@
 <template>
-  <section class="mall-page">
-    <header>
-      <h2>交易订单</h2>
-      <el-button data-test="reload" :loading="loading" @click="load">
-        刷新
-      </el-button>
+  <section class="mall-page mall-management-page">
+    <header class="page-header">
+      <h2 class="page-title">交易订单</h2>
     </header>
-    <el-form inline @submit.prevent="search">
+    <el-form inline class="mall-management-filters" @submit.prevent="search">
       <el-form-item label="订单号">
         <el-input
           v-model="filters.orderNo"
@@ -20,7 +17,6 @@
           v-model="filters.status"
           clearable
           placeholder="全部状态"
-          style="width: 150px"
         >
           <el-option
             v-for="(label, value) in orderStates"
@@ -28,16 +24,6 @@
             :label="label"
             :value="value"
           />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="微信平台登记">
-        <el-select
-          v-model="filters.pendingPlatformReport"
-          clearable
-          placeholder="全部"
-          style="width: 190px"
-        >
-          <el-option label="待登记" value="true" />
         </el-select>
       </el-form-item>
       <el-form-item label="下单时间">
@@ -54,14 +40,32 @@
         </el-button>
       </el-form-item>
     </el-form>
-    <el-alert v-if="error" :title="error" type="error" :closable="false" />
-    <el-table v-loading="loading" :data="items" empty-text="暂无符合条件的订单">
+    <el-table
+      v-loading="loading"
+      :data="items"
+      :row-class-name="tableRowClassName"
+      empty-text="暂无符合条件的订单"
+    >
       <el-table-column prop="orderNo" label="订单号" min-width="220" />
+      <el-table-column label="商户支付单号" min-width="200" show-overflow-tooltip>
+        <template #default="{ row }">
+          {{ row.outTradeNo || '—' }}
+        </template>
+      </el-table-column>
+      <el-table-column
+        label="微信支付订单号"
+        min-width="220"
+        show-overflow-tooltip
+      >
+        <template #default="{ row }">
+          {{ row.channelTransactionId || '—' }}
+        </template>
+      </el-table-column>
       <el-table-column label="状态">
         <template #default="{ row }">
-          {{
-            orderStates[row.status] || '待核实'
-          }}
+          <el-tag :type="orderStatusType(row.status)" size="small">
+            {{ orderStatusLabel(row) }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column label="付款">
@@ -92,38 +96,49 @@
       </el-table-column>
       <el-table-column label="操作">
         <template #default="{ row }">
-          <el-button link @click="router.push(`/mall/orders/${row.id}`)">
-            查看详情
+          <el-button
+            link
+            :type="row.status === 'pending_shipment' ? 'danger' : 'primary'"
+            @click="router.push(`/mall/orders/${row.id}`)"
+          >
+            {{ row.status === 'pending_shipment' ? '优先处理' : '查看详情' }}
           </el-button>
         </template>
       </el-table-column>
     </el-table>
-    <footer>
-      <span>共 {{ total }} 条</span><el-button :disabled="loading || !history.length" @click="previous">
-        上一页
-      </el-button><el-button :disabled="loading || !nextCursor" @click="next">
-        下一页
-      </el-button>
-    </footer>
+    <MallPagination
+      :current-page="currentPage"
+      :total="total"
+      :disabled="loading"
+      @change="changePage"
+    />
   </section>
 </template>
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { listOrders } from '@/api/mall-orders'
-import { money, time, orderStates, paymentStates } from './order-view'
+import MallPagination from '@/components/mall/MallPagination.vue'
+import { MALL_PAGE_SIZE } from '@/components/mall/mall-pagination'
+import { useMallCursorPagination } from '@/composables/useMallCursorPagination'
+import { useMallToast } from '@/composables/useMallToast'
+import { money, time, orderStates, paymentStates, orderStatusType, orderStatusLabel } from './order-view'
 
 const router = useRouter()
-const route = useRoute()
-const filters = reactive({ orderNo: '', status: '', range: [], pendingPlatformReport: '' })
+const filters = reactive({ orderNo: '', status: '', range: [] })
 const items = ref([]),
   total = ref(0),
   loading = ref(false),
   error = ref('')
-const cursor = ref(null),
-  nextCursor = ref(null),
-  history = ref([])
+useMallToast(error)
+const {
+  currentPage,
+  cursorForPage,
+  loadPage: loadCursorPage,
+  recordPage,
+  resetPages,
+} = useMallCursorPagination()
 let applied = {}
 async function load() {
   if (loading.value) return
@@ -133,15 +148,16 @@ async function load() {
   try {
     const result = await listOrders({
       ...applied,
-      pageSize: 20,
-      ...(cursor.value ? { cursor: cursor.value } : {}),
+      pageSize: MALL_PAGE_SIZE,
+      ...(cursorForPage(currentPage.value)
+        ? { cursor: cursorForPage(currentPage.value) }
+        : {}),
     })
     items.value = result.items
     total.value = result.total
-    nextCursor.value = result.nextCursor
+    recordPage(currentPage.value, result)
   } catch (failure) {
     error.value = failure.userMessage || failure.message || '订单读取失败'
-    nextCursor.value = null
     total.value = 0
   } finally {
     loading.value = false
@@ -162,46 +178,48 @@ async function search() {
   applied = {
     ...(filters.orderNo.trim() ? { orderNo: filters.orderNo.trim() } : {}),
     ...(filters.status ? { status: filters.status } : {}),
-    ...(filters.pendingPlatformReport === 'true' ? { pendingPlatformReport: true } : {}),
     ...(range.length
       ? { from: range[0].toISOString(), to: range[1].toISOString() }
       : {}),
   }
-  cursor.value = null
-  history.value = []
+  resetPages()
   await load()
 }
-async function next() {
-  if (loading.value || !nextCursor.value) return
-  history.value.push(cursor.value)
-  cursor.value = nextCursor.value
-  await load()
-}
-async function previous() {
-  if (loading.value || !history.value.length) return
-  cursor.value = history.value.pop()
-  await load()
-}
-onMounted(() => {
-  if (route.query.pendingPlatformReport === 'true') {
-    filters.pendingPlatformReport = 'true'
-    applied = { pendingPlatformReport: true }
+async function changePage(page) {
+  if (loading.value || page === currentPage.value) return
+  loading.value = true
+  error.value = ''
+  try {
+    const result = await loadCursorPage(page, (cursor) =>
+      listOrders({
+        ...applied,
+        pageSize: MALL_PAGE_SIZE,
+        ...(cursor ? { cursor } : {}),
+      })
+    )
+    if (!result) {
+      error.value = '订单数据已变化，请刷新后重试'
+      return
+    }
+    items.value = result.items
+    total.value = result.total
+  } catch (failure) {
+    error.value = failure.userMessage || failure.message || '订单读取失败'
+  } finally {
+    loading.value = false
   }
-  load()
-})
+}
+function tableRowClassName({ row }) {
+  return row.status === 'pending_shipment' ? 'pending-shipment-row' : ''
+}
+onMounted(load)
 </script>
 <style scoped>
-.mall-page {
-  padding: 20px;
+:deep(.el-table__body tr.pending-shipment-row > td.el-table__cell) {
+  background-color: var(--el-color-danger-light-9);
 }
-header,
-footer {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 16px 0;
-}
-header {
-  justify-content: space-between;
+
+:deep(.el-table__body tr.pending-shipment-row:hover > td.el-table__cell) {
+  background-color: var(--el-color-danger-light-8);
 }
 </style>

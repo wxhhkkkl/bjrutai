@@ -9,6 +9,7 @@ from src.models.audit import AuditLog
 from src.models.role import Role
 from src.models.user import admin_account_roles
 from tests.conftest import auth_header, make_access_token, seed_admin
+from tests.unit.test_mall_aftersale_service import paid_order
 from tests.unit.test_mall_order_actions import unattempted
 from tests.unit.test_mall_payment_service import payable
 
@@ -114,6 +115,28 @@ async def test_admin_list_filters_cursor_and_live_revocation(client, db_session,
             json={"expectedVersion": first.version, "internalNote": "只读"},
         )
     ).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_admin_order_list_exposes_payment_identifiers_but_not_to_buyers(
+    client, db_session, monkeypatch
+):
+    actor, order, _, _ = await paid_order(db_session, monkeypatch)
+    _, _, headers = await admin(db_session, ["mall.orders.read"])
+    root = "/api/v1/admin/mall/orders"
+    page = await client.get(root, headers=headers, params={"orderNo": order.order_no})
+    assert page.status_code == 200, page.text
+    item = page.json()["data"]["items"][0]
+    assert item["outTradeNo"].startswith("P")
+    assert item["channelTransactionId"] == "synthetic-channel-id"
+
+    buyer = await client.get(
+        f"/api/v1/mall/orders/{order.id}",
+        headers=auth_header(make_access_token(user_id=actor.actor_id, user_type="personal")),
+    )
+    assert buyer.status_code == 200, buyer.text
+    assert "outTradeNo" not in buyer.json()["data"]
+    assert "channelTransactionId" not in buyer.json()["data"]
 
 
 @pytest.mark.asyncio

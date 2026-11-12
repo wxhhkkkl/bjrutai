@@ -1,12 +1,20 @@
 <template>
-  <section class="mall-workbench">
-    <header class="page-heading">
+  <section class="mall-workbench mall-management-page">
+    <header class="page-heading page-header">
       <div>
         <p class="eyebrow">商城管理</p>
-        <h2>商城工作台</h2>
+        <h2 class="page-title">商城工作台</h2>
         <p class="page-subtitle">只汇总当前账号可查看的待办和已确认资金事实。</p>
       </div>
       <div class="heading-actions">
+        <el-button
+          v-if="error"
+          data-test="workbench-reload"
+          :loading="loading"
+          @click="load"
+        >
+          重新加载
+        </el-button>
         <el-button
           v-if="canReadSettings"
           data-test="open-trade-settings"
@@ -14,30 +22,9 @@
         >
           交易设置
         </el-button>
-        <el-button
-          data-test="workbench-reload"
-          :loading="loading"
-          @click="load"
-        >
-          刷新
-        </el-button>
       </div>
     </header>
 
-    <el-alert
-      v-if="error"
-      data-test="workbench-error"
-      :title="error"
-      type="error"
-      show-icon
-      :closable="false"
-    >
-      <template #default>
-        <el-button link type="primary" :disabled="loading" @click="load">
-          重新加载
-        </el-button>
-      </template>
-    </el-alert>
 
     <template v-if="summary">
       <section class="work-section" data-test="workbench-summary">
@@ -115,11 +102,13 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { getMallWorkbench } from '@/api/mall-settings'
+import { useMallToast } from '@/composables/useMallToast'
 
 const auth = useAuthStore()
 const router = useRouter()
 const loading = ref(false)
 const error = ref('')
+useMallToast(error)
 const summary = ref(null)
 const today = new Intl.DateTimeFormat('zh-CN', {
   timeZone: 'Asia/Shanghai',
@@ -135,19 +124,11 @@ const has = (...permissions) => permissions.some((permission) => auth.hasPermiss
 const taskDefinitions = [
   {
     key: 'pendingShipment',
-    label: '待发货订单',
-    hint: '已支付且等待登记发货',
+    label: '待履约订单',
+    hint: '已支付，等待快递发货或虚拟商品交付',
     visible: () => has('mall.orders.read', 'mall.shipments.write'),
     link: () => auth.hasPermission('mall.orders.read'),
     route: '/mall/orders',
-  },
-  {
-    key: 'pendingPlatformReport',
-    label: '待登记微信平台发货',
-    hint: '本地已出库，员工尚未确认微信后台人工录入',
-    visible: () => auth.hasPermission('mall.shipments.write'),
-    link: () => auth.hasPermission('mall.orders.read'),
-    route: '/mall/orders?pendingPlatformReport=true',
   },
   {
     key: 'pendingAftersale',
@@ -169,7 +150,7 @@ const taskDefinitions = [
     key: 'paymentUnknown',
     label: '待核实支付',
     hint: '支付结果未知且已超过责任提醒时限',
-    visible: () => has('mall.payments.read', 'mall.payments.query', 'mall.reconciliations.read'),
+    visible: () => has('mall.payments.read', 'mall.payments.query'),
     link: () => auth.hasPermission('mall.payments.read'),
     route: '/mall/payments',
   },
@@ -177,7 +158,7 @@ const taskDefinitions = [
     key: 'refundAbnormal',
     label: '异常退款',
     hint: '退款异常或结果未知且已超时',
-    visible: () => has('mall.refunds.read', 'mall.refunds.query', 'mall.refunds.execute', 'mall.reconciliations.read'),
+    visible: () => has('mall.refunds.read', 'mall.refunds.query', 'mall.refunds.execute'),
     link: () => auth.hasPermission('mall.refunds.read'),
     route: '/mall/refunds',
   },
@@ -229,10 +210,10 @@ const visibleTasks = computed(() => taskDefinitions
 
 const visibleFunds = computed(() => {
   const funds = []
-  if (has('mall.payments.read', 'mall.payments.query', 'mall.reconciliations.read')) {
+  if (has('mall.payments.read', 'mall.payments.query')) {
     funds.push({ key: 'paidTodayCent', label: '今日实收', caption: '成功支付金额' })
   }
-  if (has('mall.refunds.read', 'mall.refunds.query', 'mall.refunds.execute', 'mall.reconciliations.read')) {
+  if (has('mall.refunds.read', 'mall.refunds.query', 'mall.refunds.execute')) {
     funds.push({ key: 'refundedTodayCent', label: '今日退款', caption: '成功退款金额' })
   }
   return funds
@@ -268,32 +249,29 @@ onMounted(load)
 </script>
 
 <style scoped>
-.mall-workbench { display: grid; gap: 24px; max-width: 1440px; margin: 0 auto; }
-.page-heading, .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-.page-heading { padding: 4px 0 0; }
-.eyebrow { margin: 0 0 6px; color: #688277; font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.eyebrow { margin: 0 0 6px; color: var(--el-color-primary); font-size: 12px; font-weight: 700; letter-spacing: .08em; }
 h2, h3, p { margin-top: 0; }
-h2 { margin-bottom: 6px; color: #1d3028; font-size: 24px; }
-h3 { margin-bottom: 4px; color: #20342b; font-size: 17px; }
-.page-subtitle, .section-heading p { margin-bottom: 0; color: #718078; font-size: 13px; }
+h3 { margin-bottom: 4px; color: var(--app-text-primary); font-size: 17px; }
+.page-subtitle, .section-heading p { margin-bottom: 0; color: var(--el-text-color-secondary); font-size: 13px; }
 .heading-actions { display: flex; gap: 8px; }
-.work-section { padding: 22px; border: 1px solid #e6ece8; border-radius: 14px; background: #fff; box-shadow: 0 6px 24px rgba(33, 57, 45, .035); }
+.work-section { padding: 20px; border: 1px solid var(--app-border-color); border-radius: var(--app-radius-lg); background: var(--app-bg-card); box-shadow: var(--app-shadow-sm); }
 .section-heading { margin-bottom: 20px; }
 .task-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)); gap: 14px; }
-.task-card { min-height: 162px; padding: 17px; border: 1px solid #e8eee9; border-radius: 12px; background: linear-gradient(155deg, #fff 0%, #fbfdfb 100%); }
+.task-card { min-height: 162px; padding: 17px; border: 1px solid var(--app-border-color); border-radius: var(--app-radius-md); background: var(--app-bg-card); }
 .task-card--linked { transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease; }
-.task-card--linked:hover { border-color: #b7d4c4; box-shadow: 0 8px 22px rgba(43, 92, 66, .09); transform: translateY(-2px); }
+.task-card--linked:hover { border-color: var(--el-color-primary-light-5); box-shadow: var(--app-shadow-sm); transform: translateY(-2px); }
 .task-card__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.task-card__label { color: #56665d; font-size: 13px; font-weight: 600; }
-.task-card__dot { width: 8px; height: 8px; border-radius: 50%; background: #cbd5cf; }
-.task-card__dot--alert { background: #e59751; box-shadow: 0 0 0 4px #fff4e8; }
-.task-card__value { display: block; margin: 14px 0 4px; color: #20342b; font-size: 30px; font-variant-numeric: tabular-nums; line-height: 1.1; }
-.task-card__hint { min-height: 32px; margin: 0 0 6px; color: #849088; font-size: 12px; line-height: 1.45; }
-.task-card__scope { color: #a1aaa4; font-size: 12px; }
+.task-card__label { color: var(--app-text-regular); font-size: 13px; font-weight: 600; }
+.task-card__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--app-border-color); }
+.task-card__dot--alert { background: var(--app-warning); box-shadow: 0 0 0 4px var(--el-color-warning-light-9); }
+.task-card__value { display: block; margin: 14px 0 4px; color: var(--app-text-primary); font-size: 30px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.task-card__hint { min-height: 32px; margin: 0 0 6px; color: var(--app-text-secondary); font-size: 12px; line-height: 1.45; }
+.task-card__scope { color: var(--app-text-secondary); font-size: 12px; }
 .fund-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
-.fund-card { display: grid; gap: 8px; padding: 18px 20px; border-radius: 12px; background: #f5f8f5; }
-.fund-card span { color: #617168; font-size: 13px; }
-.fund-card strong { color: #294d3b; font-size: 25px; font-variant-numeric: tabular-nums; }
-.fund-card small { color: #8c9890; }
-@media (max-width: 720px) { .page-heading, .section-heading { align-items: flex-start; flex-direction: column; } .work-section { padding: 16px; } .task-grid { grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); } }
+.fund-card { display: grid; gap: 8px; padding: 18px 20px; border: 1px solid var(--app-border-color); border-radius: var(--app-radius-md); background: var(--el-fill-color-light); }
+.fund-card span { color: var(--app-text-regular); font-size: 13px; }
+.fund-card strong { color: var(--app-text-primary); font-size: 25px; font-variant-numeric: tabular-nums; }
+.fund-card small { color: var(--app-text-secondary); }
+@media (max-width: 720px) { .section-heading { align-items: flex-start; flex-direction: column; } .work-section { padding: 16px; } .task-grid { grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); } }
 </style>

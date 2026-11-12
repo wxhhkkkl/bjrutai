@@ -2,88 +2,102 @@
   <el-drawer
     v-model="opened"
     title="库存管理"
+    class="mall-management-overlay product-overlay"
     size="min(700px, 95vw)"
     :before-close="close"
     :close-on-click-modal="false"
     :close-on-press-escape="false"
   >
-    <template v-if="sku">
-      <h3>{{ sku.skuCode }}</h3>
-      <p>
-        可售 {{ sku.availableQuantity }} / 待付占用 {{ sku.reservedQuantity }}
-      </p>
-      <p>仅调整可售库存；待付占用不受盘点覆盖。减库存请输入负数。</p>
-      <el-alert
-        v-if="command.error.value"
-        :title="command.error.value"
-        type="error"
-        :closable="false"
-      />
-      <el-form
-        v-if="canWrite"
-        label-position="top"
-        :disabled="command.pending.value"
-      >
-        <el-form-item label="可售库存增减量">
-          <el-input-number
-            v-model="delta"
-            :min="-2147483647"
-            :max="2147483647"
-            :precision="0"
-          />
-        </el-form-item>
-        <el-form-item label="调整原因（必填）">
-          <el-input v-model="reason" maxlength="200" />
-        </el-form-item>
-      </el-form>
-      <el-button
-        v-if="command.pending.value"
-        :loading="command.busy.value"
-        @click="retry"
-      >
-        重试原操作
-      </el-button>
-      <el-button v-else-if="canWrite" type="primary" @click="save">
-        确认调整
-      </el-button>
-      <h3>库存记录</h3>
-      <el-alert v-if="error" :title="error" type="error" :closable="false" />
-      <el-button
-        v-if="canRead || canWrite"
-        :disabled="command.pending.value || loading"
-        @click="refresh"
-      >
-        刷新库存与记录
-      </el-button>
-      <p v-else>无库存记录查看权限</p>
-      <el-table
-        v-if="canRead"
-        v-loading="loading"
-        :data="items"
-        empty-text="暂无库存记录"
-      >
-        <el-table-column label="时间（北京时间）" min-width="180">
-          <template #default="{ row }">
-            {{
-              formatTime(row.createdAt)
-            }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="availableDelta" label="可售变化" />
-        <el-table-column prop="reservedDelta" label="占用变化" />
-        <el-table-column prop="reason" label="原因" />
-      </el-table>
-      <el-button v-if="cursor" :disabled="loading" @click="load(true)">
-        加载更多记录
-      </el-button>
-    </template>
+    <div v-if="sku" class="stock-panel">
+      <section class="product-surface stock-section">
+        <h3 class="product-section-title">{{ specLabel(sku) }}</h3>
+        <dl class="stock-metrics">
+          <div>
+            <dt>可售库存</dt>
+            <dd>{{ sku.availableQuantity }}</dd>
+          </div>
+          <div>
+            <dt>待付占用</dt>
+            <dd>{{ sku.reservedQuantity }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section v-if="canWrite" class="product-surface stock-section">
+        <h3 class="product-section-title">调整库存</h3>
+        <p class="product-hint stock-hint">仅调整可售库存。增加填正数，减少填负数。</p>
+        <el-form
+          class="stock-form"
+          label-position="top"
+          :disabled="command.pending.value"
+          @submit.prevent="save"
+        >
+          <div class="stock-fields">
+            <el-form-item label="增减数量">
+              <el-input-number
+                v-model="delta"
+                :min="-2147483647"
+                :max="2147483647"
+                :precision="0"
+              />
+            </el-form-item>
+            <el-form-item label="调整原因" required>
+              <el-input
+                v-model="reason"
+                maxlength="200"
+                placeholder="例如：到货补充、盘点修正"
+              />
+            </el-form-item>
+          </div>
+          <div class="product-toolbar stock-actions">
+            <el-button
+              v-if="command.pending.value"
+              :loading="command.busy.value"
+              @click="retry"
+            >
+              重试原操作
+            </el-button>
+            <el-button v-else type="primary" native-type="submit">
+              确认调整
+            </el-button>
+          </div>
+        </el-form>
+      </section>
+
+      <section class="product-surface stock-section">
+        <header class="product-section-heading">
+          <h3 class="product-section-title">库存记录</h3>
+        </header>
+        <p v-if="!canRead" class="product-hint stock-hint">无库存记录查看权限</p>
+        <el-table
+          v-if="canRead"
+          class="product-table"
+          v-loading="loading"
+          :data="items"
+          empty-text="暂无库存记录"
+        >
+          <el-table-column label="时间（北京时间）" min-width="160">
+            <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
+          </el-table-column>
+          <el-table-column prop="availableDelta" label="可售变化" width="88" align="right" />
+          <el-table-column prop="reservedDelta" label="占用变化" width="88" align="right" />
+          <el-table-column prop="reason" label="原因" min-width="120" />
+        </el-table>
+        <div v-if="cursor" class="product-toolbar stock-actions stock-more">
+          <el-button :disabled="loading" @click="load(true)">加载更多记录</el-button>
+        </div>
+      </section>
+    </div>
   </el-drawer>
 </template>
 <script setup>
+import { specLabel } from '../product-form'
 import { computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { MALL_PAGE_SIZE } from '@/components/mall/mall-pagination'
 import { adjustStock, getProduct, listStockMovements } from '@/api/mall-catalog'
 import { useMallCommand } from '@/composables/useMallCommand'
+import { useMallToast } from '@/composables/useMallToast'
 const auth = useAuthStore(),
   command = useMallCommand(),
   emit = defineEmits(['changed'])
@@ -97,6 +111,7 @@ const loading = ref(false),
   error = ref(''),
   delta = ref(0),
   reason = ref('')
+useMallToast(error)
 const formatTime = (value) =>
   value
     ? new Intl.DateTimeFormat('zh-CN', {
@@ -129,7 +144,7 @@ async function load(more = false) {
   error.value = ''
   try {
     const data = await listStockMovements(sku.value.id, {
-      pageSize: 20,
+      pageSize: MALL_PAGE_SIZE,
       ...(more ? { cursor: cursor.value } : {}),
     })
     items.value = more ? [...items.value, ...data.items] : data.items
@@ -183,3 +198,77 @@ async function retry() {
 }
 defineExpose({ open })
 </script>
+
+
+<style scoped>
+.stock-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.stock-section {
+  padding: 16px;
+}
+
+.stock-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0 0;
+}
+
+.stock-metrics > div {
+  padding: 12px;
+  border-radius: var(--app-radius-md);
+  background: var(--el-fill-color-light);
+}
+
+.stock-metrics dt {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.stock-metrics dd {
+  margin: 4px 0 0;
+  color: var(--el-text-color-primary);
+  font-size: 24px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.stock-hint {
+  margin: 6px 0 0;
+}
+
+.stock-form,
+.stock-section .el-alert {
+  margin-top: 12px;
+}
+
+.stock-fields {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.stock-fields .el-input-number {
+  width: 100%;
+}
+
+.stock-actions {
+  justify-content: flex-end;
+}
+
+.stock-more {
+  margin-top: 12px;
+}
+
+@media (max-width: 520px) {
+  .stock-fields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}
+</style>

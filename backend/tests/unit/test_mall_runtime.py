@@ -40,15 +40,15 @@ def test_sensitive_config_values_are_not_in_repr():
         cos_secret_id="private-cos-id",
         cos_secret_key="private-cos-key",
         jwt_secret_key="private-jwt",
-        mall_wechat_private_key_pem="private-payment-key",
-        mall_wechat_verify_keys={"test": "pinned-payment-key"},
+        mall_wechat_api_v2_key="0123456789abcdef0123456789abcdef",
+        mall_wechat_refund_client_key_path="private-refund-key-path",
         mall_prepay_keys={"k1": "private-prepay-key"},
     )
     assert "private-cos-id" not in repr(settings)
     assert "private-cos-key" not in repr(settings)
     assert "private-jwt" not in repr(settings)
-    assert "private-payment-key" not in repr(settings)
-    assert "pinned-payment-key" not in repr(settings)
+    assert "0123456789abcdef0123456789abcdef" not in repr(settings)
+    assert "private-refund-key-path" not in repr(settings)
     assert "private-prepay-key" not in repr(settings)
 
 

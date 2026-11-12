@@ -1,12 +1,12 @@
 """Live-authorized admin reads and rate-limited Kuaidi100 refresh requests."""
 
-from fastapi import APIRouter, Depends, Header, Path
+from fastapi import APIRouter, Depends, Header, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_db
 from ...api.mall_deps import MallActor, require_mall_admin
 from ...schemas.mall_catalog import VersionAction
-from ...schemas.mall_logistics import LogisticsRefreshResult, LogisticsSnapshot
+from ...schemas.mall_logistics import AdminLogisticsSnapshot, LogisticsRefreshResult
 from ...services.mall_logistics_service import get_admin_logistics, refresh_logistics
 from .mall_checkout import response
 
@@ -19,11 +19,12 @@ write_shipments = require_mall_admin("mall.shipments.write")
 @router.get("/{orderId}/logistics", operation_id="getAdminMallLogistics")
 async def get_order_logistics(
     identity: int = Path(alias="orderId", gt=0),
+    schedule_refresh: bool = Query(default=True, alias="scheduleRefresh"),
     actor: MallActor = Depends(read_orders),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await get_admin_logistics(db, actor, identity)
-    data = LogisticsSnapshot.model_validate(result).model_dump(by_alias=True, mode="json")
+    result = await get_admin_logistics(db, actor, identity, schedule_refresh=schedule_refresh)
+    data = AdminLogisticsSnapshot.model_validate(result).model_dump(by_alias=True, mode="json")
     await db.commit()
     return response(data)
 

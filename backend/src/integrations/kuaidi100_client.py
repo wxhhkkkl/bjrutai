@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import httpx
 
@@ -51,7 +51,7 @@ class Kuaidi100Client:
             "num": tracking_no,
             "from": from_city.strip(),
             "to": to_city.strip(),
-            "resultv2": "5",
+            "resultv2": "7",
             "show": "0",
             "order": "desc",
             "needCourierInfo": False,
@@ -125,9 +125,21 @@ class Kuaidi100Client:
         events = payload.get("data")
         if events is not None and not isinstance(events, list):
             raise Kuaidi100Error("invalid_provider_response")
+        route = payload.get("predictedRoute")
+        if route is not None and not isinstance(route, list):
+            raise Kuaidi100Error("invalid_provider_response")
+        route_info = payload.get("routeInfo")
+        if route_info is not None and not isinstance(route_info, dict):
+            raise Kuaidi100Error("invalid_provider_response")
         return {
             "state": payload.get("state"),
             "data": events or [],
+            "predictedRoute": route or [],
+            "routeInfo": route_info or {},
+            "arrivalTime": payload.get("arrivalTime"),
+            "trailUrl": payload.get("trailUrl"),
+            "totalTime": payload.get("totalTime"),
+            "remainTime": payload.get("remainTime"),
         }
 
 
@@ -135,16 +147,34 @@ class FakeKuaidi100Client:
     """Clearly synthetic result for local/dev acceptance; never calls a network."""
 
     async def query(self, *, courier_code, tracking_no, **_unused):
-        now = datetime.now().astimezone().replace(microsecond=0).isoformat()
+        now = datetime.now().astimezone().replace(microsecond=0)
         return {
             "source": "fake",
             "state": "0",
             "data": [
                 {
-                    "leaveTime": now,
+                    "leaveTime": now.isoformat(),
                     "name": f"模拟转运节点（运单尾号{tracking_no[-4:]}）联系电话13800000000",
                     "state": "当前停留节点",
                     "type": "模拟节点",
                 }
             ],
+            "routeInfo": {"cur": {"name": "合肥市"}},
+            "predictedRoute": [
+                {
+                    "leaveTime": now.isoformat(),
+                    "name": "模拟当前节点",
+                    "state": "当前停留节点",
+                    "type": "模拟节点",
+                    "location": "117.2272,31.8206",
+                },
+                {
+                    "arriveTime": (now + timedelta(days=2)).isoformat(),
+                    "name": "模拟目的节点",
+                    "state": "预估途径节点",
+                    "type": "模拟节点",
+                    "location": "116.4074,39.9042",
+                },
+            ],
+            "arrivalTime": (now + timedelta(days=2)).strftime("%Y-%m-%d %H"),
         }

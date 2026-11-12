@@ -1,10 +1,11 @@
 const mallOrderService = require('../../services/mall-order-service')
 const sessionService = require('../../services/session-service')
+const { formatChinaDateTimeCompact } = require('../../utils/date-time')
 
 const STATUS_OPTIONS = [
   { label: '全部', value: '' },
   { label: '待付款', value: 'pending_payment' },
-  { label: '待发货', value: 'pending_shipment' },
+  { label: '待履约', value: 'pending_shipment' },
   { label: '待收货', value: 'pending_receipt' },
   { label: '已完成', value: 'completed' },
   { label: '已关闭', value: 'closed' }
@@ -23,8 +24,22 @@ function money(value) {
 }
 
 function timeLabel(value) {
-  if (typeof value !== 'string') return '时间未提供'
-  return value.replace('T', ' ').replace(/(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$/, '').slice(0, 16) || '时间未提供'
+  return formatChinaDateTimeCompact(value) || '时间未提供'
+}
+
+function statusTone(order, fullyRefunded) {
+  if (fullyRefunded) return 'closed'
+  switch (order && order.status) {
+    case 'pending_payment':
+      return 'action'
+    case 'pending_shipment':
+    case 'pending_receipt':
+      return 'progress'
+    case 'completed':
+      return 'done'
+    default:
+      return 'closed'
+  }
 }
 
 function viewOrder(order) {
@@ -34,11 +49,22 @@ function viewOrder(order) {
     const quantity = Number.isInteger(item.quantity) && item.quantity > 0 ? item.quantity : 1
     return `${name} ×${quantity}`
   })
+  const firstItem = items.find((item) => item && item.coverUrl) || items[0] || {}
+  const paid = Number(order && order.paidAmountCent) || 0
+  const refunded = (Number(order && order.refundedGoodsCent) || 0) + (Number(order && order.refundedFreightCent) || 0)
+  const fullyRefunded = Boolean(order && order.status === 'closed' && paid > 0 && refunded >= paid)
   return {
     ...order,
     id: String(order && order.id || ''),
-    statusLabel: STATUS_LABELS[order && order.status] || '订单处理中',
+    statusLabel: order && order.status === 'pending_shipment' && order.deliveryMethod === 'virtual'
+      ? '待交付'
+      : fullyRefunded
+        ? '已退款'
+        : STATUS_LABELS[order && order.status] || '订单处理中',
+    statusTone: statusTone(order, fullyRefunded),
     createdLabel: timeLabel(order && order.createdAt),
+    coverUrl: firstItem.coverUrl || '',
+    coverImageFailed: false,
     amountText: money(order && order.payableAmountCent),
     itemCount: items.reduce((total, item) => total + (Number(item.quantity) || 0), 0),
     itemSummary: itemNames.join('、') + (items.length > 2 ? ` 等${items.length}件` : '')
@@ -117,6 +143,16 @@ Page({
     } finally {
       if (!reset) this.loadingMore = false
     }
+  },
+
+  onOrderImageError(event) {
+    const id = String(event && event.currentTarget && event.currentTarget.dataset.id || '')
+    if (!id) return
+    this.setData({
+      orders: this.data.orders.map((order) => (
+        order.id === id ? { ...order, coverImageFailed: true } : order
+      ))
+    })
   },
 
   selectStatus(event) {

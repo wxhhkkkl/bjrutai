@@ -11,14 +11,13 @@ from ..models.mall_base import utc_now
 from ..models.mall_catalog import MallProduct, MallSku
 from ..models.mall_consumption import MallConsumption
 from ..models.mall_finance import MallInvoice, MallInvoiceRequest, MallPayment, MallRefund
-from ..models.mall_trade import MallAftersale, MallOrder, MallShipment
+from ..models.mall_trade import MallAftersale, MallOrder
 
 _UNKNOWN_FUNDS_DELAY = timedelta(minutes=10)
 _BEIJING = ZoneInfo("Asia/Shanghai")
 
 _PAYMENT_READ = frozenset({"mall.payments.read", "mall.payments.query"})
 _REFUND_READ = frozenset({"mall.refunds.read", "mall.refunds.query", "mall.refunds.execute"})
-_RECONCILIATION_READ = "mall.reconciliations.read"
 
 
 def _has(actor: MallActor, *permissions: str) -> bool:
@@ -66,7 +65,6 @@ async def get_mall_workbench(
     day_start, day_end = _beijing_day_range(instant)
     summary = {
         "pendingShipment": 0,
-        "pendingPlatformReport": 0,
         "pendingAftersale": 0,
         "pendingReturnReceipt": 0,
         "paymentUnknown": 0,
@@ -88,14 +86,6 @@ async def get_mall_workbench(
             .where(MallOrder.status == "pending_shipment"),
         )
 
-    if "mall.shipments.write" in actor.permissions:
-        summary["pendingPlatformReport"] = await _count(
-            db,
-            select(func.count())
-            .select_from(MallShipment)
-            .where(MallShipment.platform_report_status.in_({"pending", "unknown"})),
-        )
-
     if _has(actor, "mall.aftersales.read", "mall.aftersales.review"):
         summary["pendingAftersale"] = await _count(
             db,
@@ -115,7 +105,7 @@ async def get_mall_workbench(
             ),
         )
 
-    if _has(actor, *_PAYMENT_READ, _RECONCILIATION_READ):
+    if _has(actor, *_PAYMENT_READ):
         summary["paymentUnknown"] = await _count(
             db,
             select(func.count())
@@ -140,7 +130,7 @@ async def get_mall_workbench(
             ),
         )
 
-    if _has(actor, *_REFUND_READ, _RECONCILIATION_READ):
+    if _has(actor, *_REFUND_READ):
         summary["refundAbnormal"] = await _count(
             db,
             select(func.count())

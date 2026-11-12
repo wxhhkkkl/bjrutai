@@ -12,18 +12,18 @@ const sessions = {
 const summaries = {
   promoter: { monthlyContribution: '12,680', directMembers: '18', teamContribution: '86,420', pending: '3' },
   customers: [
-    { id: 'customer-001', name: '王女士', phone: '138****1028', note: '最近服务：今日', status: '已绑定', tone: 'blue', avatar: '/assets/images/customer-avatar-blue.png' },
-    { id: 'customer-002', name: '李先生', phone: '186****3681', note: '已提交，系统持续匹配', status: '待匹配', tone: 'orange', avatar: '/assets/images/customer-avatar-purple.png' },
-    { id: 'customer-003', name: '刘女士', phone: '159****2650', note: '健康随访待完成', status: '待跟进', tone: 'green', avatar: '/assets/images/customer-avatar-green.png' },
-    { id: 'customer-004', name: '赵先生', phone: '137****9186', note: '最近服务：7月18日', status: '已绑定', tone: 'blue', avatar: '/assets/images/customer-avatar-blue.png' }
+    { id: 'customer-001', name: '王女士', phone: '138****1028', note: '最近服务：今日', status: '已绑定', tone: 'blue', avatar: '/assets/images/customer-avatar-blue.jpg' },
+    { id: 'customer-002', name: '李先生', phone: '186****3681', note: '已提交，系统持续匹配', status: '待匹配', tone: 'orange', avatar: '/assets/images/customer-avatar-purple.jpg' },
+    { id: 'customer-003', name: '刘女士', phone: '159****2650', note: '健康随访待完成', status: '待跟进', tone: 'green', avatar: '/assets/images/customer-avatar-green.jpg' },
+    { id: 'customer-004', name: '赵先生', phone: '137****9186', note: '最近服务：7月18日', status: '已绑定', tone: 'blue', avatar: '/assets/images/customer-avatar-blue.jpg' }
   ],
   contributionOverview: {
     amount: '¥12,680',
     growth: '+18%'
   },
   contribution: [
-    { title: '药品消费', meta: '王女士 · 7月18日', value: '¥1,200', icon: '/assets/images/contribution-bind-icon.png' },
-    { title: '诊疗消费', meta: '李先生 · 7月16日', value: '¥680', icon: '/assets/images/contribution-service-icon.png' },
+    { title: '药品消费', meta: '王女士 · 7月18日', value: '¥1,200', icon: '/assets/images/contribution-bind-icon.jpg' },
+    { title: '诊疗消费', meta: '李先生 · 7月16日', value: '¥680', icon: '/assets/images/contribution-service-icon.jpg' },
     { title: '门诊消费', meta: '刘女士 · 7月14日', value: '¥300', icon: '/assets/images/contribution-followup-icon.png' }
   ]
 }

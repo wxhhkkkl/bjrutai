@@ -131,7 +131,6 @@ const routes = [
         'mall.invoices.write',
         'mall.stock.read',
         'mall.stock.write',
-        'mall.reconciliations.read',
       ],
     },
   },
@@ -154,6 +153,12 @@ const routes = [
     meta: { title: '配送设置', permission: 'mall.settings.read', activeMenu: '/mall/settings/delivery' },
   },
   {
+    path: '/mall/settings/freight',
+    name: 'MallFreightSettings',
+    component: () => import('@/pages/mall/settings/freight.vue'),
+    meta: { title: '运费设置', permission: 'mall.settings.read', activeMenu: '/mall/settings/freight' },
+  },
+  {
     path: '/mall/settings/trade',
     name: 'MallTradeSettings',
     component: () => import('@/pages/mall/settings/trade.vue'),
@@ -171,7 +176,7 @@ const routes = [
     component: () => import('@/pages/mall/payments/index.vue'),
     meta: {
       title: '支付订单',
-      permissionAny: ['mall.payments.read', 'mall.reconciliations.read'],
+      permission: 'mall.payments.read',
     },
   },
   {

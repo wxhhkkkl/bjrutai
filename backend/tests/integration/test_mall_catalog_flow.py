@@ -96,9 +96,6 @@ async def test_operator_catalog_flow_uses_verified_images_and_keeps_history(clie
     visible = (await client.get("/api/v1/mall/products?q=谷物")).json()["data"]
     assert visible["items"][0]["skus"][0]["priceCent"] == 2990
     assert "coverFileId" not in visible["items"][0]
-    copied = await write(f'/products/{product["id"]}/copy', {"expectedVersion": product["version"]})
-    assert copied["status"] == "draft" and copied["skus"][0]["availableQuantity"] == 0
-    assert copied["skus"][0]["skuCode"] != "FLOW-1"
     product = await write(
         f'/products/{product["id"]}/status',
         {

@@ -25,7 +25,7 @@ PUBLIC_OPERATIONS = {
 SIGNED_PROVIDER_OPERATIONS = {"wechatPaymentNotify", "wechatRefundNotify"}
 
 
-def test_all_106_contract_operations_have_an_explicit_actor_and_access_class():
+def test_all_contract_operations_have_an_explicit_actor_and_access_class():
     contract = json.loads((FEATURE / "contracts/openapi.json").read_text())
     operations = {
         operation["operationId"]: operation
@@ -34,7 +34,7 @@ def test_all_106_contract_operations_have_an_explicit_actor_and_access_class():
         if method in {"get", "post", "put", "patch", "delete"}
     }
 
-    assert len(operations) == 106
+    assert len(operations) == 104
     classified_authenticated = {
         name
         for name, operation in operations.items()
@@ -71,7 +71,7 @@ def test_all_106_contract_operations_have_an_explicit_actor_and_access_class():
     assert actor_counts == {
         "public": 4,
         "buyer": 33,
-        "admin": 67,
+        "admin": 65,
         "wechat_signature": 2,
     }
 

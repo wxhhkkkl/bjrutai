@@ -1,13 +1,64 @@
 """Catalog read projections, public visibility and stable cursor pagination."""
 
 import base64
+import html
 import json
+import re
 
 from sqlalchemy import func, or_, select
 
 from ..core.exceptions import NotFoundException, ValidationException
 from ..models.mall_catalog import MallCategory, MallProduct, MallSku, MallStockMovement
-from .mall_catalog_service import _get, _image, product_skus
+from .mall_catalog_service import (
+    _get,
+    _image,
+    inline_product_image_ids,
+    product_skus,
+)
+
+_IMAGE_TAG_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
+_IMAGE_SOURCE_RE = re.compile(
+    r"""(\bsrc\s*=\s*)(["'])(.*?)\2""", re.IGNORECASE | re.DOTALL
+)
+_IMAGE_ALT_RE = re.compile(
+    r"""(\balt\s*=\s*)(["'])(.*?)\2""", re.IGNORECASE | re.DOTALL
+)
+
+
+def _render_product_description_images(description, urls_by_id, *, admin):
+    def replace_image(match):
+        tag = match.group(0)
+        alt_match = _IMAGE_ALT_RE.search(tag)
+        if not alt_match:
+            return tag
+        file_match = re.fullmatch(
+            r"mall-file-id:([1-9][0-9]*)", html.unescape(alt_match.group(3))
+        )
+        if not file_match:
+            return tag
+        file_id = file_match.group(1)
+        url = urls_by_id.get(file_id)
+        visible_alt = alt_match.group(3) if admin else "商品详情图片"
+        tag = _IMAGE_ALT_RE.sub(
+            lambda value: (
+                f'{value.group(1)}{value.group(2)}'
+                f'{html.escape(visible_alt, quote=True)}{value.group(2)}'
+            ),
+            tag,
+            count=1,
+        )
+        if url:
+            tag = _IMAGE_SOURCE_RE.sub(
+                lambda value: (
+                    f'{value.group(1)}{value.group(2)}'
+                    f'{html.escape(url, quote=True)}{value.group(2)}'
+                ),
+                tag,
+                count=1,
+            )
+        return tag
+
+    return _IMAGE_TAG_RE.sub(replace_image, description or "")
 
 
 def serialize_category(category):
@@ -21,32 +72,46 @@ def serialize_category(category):
     }
 
 
-def serialize_sku(sku, *, admin=False):
+def serialize_sku(sku, *, admin=False, include_cost=False):
     result = {
         "id": str(sku.id),
         "skuCode": sku.sku_code,
         "options": [{"name": name, "value": value} for name, value in sku.options.items()],
         "priceCent": sku.sale_price_cent,
+        "marketPriceCent": sku.market_price_cent,
         "availableQuantity": sku.available_qty,
         "stockStatus": "available" if sku.available_qty > 0 else "sold_out",
         "version": sku.version,
     }
     if admin:
-        result.update(reservedQuantity=sku.reserved_qty, warningQuantity=sku.warning_qty)
+        result.update(
+            barcode=sku.barcode,
+            reservedQuantity=sku.reserved_qty,
+            warningQuantity=sku.warning_qty,
+        )
+        if include_cost:
+            result["costPriceCent"] = sku.cost_price_cent
     return result
 
 
-async def serialize_product(db, product, *, admin=False):
+async def serialize_product(db, product, *, admin=False, include_cost=False):
     result = {
         "id": str(product.id),
         "name": product.name,
+        "productType": product.product_type,
+        "deliveryMethod": (
+            "virtual"
+            if product.product_type == "virtual"
+            else product.delivery_method or "express"
+        ),
+        "supportsReturn": product.supports_return,
         "summary": product.summary,
         "description": product.description,
         "instructions": product.instructions,
         "status": product.status,
         "version": product.version,
         "skus": [
-            serialize_sku(s, admin=admin)
+            serialize_sku(s, admin=admin, include_cost=include_cost)
             for s in await product_skus(db, product.id)
             if s.status == "active"
         ],
@@ -55,25 +120,45 @@ async def serialize_product(db, product, *, admin=False):
         result["categoryId"] = str(product.category_id)
     if admin:
         result.update(
+            returnInstructions=product.return_instructions,
+            deliveryMethod=product.delivery_method,
+            freightTemplateId=product.freight_template_id,
             sort=product.sort,
             coverFileId=str(product.cover_file_id) if product.cover_file_id else None,
             galleryFileIds=[str(identity) for identity in product.gallery_file_ids],
         )
-    from ..core.config import get_settings
     from ..integrations.cos_client import MallCOSStore, get_cos_client
 
-    settings = get_settings()
-    if settings.mall_storage_outbound_enabled:
+    inline_image_ids = inline_product_image_ids(product.description)
+    image_ids = (
+        ([product.cover_file_id] if product.cover_file_id else [])
+        + list(product.gallery_file_ids)
+        + inline_image_ids
+    )
+    urls_by_id = {}
+    if image_ids:
+        # Product media is public catalog content. Sign only verified
+        # product_image objects; private mall documents remain behind the
+        # independent MALL_STORAGE_OUTBOUND_ENABLED gate.
         store = MallCOSStore(get_cos_client(), outbound_enabled=True)
         urls = []
-        for identity in ([product.cover_file_id] if product.cover_file_id else []) + list(
-            product.gallery_file_ids
-        ):
-            file = await _image(db, int(identity))
-            urls.append(await store.sign_get(file.object_key, expires_seconds=300))
+        try:
+            for identity in dict.fromkeys(image_ids):
+                file = await _image(db, int(identity))
+                url = await store.sign_get(file.object_key, expires_seconds=300)
+                urls_by_id[str(identity)] = url
+                urls.append(url)
+        except ValueError:
+            urls = []
+            urls_by_id = {}
         if product.cover_file_id and urls:
-            result["coverUrl"] = urls.pop(0)
-        result["galleryUrls"] = urls
+            result["coverUrl"] = urls_by_id.get(str(product.cover_file_id))
+        result["galleryUrls"] = [
+            urls_by_id.get(str(identity)) for identity in product.gallery_file_ids
+        ]
+    result["description"] = _render_product_description_images(
+        product.description, urls_by_id, admin=admin
+    )
     return result
 
 

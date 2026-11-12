@@ -2,7 +2,7 @@
 
 <view class="profile-screen tab-screen">
     <view class="profile-hero {{!session.hasBusinessMembership ? 'profile-hero--personal' : ''}}">
-        <image class="profile-hero__avatar" src="{{session.avatar || '/assets/images/profile-avatar.png'}}"
+        <image class="profile-hero__avatar" src="{{session.avatar || '/assets/images/profile-avatar.jpg'}}"
             mode="aspectFill" aria-role="img" aria-label="用户头像" />
 
         <view class="profile-hero__identity">

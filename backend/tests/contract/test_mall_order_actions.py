@@ -43,7 +43,7 @@ async def test_cancel_contract_reports_pending_and_command_query_does_not_claim_
 
 
 @pytest.mark.asyncio
-async def test_change_order_address_contract_masks_output_and_exposes_safe_actions(
+async def test_change_order_address_masks_patch_output_and_detail_returns_full_snapshot(
     client, db_session, monkeypatch
 ):
     actor, _, _, _, order = await unattempted(db_session, monkeypatch)
@@ -66,9 +66,11 @@ async def test_change_order_address_contract_masks_output_and_exposes_safe_actio
     assert result.json()["data"]["address"]["phoneMasked"] == "139****4567"
     assert "13900004567" not in result.text and ADDRESS["addressLine"] not in result.text
     detail = (await client.get(f"/api/v1/mall/orders/{order.id}", headers=headers)).json()["data"]
+    assert detail["address"]["phone"] == "13900004567"
+    assert detail["address"]["addressLine"] == ADDRESS["addressLine"]
     assert {"cancelMallOrder", "changeMallOrderAddress"} <= set(detail["availableActions"])
     assert detail["timeline"][-1]["action"] == "address_changed"
-    assert "13900004567" not in str(detail)
+    assert detail["address"]["phoneMasked"] == "139****4567"
     assert (
         await client.patch(url, headers=headers, json={**body, "freightCent": 1})
     ).status_code == 422
@@ -93,4 +95,5 @@ async def test_immediate_cancel_finishes_with_closed_timeline_and_safe_reason(
     detail = result.json()["data"]
     assert detail["status"] == "closed" and detail["availableActions"] == []
     assert detail["timeline"][-1]["action"] == "closed"
-    assert "13800001234" not in result.text
+    assert detail["address"]["phone"] == ADDRESS["phone"]
+    assert detail["address"]["addressLine"] == ADDRESS["addressLine"]

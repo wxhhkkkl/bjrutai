@@ -88,6 +88,47 @@ test('cart continues only valid selected SKUs and saves a PII-free checkout draf
   } finally { fixture.restore() }
 })
 
+test('cart removal collapses the current row before reloading the cart', async () => {
+  const removals = []
+  const states = []
+  let cartLoads = 0
+  const service = {
+    getCheckoutSettings: async () => ({ purchasingAvailable: true }),
+    getCart: async () => ({
+      items: cartLoads++ === 0
+        ? [{ id: '1', sku: { id: '11', priceCent: 500, options: [] }, productName: '商品甲', quantity: 1, valid: true, version: 3 }]
+        : []
+    }),
+    removeCartItem: async (...args) => { removals.push(args) }
+  }
+  const fixture = loadPage('pages/mall-cart/index.js', {
+    'services/mall-checkout-service.js': service,
+    'services/mall-intent-service.js': { getPendingIntent: () => null },
+    'services/session-service.js': { getAccessToken: () => 'buyer-token' }
+  })
+  global.wx.createSelectorQuery = () => ({
+    in() { return this },
+    select() { return this },
+    boundingClientRect(callback) { callback({ height: 92 }); return this },
+    exec() {}
+  })
+  const setData = fixture.page.setData
+  fixture.page.setData = function (values, callback) {
+    states.push(values)
+    return setData.call(this, values, callback)
+  }
+  try {
+    await fixture.page.onLoad()
+    await fixture.page.removeItem({ currentTarget: { dataset: { id: '1' } } })
+    assert.equal(removals.length, 1)
+    assert.deepEqual(removals[0].slice(0, 2), ['1', 3])
+    assert.ok(states.some((value) => value.removingId === '1' && value.removingHeight === 92))
+    assert.ok(states.some((value) => value.removingCollapsed === true))
+    assert.equal(fixture.page.data.removingId, '')
+    assert.equal(fixture.page.data.items.length, 0)
+  } finally { fixture.restore() }
+})
+
 test('checkout obtains a server quote and records invoice intent only with order creation', async () => {
   const calls = []
   const orderSubmissions = []
@@ -126,6 +167,35 @@ test('checkout obtains a server quote and records invoice intent only with order
     assert.equal(calls[1][1].consentVersion, 'policy-v3')
     assert.equal(orderSubmissions.length, 1)
     assert.deepEqual(fixture.navigation.at(-1), ['redirectTo', '/pages/mall-payment-result/index?id=31'])
+  } finally { fixture.restore() }
+})
+
+test('checkout shows quote conflicts as a toast instead of an inline message', async () => {
+  const intent = {
+    getCheckoutDraft: () => ({ items: [{ skuId: '11', quantity: 1 }], addressId: '', source: 'cart' }),
+    getPendingIntent: () => null,
+    getOrderSubmission: () => null
+  }
+  const service = {
+    getCheckoutSettings: async () => ({ purchasingAvailable: true, policyVersion: 'policy-v3' }),
+    listAddresses: async () => ({ items: [{ id: '8', recipientName: '买家', phoneMasked: '138****8000', addressMasked: '详细地址已保存', isDefault: true, version: 1 }] }),
+    quoteOrder: async () => {
+      const error = new Error('商品已下架，请重新确认')
+      error.kind = 'CONFLICT'
+      throw error
+    }
+  }
+  const fixture = loadPage('pages/mall-checkout/index.js', {
+    'services/mall-checkout-service.js': service,
+    'services/mall-intent-service.js': intent,
+    'services/session-service.js': { getAccessToken: () => 'buyer-token', getCurrentSession: () => ({ userId: 'buyer-1' }) }
+  })
+  try {
+    await fixture.page.onLoad()
+    await flush()
+    assert.equal(fixture.page.data.quoteState, 'error')
+    assert.equal(fixture.page.data.quoteMessage, '')
+    assert.deepEqual(fixture.navigation.at(-1), ['toast', '商品已下架，请重新确认'])
   } finally { fixture.restore() }
 })
 
@@ -180,6 +250,49 @@ test('payment result keeps a cancelled client attempt unpaid and offers original
     await fixture.page.queryPayment()
     assert.equal(calls.at(-1)[0], 'query')
     assert.equal(fixture.page.data.state, 'pending')
+  } finally { fixture.restore() }
+})
+
+test('payment result leaves for the order detail once the server confirms payment', async () => {
+  const payment = {
+    reconcilePayment: async (id) => ({
+      status: 'succeeded',
+      order: { id, status: 'pending_shipment', version: 1 },
+      payment: { status: 'succeeded' }
+    })
+  }
+  const fixture = loadPage('pages/mall-payment-result/index.js', {
+    'services/mall-payment-service.js': payment,
+    'services/mall-intent-service.js': { clearPendingOrder() {} },
+    'services/session-service.js': { getAccessToken: () => 'buyer-token' }
+  })
+  try {
+    await fixture.page.onLoad({ id: '31' })
+    assert.equal(fixture.page.data.state, 'succeeded')
+    assert.deepEqual(fixture.navigation.at(-1), ['redirectTo', '/pages/mall-order-detail/index?id=31'])
+  } finally { fixture.restore() }
+})
+
+test('payment result refreshes the originating order detail instead of stacking a duplicate', async () => {
+  const refreshed = []
+  const previous = {
+    route: 'pages/mall-order-detail/index',
+    data: { orderId: '31' },
+    loadOrder(silent) { refreshed.push(silent) }
+  }
+  const payment = {
+    reconcilePayment: async (id) => ({ status: 'succeeded', order: { id, status: 'pending_shipment', version: 1 }, payment: { status: 'succeeded' } })
+  }
+  const fixture = loadPage('pages/mall-payment-result/index.js', {
+    'services/mall-payment-service.js': payment,
+    'services/mall-intent-service.js': { clearPendingOrder() {} },
+    'services/session-service.js': { getAccessToken: () => 'buyer-token' }
+  })
+  try {
+    global.getCurrentPages = () => [previous, { route: 'pages/mall-payment-result/index' }]
+    await fixture.page.onLoad({ id: '31' })
+    assert.deepEqual(fixture.navigation.at(-1), ['navigateBack', 1])
+    assert.deepEqual(refreshed, [true])
   } finally { fixture.restore() }
 })
 

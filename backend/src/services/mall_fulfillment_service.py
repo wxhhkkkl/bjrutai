@@ -7,7 +7,12 @@ from sqlalchemy import select
 from ..core.exceptions import ConflictException
 from ..models.mall_finance import MallPayment
 from ..models.mall_operations import MallCommand, MallJob
-from ..models.mall_trade import MallAftersale, MallOrderItem, MallShipment
+from ..models.mall_trade import (
+    MallAftersale,
+    MallOrderItem,
+    MallShipment,
+    MallVirtualDelivery,
+)
 from .mall_command_service import canonical_payload_hash
 
 TERMINAL_AFTERSALES = {"rejected", "withdrawn", "closed", "succeeded", "completed"}
@@ -24,12 +29,6 @@ def shipment_view(shipment):
             shipment.auto_receive_at.isoformat() + "Z" if shipment.auto_receive_at else None
         ),
         "platformSyncStatus": shipment.platform_sync_status,
-        "platformReportStatus": shipment.platform_report_status,
-        "platformReportedAt": (
-            shipment.platform_reported_at.isoformat() + "Z"
-            if shipment.platform_reported_at
-            else None
-        ),
         "platformConfirmedAt": (
             shipment.platform_confirmed_at.isoformat() + "Z"
             if shipment.platform_confirmed_at
@@ -46,19 +45,24 @@ async def check_fulfillment(db, order, *, lock=False):
             query = query.with_for_update(read=True)
         return (await db.scalars(query.execution_options(populate_existing=True))).all()
 
-    payments, items, aftersales, shipments = (
+    payments, items, aftersales, shipments, virtual_deliveries = (
         await rows(MallPayment),
         await rows(MallOrderItem),
         await rows(MallAftersale),
         await rows(MallShipment),
+        await rows(MallVirtualDelivery),
     )
     reasons = []
+    virtual = (order.policy_snapshot or {}).get("deliveryMethod") == "virtual"
 
     def block(code, message):
         reasons.append({"code": code, "message": message})
 
     if order.status != "pending_shipment":
-        block("order_not_awaiting_shipment", "订单当前不处于待发货状态")
+        block(
+            "order_not_awaiting_shipment",
+            "订单当前不处于待交付状态" if virtual else "订单当前不处于待发货状态",
+        )
     if not order.paid_amount_cent or not order.paid_at:
         block("payment_unconfirmed", "尚未核实成功收款")
     payment = next((p for p in payments if p.id == order.active_payment_id), None)
@@ -81,7 +85,10 @@ async def check_fulfillment(db, order, *, lock=False):
     if order.close_requested_at:
         block("close_pending", "订单已申请关闭，请先核实处理结果")
     if any(a.status not in TERMINAL_AFTERSALES for a in aftersales):
-        block("aftersale_pending", "售后处理中，暂不能发货")
+        block(
+            "aftersale_pending",
+            "售后处理中，暂不能交付" if virtual else "售后处理中，暂不能发货",
+        )
     if order.refund_reserved_cent or order.refunded_goods_cent or order.refunded_freight_cent:
         block("refund_requires_review", "存在退款或金额调整，请先核实可发数量")
     if not items or any(
@@ -92,22 +99,34 @@ async def check_fulfillment(db, order, *, lock=False):
         for i in items
     ):
         block("item_requires_review", "商品出库数量或已售事实需核实")
-    if shipments or order.shipped_at:
-        block("already_shipped", "已有发货记录，不能重复发货")
-    auto_receive_days = (order.policy_snapshot or {}).get("autoReceiveDays")
-    if type(auto_receive_days) is not int or auto_receive_days < 1:
-        block("auto_receive_policy_invalid", "订单自动收货规则缺失，请先核实")
-    address = order.address_snapshot or {}
-    regions = address.get("regionCodes")
-    if (
-        not address.get("recipientName")
-        or not address.get("addressLine")
-        or not re.fullmatch(r"1[3-9][0-9]{9}", str(address.get("phone", "")))
-        or not isinstance(regions, list)
-        or len(regions) != 3
-        or any(not re.fullmatch(r"[0-9]{6}", str(code)) for code in regions)
+    if virtual and any(
+        item.product_snapshot.get("productType") != "virtual" for item in items
     ):
-        block("address_incomplete", "订单收货资料不完整，请先处理")
+        block("mixed_fulfillment_modes", "订单商品履约方式不一致，请先核实")
+    if not virtual and any(
+        item.product_snapshot.get("productType") == "virtual" for item in items
+    ):
+        block("virtual_order_requires_manual_delivery", "虚拟商品订单须使用手工交付")
+    if shipments or order.shipped_at or virtual_deliveries:
+        block(
+            "already_fulfilled",
+            "已有交付记录，不能重复交付" if virtual else "已有发货记录，不能重复发货",
+        )
+    if not virtual:
+        auto_receive_days = (order.policy_snapshot or {}).get("autoReceiveDays")
+        if type(auto_receive_days) is not int or auto_receive_days < 1:
+            block("auto_receive_policy_invalid", "订单自动收货规则缺失，请先核实")
+        address = order.address_snapshot or {}
+        regions = address.get("regionCodes")
+        if (
+            not address.get("recipientName")
+            or not address.get("addressLine")
+            or not re.fullmatch(r"1[3-9][0-9]{9}", str(address.get("phone", "")))
+            or not isinstance(regions, list)
+            or len(regions) != 3
+            or any(not re.fullmatch(r"[0-9]{6}", str(code)) for code in regions)
+        ):
+            block("address_incomplete", "订单收货资料不完整，请先处理")
     job_query = select(MallJob.id).where(
         MallJob.entity_type == "mall_order",
         MallJob.entity_id == order.id,
@@ -140,6 +159,7 @@ async def _replay_completed_command(db, actor, action, key, payload, model):
     if command.status != "completed" or command.entity_type not in {
         "mall_order",
         "mall_shipment",
+        "mall_virtual_delivery",
     }:
         raise ConflictException(message="原操作仍在处理中，请查询原请求")
     result = await db.get(model, command.entity_id, populate_existing=True)

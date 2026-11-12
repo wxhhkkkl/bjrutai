@@ -1,10 +1,10 @@
 <view class="mall-flow-page mall-return-page">
   <flow-navigation title="填写退货运单" bind:back="goBack" />
   <scroll-view class="mall-flow-scroll" scroll-y="{{true}}" scroll-into-view="{{errorTarget}}" enhanced="{{true}}" show-scrollbar="{{false}}">
-    <view wx:if="{{state === 'loading'}}" class="mall-flow-state"><van-icon name="replay" size="30px" color="#27645B" /><text>正在核对售后审核结果</text></view>
+    <view wx:if="{{state === 'loading'}}" class="mall-flow-state"><van-icon name="replay" size="30px" color="#1677FF" /><text>正在核对售后审核结果</text></view>
     <view wx:elif="{{state === 'recoverable-error'}}" class="mall-flow-state"><text class="mall-flow-state__title">当前无法提交退货运单</text><text>{{stateMessage}}</text><button class="mall-primary-button tap-target" bindtap="retry" hover-class="tap-feedback">重新核对</button></view>
     <view wx:elif="{{state === 'success'}}" class="mall-return-content">
-      <view class="mall-return-banner"><view class="mall-return-banner__mark"><van-icon name="logistics" size="24px" color="#27645B" /></view><view><text class="mall-return-banner__title">请按商家审核信息寄回</text><text class="mall-return-banner__hint">寄出后填写承运商和运单号，方便双方跟踪退货</text></view></view>
+      <view class="mall-return-banner"><view class="mall-return-banner__mark"><van-icon name="logistics" size="24px" color="#1677FF" /></view><view><text class="mall-return-banner__title">请按商家审核信息寄回</text><text class="mall-return-banner__hint">寄出后填写承运商和运单号，方便双方跟踪退货</text></view></view>
       <view class="mall-return-section">
         <view class="mall-section-heading"><text>商家退货地址</text></view>
         <text wx:if="{{aftersale.returnInstructions}}" id="mall-field-return-address" class="mall-return-address">{{aftersale.returnInstructions}}</text>

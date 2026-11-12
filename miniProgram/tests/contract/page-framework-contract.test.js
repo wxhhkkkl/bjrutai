@@ -188,7 +188,7 @@ test('consumption detail uses month and payment-status filters without legacy ca
 
   assert.ok(appConfig.pages.includes('pages/contribution-detail/index'));
   assert.match(source, /<flow-navigation\b/);
-  assert.match(source, /contribution-detail-hero\.png/);
+  assert.match(source, /contribution-detail-hero\.jpg/);
   assert.match(source, /fields="month"/);
   assert.match(source, /bindtap="selectStatus"/);
   assert.doesNotMatch(source, /bindtap="openCategoryFilter"/);
@@ -198,7 +198,7 @@ test('consumption detail uses month and payment-status filters without legacy ca
     fs.existsSync(
       path.join(
         projectRoot,
-        'assets/images/contribution-detail-hero.png'
+        'assets/images/contribution-detail-hero.jpg'
       )
     )
   );
@@ -392,7 +392,7 @@ test('profile tab uses approved assets and complete service controls', () => {
   );
 
   assert.doesNotMatch(source, /profile-hero-visual\.png/);
-  assert.match(source, /profile-avatar\.png/);
+  assert.match(source, /profile-avatar\.jpg/);
   assert.match(source, /class="profile-service-grid"/);
   assert.match(source, /class="profile-account-card"/);
   assert.match(source, /bindtap="logout"/);
@@ -402,10 +402,10 @@ test('profile tab uses approved assets and complete service controls', () => {
     'profile-promo-icon.png',
     'team-members-icon.png',
     'team-contribution-icon.png',
-    'contribution-icon.png',
+    'contribution-icon.jpg',
     'profile-records-icon.png',
     'profile-contribution-icon.png',
-    'profile-article-icon.png',
+    'profile-article-icon.jpg',
     'profile-notification-icon.png',
     'profile-account-icon.png',
     'profile-help-icon.png',
@@ -507,9 +507,9 @@ test('binding result page shares one structure across three approved states', ()
   assert.match(source, /bindtap="continueBinding"/);
 
   for (const file of [
-    'binding-result-matching.png',
-    'binding-result-bound.png',
-    'binding-result-failed.png'
+    'binding-result-matching.jpg',
+    'binding-result-bound.jpg',
+    'binding-result-failed.jpg'
   ]) {
     assert.ok(
       fs.existsSync(path.join(projectRoot, 'assets/images', file)),

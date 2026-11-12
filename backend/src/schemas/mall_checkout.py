@@ -48,7 +48,7 @@ class CartPatch(VersionAction):
 
 
 class QuoteRequest(CatalogInput):
-    address_id: Identity
+    address_id: Identity | None = None
     items: list[BuyItem] = Field(min_length=1, max_length=50)
 
     @model_validator(mode="after")

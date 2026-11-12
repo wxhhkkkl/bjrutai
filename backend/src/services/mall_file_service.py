@@ -19,6 +19,7 @@ from ..models.mall_trade import MallAftersale, MallOrder
 
 class MallObjectStore(Protocol):
     async def issue_upload_ticket(self, **kwargs: Any) -> dict: ...
+    async def upload_staged(self, object_key: str, content: bytes, *, mime: str) -> None: ...
     async def head(self, object_key: str) -> dict | None: ...
     async def finalize(self, source_key: str, destination_key: str) -> None: ...
     async def sign_get(self, object_key: str, *, expires_seconds: int) -> str: ...
@@ -63,7 +64,7 @@ async def get_mall_file_access(
                 select(MallInvoice.id).where(
                     MallInvoice.file_id == file.id,
                     MallInvoice.order_id == file.order_id,
-                    MallInvoice.status == "valid",
+                    MallInvoice.status.in_({"valid", "pdf_uploaded"}),
                 )
             )
         ).scalar_one_or_none()
@@ -203,6 +204,7 @@ async def verify_mall_file(
     actor: MallActor,
     file_id: int,
     storage: MallObjectStore | None,
+    content: bytes | None = None,
 ) -> MallFile:
     file = (
         await db.execute(
@@ -223,6 +225,8 @@ async def verify_mall_file(
         raise ValidationException(message="上传凭证已失效或文件已核验")
     if storage is None:
         raise ValidationException(message="私有存储凭据未配置")
+    if content is not None:
+        await storage.upload_staged(file.object_key, content, mime=file.mime)
     actual = await storage.head(file.object_key)
     if not actual or any(
         actual.get(field) != getattr(file, field) for field in ("mime", "size", "sha256")

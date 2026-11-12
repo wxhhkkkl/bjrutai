@@ -5,24 +5,30 @@ page { background: #f4f3ee; }
 .mall-flow-page > flow-navigation { flex: none; }
 .mall-order-status-scroll { flex: none; padding: 12rpx 20rpx 14rpx; background: #fff; border-bottom: 1rpx solid #e9ece7; }
 .mall-order-status-row { width: 100%; white-space: nowrap; }
-.mall-order-status { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 116rpx; height: 68rpx; margin-right: 12rpx; padding: 0 20rpx; border-radius: 999rpx; color: #707c74; background: #f4f5f2; font-size: 23rpx; box-sizing: border-box; }
-.mall-order-status--active { color: #fff; background: #27645b; font-weight: 650; }
+.mall-order-status { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 126rpx; height: 72rpx; margin-right: 12rpx; padding: 0 22rpx; border-radius: 999rpx; color: #707c74; background: #f4f5f2; font-size: 27rpx; box-sizing: border-box; }
+.mall-order-status--active { color: #fff; background: #1677ff; font-weight: 650; }
 .mall-flow-scroll { min-height: 0; flex: 1; }
 .mall-orders-list { padding: 20rpx 22rpx 34rpx; }
-.mall-order-card { display: block; margin-bottom: 16rpx; padding: 22rpx 20rpx 16rpx; border: 1rpx solid #e7e9e2; border-radius: 18rpx; background: #fff; }
-.mall-order-card__head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 17rpx; border-bottom: 1rpx solid #eff0eb; color: #89938d; font-size: 21rpx; }
-.mall-order-card__status { color: #27645b; font-size: 23rpx; font-weight: 650; }
-.mall-order-card__body { display: flex; align-items: center; gap: 15rpx; min-height: 122rpx; padding: 16rpx 0; }
-.mall-order-card__icon { width: 104rpx; height: 104rpx; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; background: #eff3ee; }
+.mall-order-card { display: block; margin-bottom: 16rpx; padding: 24rpx 20rpx 18rpx; border: 1rpx solid #e7e9e2; border-radius: 18rpx; background: #fff; }
+.mall-order-card__head { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; padding-bottom: 18rpx; border-bottom: 1rpx solid #eff0eb; color: #89938d; font-size: 26rpx; }
+.mall-order-card__head text:first-child { min-width: 0; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.mall-order-card__status { flex: none; color: #89938d; font-size: 27rpx; font-weight: 650; }
+.mall-order-card__status--action { color: #bd563f; }
+.mall-order-card__status--progress { color: #1677ff; }
+.mall-order-card__status--done { color: #27645b; }
+.mall-order-card__status--closed { color: #89938d; }
+.mall-order-card__body { display: flex; align-items: center; gap: 16rpx; min-height: 132rpx; padding: 18rpx 0; }
+.mall-order-card__icon { width: 110rpx; height: 110rpx; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; background: #eaf1ff; }
+.mall-order-card__image-asset { width: 100%; height: 100%; border-radius: 12rpx; }
 .mall-order-card__copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 12rpx; }
-.mall-order-card__items { overflow: hidden; color: #2e3b34; font-size: 25rpx; font-weight: 650; white-space: nowrap; text-overflow: ellipsis; }
-.mall-order-card__meta { color: #929b95; font-size: 21rpx; }
-.mall-order-card__foot { min-height: 58rpx; display: flex; align-items: center; gap: 9rpx; border-top: 1rpx solid #eff0eb; color: #737e77; font-size: 21rpx; }
-.mall-order-card__amount { margin-left: auto; color: #bd563f; font-size: 27rpx; font-weight: 750; }
-.mall-flow-state { min-height: 55vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16rpx; padding: 40rpx; color: #7a8980; font-size: 24rpx; text-align: center; }
-.mall-flow-state__title { color: #34443b; font-size: 30rpx; font-weight: 700; }
-.mall-flow-state__hint { margin-top: 2rpx; color: #88958e; font-size: 23rpx; }
-.mall-empty-mark { width: 112rpx; height: 112rpx; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #e9eee8; }
-.mall-primary-button { min-width: 210rpx; height: 78rpx; margin-top: 18rpx; padding: 0 30rpx; border: 0; border-radius: 999rpx; color: #fff; background: #27645b; font-size: 25rpx; line-height: 78rpx; }
-.mall-orders-message { padding: 10rpx 6rpx; color: #a24e3d; font-size: 22rpx; }
-.mall-orders-loading { display: block; padding: 16rpx; color: #929b95; font-size: 21rpx; text-align: center; }
+.mall-order-card__items { overflow: hidden; color: #2e3b34; font-size: 30rpx; font-weight: 650; white-space: nowrap; text-overflow: ellipsis; }
+.mall-order-card__meta { color: #929b95; font-size: 26rpx; }
+.mall-order-card__foot { min-height: 68rpx; display: flex; align-items: center; gap: 9rpx; border-top: 1rpx solid #eff0eb; color: #737e77; font-size: 26rpx; }
+.mall-order-card__amount { margin-left: auto; color: #bd563f; font-size: 32rpx; font-weight: 750; }
+.mall-flow-state { min-height: 55vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16rpx; padding: 40rpx; color: #7a8980; font-size: 28rpx; text-align: center; }
+.mall-flow-state__title { color: #34443b; font-size: 34rpx; font-weight: 700; }
+.mall-flow-state__hint { margin-top: 2rpx; color: #88958e; font-size: 27rpx; }
+.mall-empty-mark { width: 112rpx; height: 112rpx; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #eaf1ff; }
+.mall-primary-button { min-width: 210rpx; height: 82rpx; margin-top: 18rpx; padding: 0 32rpx; border: 0; border-radius: 999rpx; color: #fff; background: #1677ff; font-size: 28rpx; line-height: 82rpx; }
+.mall-orders-message { padding: 10rpx 6rpx; color: #a24e3d; font-size: 25rpx; }
+.mall-orders-loading { display: block; padding: 16rpx; color: #929b95; font-size: 25rpx; text-align: center; }

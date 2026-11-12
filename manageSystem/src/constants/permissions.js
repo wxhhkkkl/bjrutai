@@ -52,13 +52,11 @@ export const PERMISSION_MODULES = [
   },
   {
     module: 'mall_finance',
-    label: '商城资金与对账',
+    label: '商城资金',
     permissions: [
       { key: 'mall.payments.read', label: '查看商城支付订单' },
       { key: 'mall.payments.query', label: '查证商城渠道支付' },
       { key: 'mall.finance.export', label: '导出商城支付/退款并读取本人导出文件' },
-      { key: 'mall.reconciliations.read', label: '查看商城日对账与差异' },
-      { key: 'mall.reconciliations.write', label: '登记渠道账单及处理对账差异' },
     ],
   },
   {

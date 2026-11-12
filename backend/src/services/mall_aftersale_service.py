@@ -206,6 +206,8 @@ async def apply_aftersale(db, actor, data: AftersaleCreate, *, key):
         line = items_by_id.get(identity)
         if line is None:
             raise NotFoundException(message="申请商品不属于此订单")
+        if data.method == "return_refund" and line.product_snapshot.get("supportsReturn") is False:
+            raise ConflictException(message="所选商品不支持退货退款，可申请仅退款")
         remaining = line.quantity - line.refunded_quantity - line.aftersale_reserved_quantity
         if quantity > remaining:
             raise ConflictException(message="申请数量超过可售后数量")
@@ -397,10 +399,31 @@ async def decide_aftersale(db, actor, identity, data: AftersaleDecision, *, key)
                 and data.return_address_version != settings.version
             ):
                 raise ConflictException(message="退货地址已变化，请重新确认")
+            snapshots = (
+                await db.scalars(
+                    select(MallOrderItem.product_snapshot)
+                    .join(MallAftersaleItem, MallAftersaleItem.order_item_id == MallOrderItem.id)
+                    .where(MallAftersaleItem.aftersale_id == aftersale.id)
+                    .order_by(MallOrderItem.id)
+                )
+            ).all()
+            fallback = settings.return_instructions or ""
+            by_product = dict.fromkeys(
+                (snapshot["name"], (snapshot.get("returnInstructions") or "").strip() or fallback)
+                for snapshot in snapshots
+            )
+            descriptions = {description for _, description in by_product}
+            instructions = (
+                next(iter(descriptions), fallback)
+                if len(descriptions) <= 1
+                else "\n".join(
+                    f"{name}：{description}" for name, description in by_product if description
+                )
+            )
             aftersale.return_address_snapshot = {
                 **deepcopy(settings.return_address_snapshot),
                 "settingsVersion": settings.version,
-                "instructions": settings.return_instructions,
+                "instructions": instructions,
             }
             aftersale.status = "awaiting_return"
         else:

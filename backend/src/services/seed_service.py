@@ -70,8 +70,6 @@ _ALL_PERMISSIONS = {
         "mall.refunds.query",
         "mall.refunds.execute",
         "mall.finance.export",
-        "mall.reconciliations.read",
-        "mall.reconciliations.write",
         "mall.settings.read",
         "mall.settings.write",
         "mall.attribution.write",

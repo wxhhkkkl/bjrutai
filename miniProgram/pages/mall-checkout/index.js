@@ -1,7 +1,6 @@
 const mallService = require('../../services/mall-checkout-service')
 const mallIntent = require('../../services/mall-intent-service')
 const sessionService = require('../../services/session-service')
-const { getMallPurposeNotice } = require('../../models/legal-document')
 
 function money(value) {
   return Number.isSafeInteger(value) && value >= 0 ? (value / 100).toFixed(2) : '--'
@@ -21,6 +20,7 @@ function formatQuote(quote) {
   if (!quote) return null
   const items = Array.isArray(quote.items) ? quote.items.map((item) => ({
     ...item,
+    coverImageFailed: false,
     unitPriceText: money(item.unitPriceCent),
     lineAmountText: money(item.lineAmountCent)
   })) : []
@@ -28,7 +28,9 @@ function formatQuote(quote) {
     ...quote,
     items,
     goodsAmountText: money(quote.goodsAmountCent),
-    freightText: Number(quote.freightAmountCent) > 0 ? `¥${money(quote.freightAmountCent)}` : '免运费',
+    freightText: quote.deliveryMethod === 'virtual'
+      ? '无需运费'
+      : Number(quote.freightAmountCent) > 0 ? `¥${money(quote.freightAmountCent)}` : '免运费',
     payableAmountText: money(quote.payableAmountCent)
   }
 }
@@ -46,9 +48,6 @@ Page({
     quoteMessage: '',
     buyerNote: '',
     invoiceIntent: false,
-    paymentNotice: getMallPurposeNotice('payment'),
-    fulfillmentNotice: getMallPurposeNotice('fulfillment'),
-    purchaseConsent: false,
     submitting: false,
     pendingSubmission: false,
     purchaseAvailable: false
@@ -75,6 +74,7 @@ Page({
     if ((!draft || !draft.items || !draft.items.length) && pending && pending.action === 'buy_now') {
       draft = mallIntent.saveCheckoutDraft({
         items: [{ skuId: pending.skuId, quantity: pending.quantity }],
+        deliveryMethod: pending.deliveryMethod,
         source: 'buy_now'
       })
     }
@@ -87,7 +87,9 @@ Page({
     try {
       const [settings, addressPage] = await Promise.all([
         mallService.getCheckoutSettings(),
-        mallService.listAddresses({ pageSize: 100 })
+        draft.deliveryMethod === 'virtual'
+          ? Promise.resolve({ items: [] })
+          : mallService.listAddresses({ pageSize: 100 })
       ])
       const addresses = Array.isArray(addressPage && addressPage.items) ? addressPage.items.map((item) => ({
         ...item,
@@ -110,7 +112,7 @@ Page({
         invoiceIntent: savedSubmission ? savedSubmission.invoiceIntent : this.data.invoiceIntent,
         quoteState: savedSubmission ? 'pending_submission' : 'idle'
       })
-      if (!savedSubmission && selectedAddressId) await this.refreshQuote()
+      if (!savedSubmission && (draft.deliveryMethod === 'virtual' || selectedAddressId)) await this.refreshQuote()
     } catch (error) {
       if (error && error.kind === 'AUTH') {
         wx.navigateTo({ url: '/pages/auth/login/index?from=mall' })
@@ -125,7 +127,8 @@ Page({
   },
 
   async refreshQuote() {
-    if (!this.draft || !this.data.selectedAddressId) {
+    const virtual = this.draft && this.draft.deliveryMethod === 'virtual'
+    if (!this.draft || (!virtual && !this.data.selectedAddressId)) {
       this.setData({ quote: null, quoteState: 'idle' })
       return
     }
@@ -134,14 +137,15 @@ Page({
     this.setData({ quoteState: 'loading', quoteMessage: '', quote: null })
     try {
       const quote = await mallService.quoteOrder({
-        addressId: this.data.selectedAddressId,
+        ...(virtual ? {} : { addressId: this.data.selectedAddressId }),
         items: this.draft.items.map((item) => ({ skuId: item.skuId, quantity: item.quantity }))
       })
       if (version !== this.quoteVersion) return
       this.setData({ quote: formatQuote(quote), quoteState: 'ready', quoteMessage: '' })
     } catch (error) {
       if (version !== this.quoteVersion) return
-      this.setData({ quote: null, quoteState: 'error', quoteMessage: (error && error.message) || '报价已变化，请重新获取' })
+      this.setData({ quote: null, quoteState: 'error', quoteMessage: '' })
+      wx.showToast({ title: (error && error.message) || '报价已变化，请重新获取', icon: 'none' })
     }
   },
 
@@ -150,6 +154,14 @@ Page({
     if (!this.data.addresses.some((address) => String(address.id) === id)) return
     this.draft = mallIntent.saveCheckoutDraft({ ...this.draft, addressId: id })
     this.setData({ draft: this.draft, selectedAddressId: id }, () => this.refreshQuote())
+  },
+
+  onQuoteImageError(event) {
+    const skuId = String(event && event.currentTarget && event.currentTarget.dataset.skuId || '')
+    const items = this.data.quote && this.data.quote.items || []
+    const index = items.findIndex((item) => String(item.skuId) === skuId)
+    if (index < 0 || items[index].coverImageFailed) return
+    this.setData({ [`quote.items[${index}].coverImageFailed`]: true })
   },
 
   openAddresses() {
@@ -165,17 +177,9 @@ Page({
     this.setData({ invoiceIntent: !this.data.invoiceIntent })
   },
 
-  togglePurchaseConsent() {
-    this.setData({ purchaseConsent: !this.data.purchaseConsent })
-  },
-
   async submitOrder() {
     if (this.data.submitting) return
     const existing = mallIntent.getOrderSubmission()
-    if (!existing && !this.data.purchaseConsent) {
-      wx.showToast({ title: '请确认商品、金额与配送信息', icon: 'none' })
-      return
-    }
     if (!existing && (!this.data.quote || this.data.quoteState !== 'ready')) {
       wx.showToast({ title: '请先获取有效报价', icon: 'none' })
       return
@@ -188,7 +192,7 @@ Page({
       const intent = {
         quoteToken: this.data.quote.quoteToken,
         consentVersion: this.data.quote.policyVersion || this.data.settings.policyVersion,
-        consentConfirmed: this.data.purchaseConsent === true,
+        consentConfirmed: true,
         invoiceIntent: this.data.invoiceIntent,
         buyerNote: this.data.buyerNote,
         idempotencyKey: operationKey()

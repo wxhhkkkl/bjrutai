@@ -31,7 +31,9 @@ const personalApplication = {
   buyerType: 'personal',
   title: '王小明',
   email: 'buyer@example.com',
-  invoiceType: 'digital_normal'
+  invoiceType: 'digital_normal',
+  consentVersion: 'mall-test-v1',
+  consentConfirmed: true
 }
 
 const companyApplication = {
@@ -40,7 +42,9 @@ const companyApplication = {
   buyerType: 'company',
   title: '北京鲁泰有限公司',
   taxNo: '91110108ABCDEFGH12',
-  invoiceType: 'digital_normal'
+  invoiceType: 'digital_normal',
+  consentVersion: 'mall-test-v1',
+  consentConfirmed: true
 }
 
 test('requires a buyer session before reading or changing private invoice facts', async () => {
@@ -123,7 +127,9 @@ test('updates or withdraws an editable application and sends correction as a sep
     expectedVersion: 2,
     title: '北京鲁泰健康科技有限公司',
     taxNo: '91110108ABCDEFGH34',
-    email: null
+    email: null,
+    consentVersion: 'mall-test-v1',
+    consentConfirmed: true
   }, 'mall-invoice-edit-0001')
   await f.service.withdrawMallInvoiceRequest('41', {
     expectedVersion: 3,
@@ -139,7 +145,7 @@ test('updates or withdraws an editable application and sends correction as a sep
       path: '/api/v1/mall/invoice-requests/41',
       options: {
         method: 'PATCH',
-        data: { expectedVersion: 2, title: '北京鲁泰健康科技有限公司', taxNo: '91110108ABCDEFGH34', email: null },
+        data: { expectedVersion: 2, title: '北京鲁泰健康科技有限公司', taxNo: '91110108ABCDEFGH34', email: null, consentVersion: 'mall-test-v1', consentConfirmed: true },
         idempotencyKey: 'mall-invoice-edit-0001'
       }
     },

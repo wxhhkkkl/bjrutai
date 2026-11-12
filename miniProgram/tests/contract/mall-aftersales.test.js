@@ -22,10 +22,10 @@ function fixture(options = {}) {
       uploads.push({ uploadUrl, filePath, contentType, data })
       return { statusCode: 204 }
     },
-    readFileAdapter: async (filePath) => {
+    readFileAdapter: options.readFileAdapter || (async (filePath) => {
       requests.push(filePath)
       return Uint8Array.from([97, 98, 99]).buffer
-    }
+    })
   })
   return { service, calls, uploads, requests }
 }
@@ -136,6 +136,84 @@ test('uploads private aftersale proofs through ticket, direct PUT and verificati
     uploadUrl, filePath: '/tmp/proof.jpg',
     contentType: 'image/jpeg', data: Uint8Array.from([97, 98, 99]).buffer
   }])
+})
+
+test('accepts proof bytes whose ArrayBuffer comes from another realm', async () => {
+  const vm = require('node:vm')
+  const foreign = vm.runInNewContext('Uint8Array.from([97, 98, 99]).buffer')
+  assert.equal(foreign instanceof ArrayBuffer, false)
+  const f = fixture({ readFileAdapter: async () => foreign })
+  await f.service.getAftersaleProofUploadTicket({
+    orderId: '9', fileName: 'proof.jpg', contentType: 'image/jpeg', filePath: '/tmp/proof.jpg', fileSize: 3
+  }, 'mall-proof-ticket-0001')
+  assert.deepEqual(f.calls.at(-1).options.data, {
+    purpose: 'aftersale_proof', orderId: '9', fileName: 'proof.jpg',
+    contentType: 'image/jpeg', fileSize: 3,
+    sha256: 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
+  })
+})
+
+test('reads proof bytes through an explicit base64 readFile', async () => {
+  const originalWx = global.wx
+  const reads = []
+  global.wx = {
+    getFileSystemManager() {
+      return {
+        readFile({ filePath, encoding, success }) {
+          reads.push({ filePath, encoding })
+          success({ data: Buffer.from([97, 98, 99]).toString('base64') })
+        }
+      }
+    },
+    base64ToArrayBuffer(value) { return Uint8Array.from(Buffer.from(value, 'base64')).buffer }
+  }
+  try {
+    const calls = []
+    const service = createMallAftersaleService({
+      getAccessToken: () => 'buyer-token',
+      request: async (apiPath, requestOptions = {}) => {
+        calls.push({ apiPath, options: requestOptions })
+        return { fileId: '31', uploadUrl: 'https://bucket-1.cos.ap-beijing.myqcloud.com/mall/proof?signature=temporary' }
+      }
+    })
+    await service.getAftersaleProofUploadTicket({
+      orderId: '9', fileName: 'proof.jpg', contentType: 'image/jpeg', filePath: '/tmp/proof.jpg', fileSize: 3
+    }, 'mall-proof-ticket-0001')
+    assert.deepEqual(reads, [{ filePath: '/tmp/proof.jpg', encoding: 'base64' }])
+    assert.equal(calls.at(-1).options.data.fileSize, 3)
+    assert.equal(calls.at(-1).options.data.sha256, 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
+  } finally {
+    global.wx = originalWx
+  }
+})
+
+test('private COS uploads send the ACL header covered by the upload ticket', async () => {
+  const { uploadToCos } = require('../../services/cos-upload')
+  const originalWx = global.wx
+  let request
+  global.wx = {
+    getFileSystemManager() {
+      return { readFile: ({ success }) => success({ data: Uint8Array.from([1]).buffer }) }
+    },
+    request(options) {
+      request = options
+      options.success({ statusCode: 204 })
+    }
+  }
+
+  try {
+    await uploadToCos(
+      { uploadUrl: 'https://bucket-1.cos.ap-beijing.myqcloud.com/mall/proof?signature=temporary' },
+      '/tmp/proof.jpg',
+      'image/jpeg',
+      '售后凭证',
+      { 'x-cos-acl': 'private' }
+    )
+    assert.equal(request.header['x-cos-acl'], 'private')
+    assert.equal(request.header['Content-Type'], 'image/jpeg')
+  } finally {
+    global.wx = originalWx
+  }
 })
 
 test('validates IDs, quantities, reasons, proof metadata, keys and return fields before transport', async () => {

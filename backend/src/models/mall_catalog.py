@@ -3,6 +3,7 @@
 from sqlalchemy import (
     JSON,
     BigInteger,
+    Boolean,
     CheckConstraint,
     Computed,
     ForeignKey,
@@ -39,6 +40,7 @@ class MallProduct(MallRecord, Base):
         CheckConstraint(
             "status IN ('draft','on_sale','off_sale','archived')", name="ck_mall_product_status"
         ),
+        CheckConstraint("product_type IN ('physical','virtual')", name="ck_mall_product_type"),
         Index("ix_mall_product_status_sort", "status", "sort", "id"),
         Index("ix_mall_product_category_status", "category_id", "status", "sort", "id"),
     )
@@ -46,6 +48,11 @@ class MallProduct(MallRecord, Base):
         MALL_ID, ForeignKey("mall_categories.id", ondelete="RESTRICT")
     )
     name: Mapped[str] = mapped_column(String(64))
+    product_type: Mapped[str] = mapped_column(
+        String(16), default="physical", server_default="physical", nullable=False
+    )
+    supports_return: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
+    return_instructions: Mapped[str] = mapped_column(String(2000), default="", server_default="")
     summary: Mapped[str] = mapped_column(String(128), default="")
     cover_file_id: Mapped[int | None] = mapped_column(
         MALL_ID,
@@ -53,6 +60,8 @@ class MallProduct(MallRecord, Base):
             "mall_files.id", name="fk_mall_product_cover", use_alter=True, ondelete="RESTRICT"
         ),
     )
+    delivery_method: Mapped[str | None] = mapped_column(String(16))
+    freight_template_id: Mapped[str | None] = mapped_column(String(32))
     gallery_file_ids: Mapped[list] = mapped_column(JSON, default=list)
     description: Mapped[str] = mapped_column(Text, default="")
     instructions: Mapped[str] = mapped_column(Text, default="")
@@ -65,6 +74,13 @@ class MallSku(MallRecord, Base):
     __table_args__ = (
         CheckConstraint("sale_price_cent > 0", name="ck_mall_sku_price"),
         CheckConstraint(
+            "cost_price_cent IS NULL OR cost_price_cent >= 0", name="ck_mall_sku_cost_price"
+        ),
+        CheckConstraint(
+            "market_price_cent IS NULL OR market_price_cent >= 0",
+            name="ck_mall_sku_market_price",
+        ),
+        CheckConstraint(
             "available_qty >= 0 AND reserved_qty >= 0 AND warning_qty >= 0",
             name="ck_mall_sku_stock",
         ),
@@ -74,9 +90,12 @@ class MallSku(MallRecord, Base):
     product_id: Mapped[int] = mapped_column(
         MALL_ID, ForeignKey("mall_products.id", ondelete="RESTRICT")
     )
+    barcode: Mapped[str | None] = mapped_column(String(64), nullable=True)
     sku_code: Mapped[str] = mapped_column(String(64), unique=True)
     options: Mapped[dict] = mapped_column(JSON, default=dict)
     sale_price_cent: Mapped[int] = mapped_column(BigInteger)
+    market_price_cent: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    cost_price_cent: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     available_qty: Mapped[int] = mapped_column(Integer, default=0)
     reserved_qty: Mapped[int] = mapped_column(Integer, default=0)
     warning_qty: Mapped[int] = mapped_column(Integer, default=0)

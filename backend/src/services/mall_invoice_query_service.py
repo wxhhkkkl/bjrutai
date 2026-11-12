@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from ..core.exceptions import NotFoundException
 from ..models.mall_finance import MallInvoice, MallInvoiceRequest
-from ..models.mall_trade import MallOrder
+from ..models.mall_trade import MallOrder, MallOrderItem
 from .mall_catalog_query_service import _page
 from .mall_order_service import owned_order
 
@@ -19,6 +19,20 @@ def _mask_tax_no(value):
 
 async def serialize_invoice_request(db, row: MallInvoiceRequest):
     order = await db.get(MallOrder, row.order_id, populate_existing=True)
+    snapshots = await db.scalars(
+        select(MallOrderItem.product_snapshot)
+        .where(MallOrderItem.order_id == row.order_id)
+        .order_by(MallOrderItem.id)
+    )
+    product_names = list(
+        dict.fromkeys(
+            name.strip()
+            for snapshot in snapshots
+            if isinstance(snapshot, dict)
+            and isinstance((name := snapshot.get("name")), str)
+            and name.strip()
+        )
+    )
     net_paid_cent = (
         max(0, order.paid_amount_cent - order.refunded_goods_cent - order.refunded_freight_cent)
         if order is not None
@@ -35,11 +49,13 @@ async def serialize_invoice_request(db, row: MallInvoiceRequest):
         "id": str(row.id),
         "requestNo": row.request_no,
         "orderId": str(row.order_id),
+        "productName": "、".join(product_names) if product_names else None,
         "buyerType": row.buyer_type,
         "invoiceType": row.invoice_type,
         "title": row.title,
         "taxNoMasked": _mask_tax_no(row.tax_no),
         "status": row.status,
+        "infoRequestReason": row.info_request_reason,
         "requestedGoodsCent": row.requested_goods_cent,
         "requestedFreightCent": row.requested_freight_cent,
         "netPaidCent": net_paid_cent,
@@ -59,7 +75,7 @@ def serialize_invoice(row: MallInvoice):
         "invoiceNo": row.invoice_no,
         "kind": row.kind,
         "totalCent": row.total_cent,
-        "issuedAt": row.issued_at.isoformat() + "Z",
+        "issuedAt": row.issued_at.isoformat() + "Z" if row.issued_at else None,
         "status": row.status,
         "originalInvoiceId": str(row.original_invoice_id) if row.original_invoice_id else None,
         "replacementForId": str(row.replacement_for_id) if row.replacement_for_id else None,

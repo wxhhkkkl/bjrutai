@@ -1,21 +1,21 @@
 const RESULT_STATES = {
   matching: {
     state: 'matching',
-    heroImage: '/assets/images/binding-result-matching.png',
+    heroImage: '/assets/images/binding-result-matching.jpg',
     heroTitle: '客户信息已提交',
     heroDescription: '暂未获取儒泰用户ID，系统将持续匹配',
     heroMeta: '北京侧关联关系已记录'
   },
   bound: {
     state: 'bound',
-    heroImage: '/assets/images/binding-result-bound.png',
+    heroImage: '/assets/images/binding-result-bound.jpg',
     heroTitle: '该客户已绑定',
     heroDescription: '系统检测到该客户已存在有效归属关系',
     heroMeta: ''
   },
   failed: {
     state: 'failed',
-    heroImage: '/assets/images/binding-result-failed.png',
+    heroImage: '/assets/images/binding-result-failed.jpg',
     heroTitle: '暂未匹配到儒泰用户',
     heroDescription: '请核对客户信息后再次提交',
     heroMeta: ''

@@ -213,7 +213,7 @@ it('shows local dispatch only to shipment staff and submits an idempotent snapsh
   expect(wrapper.text()).toContain('结果未确认')
   await wrapper.vm.retry()
   expect(api.registerShipment.mock.calls[1]).toEqual(originalRequest)
-  expect(wrapper.text()).toContain('微信平台同步和物流轨迹查询尚未启用')
+  expect(wrapper.text()).toContain('本地发货事实已登记')
   wrapper.unmount()
 })
 

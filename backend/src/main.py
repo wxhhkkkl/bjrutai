@@ -187,6 +187,17 @@ async def lifespan(app: FastAPI):
                 coalesce=True,
                 replace_existing=True,
             )
+        if settings.mall_refund_simulation_enabled:
+            from .tasks.mall_tasks import mall_refund_simulation_job
+
+            scheduler.add_job(
+                mall_refund_simulation_job,
+                trigger=IntervalTrigger(seconds=5),
+                id="mall_refund_simulation",
+                max_instances=1,
+                coalesce=True,
+                replace_existing=True,
+            )
 
         # T116a: Bind user polling — every 60 seconds
         from .tasks.sync_tasks import (
@@ -495,17 +506,11 @@ app.include_router(admin_mall_logistics_shipments_router, prefix="/api/v1")
 from .api.v1.admin_mall_finance_exports import router as admin_mall_finance_exports_router
 from .api.v1.admin_mall_invoices import router as admin_mall_invoices_router
 from .api.v1.admin_mall_payments import router as admin_mall_payments_router
-from .api.v1.admin_mall_reconciliations import (
-    difference_router as admin_mall_differences_router,
-    router as admin_mall_reconciliations_router,
-)
 from .api.v1.admin_mall_workbench import router as admin_mall_workbench_router
 from .api.v1.mall_invoices import router as mall_invoices_router
 
 app.include_router(mall_invoices_router, prefix="/api/v1")
 app.include_router(admin_mall_invoices_router, prefix="/api/v1")
 app.include_router(admin_mall_payments_router, prefix="/api/v1")
-app.include_router(admin_mall_reconciliations_router, prefix="/api/v1")
-app.include_router(admin_mall_differences_router, prefix="/api/v1")
 app.include_router(admin_mall_finance_exports_router, prefix="/api/v1")
 app.include_router(admin_mall_workbench_router, prefix="/api/v1")

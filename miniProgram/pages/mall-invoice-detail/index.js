@@ -2,7 +2,6 @@ const invoiceService = require('../../services/mall-invoice-service')
 const mallCheckoutService = require('../../services/mall-checkout-service')
 const sessionService = require('../../services/session-service')
 const mallIntentService = require('../../services/mall-intent-service')
-const { getMallPurposeNotice } = require('../../models/legal-document')
 const { createRequestKeyManager } = require('../../utils/request-key')
 const { setMallFormError } = require('../../utils/mall-form-error')
 const { sha256Hex } = require('../../utils/sha256')
@@ -19,10 +18,18 @@ const REQUEST_LABELS = {
 
 const INVOICE_STATUS_LABELS = {
   valid: '有效',
-  red_pending: '待红冲',
-  awaiting_counterparty: '待对方确认',
-  partially_red: '部分红冲',
-  fully_red: '已全额红冲'
+  pdf_uploaded: 'PDF 已上传',
+  red_pending: '退款后发票处理中',
+  awaiting_counterparty: '发票处理中',
+  partially_red: '部分调整完成',
+  fully_red: '调整完成'
+}
+
+const INVOICE_DOWNLOAD_HINTS = {
+  red_pending: '订单发生退款，原发票正在调整，暂不可下载。',
+  awaiting_counterparty: '原发票正在调整，暂不可下载。',
+  partially_red: '原发票已部分调整，请查看对应红票。',
+  fully_red: '原发票已调整，请查看对应红票。'
 }
 
 function safeError(error, fallback) {
@@ -42,17 +49,21 @@ function payloadFingerprint(value) {
 
 function normalizeRequest(value = {}) {
   const { taxNo, email, ...safe } = value
-  const invoices = Array.isArray(safe.invoices) ? safe.invoices.map((invoice) => ({
-    ...invoice,
-    totalText: money(invoice.totalCent),
-    kindLabel: invoice.kind === 'red' ? '红票' : '蓝票',
-    chainLabel: invoice.kind === 'red'
-      ? '原蓝票的红票'
-      : invoice.replacementForId ? '重开蓝票' : '蓝票',
-    statusLabel: INVOICE_STATUS_LABELS[invoice.status] || '票据状态处理中',
-    canDownload: Boolean(invoice.fileId),
-    canCorrect: invoice.kind === 'blue' && invoice.status === 'valid'
-  })) : []
+  const invoices = Array.isArray(safe.invoices) ? safe.invoices.map((invoice) => {
+    const downloadableStatus = ['valid', 'pdf_uploaded'].includes(invoice.status)
+    return {
+      ...invoice,
+      totalText: money(invoice.totalCent),
+      kindLabel: invoice.kind === 'red' ? '红票' : '蓝票',
+      chainLabel: invoice.kind === 'red'
+        ? '原蓝票的红票'
+        : invoice.replacementForId ? '重开蓝票' : '蓝票',
+      statusLabel: INVOICE_STATUS_LABELS[invoice.status] || '票据状态处理中',
+      canDownload: Boolean(invoice.fileId) && downloadableStatus,
+      downloadHint: invoice.fileId ? INVOICE_DOWNLOAD_HINTS[invoice.status] || '' : '',
+      canCorrect: invoice.kind === 'blue' && downloadableStatus
+    }
+  }) : []
   const status = String(safe.status || '')
   return {
     ...safe,
@@ -98,7 +109,7 @@ Page({
   data: {
     requestId: '', request: null, invoices: [], state: 'loading', stateMessage: '', focusField: '', errorTarget: '',
     supplementTitle: '', supplementTaxNo: '', submittingSupplement: false,
-    policyVersion: '', purposeNotice: getMallPurposeNotice('invoice'), supplementConsentConfirmed: false,
+    policyVersion: '', supplementConsentConfirmed: false,
     correctionInvoiceId: '', correctionReason: '', correctionMessage: '', submittingCorrection: false,
     showWithdrawForm: false, withdrawReason: '', submittingWithdraw: false,
     downloadingInvoiceId: '', downloadMessage: ''

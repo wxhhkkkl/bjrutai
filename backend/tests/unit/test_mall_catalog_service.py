@@ -11,25 +11,45 @@ ACTOR = MallActor("admin", 1, frozenset({"mall.products.write", "mall.stock.writ
 
 
 @pytest.mark.asyncio
-async def test_category_tree_has_two_levels_and_cannot_move_parent_with_children(db_session):
+async def test_categories_only_allow_one_level(db_session):
     from src.schemas.mall_catalog import CategoryWrite
     from src.services.mall_catalog_service import save_category
 
     root = await save_category(db_session, CategoryWrite(name="食品", status="enabled"))
-    child = await save_category(
-        db_session, CategoryWrite(name="谷物", parentId=str(root.id), status="enabled")
-    )
-    with pytest.raises(ValidationException):
+    assert root.parent_id is None
+    with pytest.raises(ValidationException, match="仅支持一级分类"):
         await save_category(
-            db_session, CategoryWrite(name="三级", parentId=str(child.id), status="enabled")
+            db_session, CategoryWrite(name="谷物", parentId=str(root.id), status="enabled")
         )
     another = await save_category(db_session, CategoryWrite(name="其他", status="enabled"))
-    with pytest.raises(ValidationException):
+    with pytest.raises(ValidationException, match="仅支持一级分类"):
         await save_category(
             db_session,
             CategoryWrite(name="食品", parentId=str(another.id), status="enabled"),
             category_id=root.id,
         )
+    with pytest.raises(ConflictException, match="分类名称已存在"):
+        await save_category(db_session, CategoryWrite(name="食品", status="enabled"))
+
+
+@pytest.mark.asyncio
+async def test_editing_legacy_child_promotes_it_without_replacing_its_id(db_session):
+    from src.models.mall_catalog import MallCategory
+    from src.schemas.mall_catalog import CategoryWrite
+    from src.services.mall_catalog_service import save_category
+
+    root = await save_category(db_session, CategoryWrite(name="食品", status="enabled"))
+    child = MallCategory(name="谷物", parent_id=root.id, sort=0, status="enabled")
+    db_session.add(child)
+    await db_session.flush()
+    identity, version = child.id, child.version
+    updated = await save_category(
+        db_session, CategoryWrite(name="谷物", status="enabled"),
+        category_id=identity, expected_version=version,
+    )
+    assert updated.id == identity
+    assert updated.parent_id is None
+    assert updated.version == version + 1
 
 
 @pytest.mark.asyncio
@@ -138,9 +158,9 @@ async def test_price_edit_never_overwrites_reserved_stock_and_adjustment_is_audi
 
 
 @pytest.mark.asyncio
-async def test_copy_has_fresh_codes_and_zero_stock_and_archive_preserves_skus(db_session):
+async def test_archive_preserves_skus_and_stock(db_session):
     from src.schemas.mall_catalog import ProductWrite
-    from src.services.mall_catalog_service import copy_product, save_product, set_product_status
+    from src.services.mall_catalog_service import save_product, set_product_status
 
     original = await save_product(
         db_session,
@@ -156,10 +176,8 @@ async def test_copy_has_fresh_codes_and_zero_stock_and_archive_preserves_skus(db
         ),
         actor=ACTOR,
     )
-    copy = await copy_product(db_session, original.id, actor=ACTOR)
     rows = (await db_session.execute(select(MallSku).order_by(MallSku.id))).scalars().all()
-    assert copy.status == "draft" and rows[1].available_qty == 0
-    assert rows[0].sku_code != rows[1].sku_code
+    assert len(rows) == 1 and rows[0].available_qty == 7
     await set_product_status(db_session, original.id, "archived", expected_version=original.version)
     assert rows[0].status == "archived" and rows[0].available_qty == 7
     with pytest.raises(ConflictException):

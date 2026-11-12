@@ -86,9 +86,9 @@ class InvoicePatch(CatalogInput):
 
 class InvoiceIssueRecord(CatalogInput):
     expected_version: int = Field(ge=1)
-    invoice_no: str = Field(min_length=1, max_length=64)
-    issued_at: datetime = Field(strict=False)
-    seller_identity: str = Field(min_length=1, max_length=64)
+    invoice_no: str | None = Field(default=None, min_length=1, max_length=64)
+    issued_at: datetime | None = Field(default=None, strict=False)
+    seller_identity: str | None = Field(default=None, min_length=1, max_length=64)
     total_cent: int = Field(ge=1, le=9007199254740991)
     file_id: str = Field(pattern=r"^[1-9][0-9]*$")
     reason: str = Field(default="", max_length=500)
@@ -98,6 +98,15 @@ class InvoiceIssueRecord(CatalogInput):
     @classmethod
     def trim_identifiers(cls, value):
         return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def validate_optional_invoice_metadata(self):
+        fields = (self.invoice_no, self.issued_at, self.seller_identity)
+        if any(value is None for value in fields) and any(
+            value is not None for value in fields
+        ):
+            raise ValueError("票面信息请完整填写，或留空仅登记PDF")
+        return self
 
 
 class RedPendingUpdate(CatalogInput):

@@ -4,27 +4,32 @@ page { background: #f4f3ee; }
 .mall-flow-page { height: 100vh; display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom); background: #f4f3ee; box-sizing: border-box; }
 .mall-flow-page > flow-navigation { flex: none; }
 .mall-flow-scroll { min-height: 0; flex: 1; }
-.mall-logistics-summary { display: flex; align-items: center; gap: 15rpx; margin: 20rpx 22rpx 12rpx; padding: 22rpx; border: 1rpx solid #e5e9e2; border-radius: 18rpx; background: #fff; }
-.mall-logistics-summary__icon { width: 76rpx; height: 76rpx; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #eaf0e9; }
+.mall-logistics-map { position: relative; height: 520rpx; margin: 0 0 14rpx; overflow: hidden; background: #e9eef6; }
+.mall-logistics-map__canvas { width: 100%; height: 100%; }
+.mall-logistics-map__estimate { position: absolute; left: 22rpx; bottom: 22rpx; padding: 16rpx 22rpx; border-radius: 16rpx; background: #1677ff; box-shadow: 0 8rpx 24rpx rgba(22, 119, 255, 0.26); }
+.mall-logistics-map__title { color: #fff; font-size: 28rpx; font-weight: 700; line-height: 1.4; }
+.mall-logistics-map__sub { margin-top: 4rpx; color: #eaf1ff; font-size: 24rpx; }
+.mall-logistics-summary { display: flex; align-items: center; gap: 18rpx; margin: 20rpx 22rpx 12rpx; padding: 24rpx; border: 1rpx solid #e5e9e2; border-radius: 18rpx; background: #fff; }
+.mall-logistics-summary__icon { width: 80rpx; height: 80rpx; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #eaf1ff; }
 .mall-logistics-summary__copy { display: flex; flex-direction: column; gap: 8rpx; }
-.mall-logistics-summary__status { color: #34463b; font-size: 26rpx; font-weight: 700; }
-.mall-logistics-summary__source { color: #87938b; font-size: 21rpx; }
-.mall-logistics-disclaimer { margin: 0 22rpx 14rpx; padding: 14rpx 18rpx; border-radius: 12rpx; color: #6e7b73; background: #e9eee8; font-size: 20rpx; line-height: 1.5; }
-.mall-detail-card { margin: 0 22rpx 14rpx; padding: 20rpx; border: 1rpx solid #e7e9e2; border-radius: 18rpx; background: #fff; }
-.mall-detail-card__heading { display: flex; align-items: center; gap: 10rpx; margin-bottom: 15rpx; color: #35443b; font-size: 25rpx; font-weight: 700; }
-.mall-logistics-number__row { display: flex; justify-content: space-between; gap: 16rpx; min-height: 44rpx; color: #89948d; font-size: 21rpx; }
+.mall-logistics-summary__status { color: #34463b; font-size: 31rpx; font-weight: 700; }
+.mall-logistics-summary__source { color: #87938b; font-size: 25rpx; }
+.mall-logistics-disclaimer { margin: 0 22rpx 14rpx; padding: 16rpx 18rpx; border-radius: 12rpx; color: #6e7b73; background: #eef3ff; font-size: 24rpx; line-height: 1.5; }
+.mall-detail-card { margin: 0 22rpx 14rpx; padding: 22rpx; border: 1rpx solid #e7e9e2; border-radius: 18rpx; background: #fff; }
+.mall-detail-card__heading { display: flex; align-items: center; gap: 10rpx; margin-bottom: 16rpx; color: #35443b; font-size: 29rpx; font-weight: 700; }
+.mall-logistics-number__row { display: flex; justify-content: space-between; gap: 16rpx; min-height: 52rpx; color: #89948d; font-size: 25rpx; }
 .mall-logistics-number__row text:last-child { max-width: 390rpx; overflow-wrap: anywhere; color: #35443b; text-align: right; }
-.mall-logistics-estimate { display: block; margin-top: 8rpx; color: #27645b; font-size: 20rpx; }
-.mall-logistics-empty { min-height: 150rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 13rpx; color: #8d9991; font-size: 21rpx; text-align: center; }
-.mall-logistics-event { display: flex; gap: 14rpx; min-height: 104rpx; }
+.mall-logistics-estimate { display: block; margin-top: 8rpx; color: #1677ff; font-size: 24rpx; }
+.mall-logistics-empty { min-height: 160rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 13rpx; color: #8d9991; font-size: 25rpx; text-align: center; }
+.mall-logistics-event { display: flex; gap: 14rpx; min-height: 112rpx; }
 .mall-logistics-event__rail { width: 18rpx; flex: none; display: flex; flex-direction: column; align-items: center; }
-.mall-logistics-event__dot { width: 13rpx; height: 13rpx; flex: none; margin-top: 5rpx; border-radius: 50%; background: #c4ccc5; }
-.mall-logistics-event__dot--latest { background: #27645b; box-shadow: 0 0 0 6rpx #e6eee7; }
+.mall-logistics-event__dot { width: 13rpx; height: 13rpx; flex: none; margin-top: 6rpx; border-radius: 50%; background: #c4ccc5; }
+.mall-logistics-event__dot--latest { background: #1677ff; box-shadow: 0 0 0 6rpx #e6eeff; }
 .mall-logistics-event__line { width: 2rpx; flex: 1; margin-top: 6rpx; background: #e1e6e0; }
 .mall-logistics-event__content { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 7rpx; padding-bottom: 18rpx; }
-.mall-logistics-event__description { color: #435248; font-size: 22rpx; line-height: 1.45; }
-.mall-logistics-event__time, .mall-logistics-event__area { color: #929d95; font-size: 19rpx; }
-.mall-logistics-footer { padding: 0 24rpx 24rpx; color: #9aa39d; font-size: 18rpx; }
-.mall-flow-state { min-height: 55vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16rpx; padding: 40rpx; color: #7a8980; font-size: 24rpx; text-align: center; }
-.mall-flow-state__title { color: #34443b; font-size: 30rpx; font-weight: 700; }
-.mall-primary-button { min-width: 210rpx; height: 78rpx; margin-top: 18rpx; padding: 0 30rpx; border: 0; border-radius: 999rpx; color: #fff; background: #27645b; font-size: 25rpx; line-height: 78rpx; }
+.mall-logistics-event__description { color: #435248; font-size: 26rpx; line-height: 1.45; }
+.mall-logistics-event__time, .mall-logistics-event__area { color: #929d95; font-size: 24rpx; }
+.mall-logistics-footer { padding: 0 24rpx 24rpx; color: #9aa39d; font-size: 24rpx; }
+.mall-flow-state { min-height: 55vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16rpx; padding: 40rpx; color: #7a8980; font-size: 28rpx; text-align: center; }
+.mall-flow-state__title { color: #34443b; font-size: 34rpx; font-weight: 700; }
+.mall-primary-button { min-width: 210rpx; height: 86rpx; margin-top: 18rpx; padding: 0 34rpx; border: 0; border-radius: 999rpx; color: #fff; background: #1677ff; font-size: 28rpx; line-height: 86rpx; }

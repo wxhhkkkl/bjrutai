@@ -1,12 +1,12 @@
 <view class="mall-flow-page mall-payment-page">
   <flow-navigation title="订单结果" bind:back="goBack" />
   <view class="mall-payment-content">
-    <view class="mall-payment-mark mall-payment-mark--{{state}}"><van-icon name="{{state === 'succeeded' ? 'checked' : state === 'closed' ? 'close' : state === 'unknown' || state === 'error' ? 'warning-o' : 'clock-o'}}" size="36px" color="{{state === 'succeeded' ? '#27645B' : state === 'closed' ? '#87918B' : '#BD704C'}}" /></view>
+    <view class="mall-payment-mark mall-payment-mark--{{state}}"><van-icon name="{{state === 'succeeded' ? 'checked' : state === 'closed' ? 'close' : state === 'unknown' || state === 'error' ? 'warning-o' : 'clock-o'}}" size="36px" color="{{state === 'succeeded' ? '#1677FF' : state === 'closed' ? '#87918B' : '#BD704C'}}" /></view>
     <text class="mall-payment-title">{{title}}</text>
     <text class="mall-payment-message">{{message}}</text>
     <view wx:if="{{order}}" class="mall-payment-order-card">
       <view><text>订单号</text><text>{{order.orderNo || order.id}}</text></view>
-      <view><text>订单状态</text><text>{{order.status === 'pending_payment' ? '待付款' : order.status === 'pending_shipment' ? '待发货' : order.status === 'pending_receipt' ? '待收货' : order.status === 'closed' ? '已关闭' : order.status}}</text></view>
+      <view><text>订单状态</text><text>{{order.status === 'pending_payment' ? '待付款' : order.status === 'pending_shipment' ? (order.deliveryMethod === 'virtual' ? '待交付' : '待发货') : order.status === 'pending_receipt' ? '待收货' : order.status === 'closed' ? '已关闭' : order.status}}</text></view>
       <view><text>支付核实</text><text>{{statusLabel}}</text></view>
       <view><text>订单金额</text><text class="mall-payment-amount">¥{{order.payableAmountText}}</text></view>
     </view>

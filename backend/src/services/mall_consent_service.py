@@ -8,7 +8,7 @@ permissions or override the G-DATA gate.
 from ..core.exceptions import ConflictException, ForbiddenException, ValidationException
 from ..models.consent import ConsentRecord, ConsentScene, EvidenceType, SubjectType
 
-MALL_NOTICE_COPY_VERSION = "mall-purpose-2026-11-v2"
+MALL_NOTICE_COPY_VERSION = "mall-purpose-2026-11-v3"
 
 PURPOSE_SCENES = {
     "recipient": ConsentScene.MALL_ADDRESS,
@@ -20,7 +20,13 @@ PURPOSE_SCENES = {
 PURPOSE_SCOPE_KEYS = {
     "recipient": {"recipient_name", "recipient_phone", "recipient_region", "delivery_address"},
     "payment": {"order_amount", "payment_status", "channel_transaction_reference"},
-    "fulfillment": {"recipient_contact", "delivery_address", "courier_tracking", "delivery_status"},
+    "fulfillment": {
+        "recipient_contact",
+        "delivery_address",
+        "courier_tracking",
+        "delivery_status",
+        "virtual_delivery_content",
+    },
     "invoice": {"invoice_title", "tax_identifier", "delivery_email", "tax_record"},
 }
 
@@ -45,8 +51,8 @@ MALL_PURPOSE_NOTICE_DRAFTS = {
     "fulfillment": {
         "title": "商城订单履约用途说明",
         "body": (
-            "订单商品、收件资料、发货状态、承运方和运单号用于出库、查询物流、确认送达及处理售后。"
-            "物流查询服务仅按查询所需接收承运方和运单号；不用于营销画像。"
+            "订单商品及履约状态用于完成订单交付和处理售后。实物订单的收件资料、承运方和运单号用于出库及查询物流；"
+            "虚拟商品订单的商家交付内容用于买家查看本单交付结果。物流查询服务仅按查询所需接收承运方和运单号；不用于营销画像。"
         ),
     },
     "invoice": {

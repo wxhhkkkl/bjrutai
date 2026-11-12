@@ -41,8 +41,12 @@ http.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
-    // Skip token refresh for login requests (they are expected to 401)
-    const isAuthRequest = originalRequest.url?.includes('/auth/')
+    // Login and refresh calls must not recursively refresh themselves. Session
+    // reads still need the normal refresh path so permissions are restored on
+    // a full-page reload after the access token expires.
+    const isAuthBootstrapRequest =
+      originalRequest.url?.includes('/auth/admin-login') ||
+      originalRequest.url?.includes('/auth/refresh')
     const isPermissionTokenStale =
       error.response?.status === 403 &&
       error.response?.data?.code === 40300 &&
@@ -51,7 +55,7 @@ http.interceptors.response.use(
     const shouldRefreshToken =
       (error.response?.status === 401 || isPermissionTokenStale) &&
       !originalRequest[retryFlag] &&
-      !isAuthRequest
+      !isAuthBootstrapRequest
 
     // Role permissions are embedded in the access token.  When an admin edits
     // the current role, refresh once on a permission rejection so the next

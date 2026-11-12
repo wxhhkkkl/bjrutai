@@ -96,6 +96,21 @@ Page({
       canContinuePayment,
       statusLabel: state === 'succeeded' ? '已收款' : state === 'closed' ? '已关闭' : state === 'unknown' ? '待核实' : '待支付'
     })
+    if (state === 'succeeded') this.leaveAfterSuccess()
+  },
+
+  leaveAfterSuccess() {
+    if (this.leavingAfterSuccess) return
+    this.leavingAfterSuccess = true
+    const orderId = this.data.orderId
+    const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : []
+    const previous = pages.length > 1 ? pages[pages.length - 2] : null
+    if (previous && previous.route === 'pages/mall-order-detail/index' && String(previous.data && previous.data.orderId) === orderId) {
+      wx.navigateBack({ delta: 1 })
+      if (typeof previous.loadOrder === 'function') previous.loadOrder(true)
+      return
+    }
+    wx.redirectTo({ url: `/pages/mall-order-detail/index?id=${encodeURIComponent(orderId)}` })
   },
 
   async continuePayment() {

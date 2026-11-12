@@ -406,7 +406,7 @@ it('replaces a lost PDF on the same invoice without recording a new tax ticket',
   wrapper.unmount()
 })
 
-it('uploads only a private invoice_pdf ticket and verifies the same file intent', async () => {
+it('sends invoice PDF bytes through the API and reuses the same file intent on retry', async () => {
   const actual = await vi.importActual('@/api/mall-invoices')
   const randomUUID = globalThis.crypto.randomUUID.bind(globalThis.crypto)
   vi.stubGlobal('crypto', {
@@ -434,7 +434,6 @@ it('uploads only a private invoice_pdf ticket and verifies the same file intent'
     .mockResolvedValueOnce({
       data: { data: { id: '120', status: 'verified' } },
     })
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
   const state = actual.createInvoicePdfUploadState(file, '9')
   const verified = await actual.uploadInvoicePdf(state)
 
@@ -447,20 +446,16 @@ it('uploads only a private invoice_pdf ticket and verifies the same file intent'
     fileSize: file.size,
     sha256: '0'.repeat(64),
   })
-  expect(globalThis.fetch).toHaveBeenCalledWith(
-    'https://storage.example.test/private-ticket',
+  expect(httpMocks.post).toHaveBeenNthCalledWith(
+    2,
+    '/admin/mall/files/120/verify',
+    file,
     expect.objectContaining({
-      method: 'PUT',
-      credentials: 'omit',
-      redirect: 'error',
-      headers: { 'Content-Type': 'application/pdf' },
-      body: file,
+      headers: { 'Content-Type': 'application/pdf', 'Idempotency-Key': state.verifyKey },
     })
   )
-  expect(httpMocks.post.mock.calls[1][0]).toBe('/admin/mall/files/120/verify')
 
   await actual.uploadInvoicePdf(state)
-  expect(globalThis.fetch).toHaveBeenCalledTimes(1)
   expect(httpMocks.post).toHaveBeenCalledTimes(3)
   expect(httpMocks.post.mock.calls[2][0]).toBe('/admin/mall/files/120/verify')
   expect(httpMocks.post.mock.calls[2][2].headers['Idempotency-Key']).toBe(

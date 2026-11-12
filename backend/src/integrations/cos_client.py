@@ -60,6 +60,7 @@ class COSClient:
         content_type: str,
         file_size: int,
         key_prefix: str = "qualifications/",
+        object_acl: str | None = None,
     ) -> dict:
         """Validate and generate a pre-signed upload URL + file key.
 
@@ -109,6 +110,7 @@ class COSClient:
             object_key=object_key,
             content_type=content_type,
             expire_seconds=expire_seconds,
+            signed_headers={"x-cos-acl": object_acl} if object_acl else None,
         )
 
         return {
@@ -143,6 +145,7 @@ class COSClient:
             content_type=content_type,
             file_size=file_size,
             key_prefix="feedbacks/",
+            object_acl="private",
         )
         # Private objects must never be exposed as a durable public URL.
         token.pop("fileUrl", None)
@@ -215,6 +218,7 @@ class COSClient:
         content_type: str,
         expire_seconds: int,
         method: str = "PUT",
+        signed_headers: dict[str, str] | None = None,
     ) -> str:
         """Build a pre-signed PUT URL for uploading to COS.
 
@@ -237,13 +241,22 @@ class COSClient:
             hashlib.sha1,
         ).hexdigest()
 
-        # Step 2: HttpString = {method}\n{path}\n\nhost={host}\n
-        # 只签 host，不签 content-type：浏览器对 File 的 Content-Type 处理不可控，
-        # 若实际发送的与签名不一致会 SignatureDoesNotMatch。签名 host 则任意
-        # Content-Type 均可上传。
+        # Step 2: Canonicalize the signed headers. Content-Type stays unsigned
+        # because browser File handling can vary; private object ACLs are signed
+        # so a client cannot replace them with public-read.
         http_method = method.lower()
         http_uri = quote(path, safe="/")
-        http_headers = f"host={host}"
+        canonical_headers = {"host": host}
+        for name, value in (signed_headers or {}).items():
+            normalized_name = name.strip().lower()
+            if not normalized_name or normalized_name == "host":
+                raise ValueError("COS签名请求头不合法")
+            canonical_headers[normalized_name] = str(value).strip()
+        header_names = sorted(canonical_headers)
+        q_header_list = ";".join(header_names)
+        http_headers = "&".join(
+            f"{name}={quote(canonical_headers[name], safe='')}" for name in header_names
+        )
         http_string = f"{http_method}\n{http_uri}\n\n{http_headers}\n"
 
         # Step 3: StringToSign
@@ -258,7 +271,6 @@ class COSClient:
         ).hexdigest()
 
         # Build authorization parameter
-        q_header_list = "host"
         q_url_param_list = ""
         auth = (
             f"q-sign-algorithm=sha1"
@@ -317,8 +329,15 @@ class MallCOSStore:
                 object_key,
                 mime,
                 expire_seconds=expires_seconds,
+                signed_headers={"x-cos-acl": "private"},
             )
         }
+
+    async def upload_staged(self, object_key: str, content: bytes, *, mime: str) -> None:
+        self._check(object_key)
+        if object_key.startswith("mall/verified/"):
+            raise ValueError("已核验对象禁止覆盖")
+        await self._put_private(object_key, content, mime=mime)
 
     async def put_private_bytes(self, object_key: str, content: bytes, *, mime: str):
         """Upload server-generated, bounded finance output to a private verified key."""
@@ -335,12 +354,19 @@ class MallCOSStore:
             or not 0 < len(content) <= 10 * 1024 * 1024
         ):
             raise ValueError("服务端资金导出对象不合法")
+        await self._put_private(object_key, content, mime=mime)
+
+    async def _put_private(self, object_key: str, content: bytes, *, mime: str) -> None:
         async with httpx.AsyncClient(
             timeout=15, transport=self.transport, follow_redirects=False
         ) as remote:
             response = await remote.put(
                 self.client._build_presigned_put_url(
-                    object_key, mime, expire_seconds=60, method="PUT"
+                    object_key,
+                    mime,
+                    expire_seconds=60,
+                    method="PUT",
+                    signed_headers={"x-cos-acl": "private"},
                 ),
                 content=content,
                 headers={"Content-Type": mime, "x-cos-acl": "private"},
@@ -370,7 +396,11 @@ class MallCOSStore:
             async with remote.stream(
                 "PUT",
                 self.client._build_presigned_put_url(
-                    destination_key, "application/octet-stream", 60, method="PUT"
+                    destination_key,
+                    "application/octet-stream",
+                    60,
+                    method="PUT",
+                    signed_headers={"x-cos-acl": "private"},
                 ),
                 headers={
                     "x-cos-copy-source": f"{host}/{quote(source_key, safe='/')}",

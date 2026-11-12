@@ -134,3 +134,26 @@ async def mall_worker_job():
         **logistics_handlers(async_session),
     }
     await run_mall_worker_once(async_session, handlers=handlers, enabled=True, timeout_seconds=40)
+
+
+async def mall_refund_simulation_job():
+    """Process only refund jobs through the local simulator, never live I/O."""
+    from ..core.config import get_settings
+    from ..core.database import async_session
+    from ..services.mall_refund_runtime import refund_handlers
+
+    settings = get_settings()
+    if not (
+        settings.mall_refund_simulation_enabled
+        and settings.app_environment in {"development", "test"}
+        and settings.mall_gateway_mode == "test"
+        and not settings.mall_gateway_outbound_enabled
+    ):
+        return
+    handlers = refund_handlers(async_session)
+    await run_mall_worker_once(
+        async_session,
+        handlers=handlers,
+        enabled=True,
+        timeout_seconds=40,
+    )

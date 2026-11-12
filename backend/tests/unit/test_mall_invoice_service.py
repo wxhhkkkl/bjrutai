@@ -128,6 +128,7 @@ async def test_claim_info_correction_and_withdraw_are_versioned_and_permission_c
         ReasonAction(expectedVersion=claimed.version, reason="请确认抬头"),
         key="invoice-unit-needs-info-001",
     )
+    assert needs_info.info_request_reason == "请确认抬头"
     corrected = await update_invoice_request(
         db_session,
         buyer,
@@ -136,6 +137,7 @@ async def test_claim_info_correction_and_withdraw_are_versioned_and_permission_c
         key="invoice-unit-patch-001",
     )
     assert corrected.status == "submitted" and corrected.title == "确认后的抬头"
+    assert corrected.info_request_reason is None
     withdrawn = await withdraw_invoice_request(
         db_session,
         buyer,

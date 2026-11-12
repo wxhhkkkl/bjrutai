@@ -1,26 +1,29 @@
-"""Authentication, durable intake, and recovery for the two WeChat Pay callbacks."""
+"""Authentication, durable intake, and recovery for WeChat Pay APIv2 callbacks."""
 
-import base64
 import hashlib
+import hmac
 import json
 import re
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import timedelta, timezone
+from zoneinfo import ZoneInfo
 
-from cryptography.exceptions import InvalidTag
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import get_settings
 from ..core.exceptions import ConflictException, NotFoundException
-from ..integrations.wechat_pay_crypto import WechatPayVerifier
+from ..integrations.wechat_pay_crypto import (
+    decrypt_refund_req_info,
+    parse_v2_xml,
+    verify_v2_signature,
+)
 from ..integrations.wechat_pay_types import (
     PaymentFact,
     PaymentGatewayError,
     RefundFact,
-    parse_payment_fact,
-    parse_refund_fact,
+    parse_api_v2_payment_fact,
+    parse_api_v2_refund_notification,
 )
 from ..models.mall_base import utc_now
 from ..models.mall_finance import MallPayment, MallRefund
@@ -29,10 +32,7 @@ from ..models.user import User
 from .mall_gateway_event_service import persist_gateway_event
 from .mall_job_service import enqueue_mall_job, locked_mall_lease
 from .mall_payment_facts_service import locked_payment
-from .mall_refund_service import (
-    _lock_refund_context,
-    _verify_refund_fact,
-)
+from .mall_refund_service import _lock_refund_context, _verify_refund_fact
 
 MAX_CALLBACK_BODY_BYTES = 1_100_000
 _EVENT_ID = re.compile(r"[A-Za-z0-9_-]{1,128}\Z")
@@ -66,101 +66,171 @@ def _json_object(data: bytes, *, code: str) -> dict:
     return value
 
 
-def _decrypt_resource(resource: dict, api_v3_key: str) -> dict:
-    if (
-        resource.get("algorithm") != "AEAD_AES_256_GCM"
-        or not isinstance(resource.get("ciphertext"), str)
-        or not isinstance(resource.get("nonce"), str)
-        or not isinstance(resource.get("associated_data", ""), str)
-        or not isinstance(api_v3_key, str)
-        or len(api_v3_key.encode("utf-8")) != 32
-    ):
-        raise CallbackFailureError(400, "invalid_encrypted_resource")
+def _parse_notification_xml(body: bytes) -> dict:
     try:
-        ciphertext = base64.b64decode(resource["ciphertext"], validate=True)
-        plaintext = AESGCM(api_v3_key.encode("utf-8")).decrypt(
-            resource["nonce"].encode("utf-8"),
-            ciphertext,
-            resource.get("associated_data", "").encode("utf-8"),
+        return parse_v2_xml(body)
+    except PaymentGatewayError:
+        raise CallbackFailureError(400, "invalid_callback_xml") from None
+
+
+def _callback_storage_payload(
+    kind: str,
+    fact: PaymentFact | RefundFact,
+    *,
+    api_key: str,
+    resource_id: str,
+    verified_digest: str,
+) -> bytes:
+    """Store a MAC-bound normalized fact without buyer openid or raw XML."""
+    if kind == "payment" and isinstance(fact, PaymentFact):
+        paid_time = fact.paid_at.replace(tzinfo=timezone.utc).astimezone(
+            ZoneInfo("Asia/Shanghai")
         )
-    except (ValueError, UnicodeError, InvalidTag):
-        raise CallbackFailureError(400, "invalid_encrypted_resource") from None
-    return _json_object(plaintext, code="invalid_decrypted_resource")
+        payload = {
+            "appid": fact.appid,
+            "mch_id": fact.mchid,
+            "out_trade_no": fact.out_trade_no,
+            "trade_state": fact.state,
+            "total_fee": str(fact.total_cent),
+            "cash_fee": str(fact.payer_total_cent),
+            "fee_type": fact.currency,
+            "transaction_id": fact.transaction_id,
+            "time_end": paid_time.strftime("%Y%m%d%H%M%S"),
+        }
+    elif kind == "refund" and isinstance(fact, RefundFact):
+        statuses = {"SUCCESS": "SUCCESS", "CLOSED": "REFUNDCLOSE", "ABNORMAL": "CHANGE"}
+        payload = {
+            "out_refund_no": fact.out_refund_no,
+            "out_trade_no": fact.out_trade_no,
+            "refund_status": statuses[fact.status],
+            "total_fee": str(fact.total_cent),
+            "refund_fee": str(fact.refund_cent),
+            "refund_id": fact.channel_refund_id or "",
+            "transaction_id": fact.transaction_id or "",
+        }
+        if fact.success_at is not None:
+            local_time = fact.success_at.replace(tzinfo=timezone.utc).astimezone(
+                ZoneInfo("Asia/Shanghai")
+            )
+            payload["success_time"] = local_time.strftime("%Y-%m-%d %H:%M:%S")
+    else:
+        raise CallbackFailureError(400, "callback_fact_mismatch")
+    encoded = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    mac_key = hmac.new(
+        api_key.encode("utf-8"), b"mall-wechat-api-v2-inbox-mac-key-v1", hashlib.sha256
+    ).digest()
+    message = b"\n".join(
+        (
+            b"mall-wechat-api-v2-inbox-v1",
+            kind.encode("ascii"),
+            resource_id.encode("utf-8"),
+            verified_digest.encode("ascii"),
+            encoded,
+        )
+    )
+    mac = hmac.new(mac_key, message, hashlib.sha256).hexdigest()
+    return json.dumps(
+        {"fact": payload, "mac": mac}, ensure_ascii=False, separators=(",", ":")
+    ).encode("utf-8")
+
+
+def _verify_stored_callback_fact(event, envelope: dict, api_key: str) -> dict:
+    fact = envelope.get("fact")
+    supplied = envelope.get("mac")
+    if not isinstance(fact, dict) or not isinstance(supplied, str):
+        raise RuntimeError("stored callback integrity invalid")
+    encoded = json.dumps(fact, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    mac_key = hmac.new(
+        api_key.encode("utf-8"), b"mall-wechat-api-v2-inbox-mac-key-v1", hashlib.sha256
+    ).digest()
+    message = b"\n".join(
+        (
+            b"mall-wechat-api-v2-inbox-v1",
+            event.event_type.encode("ascii"),
+            event.resource_id.encode("utf-8"),
+            event.verified_digest.encode("ascii"),
+            encoded,
+        )
+    )
+    expected = hmac.new(mac_key, message, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(supplied, expected):
+        raise RuntimeError("stored callback integrity invalid")
+    return fact
 
 
 def verify_and_decrypt_callback(headers, body: bytes, *, kind: str) -> VerifiedCallback:
-    """Verify provider identity before parsing or trusting callback facts."""
+    """Verify APIv2 payment XML or decrypt the APIv2 refund notification payload."""
     settings = get_settings()
     if not settings.mall_gateway_callback_enabled:
         raise CallbackFailureError(503, "callback_receiver_disabled")
-    api_v3_key = settings.mall_wechat_api_v3_key
-    verify_keys = settings.mall_wechat_verify_keys
-    if not isinstance(api_v3_key, str) or len(api_v3_key.encode("utf-8")) != 32 or not verify_keys:
+    api_key = settings.mall_wechat_api_v2_key
+    if not isinstance(api_key, str) or len(api_key.encode("utf-8")) != 32:
         raise CallbackFailureError(503, "callback_verification_config_unavailable")
+    if kind not in {"payment", "refund"}:
+        raise CallbackFailureError(400, "invalid_callback_kind")
     if not isinstance(body, bytes) or not 0 < len(body) <= MAX_CALLBACK_BODY_BYTES:
         raise CallbackFailureError(400, "invalid_callback_body_size")
-    try:
-        verifier = WechatPayVerifier(verify_keys)
-    except (ValueError, TypeError):
-        raise CallbackFailureError(503, "callback_verification_config_invalid") from None
-    try:
-        verifier.verify(headers, body)
-    except PaymentGatewayError:
-        raise CallbackFailureError(400, "callback_signature_invalid") from None
-
-    envelope = _json_object(body, code="invalid_callback_json")
-    event_id, event_type = envelope.get("id"), envelope.get("event_type")
-    resource = envelope.get("resource")
-    expected_type = "TRANSACTION.SUCCESS" if kind == "payment" else None
-    expected_original = "transaction" if kind == "payment" else "refund"
-    if (
-        kind not in {"payment", "refund"}
-        or not isinstance(event_id, str)
-        or not _EVENT_ID.fullmatch(event_id)
-        or envelope.get("resource_type") != "encrypt-resource"
-        or not isinstance(resource, dict)
-        or resource.get("original_type", expected_original) != expected_original
+    envelope = _parse_notification_xml(body)
+    if envelope.get("return_code") != "SUCCESS":
+        raise CallbackFailureError(400, "provider_notification_failed")
+    nonce = envelope.get("nonce_str")
+    if not isinstance(nonce, str) or not 0 < len(nonce) <= 32 or "\r" in nonce or "\n" in nonce:
+        raise CallbackFailureError(400, "invalid_callback_nonce")
+    if (envelope.get("appid"), envelope.get("mch_id")) != (
+        settings.wechat_app_id,
+        settings.mall_wechat_mchid,
     ):
-        raise CallbackFailureError(400, "invalid_callback_envelope")
-    if expected_type and event_type != expected_type:
-        raise CallbackFailureError(400, "unexpected_callback_event")
-    if kind == "refund" and event_type not in {
-        "REFUND.SUCCESS",
-        "REFUND.CLOSED",
-        "REFUND.ABNORMAL",
-    }:
-        raise CallbackFailureError(400, "unexpected_callback_event")
+        raise CallbackFailureError(400, "callback_merchant_mismatch")
 
-    fact_data = _decrypt_resource(resource, api_v3_key)
+    digest = hashlib.sha256(body).hexdigest()
+    event_id = ("v2p_" if kind == "payment" else "v2r_") + digest
     if kind == "payment":
-        fact = parse_payment_fact(fact_data)
+        if not verify_v2_signature(
+            envelope, api_key, fallback_sign_type=settings.mall_wechat_api_v2_sign_type
+        ):
+            raise CallbackFailureError(400, "callback_signature_invalid")
+        if envelope.get("result_code") != "SUCCESS":
+            raise CallbackFailureError(400, "unexpected_payment_state")
+        try:
+            fact = parse_api_v2_payment_fact(envelope)
+        except PaymentGatewayError:
+            raise CallbackFailureError(400, "invalid_payment_notification") from None
         if fact.state != "SUCCESS":
             raise CallbackFailureError(400, "unexpected_payment_state")
         resource_id = fact.out_trade_no
     else:
-        fact = parse_refund_fact(fact_data)
-        expected_status = {
-            "REFUND.SUCCESS": "SUCCESS",
-            "REFUND.CLOSED": "CLOSED",
-            "REFUND.ABNORMAL": "ABNORMAL",
-        }[event_type]
-        if fact.status != expected_status:
-            raise CallbackFailureError(400, "refund_event_state_mismatch")
+        # V2 refund notifications carry an encrypted req_info rather than a
+        # Wechatpay-Signature header or a sign field.
+        try:
+            decrypted = decrypt_refund_req_info(envelope.get("req_info", ""), api_key)
+            fact = parse_api_v2_refund_notification(decrypted)
+        except PaymentGatewayError:
+            raise CallbackFailureError(400, "invalid_refund_notification") from None
         resource_id = fact.out_refund_no
 
     return VerifiedCallback(
         kind=kind,
         event_id=event_id,
-        event_type=event_type,
+        event_type=kind,
         resource_id=resource_id,
-        resource_json=json.dumps(resource, ensure_ascii=False, separators=(",", ":")).encode(),
-        verified_digest=hashlib.sha256(body).hexdigest(),
+        resource_json=_callback_storage_payload(
+            kind,
+            fact,
+            api_key=api_key,
+            resource_id=resource_id,
+            verified_digest=digest,
+        ),
+        verified_digest=digest,
         fact=fact,
     )
 
 
 async def validate_callback_fact(db: AsyncSession, callback: VerifiedCallback) -> None:
-    """Reject signed events that do not match an existing local payment/refund."""
+    """Reject signed/decrypted facts that do not match an existing local payment/refund."""
     if callback.kind == "payment" and isinstance(callback.fact, PaymentFact):
         payment_id = await db.scalar(
             select(MallPayment.id).where(MallPayment.out_trade_no == callback.fact.out_trade_no)
@@ -264,8 +334,7 @@ def wechat_callback_handlers(session_factory):
         from .mall_payment_facts_service import apply_verified_payment
         from .mall_refund_service import apply_verified_refund
 
-        settings = get_settings()
-        if not settings.mall_gateway_callback_enabled:
+        if not get_settings().mall_gateway_callback_enabled:
             raise RuntimeError("callback receiver disabled")
         async with session_factory() as db:
             try:
@@ -282,28 +351,30 @@ def wechat_callback_handlers(session_factory):
                 if event.status == "processed":
                     await db.commit()
                     return
-                resource = _json_object(
-                    event.payload_ciphertext or b"", code="invalid_stored_resource"
+                stored_payload = _json_object(
+                    event.payload_ciphertext or b"", code="invalid_stored_callback_fact"
                 )
-                fact_data = _decrypt_resource(resource, settings.mall_wechat_api_v3_key)
+                fact_data = _verify_stored_callback_fact(
+                    event, stored_payload, get_settings().mall_wechat_api_v2_key
+                )
                 if event.event_type == "payment":
-                    fact = parse_payment_fact(fact_data)
+                    fact = parse_api_v2_payment_fact(fact_data)
                     payment = await db.scalar(
                         select(MallPayment).where(MallPayment.out_trade_no == event.resource_id)
                     )
                     if payment is None:
                         raise RuntimeError("callback payment missing")
-                    await apply_verified_payment(db, payment.id, fact)
+                    await apply_verified_payment(
+                        db, payment.id, fact, payer_identity_verified=True
+                    )
                 elif event.event_type == "refund":
-                    fact = parse_refund_fact(fact_data)
+                    fact = parse_api_v2_refund_notification(fact_data)
                     refund = await db.scalar(
                         select(MallRefund).where(MallRefund.out_refund_no == event.resource_id)
                     )
                     if refund is None:
                         raise RuntimeError("callback refund missing")
                     if refund.status == "succeeded" and fact.status in {"CLOSED", "ABNORMAL"}:
-                        # A delayed non-success notification cannot undo a newer
-                        # locally committed refund success.
                         event.last_error = "stale_after_refund_success"
                     else:
                         await apply_verified_refund(db, refund.id, fact)

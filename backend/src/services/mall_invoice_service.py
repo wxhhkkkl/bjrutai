@@ -357,6 +357,7 @@ async def update_invoice_request(
         request.email = data.email
     request.consent_record_id = consent.id
     request.status = "submitted"
+    request.info_request_reason = None
     request.version += 1
     _user_audit(db, actor, "mall_invoice_request_updated", request)
     await complete_mall_command(
@@ -447,6 +448,7 @@ async def need_invoice_info(
     if request.claimed_by != actor.actor_id:
         raise ConflictException(message="请先领取该开票申请")
     request.status = "needs_info"
+    request.info_request_reason = data.reason
     request.version += 1
     await record_mall_admin_audit(
         db,
@@ -494,6 +496,10 @@ async def _verified_issue_file(db, actor, request, file_id):
 
 
 async def _recorded_invoice(db, data, request):
+    # PDF-only registrations intentionally do not invent a ticket number or
+    # seller identity. Their idempotency is handled by the command key.
+    if not data.invoice_no or not data.seller_identity:
+        return None
     existing = await db.scalar(
         select(MallInvoice)
         .where(
@@ -574,7 +580,10 @@ async def record_invoice_issue(
         ).all()
         if sum(row.total_cent for row in reds) != replacement_for.total_cent:
             raise ConflictException(message="旧蓝票红冲覆盖不完整，不能重开")
-        if data.seller_identity != replacement_for.seller_identity:
+        if (
+            data.seller_identity is not None
+            and data.seller_identity != replacement_for.seller_identity
+        ):
             raise ConflictException(message="替代蓝票销售主体必须与原蓝票一致")
         if (
             request.version != data.expected_version
@@ -597,9 +606,9 @@ async def record_invoice_issue(
             raise ConflictException(message="重开金额必须等于已扣成功退款后的有效交易金额")
         state_matches = True
     else:
-        # Only an unchanged, claimed request can be marked delivered. The inputs
-        # to this operation represent an external tax fact, so a real issue is
-        # still stored when an order/refund/correction won the local race.
+        # Only an unchanged, claimed request can be marked delivered. Preserve
+        # the verified PDF for manual review if the order or request changed
+        # while the file was being uploaded.
         state_matches = (
             request.version == data.expected_version
             and request.status == "issuing"
@@ -612,18 +621,23 @@ async def record_invoice_issue(
         raise ConflictException(message="票面金额与开票申请金额不一致")
 
     file = await _verified_issue_file(db, actor, request, int(data.file_id))
+    has_ticket_metadata = bool(data.invoice_no and data.issued_at and data.seller_identity)
     issue_status = (
         "red_pending"
         if not state_matches and (order.refunded_goods_cent or order.refunded_freight_cent)
-        else "valid"
+        else ("valid" if has_ticket_metadata else "pdf_uploaded")
     )
     issue = MallInvoice(
         request_id=request.id,
         order_id=order.id,
         kind="blue",
-        seller_identity=data.seller_identity,
+        seller_identity=(
+            replacement_for.seller_identity
+            if replacement_for is not None and data.seller_identity is None
+            else data.seller_identity
+        ),
         invoice_no=data.invoice_no,
-        issued_at=_utc_naive(data.issued_at),
+        issued_at=_utc_naive(data.issued_at) if data.issued_at is not None else None,
         total_cent=data.total_cent,
         seller_snapshot={},
         file_id=file.id,
@@ -657,8 +671,16 @@ async def record_invoice_issue(
         actor=actor,
         action=(
             "mall_invoice_issue_recorded"
-            if state_matches
-            else "mall_invoice_issue_needs_review"
+            if has_ticket_metadata and state_matches
+            else (
+                "mall_invoice_issue_needs_review"
+                if has_ticket_metadata
+                else (
+                    "mall_invoice_pdf_uploaded"
+                    if state_matches
+                    else "mall_invoice_pdf_uploaded_needs_review"
+                )
+            )
         ),
         entity_type="mall_invoice",
         entity_id=str(issue.id),
@@ -676,9 +698,9 @@ async def record_invoice_issue(
         await notify_mall_buyer(
             db,
             buyer_user_id=request.buyer_user_id,
-            event_key=f"mall:invoice:{issue.id}:issued",
-            title="商城电子发票已开具",
-            summary=f"订单号 {order.order_no} 的电子发票已开具，可在发票详情中查看。",
+            event_key=f"mall:invoice:{issue.id}:uploaded",
+            title="商城发票文件已上传",
+            summary=f"订单号 {order.order_no} 的发票PDF已上传，可在发票详情中查看。",
             target=f"/pages/mall-invoice-detail/index?id={request.id}",
         )
     return issue
@@ -729,7 +751,13 @@ async def set_red_pending(
         return replay
     if blue.version != data.expected_version:
         raise ConflictException(message="蓝票版本已变化，请重新读取")
-    if blue.status not in {"valid", "red_pending", "awaiting_counterparty", "partially_red"}:
+    if blue.status not in {
+        "valid",
+        "pdf_uploaded",
+        "red_pending",
+        "awaiting_counterparty",
+        "partially_red",
+    }:
         raise ConflictException(message="当前蓝票已经全部红冲或不能继续办理")
     red_rows = (
         await db.scalars(

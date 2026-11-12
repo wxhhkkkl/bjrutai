@@ -33,6 +33,18 @@
         />
       </el-form-item>
     </div>
+    <div class="address-grid address-grid--regions">
+      <el-form-item v-for="(label, index) in regionNameLabels" :key="label" :label="label">
+        <el-input
+          :model-value="(modelValue.regionNames || ['', '', ''])[index]"
+          :maxlength="20"
+          :disabled="disabled"
+          :placeholder="regionNamePlaceholders[index]"
+          :data-test="`${prefix}-region-name-${index}`"
+          @update:model-value="updateRegionName(index, $event)"
+        />
+      </el-form-item>
+    </div>
     <el-form-item label="详细地址">
       <el-input
         :model-value="modelValue.addressLine"
@@ -42,7 +54,7 @@
         @update:model-value="update('addressLine', $event)"
       />
     </el-form-item>
-    <p class="address-help">按省、市、区县顺序填写6位行政区划代码。已存地址不会自动填入。</p>
+    <p class="address-help">按省、市、区县顺序填写6位行政区划代码；地区名称用于快递100物流轨迹查询（如 北京市 / 北京市 / 昌平区）。修改时会回显当前配置。</p>
   </el-form>
 </template>
 
@@ -55,6 +67,8 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 const regionLabels = ['省级代码', '市级代码', '区县代码']
 const regionPlaceholders = ['110000', '110100', '110101']
+const regionNameLabels = ['省级名称', '市级名称', '区县名称']
+const regionNamePlaceholders = ['北京市', '北京市', '昌平区']
 
 function update(key, value) {
   emit('update:modelValue', { ...props.modelValue, [key]: value })
@@ -65,11 +79,17 @@ function updateRegion(index, value) {
   regionCodes[index] = value
   update('regionCodes', regionCodes)
 }
+
+function updateRegionName(index, value) {
+  const regionNames = [...(props.modelValue.regionNames || ['', '', ''])]
+  regionNames[index] = value
+  update('regionNames', regionNames)
+}
 </script>
 
 <style scoped>
 .address-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .address-grid--regions { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-.address-help { margin: 2px 0 0; color: #87928b; font-size: 12px; }
+.address-help { margin: 2px 0 0; color: var(--app-text-secondary); font-size: 12px; }
 @media (max-width: 680px) { .address-grid, .address-grid--regions { grid-template-columns: 1fr; gap: 0; } }
 </style>

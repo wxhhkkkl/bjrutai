@@ -386,7 +386,13 @@ async def _record_success(db, order, aftersale, refund, payment, fact):
                 MallInvoice.order_id == order.id,
                 MallInvoice.kind == "blue",
                 MallInvoice.status.in_(
-                    {"valid", "red_pending", "awaiting_counterparty", "partially_red"}
+                    {
+                        "valid",
+                        "pdf_uploaded",
+                        "red_pending",
+                        "awaiting_counterparty",
+                        "partially_red",
+                    }
                 ),
             )
             .order_by(MallInvoice.id)

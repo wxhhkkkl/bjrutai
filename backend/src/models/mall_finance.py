@@ -164,6 +164,7 @@ class MallInvoiceRequest(MallRecord, Base):
     requested_freight_cent: Mapped[int] = mapped_column(BigInteger, default=0)
     source_order_version: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(24), default="submitted")
+    info_request_reason: Mapped[str | None] = mapped_column(String(500))
     active_slot: Mapped[int | None] = mapped_column(Integer, default=1)
     claimed_by: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("admin_accounts.id", ondelete="RESTRICT")
@@ -188,9 +189,9 @@ class MallInvoice(MallRecord, Base):
         MALL_ID, ForeignKey("mall_orders.id", ondelete="RESTRICT")
     )
     kind: Mapped[str] = mapped_column(String(8))
-    seller_identity: Mapped[str] = mapped_column(String(64))
-    invoice_no: Mapped[str] = mapped_column(String(64))
-    issued_at: Mapped[datetime] = mapped_column(UTC_TIME)
+    seller_identity: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    invoice_no: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    issued_at: Mapped[datetime | None] = mapped_column(UTC_TIME, nullable=True)
     total_cent: Mapped[int] = mapped_column(BigInteger)
     seller_snapshot: Mapped[dict] = mapped_column(JSON, default=dict)
     file_id: Mapped[int] = mapped_column(

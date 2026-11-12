@@ -17,4 +17,12 @@ export const aftersaleMethods = {
   return_refund: '退货退款',
 }
 
+export function aftersaleStateType(status) {
+  if (status === 'completed') return 'success'
+  if (['submitted', 'awaiting_refund', 'refunding'].includes(status)) return 'warning'
+  if (status === 'disputed') return 'danger'
+  if (status === 'awaiting_return' || status === 'awaiting_receipt') return 'primary'
+  return 'info'
+}
+
 export { money, time }

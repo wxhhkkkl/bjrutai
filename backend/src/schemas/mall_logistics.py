@@ -18,6 +18,22 @@ class LogisticsEvent(BaseModel):
     area_name: str | None
 
 
+class LogisticsRoutePoint(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")
+
+    latitude: float
+    longitude: float
+    state_name: str | None = None
+    name: str | None = None
+
+
+class LogisticsRoute(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")
+
+    current_name: str | None = None
+    points: list[LogisticsRoutePoint]
+
+
 class LogisticsSnapshot(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")
 
@@ -44,8 +60,13 @@ class LogisticsSnapshot(BaseModel):
     updated_at: datetime | None
     next_query_at: datetime | None
     estimated_arrival_text: str | None = None
+    route: LogisticsRoute | None = None
     map_available: bool
     error_code: str | None = None
+
+
+class AdminLogisticsSnapshot(LogisticsSnapshot):
+    map_url: str | None = None
 
 
 class LogisticsRefreshResult(BaseModel):

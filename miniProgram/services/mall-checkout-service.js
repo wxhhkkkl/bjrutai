@@ -207,10 +207,10 @@ function createMallCheckoutService(options = {}) {
 
   function quoteOrder(value) {
     requireBuyer()
-    const addressId = normalizeId(value && value.addressId, '收货地址编号')
+    const addressId = value && value.addressId ? normalizeId(value.addressId, '收货地址编号') : ''
     return send('/api/v1/mall/checkout/quote', {
       method: 'POST',
-      data: { addressId, items: normalizeItems(value && value.items) }
+      data: { ...(addressId ? { addressId } : {}), items: normalizeItems(value && value.items) }
     })
   }
 

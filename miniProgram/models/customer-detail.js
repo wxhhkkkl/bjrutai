@@ -22,8 +22,8 @@ const BASE_CUSTOMER_DETAIL = {
   monthlyContribution: '1,880',
   serviceCount: 4,
   followupCount: 1,
-  avatar: '/assets/images/customer-avatar-purple.png',
-  contributionAvatar: '/assets/images/customer-avatar-blue.png'
+  avatar: '/assets/images/customer-avatar-purple.jpg',
+  contributionAvatar: '/assets/images/customer-avatar-blue.jpg'
 };
 
 const CUSTOMER_DETAILS = {
@@ -33,15 +33,15 @@ const CUSTOMER_DETAILS = {
     id: 'customer-002',
     name: '李先生',
     phone: '186****3681',
-    avatar: '/assets/images/customer-avatar-purple.png'
+    avatar: '/assets/images/customer-avatar-purple.jpg'
   },
   'customer-003': {
     ...BASE_CUSTOMER_DETAIL,
     id: 'customer-003',
     name: '刘女士',
     phone: '159****2650',
-    avatar: '/assets/images/customer-avatar-green.png',
-    contributionAvatar: '/assets/images/customer-avatar-green.png'
+    avatar: '/assets/images/customer-avatar-green.jpg',
+    contributionAvatar: '/assets/images/customer-avatar-green.jpg'
   },
   'customer-004': {
     ...BASE_CUSTOMER_DETAIL,
@@ -82,8 +82,8 @@ function adaptCustomerDetail(payload = {}) {
     status: DETAIL_STATUS_LABELS[statusCode] || '处理中',
     statusCode,
     version: Number.isSafeInteger(payload.version) ? payload.version : 0,
-    avatar: '/assets/images/customer-avatar-purple.png',
-    contributionAvatar: '/assets/images/customer-avatar-blue.png',
+    avatar: '/assets/images/customer-avatar-purple.jpg',
+    contributionAvatar: '/assets/images/customer-avatar-blue.jpg',
     note: String(payload.note || '')
   }
 }

@@ -8,13 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_db
 from ...api.mall_deps import MallActor, require_mall_admin
 from ...core.exceptions import ForbiddenException
-from ...schemas.mall_catalog import VersionAction
 from ...schemas.mall_checkout import OrderCancel
 from ...schemas.mall_fulfillment import (
     FulfillmentReleaseRequest,
     OrderNote,
     ShipmentCreate,
     TrackingCorrection,
+    VirtualDeliveryCreate,
 )
 from ...services.mall_admin_order_query_service import get_admin_order, list_admin_orders
 from ...services.mall_admin_order_service import mutate_admin_order
@@ -24,9 +24,9 @@ from ...services.mall_order_action_service import cancel_progress
 from ...services.mall_order_query_service import serialize_order
 from ...services.mall_shipment_service import (
     correct_tracking,
-    record_platform_shipment_report,
     ship_order,
 )
+from ...services.mall_virtual_delivery_service import deliver_virtual_order
 from .mall_checkout import response
 
 router = APIRouter(prefix="/admin/mall/orders", tags=["admin-mall-orders"])
@@ -44,7 +44,6 @@ async def list_orders(
         Literal["pending_payment", "pending_shipment", "pending_receipt", "completed", "closed"]
         | None
     ) = None,
-    pending_platform_report: bool | None = Query(None, alias="pendingPlatformReport"),
     order_no: str | None = Query(None, alias="orderNo", min_length=1, max_length=32),
     from_time: str | None = Query(None, alias="from", max_length=40),
     to_time: str | None = Query(None, alias="to", max_length=40),
@@ -58,7 +57,6 @@ async def list_orders(
         page_size=page_size,
         status=status,
         order_no=order_no,
-        pending_platform_report=pending_platform_report,
         from_time=from_time,
         to_time=to_time,
     )
@@ -131,6 +129,28 @@ async def ship(
         raise
 
 
+@router.post("/{orderId}/virtual-delivery", operation_id="deliverVirtualMallOrder")
+async def deliver_virtual(
+    body: VirtualDeliveryCreate,
+    identity: int = Path(alias="orderId", gt=0),
+    key: str = Header(alias="Idempotency-Key", min_length=16, max_length=128),
+    actor: MallActor = Depends(write_orders),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        delivery = await deliver_virtual_order(db, actor, identity, body, key=key)
+        result = {
+            "id": str(delivery.id),
+            "deliveredAt": delivery.delivered_at.isoformat() + "Z",
+            "version": delivery.version,
+        }
+        await db.commit()
+        return response(result)
+    except Exception:
+        await db.rollback()
+        raise
+
+
 @router.post("/{orderId}/fulfillment-release", operation_id="releaseMallFulfillment")
 async def release_closed(
     body: FulfillmentReleaseRequest,
@@ -166,26 +186,6 @@ async def correct_tracking_route(
 ):
     try:
         shipment = await correct_tracking(db, actor, identity, body, key=key)
-        result = shipment_view(shipment)
-        await db.commit()
-        return response(result)
-    except Exception:
-        await db.rollback()
-        raise
-
-
-@shipment_router.post(
-    "/{shipmentId}/platform-report", operation_id="recordMallPlatformShipmentReport"
-)
-async def report_platform_shipment(
-    body: VersionAction,
-    identity: int = Path(alias="shipmentId", gt=0),
-    key: str = Header(alias="Idempotency-Key", min_length=16, max_length=128),
-    actor: MallActor = Depends(write_shipments),
-    db: AsyncSession = Depends(get_db),
-):
-    try:
-        shipment = await record_platform_shipment_report(db, actor, identity, body, key=key)
         result = shipment_view(shipment)
         await db.commit()
         return response(result)

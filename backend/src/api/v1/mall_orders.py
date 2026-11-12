@@ -98,7 +98,9 @@ async def get_my_order(
     db: AsyncSession = Depends(get_db),
 ):
     order = await owned_order(db, actor, identity)
-    result = await serialize_order(db, order, detail=True)
+    result = await serialize_order(
+        db, order, detail=True, include_delivery_details=True
+    )
     audit_order(db, actor, order, "mall_order_read")
     await db.commit()
     return response(result)

@@ -14,11 +14,10 @@ async def test_owned_prepay_delivery_is_fresh_private_and_expires(client, db_ses
     from src.api.v1 import mall_payments
     from src.models.mall_base import utc_now
     from tests.unit.test_mall_payment_execution import vault
-    from tests.unit.test_wechat_pay_client import make_client, pay_keys
+    from tests.unit.test_wechat_pay_client import make_client
 
-    # Synthetic signing key; invocation generation has no network operation.
-    keys = pay_keys.__wrapped__()
-    gateway = make_client(keys, lambda _: None)
+    # Invocation generation is local; the client's transport is never touched.
+    gateway = make_client(lambda _: None)
     store = vault()
     actor, order, _, payment = await payable(db_session, monkeypatch)
     payment.prepay_ciphertext = store.seal(payment, "synthetic-owned-token")

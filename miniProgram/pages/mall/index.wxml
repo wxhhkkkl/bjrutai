@@ -40,8 +40,8 @@
       >
         <text>价格</text>
         <view class="mall-filter-item__arrows" aria-hidden="true">
-          <van-icon name="arrow-up" size="10px" color="{{sortMode === 'price_asc' ? '#27645B' : '#B4BAB6'}}" />
-          <van-icon name="arrow-down" size="10px" color="{{sortMode === 'price_desc' ? '#27645B' : '#B4BAB6'}}" />
+          <van-icon name="arrow-up" size="10px" color="{{sortMode === 'price_asc' ? '#1677FF' : '#B4BAB6'}}" />
+          <van-icon name="arrow-down" size="10px" color="{{sortMode === 'price_desc' ? '#1677FF' : '#B4BAB6'}}" />
         </view>
       </view>
       <view class="mall-filter-divider" />
@@ -55,10 +55,7 @@
         aria-label="按分类筛选"
       >
         <text>{{selectedCategoryName}}</text>
-        <van-icon name="arrow-down" size="14px" color="{{selectedCategoryId ? '#27645B' : '#8A938E'}}" />
-      </view>
-      <view class="mall-cart-entry tap-target" bindtap="openCart" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" aria-role="button" aria-label="打开购物车">
-        <van-icon name="shopping-cart-o" size="22px" color="#27645B" />
+        <van-icon name="arrow-down" size="14px" color="{{selectedCategoryId ? '#1677FF' : '#8A938E'}}" />
       </view>
     </view>
   </view>
@@ -77,7 +74,7 @@
   >
     <view class="mall-content">
       <view wx:if="{{state === 'loading'}}" class="mall-state" aria-role="status">
-        <van-icon class="mall-loading-icon" name="replay" size="28px" color="#27645B" />
+        <van-icon class="mall-loading-icon" name="replay" size="28px" color="#1677FF" />
         <text class="mall-state__message">正在加载商品</text>
       </view>
 
@@ -92,7 +89,7 @@
           hover-start-time="0"
           hover-stay-time="80"
           aria-role="listitem"
-          aria-label="{{item.name}}，价格{{item.priceText}}元，{{item.availabilityText}}"
+          aria-label="{{item.name}}，价格{{item.priceText}}元{{item.availabilityText ? '，' + item.availabilityText : ''}}"
         >
           <view class="mall-product-card__image-wrap">
             <image
@@ -114,13 +111,26 @@
           <view class="mall-product-card__body">
             <text class="mall-product-card__name">{{item.name}}</text>
             <view class="mall-product-card__price-row">
-              <view class="mall-product-card__price">
-                <text class="mall-product-card__currency">¥</text>
-                <text>{{item.priceText}}</text>
+              <view class="mall-product-card__price-group">
+                <view class="mall-product-card__price">
+                  <text class="mall-product-card__currency">¥</text>
+                  <text>{{item.priceText}}</text>
+                </view>
+                <text wx:if="{{item.marketPriceText}}" class="mall-product-card__market-price">¥{{item.marketPriceText}}</text>
               </view>
-              <text class="mall-product-card__stock {{item.availability === 'available' ? 'mall-product-card__stock--available' : ''}}">
-                {{item.availabilityText}}
-              </text>
+              <view
+                wx:if="{{item.availability === 'available'}}"
+                class="mall-product-card__add tap-target"
+                catchtap="addCardProduct"
+                data-id="{{item.id}}"
+                hover-class="tap-feedback"
+                aria-role="button"
+                aria-label="{{item.skus.length > 1 ? '选择规格' : '加入购物车'}}"
+              >
+                <view class="mall-product-card__add-icon" id="mall-product-add-{{item.id}}">
+                  <van-icon name="{{addingProductId == item.id ? 'replay' : 'shopping-cart-o'}}" size="18px" color="#FFFFFF" />
+                </view>
+              </view>
             </view>
           </view>
         </view>
@@ -160,8 +170,22 @@
     </view>
   </scroll-view>
 
-  <view wx:if="{{categoryFilterVisible}}" class="mall-sheet-backdrop" catchtouchmove="stopPropagation">
-    <view class="mall-category-sheet">
+  <mall-floating-cart id="mall-floating-cart" above-tab-bar="{{true}}" />
+  <view
+    wx:for="{{cartFlights}}"
+    wx:for-item="flight"
+    wx:key="id"
+    class="mall-cart-fly"
+    style="left: {{flight.left}}px; top: {{flight.top}}px; width: {{flight.size}}px; height: {{flight.size}}px; --cart-fly-x: {{flight.deltaX}}px; --cart-fly-y: {{flight.deltaY}}px;"
+    aria-hidden="true"
+  >
+    <view class="mall-cart-fly__icon">
+      <van-icon name="shopping-cart-o" size="18px" color="#FFFFFF" />
+    </view>
+  </view>
+
+  <view wx:if="{{categoryFilterVisible}}" class="mall-sheet-backdrop" bindtap="closeCategoryFilter" catchtouchmove="stopPropagation">
+    <view class="mall-category-sheet" catchtap="stopPropagation">
       <view class="mall-category-sheet__header">
         <text class="mall-category-sheet__title">选择分类</text>
         <view class="mall-category-sheet__close tap-target" bindtap="closeCategoryFilter" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" aria-role="button" aria-label="关闭分类筛选">
@@ -181,7 +205,7 @@
           aria-role="button"
         >
           <text>{{item.name}}</text>
-          <van-icon wx:if="{{selectedCategoryId === item.id}}" name="success" size="16px" color="#27645B" />
+          <van-icon wx:if="{{selectedCategoryId === item.id}}" name="success" size="16px" color="#1677FF" />
         </view>
       </view>
     </view>

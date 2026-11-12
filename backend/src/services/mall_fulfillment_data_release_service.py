@@ -88,6 +88,8 @@ async def release_fulfillment_data(
     reason_code = None
     if expected_version != actual_version:
         reason_code = "version_mismatch"
+    elif (order.policy_snapshot or {}).get("deliveryMethod") == "virtual":
+        reason_code = "virtual_order_has_no_recipient_data"
     elif not fulfillment["businessReady"]:
         reason_code = fulfillment["blockingReasons"][0]["code"]
     elif not consent_ok:
@@ -117,6 +119,7 @@ async def release_fulfillment_data(
         "orderId": str(order.id),
         "recipientName": address["recipientName"],
         "phone": address["phone"],
+        "regionNames": address.get("regionNames") or [],
         "addressLine": address["addressLine"],
         "expiresAt": release_expires_at(),
         "auditId": str(audit.id),

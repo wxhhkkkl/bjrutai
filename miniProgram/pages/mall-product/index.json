@@ -1,7 +1,8 @@
 {
   "usingComponents": {
     "flow-navigation": "/components/flow-navigation/index",
-    "van-icon": "/miniprogram_npm/@vant/weapp/icon/index"
+    "van-icon": "/miniprogram_npm/@vant/weapp/icon/index",
+    "mall-floating-cart": "../../components/mall-floating-cart/index"
   },
   "disableScroll": true
 }

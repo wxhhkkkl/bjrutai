@@ -43,6 +43,7 @@ async def update_mall_settings(
     allowed = {
         "enabled",
         "purchase_enabled",
+        "freight_templates",
         "freight_mode",
         "freight_cent",
         "blocked_regions",
@@ -53,7 +54,6 @@ async def update_mall_settings(
         "return_address_snapshot",
         "contact",
         "return_instructions",
-        "policy_versions",
     }
     if not changes.keys() <= allowed:
         raise ValidationException(message="商城配置字段不合法")
@@ -68,27 +68,60 @@ async def update_mall_settings(
     ).scalar_one()
     if settings.version != expected_version:
         raise ConflictException(message="商城配置版本已变化，请刷新")
+    if "freight_templates" in changes:
+        templates = changes["freight_templates"]
+        ids = {item["id"] for item in templates}
+        if len(ids) != len(templates):
+            raise ValidationException(message="运费模板编号不能重复")
+        if not {item["id"] for item in settings.freight_templates or []} <= ids:
+            raise ValidationException(message="已有运费模板不可移除")
     for key, value in changes.items():
         setattr(settings, key, value)
     settings.version += 1
+    settings.policy_versions = {"policy": str(settings.version)}
     await db.flush()
     return settings
 
 
-def serialize_mall_settings(settings: MallSettings) -> dict:
+def _warehouse_address_view(snapshot: dict | None) -> dict | None:
+    if not snapshot:
+        return None
     return {
+        "contactName": snapshot.get("contactName", ""),
+        "phone": snapshot.get("phone", ""),
+        "regionCodes": snapshot.get("regionCodes", []),
+        "regionNames": snapshot.get("regionNames") or [],
+        "addressLine": snapshot.get("addressLine", ""),
+    }
+
+
+def serialize_mall_settings(
+    settings: MallSettings, *, include_address_details: bool = False
+) -> dict:
+    result = {
         "version": settings.version,
         "enabled": settings.enabled,
         "purchaseEnabled": settings.purchase_enabled,
+        "freightTemplates": settings.freight_templates or [],
         "freightMode": settings.freight_mode,
         "freightCent": settings.freight_cent,
         "paymentMinutes": settings.payment_minutes,
         "autoReceiveDays": settings.auto_receive_days,
         "aftersaleDays": settings.aftersale_days,
-        "blockedRegionCodes": settings.blocked_regions,
+        "defaultBlockedRegionCodes": settings.blocked_regions,
         "contactText": settings.contact,
-        "policyVersion": settings.policy_versions.get("policy", ""),
         "dispatchAddressMasked": "已配置" if settings.dispatch_address_snapshot else "",
         "returnAddressMasked": "已配置" if settings.return_address_snapshot else "",
         "returnInstructions": settings.return_instructions,
     }
+    result["dispatchAddress"] = (
+        _warehouse_address_view(settings.dispatch_address_snapshot)
+        if include_address_details
+        else None
+    )
+    result["returnAddress"] = (
+        _warehouse_address_view(settings.return_address_snapshot)
+        if include_address_details
+        else None
+    )
+    return result

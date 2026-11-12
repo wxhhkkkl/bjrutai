@@ -22,6 +22,9 @@ async def test_payment_list_is_permission_scoped_and_uses_successful_refunds_onl
     assert row["orderId"] == str(order.id)
     assert row["orderNo"] == order.order_no
     assert row["status"] == "unknown"
+    assert row["goodsAmountCent"] == order.goods_amount_cent
+    assert row["freightAmountCent"] == order.freight_amount_cent
+    assert row["goodsAmountCent"] + row["freightAmountCent"] == row["amountCent"]
     assert row["refundSucceededCent"] == 0
     assert row["netReceivedCent"] is None
     assert row["confirmedAt"] is None

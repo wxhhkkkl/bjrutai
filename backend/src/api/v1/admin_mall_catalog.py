@@ -1,6 +1,8 @@
 """Catalog mutations commit their command, audit and domain changes atomically."""
 
-from fastapi import APIRouter, Depends, Header, Path, Query
+import hashlib
+
+from fastapi import APIRouter, Depends, File, Header, Path, Query, UploadFile
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,8 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_db
 from ...api.mall_deps import MallActor, require_mall_admin
 from ...core.error_handler import _build_response
-from ...core.exceptions import ConflictException
+from ...core.exceptions import BadRequestException, ConflictException
 from ...models.mall_catalog import MallCategory, MallProduct, MallStockMovement
+from ...models.mall_base import utc_now
+from ...models.mall_operations import MallFile
 from ...schemas.mall_catalog import (
     CategoryPatch,
     CategoryWrite,
@@ -17,18 +21,78 @@ from ...schemas.mall_catalog import (
     ProductWrite,
     StatusChange,
     StockAdjustment,
-    VersionAction,
 )
 from ...services import mall_catalog_query_service as queries
 from ...services import mall_catalog_service as catalog
 from ...services.mall_audit_service import record_mall_admin_audit
 from ...services.mall_command_service import complete_mall_command, reserve_mall_command
+from ...services.image_upload_service import upload_image_via_cos
+from ...integrations.cos_client import MallCOSStore, get_cos_client
 
 router = APIRouter(prefix="/admin/mall", tags=["admin-mall-catalog"])
 read_products = require_mall_admin("mall.products.read")
 write_products = require_mall_admin("mall.products.write")
 write_stock = require_mall_admin("mall.stock.write")
 read_stock = require_mall_admin("mall.stock.read")
+
+
+@router.post("/products/images", operation_id="uploadAdminMallProductImage")
+async def upload_product_image(
+    file: UploadFile = File(...),
+    actor: MallActor = Depends(write_products),
+    db: AsyncSession = Depends(get_db),
+):
+    content = await file.read(5 * 1024 * 1024 + 1)
+    content_type = file.content_type or "application/octet-stream"
+    if content_type not in {"image/jpeg", "image/png"}:
+        raise BadRequestException(message="仅支持 JPG 或 PNG 图片")
+    if not content or len(content) > 5 * 1024 * 1024:
+        raise BadRequestException(message="图片大小不能超过 5 MB")
+    try:
+        token = await upload_image_via_cos(
+            content,
+            file_name=file.filename or "product-image.jpg",
+            content_type=content_type,
+            user_id=actor.actor_id,
+            key_prefix="mall/product_image/admin/",
+        )
+    except ValueError as exc:
+        raise BadRequestException(message=str(exc)) from exc
+
+    image = MallFile(
+        object_key=token["fileId"],
+        purpose="product_image",
+        owner_actor_type="admin",
+        owner_actor_id=actor.actor_id,
+        mime=content_type,
+        size=len(content),
+        sha256=hashlib.sha256(content).hexdigest(),
+        status="verified",
+        expires_at=utc_now(),
+    )
+    try:
+        db.add(image)
+        await db.flush()
+        await record_mall_admin_audit(
+            db,
+            actor=actor,
+            action="uploadMallProductImage",
+            entity_type="mall_file",
+            entity_id=str(image.id),
+            detail={"purpose": "product_image", "size": len(content)},
+        )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+    preview_url = await MallCOSStore(
+        get_cos_client(), outbound_enabled=True
+    ).sign_get(image.object_key, expires_seconds=300)
+    return _build_response(
+        0,
+        "success",
+        {"id": str(image.id), "status": image.status, "previewUrl": preview_url},
+    )
 
 
 async def mutate(db, actor, action, key, body, entity_type, model, apply):
@@ -53,7 +117,7 @@ async def mutate(db, actor, action, key, body, entity_type, model, apply):
         if model is MallCategory:
             result = queries.serialize_category(entity)
         elif model is MallProduct:
-            result = await queries.serialize_product(db, entity, admin=True)
+            result = await queries.serialize_product(db, entity, admin=True, include_cost=True)
         else:
             result = queries.serialize_movement(entity)
         return _build_response(0, "success", result)
@@ -124,6 +188,20 @@ async def update_category(
     )
 
 
+@router.get("/freight-template-options")
+async def freight_template_options(
+    _actor: MallActor = Depends(read_products),
+    db: AsyncSession = Depends(get_db),
+):
+    from ...services.mall_settings_service import get_mall_settings
+
+    settings = await get_mall_settings(db)
+    options = [{"id": "default", "name": "默认运费"}]
+    options.extend({"id": item["id"], "name": item["name"]} for item in settings.freight_templates or [])
+    await db.commit()
+    return _build_response(0, "success", options)
+
+
 @router.get("/products", operation_id="listAdminMallProducts")
 async def products(
     cursor: str | None = Query(None, max_length=2048),
@@ -151,7 +229,12 @@ async def product(
     return _build_response(
         0,
         "success",
-        await queries.serialize_product(db, await queries.get_product(db, product_id), admin=True),
+        await queries.serialize_product(
+            db,
+            await queries.get_product(db, product_id),
+            admin=True,
+            include_cost="mall.products.write" in actor.permissions,
+        ),
     )
 
 
@@ -223,33 +306,6 @@ async def status(
         db,
         actor,
         "setMallProductStatus",
-        key,
-        {**body.model_dump(mode="json"), "productId": product_id},
-        "mall_product",
-        MallProduct,
-        apply,
-    )
-
-
-@router.post("/products/{productId}/copy", operation_id="copyMallProduct")
-async def copy(
-    body: VersionAction,
-    product_id: int = Path(alias="productId", gt=0),
-    key: str = Header(alias="Idempotency-Key", min_length=16, max_length=128),
-    actor: MallActor = Depends(write_products),
-    db: AsyncSession = Depends(get_db),
-):
-    async def apply(_command_id):
-        await catalog._catalog_lock(db)
-        source = await catalog._get(db, MallProduct, product_id, True)
-        if source.version != body.expected_version:
-            raise ConflictException(message="商品版本已变化")
-        return await catalog.copy_product(db, product_id, actor=actor)
-
-    return await mutate(
-        db,
-        actor,
-        "copyMallProduct",
         key,
         {**body.model_dump(mode="json"), "productId": product_id},
         "mall_product",

@@ -1,6 +1,6 @@
 """Catalog lifecycle and explicit stock events, with no order-history rewrites."""
 
-import uuid
+import re
 
 from sqlalchemy import select
 
@@ -8,8 +8,17 @@ from ..core.exceptions import ConflictException, NotFoundException, ValidationEx
 from ..models.mall_base import utc_now
 from ..models.mall_catalog import MallCategory, MallProduct, MallSku, MallStockMovement
 from ..models.mall_operations import MallFile, MallSettings
-from ..schemas.mall_catalog import ProductWrite
 from .mall_settings_service import get_mall_settings
+
+_INLINE_PRODUCT_IMAGE_RE = re.compile(
+    r"""<img\b[^>]*\balt=["']mall-file-id:([1-9][0-9]*)["'][^>]*>""",
+    re.IGNORECASE,
+)
+
+
+def inline_product_image_ids(description):
+    matches = _INLINE_PRODUCT_IMAGE_RE.findall(description or "")
+    return list(dict.fromkeys(int(value) for value in matches))
 
 
 async def _catalog_lock(db):
@@ -38,19 +47,9 @@ async def save_category(db, data, *, category_id=None, expected_version=None):
     category = await _get(db, MallCategory, category_id, True) if category_id else None
     if category and expected_version is not None and category.version != expected_version:
         raise ConflictException(message="分类版本已变化")
-    parent_id = int(data.parent_id) if data.parent_id else None
-    if parent_id:
-        parent = await _get(db, MallCategory, parent_id, True)
-        has_children = category and await db.scalar(
-            select(MallCategory.id)
-            .where(MallCategory.parent_id == category.id)
-            .limit(1)
-            .with_for_update()
-        )
-        if parent.id == category_id or parent.parent_id or has_children:
-            raise ValidationException(message="分类最多两级，不能循环或移动有子级的父分类")
-        if data.status == "enabled" and parent.status != "enabled":
-            raise ValidationException(message="父分类已停用")
+    if data.parent_id is not None:
+        raise ValidationException(message="仅支持一级分类，不能设置父分类")
+    parent_id = None
     duplicate = await db.scalar(
         select(MallCategory.id)
         .where(
@@ -61,7 +60,7 @@ async def save_category(db, data, *, category_id=None, expected_version=None):
         .with_for_update()
     )
     if duplicate:
-        raise ConflictException(message="同级分类名称已存在")
+        raise ConflictException(message="分类名称已存在")
     if category and data.status == "disabled":
         children = (
             await db.scalars(
@@ -109,13 +108,25 @@ async def product_skus(db, identity, *, lock=False):
     return (await db.scalars(query)).all()
 
 
-async def _publishable(db, product):
-    if (
-        not product.category_id
-        or not product.cover_file_id
-        or not (product.description or product.instructions)
+def _validate_delivery(settings, method, template_id):
+    if method == "express" and not template_id:
+        raise ValidationException(message="快递发货需要选择运费模板")
+    if template_id and (
+        method != "express"
+        or (template_id != "default" and not any(
+            item["id"] == template_id for item in settings.freight_templates or []
+        ))
     ):
-        raise ValidationException(message="发布需分类、真实主图和商品详情或说明")
+        raise ValidationException(message="所选运费模板无效")
+
+
+async def _publishable(db, product):
+    if not product.category_id:
+        raise ValidationException(message="请先选择商品分类")
+    if not product.cover_file_id:
+        raise ValidationException(message="请先上传商品主图")
+    if not (product.description or "").strip():
+        raise ValidationException(message="请先填写商品详情或插入详情图片并保存")
     category = await _get(db, MallCategory, product.category_id, True)
     if category.status != "enabled":
         raise ValidationException(message="商品分类已停用")
@@ -129,6 +140,13 @@ async def _publishable(db, product):
     if not skus or any(s.sale_price_cent <= 0 or s.available_qty < 0 for s in skus):
         raise ValidationException(message="发布需有效规格、正售价和非负库存")
     settings = await get_mall_settings(db)
+    _validate_delivery(settings, product.delivery_method, product.freight_template_id)
+    if product.product_type == "virtual" and product.delivery_method != "virtual":
+        raise ValidationException(message="虚拟商品请使用虚拟配送方式")
+    if product.product_type != "virtual" and product.delivery_method != "express":
+        if product.delivery_method == "pickup":
+            raise ValidationException(message="当前商城暂不支持用户自提")
+        raise ValidationException(message="实物商品需要配置快递配送和运费模板")
     if not settings.policy_versions.get("policy"):
         raise ValidationException(message="请先配置配送售后规则版本")
 
@@ -141,6 +159,71 @@ async def save_product(db, data, *, actor, product_id=None, expected_version=Non
     existing = (
         {s.id: s for s in await product_skus(db, product_id, lock=True)} if product_id else {}
     )
+    fields = data.model_fields_set
+    updates = {field: getattr(data, field) for field in fields - {"skus"}}
+    product_type_supplied = "product_type" in fields
+    delivery_method_supplied = "delivery_method" in fields
+    freight_template_supplied = "freight_template_id" in fields
+    effective_type = (
+        data.product_type
+        if product_type_supplied
+        else (
+            "virtual"
+            if delivery_method_supplied and data.delivery_method == "virtual"
+            else (
+                "physical"
+                if delivery_method_supplied and data.delivery_method in {"express", "pickup"}
+                else product.product_type if product else "physical"
+            )
+        )
+    )
+    effective_method = (
+        data.delivery_method
+        if delivery_method_supplied
+        else product.delivery_method if product else None
+    )
+    effective_template = (
+        data.freight_template_id
+        if freight_template_supplied
+        else product.freight_template_id if product else None
+    )
+
+    if product_type_supplied and not delivery_method_supplied:
+        if effective_type == "virtual":
+            effective_method = "virtual"
+            effective_template = None
+            updates["delivery_method"] = effective_method
+            updates["freight_template_id"] = None
+        elif effective_method == "virtual":
+            effective_method = None
+            effective_template = None
+            updates["delivery_method"] = None
+            updates["freight_template_id"] = None
+    elif delivery_method_supplied and not product_type_supplied:
+        if effective_method == "virtual":
+            updates["product_type"] = "virtual"
+        elif effective_method in {"express", "pickup"}:
+            updates["product_type"] = "physical"
+
+    if effective_type == "virtual" and effective_method in {"express", "pickup"}:
+        raise ValidationException(message="虚拟商品不能选择快递或自提配送")
+    if effective_type == "physical" and effective_method == "virtual":
+        raise ValidationException(message="实物商品不能选择虚拟配送方式")
+    if (
+        (product_type_supplied or delivery_method_supplied)
+        and effective_method != "express"
+        and not freight_template_supplied
+        and effective_template
+    ):
+        effective_template = None
+        updates["freight_template_id"] = None
+
+    if {"product_type", "delivery_method", "freight_template_id"} & fields:
+        _validate_delivery(
+            await get_mall_settings(db),
+            effective_method,
+            effective_template,
+        )
     proposed = data.skus
     if proposed is not None:
         codes, combinations, dimensions, identities = set(), set(), None, set()
@@ -202,14 +285,16 @@ async def save_product(db, data, *, actor, product_id=None, expected_version=Non
         if not file_id.isdecimal() or int(file_id) < 1:
             raise ValidationException(message="商品图片ID不合法")
         await _image(db, int(file_id), True)
+    if "description" in data.model_fields_set:
+        for file_id in inline_product_image_ids(data.description):
+            await _image(db, file_id, True)
     if product is None:
         product = MallProduct(name=data.name, status="draft")
         db.add(product)
         await db.flush()
     else:
         product.version += 1
-    for field in data.model_fields_set - {"skus"}:
-        value = getattr(data, field)
+    for field, value in updates.items():
         if field in {"category_id", "cover_file_id"}:
             value = int(value) if value else None
         setattr(product, field, value)
@@ -219,6 +304,12 @@ async def save_product(db, data, *, actor, product_id=None, expected_version=Non
             is_new = value.id is None
             sku = existing[int(value.id)] if value.id else MallSku(product_id=product.id)
             sku.sku_code, sku.sale_price_cent = value.sku_code, value.price_cent
+            if is_new or "market_price_cent" in value.model_fields_set:
+                sku.market_price_cent = value.market_price_cent
+            if "barcode" in value.model_fields_set:
+                sku.barcode = (value.barcode or "").strip() or None
+            if is_new or "cost_price_cent" in value.model_fields_set:
+                sku.cost_price_cent = value.cost_price_cent
             if is_new or "options" in value.model_fields_set:
                 sku.options = {o.name: o.value for o in value.options}
             if is_new or "warning_quantity" in value.model_fields_set:
@@ -248,7 +339,7 @@ async def save_product(db, data, *, actor, product_id=None, expected_version=Non
         await _publishable(db, product)
     image_ids = ([product.cover_file_id] if product.cover_file_id else []) + list(
         product.gallery_file_ids
-    )
+    ) + inline_product_image_ids(product.description)
     for identity in image_ids:
         image = await _image(db, int(identity), True)
         if image.status == "verified":
@@ -274,36 +365,6 @@ async def set_product_status(db, product_id, status, *, expected_version):
     product.status, product.version = status, product.version + 1
     await db.flush()
     return product
-
-
-async def copy_product(db, product_id, *, actor):
-    await _catalog_lock(db)
-    source = await _get(db, MallProduct, product_id, True)
-    skus = await product_skus(db, source.id, lock=True)
-    data = ProductWrite(
-        name=source.name,
-        category_id=str(source.category_id) if source.category_id else None,
-        cover_file_id=str(source.cover_file_id) if source.cover_file_id else None,
-        gallery_file_ids=list(source.gallery_file_ids),
-        sort=source.sort,
-        summary=source.summary,
-        description=source.description,
-        instructions=source.instructions,
-        skus=[
-            dict(
-                sku_code="COPY-" + uuid.uuid4().hex,
-                price_cent=s.sale_price_cent,
-                options=[dict(name=k, value=v) for k, v in s.options.items()],
-                initial_stock=0,
-                warning_quantity=s.warning_qty,
-            )
-            for s in skus
-            if s.status == "active"
-        ]
-        or None,
-    )
-    # Copy immutable image references; never republish or copy stock facts.
-    return await save_product(db, data, actor=actor)
 
 
 async def adjust_stock(db, sku_id, *, expected_version, delta, reason, actor, event_key):

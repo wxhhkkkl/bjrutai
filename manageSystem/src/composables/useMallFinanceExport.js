@@ -1,4 +1,5 @@
 import { computed, ref } from 'vue'
+import { useMallToast } from '@/composables/useMallToast'
 import {
   getAdminMallFinanceExport,
   getAdminMallFinanceExportFile,
@@ -39,6 +40,8 @@ export function useMallFinanceExport(kind, submit, actorId) {
   const exportBusy = ref(false)
   const exportError = ref('')
   const exportNotice = ref('')
+  useMallToast(exportError)
+  useMallToast(exportNotice, 'success')
   const exportStatusLabel = computed(
     () => statusLabels[exportResult.value?.status] || ''
   )

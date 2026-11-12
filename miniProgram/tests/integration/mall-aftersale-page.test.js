@@ -26,8 +26,11 @@ function loadPage(relativePath, replacements = {}, wxOverrides = {}) {
     navigateBack(options = {}) { navigation.push(['navigateBack', options.delta || 1]) },
     showToast(options) { navigation.push(['toast', options.title]) },
     showModal(options) { modals.push(options); options.success({ confirm: true, cancel: false }) },
-    chooseMedia(options) {
-      options.success({ tempFiles: [{ tempFilePath: '/tmp/aftersale.jpg', size: 3, fileType: 'image' }] })
+    chooseImage(options) {
+      options.success({
+        tempFilePaths: ['/tmp/aftersale.jpg'],
+        tempFiles: [{ path: '/tmp/aftersale.jpg', size: 3 }]
+      })
     },
     stopPullDownRefresh() {},
     ...wxOverrides
@@ -76,6 +79,7 @@ function applyDependencies(options = {}) {
     'services/mall-order-service.js': { getMyMallOrder: async () => order },
     'services/mall-aftersale-service.js': {
       createMallAftersale: options.createMallAftersale || (async () => ({ id: '51', version: 1, status: 'submitted' })),
+      computeProofSha256: async () => 'proof-sha256-digest',
       getAftersaleProofUploadTicket: async () => ({ fileId: '71', uploadUrl: 'https://bucket-1.cos.ap-beijing.myqcloud.com/mall/proof?signature=temporary' }),
       uploadAftersaleProofFile: async () => ({ statusCode: 204 }),
       verifyAftersaleProof: async () => ({ id: '71', status: 'verified', version: 2 })
@@ -129,21 +133,17 @@ test('application loads the server snapshot, constrains item quantity and submit
     assert.equal(fixture.page.data.focusField, 'reason')
     assert.equal(fixture.page.data.errorTarget, 'mall-field-reason')
     fixture.page.onReasonInput({ detail: { value: '商品外包装破损' } })
-    fixture.page.onDescriptionInput({ detail: { value: '签收时发现包装损坏' } })
     await fixture.page.submitApplication()
 
     assert.equal(calls.length, 1)
     assert.deepEqual(calls[0][0], {
       orderId: '31', expectedOrderVersion: 7, method: 'return_refund', scope: 'goods',
       items: [{ orderItemId: '101', quantity: 1 }], reason: '商品外包装破损',
-      description: '签收时发现包装损坏', proofFileIds: []
+      proofFileIds: []
     })
     assert.equal(calls[0][1], 'mall-aftersale-action-0001')
     assert.deepEqual(fixture.navigation.at(-1), ['redirectTo', '/pages/mall-aftersale-detail/index?id=51'])
     assert.equal(fixture.modals.length, 1)
-    const markup = fs.readFileSync(path.join(__dirname, '../../pages/mall-aftersale-apply/index.wxml'), 'utf8')
-    assert.match(markup, /金额以商家审核为准/)
-    assert.match(markup, /退款到账不代表发票已开具/)
   } finally { fixture.restore() }
 })
 
@@ -183,7 +183,7 @@ test('uncertain application retries the same body with the original idempotency 
     fixture.page.changeQuantity({ currentTarget: { dataset: { id: '101', delta: '1' } } })
     fixture.page.onReasonInput({ detail: { value: '申请原因' } })
     await fixture.page.submitApplication()
-    assert.equal(fixture.page.data.stateMessage, '网络连接中断')
+    assert.deepEqual(fixture.navigation.at(-1), ['toast', '网络连接中断'])
     await fixture.page.submitApplication()
     assert.equal(calls.length, 2)
     assert.deepEqual(calls[1], calls[0])
@@ -205,6 +205,24 @@ test('proof photos are uploaded and verified before their IDs enter the applicat
     assert.deepEqual(fixture.page.data.proofFileIds, ['71'])
     assert.deepEqual(calls.map((call) => call[0]), ['ticket', 'upload', 'verify'])
     assert.equal(fixture.page.data.proofs[0].status, 'verified')
+  } finally { fixture.restore() }
+})
+
+test('the same proof image is rejected instead of uploaded twice', async () => {
+  const calls = []
+  const dependencies = applyDependencies()
+  const aftersaleService = dependencies['services/mall-aftersale-service.js']
+  aftersaleService.getAftersaleProofUploadTicket = async (...args) => { calls.push(['ticket', ...args]); return { fileId: '71', uploadUrl: 'https://bucket-1.cos.ap-beijing.myqcloud.com/mall/proof?signature=temporary' } }
+  aftersaleService.uploadAftersaleProofFile = async (...args) => { calls.push(['upload', ...args]); return { statusCode: 204 } }
+  aftersaleService.verifyAftersaleProof = async (...args) => { calls.push(['verify', ...args]); return { id: '71', status: 'verified' } }
+  const fixture = loadPage('pages/mall-aftersale-apply/index.js', dependencies)
+  try {
+    await fixture.page.onLoad({ orderId: '31' })
+    await fixture.page.chooseProofImages()
+    await fixture.page.chooseProofImages()
+    assert.equal(calls.filter((call) => call[0] === 'ticket').length, 1)
+    assert.deepEqual(fixture.page.data.proofFileIds, ['71'])
+    assert.deepEqual(fixture.navigation.at(-1), ['toast', '这张图片已经添加过了'])
   } finally { fixture.restore() }
 })
 
@@ -237,6 +255,37 @@ test('aftersale detail separates refund and invoice progress and opens the retur
     const markup = fs.readFileSync(path.join(__dirname, '../../pages/mall-aftersale-detail/index.wxml'), 'utf8')
     assert.match(markup, /金额已核定也不等于退款到账/)
     assert.match(markup, /退款和发票是独立状态/)
+  } finally { fixture.restore() }
+})
+
+test('aftersale detail pull-to-refresh reloads the snapshot and resets the refresher', async () => {
+  let fetches = 0
+  const aftersale = {
+    id: '51', orderId: '31', method: 'refund_only', status: 'submitted',
+    reason: '商品破损', goodsRefundCent: 3000, freightRefundCent: 0, version: 3,
+    items: [{ id: '71', quantity: 1, goodsRefundCent: 3000 }]
+  }
+  const fixture = loadPage('pages/mall-aftersale-detail/index.js', {
+    'services/mall-aftersale-service.js': {
+      getMyMallAftersale: async () => { fetches += 1; return aftersale },
+      getFinancialProgress: (value) => ({ aftersaleStatus: value.status, refundStatus: value.refundStatus || 'not_exposed', invoiceStatus: value.invoiceStatus || 'not_exposed' })
+    },
+    'services/mall-order-service.js': { getMyMallOrder: async () => ({ invoiceStatus: 'not_requested' }) },
+    'services/session-service.js': { getAccessToken: () => 'buyer-token' },
+    'services/mall-intent-service.js': { createIdempotencyKey: () => 'mall-aftersale-action-0001' },
+    'utils/request-key.js': { createRequestKeyManager: () => ({ begin: () => 'mall-aftersale-action-0001', markSucceeded() {}, markUnknown() {} }) }
+  })
+  try {
+    await fixture.page.onLoad({ id: '51' })
+    assert.equal(fixture.page.data.refreshing, false)
+    const pending = fixture.page.refresh()
+    assert.equal(fixture.page.data.refreshing, true)
+    await pending
+    assert.equal(fixture.page.data.refreshing, false)
+    assert.equal(fetches, 2)
+    const markup = fs.readFileSync(path.join(__dirname, '../../pages/mall-aftersale-detail/index.wxml'), 'utf8')
+    assert.match(markup, /refresher-triggered="\{\{refreshing\}\}"/)
+    assert.match(markup, /bindrefresherrefresh="refresh"/)
   } finally { fixture.restore() }
 })
 
@@ -300,4 +349,10 @@ test('all aftersale routes are registered under the existing mall flow', () => {
 test('goods-only aftersale methods use a block-level if/else pair valid for WXML compilation', () => {
   const markup = fs.readFileSync(path.join(__dirname, '../../pages/mall-aftersale-apply/index.wxml'), 'utf8')
   assert.match(markup, /<block wx:if="\{\{scope === 'goods'\}\}">\s*<view wx:for="\{\{methods\}\}"[\s\S]*?<\/block>\s*<block wx:else>\s*<view class="mall-aftersale-option mall-aftersale-option--selected">[\s\S]*?<\/block>/)
+})
+
+test('the required reason field is rendered and bound to the reason value', () => {
+  const markup = fs.readFileSync(path.join(__dirname, '../../pages/mall-aftersale-apply/index.wxml'), 'utf8')
+    .replace(/<!--[\s\S]*?-->/g, '')
+  assert.match(markup, /<textarea id="mall-field-reason"[^>]*value="\{\{reason\}\}"[^>]*bindinput="onReasonInput"/)
 })

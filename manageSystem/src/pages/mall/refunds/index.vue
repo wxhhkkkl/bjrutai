@@ -1,14 +1,17 @@
 <template>
-  <section class="finance-page">
-    <header class="page-heading">
+  <section class="finance-page mall-management-page">
+    <header class="page-heading page-header">
       <div>
-        <h2>退款订单</h2>
+        <h2 class="page-title">退款订单</h2>
         <p>商品退款与运费退款分列展示；只有渠道确认成功的退款才计入成功退款。</p>
       </div>
-      <el-button data-test="reload" :loading="loading" @click="load">刷新</el-button>
     </header>
 
-    <el-form inline class="filters" @submit.prevent="search">
+    <el-form
+      inline
+      class="filters mall-management-filters"
+      @submit.prevent="search"
+    >
       <el-form-item label="退款状态">
         <el-select v-model="filters.status" clearable placeholder="全部状态">
           <el-option
@@ -52,26 +55,6 @@
         </el-button>
       </el-form-item>
     </el-form>
-    <el-alert
-      v-if="canExport && applied.orderNo"
-      title="导出支持状态和时间范围；请清空订单号筛选后导出。"
-      type="info"
-      :closable="false"
-    />
-
-    <el-alert v-if="error" :title="error" type="error" :closable="false" />
-    <el-alert
-      v-if="exportError"
-      :title="exportError"
-      type="error"
-      :closable="false"
-    />
-    <el-alert
-      v-if="exportNotice"
-      :title="exportNotice"
-      type="success"
-      :closable="false"
-    />
     <section v-if="exportIntent" class="export-state" aria-live="polite">
       <div>
         <strong>{{ exportStatusLabel || '导出请求处理中' }}</strong>
@@ -79,13 +62,6 @@
         <span v-if="exportResult?.errorCode">· {{ exportResult.errorCode }}</span>
       </div>
       <div class="export-actions">
-        <el-button
-          data-test="refresh-export"
-          :loading="exportBusy"
-          @click="refreshExport"
-        >
-          刷新状态
-        </el-button>
         <el-button
           v-if="exportResult?.status === 'failed'"
           data-test="retry-export"
@@ -110,7 +86,7 @@
       <el-table-column prop="outRefundNo" label="商户退款单号" min-width="190" />
       <el-table-column label="订单ID" min-width="180">
         <template #default="{ row }">
-          <el-button link @click="router.push(`/mall/orders/${row.orderId}`)">
+          <el-button link type="primary" @click="router.push(`/mall/orders/${row.orderId}`)">
             {{ row.orderId }}
           </el-button>
         </template>
@@ -136,18 +112,19 @@
       </el-table-column>
       <el-table-column label="关联售后" width="120" fixed="right">
         <template #default="{ row }">
-          <el-button link @click="router.push(`/mall/aftersales/${row.aftersaleId}`)">
+          <el-button link type="primary" @click="router.push(`/mall/aftersales/${row.aftersaleId}`)">
             查看售后
           </el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <footer class="pager">
-      <span>共 {{ total }} 条</span>
-      <el-button :disabled="loading || !history.length" @click="previous">上一页</el-button>
-      <el-button :disabled="loading || !nextCursor" @click="next">下一页</el-button>
-    </footer>
+    <MallPagination
+      :current-page="currentPage"
+      :total="total"
+      :disabled="loading"
+      @change="changePage"
+    />
   </section>
 </template>
 
@@ -159,7 +136,11 @@ import {
   exportAdminMallRefunds,
   listAdminMallRefunds,
 } from '@/api/mall-finance'
+import MallPagination from '@/components/mall/MallPagination.vue'
+import { MALL_PAGE_SIZE } from '@/components/mall/mall-pagination'
+import { useMallCursorPagination } from '@/composables/useMallCursorPagination'
 import { useMallFinanceExport } from '@/composables/useMallFinanceExport'
+import { useMallToast } from '@/composables/useMallToast'
 
 const refundStates = {
   prepared: '待提交渠道',
@@ -179,17 +160,20 @@ const items = ref([])
 const total = ref(0)
 const loading = ref(false)
 const error = ref('')
-const cursor = ref(null)
-const nextCursor = ref(null)
-const history = ref([])
+useMallToast(error)
+const {
+  currentPage,
+  cursorForPage,
+  loadPage: loadCursorPage,
+  recordPage,
+  resetPages,
+} = useMallCursorPagination()
 const applied = ref({})
 const exportFormat = ref('xlsx')
 const {
   exportIntent,
   exportResult,
   exportBusy,
-  exportError,
-  exportNotice,
   exportStatusLabel,
   exportFiltered,
   refreshExport,
@@ -230,16 +214,17 @@ async function load() {
   try {
     const result = await listAdminMallRefunds({
       ...applied.value,
-      pageSize: 20,
-      ...(cursor.value ? { cursor: cursor.value } : {}),
+      pageSize: MALL_PAGE_SIZE,
+      ...(cursorForPage(currentPage.value)
+        ? { cursor: cursorForPage(currentPage.value) }
+        : {}),
     })
     items.value = result.items || []
     total.value = result.total || 0
-    nextCursor.value = result.nextCursor || null
+    recordPage(currentPage.value, result)
   } catch (failure) {
     error.value = failure.userMessage || failure.message || '退款记录读取失败'
     total.value = 0
-    nextCursor.value = null
   } finally {
     loading.value = false
   }
@@ -253,20 +238,38 @@ async function search() {
     ...(filters.orderNo.trim() ? { orderNo: filters.orderNo.trim() } : {}),
     ...(range ? { fromAt: range.from, toAt: range.to } : {}),
   }
-  cursor.value = null
-  history.value = []
+  resetPages()
   await load()
+}
+async function changePage(page) {
+  if (loading.value || page === currentPage.value) return
+  loading.value = true
+  error.value = ''
+  try {
+    const result = await loadCursorPage(page, (cursor) =>
+      listAdminMallRefunds({
+        ...applied.value,
+        pageSize: MALL_PAGE_SIZE,
+        ...(cursor ? { cursor } : {}),
+      })
+    )
+    if (!result) {
+      error.value = '退款数据已变化，请刷新后重试'
+      return
+    }
+    items.value = result.items || []
+    total.value = result.total || 0
+  } catch (failure) {
+    error.value = failure.userMessage || failure.message || '退款记录读取失败'
+  } finally {
+    loading.value = false
+  }
 }
 async function next() {
-  if (loading.value || !nextCursor.value) return
-  history.value.push(cursor.value)
-  cursor.value = nextCursor.value
-  await load()
+  return changePage(currentPage.value + 1)
 }
 async function previous() {
-  if (loading.value || !history.value.length) return
-  cursor.value = history.value.pop()
-  await load()
+  return changePage(currentPage.value - 1)
 }
 async function exportVisibleRows() {
   if (applied.value.orderNo) {
@@ -314,62 +317,8 @@ defineExpose({
 </script>
 
 <style scoped>
-.finance-page {
-  padding: 20px;
-}
-.page-heading,
-.pager,
-.export-state,
-.export-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.page-heading,
-.export-state {
-  justify-content: space-between;
-}
-.page-heading {
-  margin: 12px 0 18px;
-}
-.page-heading h2 {
-  margin: 0 0 6px;
-}
-.page-heading p {
-  margin: 0;
-  color: #6b7280;
-}
-.filters {
-  margin-bottom: 10px;
-}
 .format {
   width: 100px;
   margin-right: 8px;
-}
-.export-state {
-  padding: 12px 16px;
-  margin: 12px 0;
-  background: #f5f7fa;
-  border-radius: 6px;
-  color: #303133;
-}
-.export-state span {
-  color: #606266;
-  margin-left: 4px;
-}
-.pager {
-  justify-content: flex-end;
-  margin-top: 16px;
-  color: #606266;
-}
-@media (max-width: 720px) {
-  .page-heading,
-  .export-state {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .filters {
-    display: block;
-  }
 }
 </style>

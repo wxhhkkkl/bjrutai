@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from ..core.exceptions import NotFoundException
 from ..models.mall_finance import MallRefund
-from ..models.mall_trade import MallAftersale, MallAftersaleItem
+from ..models.mall_trade import MallAftersale, MallAftersaleItem, MallOrder, MallOrderItem
 from .mall_catalog_query_service import _page
 from .mall_order_text import safe_order_text
 
@@ -29,9 +29,11 @@ def serialize_refund(refund):
 
 
 async def serialize_aftersale(db, row, *, buyer=False):
+    order = await db.get(MallOrder, row.order_id)
     lines = (
-        await db.scalars(
-            select(MallAftersaleItem)
+        await db.execute(
+            select(MallAftersaleItem, MallOrderItem.product_snapshot)
+            .join(MallOrderItem, MallOrderItem.id == MallAftersaleItem.order_item_id)
             .where(MallAftersaleItem.aftersale_id == row.id)
             .order_by(MallAftersaleItem.id)
         )
@@ -45,6 +47,7 @@ async def serialize_aftersale(db, row, *, buyer=False):
     result = {
         "id": str(row.id),
         "orderId": str(row.order_id),
+        "orderNo": order.order_no if order else None,
         "aftersaleNo": row.aftersale_no,
         "method": row.method,
         "status": row.status,
@@ -60,11 +63,16 @@ async def serialize_aftersale(db, row, *, buyer=False):
             {
                 "id": str(line.id),
                 "orderItemId": str(line.order_item_id),
+                "productName": (
+                    product_snapshot.get("name")
+                    if isinstance(product_snapshot, dict)
+                    else None
+                ),
                 "quantity": line.quantity,
                 "goodsRefundCent": line.goods_refund_cent,
                 "sellableReceivedQuantity": line.stock_return_quantity,
             }
-            for line in lines
+            for line, product_snapshot in lines
         ],
         "version": row.version,
     }

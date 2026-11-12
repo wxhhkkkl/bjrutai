@@ -37,7 +37,6 @@ export function createInvoicePdfUploadState(file, orderId) {
     ticketKey: crypto.randomUUID(),
     verifyKey: crypto.randomUUID(),
     ticket: null,
-    uploaded: false,
     sha256: null,
   }
 }
@@ -77,24 +76,14 @@ export async function uploadInvoicePdf(state) {
       )
       .then(unwrap)
   }
-  if (!state.uploaded) {
-    const url = new URL(state.ticket.uploadUrl)
-    if (url.protocol !== 'https:') throw new Error('上传地址不安全')
-    const response = await fetch(url.href, {
-      method: 'PUT',
-      credentials: 'omit',
-      redirect: 'error',
-      headers: { 'Content-Type': file.type },
-      body: file,
-    })
-    if (!response.ok) throw new Error('发票文件上传失败，请重试')
-    state.uploaded = true
-  }
   return http
     .post(
       `${files}/${state.ticket.fileId}/verify`,
-      null,
-      headers(state.verifyKey)
+      file,
+      {
+        timeout: 90000,
+        headers: { ...headers(state.verifyKey).headers, 'Content-Type': file.type },
+      }
     )
     .then(unwrap)
 }

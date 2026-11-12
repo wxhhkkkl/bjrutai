@@ -2605,74 +2605,6 @@
         }
       }
     },
-    "/api/v1/admin/mall/products/{productId}/copy": {
-      "post": {
-        "operationId": "copyMallProduct",
-        "summary": "复制为草稿，不复制库存承诺",
-        "tags": [
-          "admin"
-        ],
-        "x-actor-policy": "admin",
-        "x-requirements": [
-          "FR-009"
-        ],
-        "responses": {
-          "200": {
-            "description": "成功业务响应",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ResponseProduct"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "业务或权限错误，实际HTTP状态与Error对应",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "productId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "pattern": "^[1-9][0-9]*$"
-            }
-          },
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 16,
-              "maxLength": 128
-            },
-            "description": "同actor/action/key同内容返回原实体；不同内容409；重放仍实时授权"
-          }
-        ],
-        "x-permission": "mall.products.write",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VersionAction"
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/admin/mall/skus/{skuId}/stock-adjustments": {
       "post": {
         "operationId": "adjustMallStock",
@@ -2886,14 +2818,6 @@
               "type": "string",
               "format": "date-time"
             }
-          },
-          {
-            "name": "pendingPlatformReport",
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "description": "true筛选待登记/历史状态未知包裹；false筛选已人工登记包裹"
           }
         ],
         "x-permission": "mall.orders.read"
@@ -3146,6 +3070,75 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ShipRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/mall/orders/{orderId}/virtual-delivery": {
+      "post": {
+        "operationId": "deliverVirtualMallOrder",
+        "summary": "为已确认收款的虚拟商品订单录入交付内容并完成订单",
+        "tags": [
+          "admin"
+        ],
+        "x-actor-policy": "admin",
+        "x-requirements": [
+          "FR-003",
+          "FR-020"
+        ],
+        "responses": {
+          "200": {
+            "description": "成功业务响应",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseVirtualDelivery"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "业务或权限错误，实际HTTP状态与Error对应",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128
+            },
+            "description": "同actor/action/key同内容返回原实体；不同内容409；重放仍实时授权"
+          }
+        ],
+        "x-permission": "mall.orders.write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VirtualDeliveryCreate"
               }
             }
           }
@@ -4907,6 +4900,18 @@
       "post": {
         "operationId": "verifyAdminMallFile",
         "summary": "核实私有对象及内容",
+        "requestBody": {
+          "required": false,
+          "description": "发票PDF可提交原始二进制，由后端上传并核验。其他文件使用已上传对象核验。",
+          "content": {
+            "application/pdf": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
         "tags": [
           "admin"
         ],
@@ -5925,7 +5930,7 @@
     "/api/v1/admin/mall/settings": {
       "get": {
         "operationId": "getMallSettings",
-        "summary": "脱敏配送与交易设置",
+        "summary": "按权限读取配送与交易设置，配置写入权限可查看已存地址",
         "tags": [
           "admin"
         ],
@@ -6114,325 +6119,85 @@
     "/api/v1/mall-gateway/wechat/payment-notify": {
       "post": {
         "operationId": "wechatPaymentNotify",
-        "summary": "验签解密核对→持久提交事件与任务→204空ACK",
+        "summary": "验签支付 XML→持久提交事件与任务→XML ACK",
         "tags": [
           "gateway"
         ],
         "security": [],
-        "x-actor-policy": "wechat_signature",
+        "x-actor-policy": "wechat_api_v2_signature",
         "x-requirements": [
           "FR-027",
           "FR-029"
         ],
-        "parameters": [
-          {
-            "name": "Wechatpay-Timestamp",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Wechatpay-Nonce",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Wechatpay-Serial",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Wechatpay-Signature",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
-            "application/json": {
+            "application/xml": {
               "schema": {
-                "$ref": "#/components/schemas/GatewayNotification"
+                "type": "string",
+                "example": "<xml>...</xml>"
               }
             }
           }
         },
         "responses": {
-          "204": {
-            "description": "事件和恢复任务已经提交；无响应体"
-          },
-          "400": {
-            "description": "签名、报文、支付/退款身份或金额校验失败",
+          "200": {
+            "description": "收到并处理通知后返回 APIv2 XML ACK；失败返回 return_code=FAIL 以便微信重试。",
             "content": {
-              "application/json": {
+              "application/xml": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "const": "FAIL"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "通知报文超过接收上限",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "const": "FAIL"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "事件或恢复任务持久化失败，渠道可重试",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "const": "FAIL"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "回调接收被关闭或超过应答处理时限",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "const": "FAIL"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "additionalProperties": false
+                  "type": "string",
+                  "example": "<xml><return_code>SUCCESS</return_code><return_msg>OK</return_msg></xml>"
                 }
               }
             }
           }
         },
         "x-implementation-gate": "G-PROTOCOL",
-        "description": "宪章3.0.0限定的唯一外部响应例外。仅适用于该支付/退款通知路由；不使用用户JWT或项目业务envelope。请求按微信支付API v3验签、时间校验并解密；匹配本地支付/退款身份和金额后，将加密resource事件及唯一恢复任务在同一事务提交，提交成功才返回HTTP 204空响应。失败按官方4xx/5xx及FAIL错误体响应。G-PROTOCOL治理/协议核验已通过；T048本地实现与隔离回归已完成，生产登记/部署仍受G-LIVE约束。"
+        "description": "商城微信支付使用 APIv2 XML 协议。支付通知使用商户 APIv2 密钥校验 sign；退款通知解密 req_info。校验 AppID、商户、订单/退款身份及金额，并在事件和恢复任务同一事务提交后回复 HTTP 200 XML ACK。所有失败均回复 return_code=FAIL；回调功能独立受 MALL_GATEWAY_CALLBACK_ENABLED 控制，生产登记和启用仍需 G-LIVE 授权。"
       }
     },
     "/api/v1/mall-gateway/wechat/refund-notify": {
       "post": {
         "operationId": "wechatRefundNotify",
-        "summary": "验签解密核对→持久提交事件与任务→204空ACK",
+        "summary": "验签支付 XML/解密退款 XML→持久提交事件与任务→XML ACK",
         "tags": [
           "gateway"
         ],
         "security": [],
-        "x-actor-policy": "wechat_signature",
+        "x-actor-policy": "wechat_api_v2_encrypted_notification",
         "x-requirements": [
           "FR-052",
           "FR-053"
         ],
-        "parameters": [
-          {
-            "name": "Wechatpay-Timestamp",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Wechatpay-Nonce",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Wechatpay-Serial",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Wechatpay-Signature",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
-            "application/json": {
+            "application/xml": {
               "schema": {
-                "$ref": "#/components/schemas/GatewayNotification"
+                "type": "string",
+                "example": "<xml>...</xml>"
               }
             }
           }
         },
         "responses": {
-          "204": {
-            "description": "事件和恢复任务已经提交；无响应体"
-          },
-          "400": {
-            "description": "签名、报文、支付/退款身份或金额校验失败",
+          "200": {
+            "description": "收到并处理通知后返回 APIv2 XML ACK；失败返回 return_code=FAIL 以便微信重试。",
             "content": {
-              "application/json": {
+              "application/xml": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "const": "FAIL"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "通知报文超过接收上限",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "const": "FAIL"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "事件或恢复任务持久化失败，渠道可重试",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "const": "FAIL"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "回调接收被关闭或超过应答处理时限",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "const": "FAIL"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "message"
-                  ],
-                  "additionalProperties": false
+                  "type": "string",
+                  "example": "<xml><return_code>SUCCESS</return_code><return_msg>OK</return_msg></xml>"
                 }
               }
             }
           }
         },
         "x-implementation-gate": "G-PROTOCOL",
-        "description": "宪章3.0.0限定的唯一外部响应例外。仅适用于该支付/退款通知路由；不使用用户JWT或项目业务envelope。请求按微信支付API v3验签、时间校验并解密；匹配本地支付/退款身份和金额后，将加密resource事件及唯一恢复任务在同一事务提交，提交成功才返回HTTP 204空响应。失败按官方4xx/5xx及FAIL错误体响应。G-PROTOCOL治理/协议核验已通过；T048本地实现与隔离回归已完成，生产登记/部署仍受G-LIVE约束。"
+        "description": "商城微信支付使用 APIv2 XML 协议。支付通知使用商户 APIv2 密钥校验 sign；退款通知解密 req_info。校验 AppID、商户、订单/退款身份及金额，并在事件和恢复任务同一事务提交后回复 HTTP 200 XML ACK。所有失败均回复 return_code=FAIL；回调功能独立受 MALL_GATEWAY_CALLBACK_ENABLED 控制，生产登记和启用仍需 G-LIVE 授权。"
       }
     },
     "/api/v1/mall/orders/{orderId}/logistics": {
@@ -6650,78 +6415,6 @@
         ],
         "x-permission": "mall.finance.export"
       }
-    },
-    "/api/v1/admin/mall/shipments/{shipmentId}/platform-report": {
-      "post": {
-        "operationId": "recordMallPlatformShipmentReport",
-        "summary": "记录已在微信平台手工登记发货信息",
-        "tags": [
-          "admin"
-        ],
-        "x-actor-policy": "admin",
-        "x-requirements": [
-          "FR-039",
-          "FR-042"
-        ],
-        "responses": {
-          "default": {
-            "description": "业务或权限错误，实际HTTP状态与Error对应",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "本商城已记录管理员人工确认；不是微信平台回执",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ResponseShipment"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "shipmentId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "pattern": "^[1-9][0-9]*$"
-            }
-          },
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 16,
-              "maxLength": 128
-            },
-            "description": "同actor/action/key同内容返回原实体；不同内容409；重放仍实时授权"
-          }
-        ],
-        "x-permission": "mall.shipments.write",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VersionAction"
-              }
-            }
-          }
-        },
-        "description": "仅记录管理员已在微信小程序后台完成手工录入的声明，不调用微信API；不代表微信回执、平台确认收货或资金结算。",
-        "x-manual-attestation": true,
-        "x-platform-call": false
-      }
     }
   },
   "components": {
@@ -6861,6 +6554,7 @@
             "maxLength": 64
           },
           "parentId": {
+            "description": "仅支持一级分类；必须省略或为null，非空值由分类服务拒绝",
             "anyOf": [
               {
                 "type": "string",
@@ -6923,6 +6617,30 @@
             "type": "integer",
             "minimum": 1
           },
+          "marketPriceCent": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "市场参考价（分），未设置时为空；不参与交易金额"
+          },
+          "costPriceCent": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "仅具有 mall.products.write 权限的后台返回：SKU成本价（分），未设置时为空"
+          },
           "availableQuantity": {
             "type": "integer",
             "minimum": 0
@@ -6953,6 +6671,7 @@
           "id",
           "skuCode",
           "priceCent",
+          "marketPriceCent",
           "stockStatus",
           "version"
         ],
@@ -6993,6 +6712,30 @@
           "priceCent": {
             "type": "integer",
             "minimum": 1
+          },
+          "marketPriceCent": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "仅后台写入：市场参考价（分），可不设置；不参与交易金额"
+          },
+          "costPriceCent": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "仅后台写入：SKU成本价（分），可不设置"
           },
           "initialStock": {
             "type": "integer",
@@ -7045,6 +6788,14 @@
             "type": "string",
             "pattern": "^[1-9][0-9]*$"
           },
+          "productType": {
+            "type": "string",
+            "enum": [
+              "physical",
+              "virtual"
+            ],
+            "description": "商品属性：实物商品或虚拟商品"
+          },
           "name": {
             "type": "string",
             "maxLength": 64
@@ -7067,6 +6818,14 @@
           },
           "description": {
             "type": "string"
+          },
+          "supportsReturn": {
+            "type": "boolean"
+          },
+          "returnInstructions": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "后台返回商品设置原值；小程序详情返回生效说明，商品设置为空时使用交易设置"
           },
           "instructions": {
             "type": "string"
@@ -7095,6 +6854,7 @@
         "required": [
           "id",
           "name",
+          "productType",
           "status",
           "skus",
           "version"
@@ -7104,6 +6864,15 @@
       "ProductWrite": {
         "type": "object",
         "properties": {
+          "productType": {
+            "type": "string",
+            "enum": [
+              "physical",
+              "virtual"
+            ],
+            "default": "physical",
+            "description": "商品属性：实物商品或虚拟商品"
+          },
           "categoryId": {
             "type": "string",
             "pattern": "^[1-9][0-9]*$"
@@ -7131,6 +6900,15 @@
           },
           "description": {
             "type": "string"
+          },
+          "supportsReturn": {
+            "type": "boolean",
+            "default": true
+          },
+          "returnInstructions": {
+            "type": "string",
+            "maxLength": 2000,
+            "default": ""
           },
           "instructions": {
             "type": "string"
@@ -7314,6 +7092,72 @@
         ],
         "additionalProperties": false
       },
+      "BuyerOrderAddressDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "recipientName": {
+            "type": "string"
+          },
+          "phoneMasked": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "description": "仅订单所属买家的订单详情返回完整收件电话"
+          },
+          "regionCodes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{6}$"
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "regionNames": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
+            },
+            "minItems": 0,
+            "maxItems": 3,
+            "description": "省市区显示名称；旧地址可能为空。"
+          },
+          "addressMasked": {
+            "type": "string"
+          },
+          "addressLine": {
+            "type": "string",
+            "description": "仅订单所属买家的订单详情返回完整收件地址"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "recipientName",
+          "phoneMasked",
+          "phone",
+          "regionCodes",
+          "regionNames",
+          "addressMasked",
+          "addressLine",
+          "version"
+        ],
+        "additionalProperties": false,
+        "description": "本人订单详情中的收件快照；只对订单所属买家返回完整收件电话与地址"
+      },
       "AddressWrite": {
         "type": "object",
         "properties": {
@@ -7470,6 +7314,18 @@
           "productName": {
             "type": "string"
           },
+          "coverUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "商品主图的临时访问地址；缺少或不可用时为null"
+          },
           "quantity": {
             "type": "integer",
             "minimum": 1
@@ -7490,14 +7346,31 @@
           "version": {
             "type": "integer",
             "minimum": 1
+          },
+          "productType": {
+            "type": "string",
+            "enum": [
+              "physical",
+              "virtual"
+            ]
+          },
+          "deliveryMethod": {
+            "type": "string",
+            "enum": [
+              "express",
+              "virtual"
+            ]
           }
         },
         "required": [
           "id",
           "sku",
+          "coverUrl",
           "quantity",
           "valid",
-          "version"
+          "version",
+          "productType",
+          "deliveryMethod"
         ],
         "additionalProperties": false
       },
@@ -7537,8 +7410,7 @@
           }
         },
         "required": [
-          "items",
-          "addressId"
+          "items"
         ],
         "additionalProperties": false
       },
@@ -7568,7 +7440,14 @@
             "maximum": 9007199254740991
           },
           "address": {
-            "$ref": "#/components/schemas/Address"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Address"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "policyVersion": {
             "type": "string"
@@ -7585,6 +7464,16 @@
               "$ref": "#/components/schemas/QuoteItem"
             },
             "minItems": 1
+          },
+          "deliveryMethod": {
+            "type": "string",
+            "enum": [
+              "express",
+              "virtual"
+            ]
+          },
+          "requiresAddress": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -7596,7 +7485,9 @@
           "address",
           "policyVersion",
           "changes",
-          "items"
+          "items",
+          "deliveryMethod",
+          "requiresAddress"
         ],
         "additionalProperties": false
       },
@@ -7673,6 +7564,10 @@
             "type": "string",
             "pattern": "^[1-9][0-9]*$"
           },
+          "supportsReturn": {
+            "type": "boolean",
+            "description": "按下单时的商品退货设置；历史订单默认支持"
+          },
           "productName": {
             "type": "string"
           },
@@ -7701,6 +7596,20 @@
           "availableAftersaleQuantity": {
             "type": "integer",
             "minimum": 0
+          },
+          "productType": {
+            "type": "string",
+            "enum": [
+              "physical",
+              "virtual"
+            ]
+          },
+          "deliveryMethod": {
+            "type": "string",
+            "enum": [
+              "express",
+              "virtual"
+            ]
           }
         },
         "required": [
@@ -7711,7 +7620,9 @@
           "quantity",
           "lineAmountCent",
           "refundedGoodsCent",
-          "availableAftersaleQuantity"
+          "availableAftersaleQuantity",
+          "productType",
+          "deliveryMethod"
         ],
         "additionalProperties": false
       },
@@ -7758,26 +7669,6 @@
               }
             ]
           },
-          "platformReportStatus": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "manual_reported",
-              "unknown"
-            ],
-            "description": "商城记录的微信后台人工录入状态；manual_reported为管理员声明，不是微信API回执"
-          },
-          "platformReportedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "platformSyncStatus": {
             "type": "string",
             "enum": [
@@ -7788,7 +7679,7 @@
               "unknown"
             ],
             "deprecated": true,
-            "description": "兼容字段，仅表示旧自动同步状态；微信人工登记以platformReportStatus为准"
+            "description": "兼容字段，仅表示旧自动同步状态"
           }
         },
         "required": [
@@ -7796,9 +7687,7 @@
           "courierCode",
           "trackingNo",
           "autoReceiveAt",
-          "platformReportStatus",
           "version",
-          "platformReportedAt",
           "platformSyncStatus"
         ],
         "additionalProperties": false
@@ -7871,7 +7760,14 @@
             }
           },
           "address": {
-            "$ref": "#/components/schemas/Address"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Address"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "shipment": {
             "anyOf": [
@@ -7960,6 +7856,13 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "deliveryMethod": {
+            "type": "string",
+            "enum": [
+              "express",
+              "virtual"
+            ]
           }
         },
         "required": [
@@ -7974,7 +7877,8 @@
           "items",
           "address",
           "version",
-          "payableAmountCent"
+          "payableAmountCent",
+          "deliveryMethod"
         ],
         "additionalProperties": false
       },
@@ -8159,7 +8063,8 @@
                   "signType": {
                     "type": "string",
                     "enum": [
-                      "RSA"
+                      "MD5",
+                      "HMAC-SHA256"
                     ]
                   },
                   "paySign": {
@@ -8288,6 +8193,12 @@
           "phone": {
             "type": "string"
           },
+          "regionNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "addressLine": {
             "type": "string"
           },
@@ -8304,6 +8215,7 @@
           "orderId",
           "recipientName",
           "phone",
+          "regionNames",
           "addressLine",
           "expiresAt",
           "auditId"
@@ -8969,6 +8881,16 @@
             "type": "string",
             "pattern": "^[1-9][0-9]*$"
           },
+          "productName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "buyerType": {
             "type": "string",
             "enum": [
@@ -8987,6 +8909,16 @@
             "type": "string"
           },
           "taxNoMasked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "infoRequestReason": {
             "anyOf": [
               {
                 "type": "string"
@@ -9056,6 +8988,7 @@
           "id",
           "requestNo",
           "orderId",
+          "productName",
           "buyerType",
           "invoiceType",
           "title",
@@ -9070,24 +9003,49 @@
       },
       "InvoiceIssueRecord": {
         "type": "object",
+        "description": "票号、开具时间和销售主体可全部省略，省略时仅登记PDF；如填写则三项须完整提供。",
         "properties": {
           "expectedVersion": {
             "type": "integer",
             "minimum": 1
           },
           "invoiceNo": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
           "issuedAt": {
-            "type": "string",
-            "format": "date-time"
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
           "sellerIdentity": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
           "totalCent": {
             "type": "integer",
@@ -9108,9 +9066,6 @@
         },
         "required": [
           "expectedVersion",
-          "invoiceNo",
-          "issuedAt",
-          "sellerIdentity",
           "totalCent",
           "fileId"
         ],
@@ -9132,10 +9087,16 @@
             "pattern": "^[1-9][0-9]*$"
           },
           "sellerIdentity": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "invoiceNo": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "kind": {
             "type": "string",
@@ -9150,13 +9111,21 @@
             "maximum": 9007199254740991
           },
           "issuedAt": {
-            "type": "string",
-            "format": "date-time"
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "status": {
             "type": "string",
             "enum": [
               "valid",
+              "pdf_uploaded",
               "red_pending",
               "awaiting_counterparty",
               "partially_red",
@@ -9222,7 +9191,10 @@
             "maxLength": 64
           },
           "issuedAt": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time"
           },
           "totalCent": {
@@ -9915,7 +9887,7 @@
             "minimum": 0,
             "maximum": 9007199254740991
           },
-          "blockedRegionCodes": {
+          "defaultBlockedRegionCodes": {
             "type": "array",
             "items": {
               "type": "string"
@@ -9961,6 +9933,111 @@
           "autoReceiveDays",
           "aftersaleDays",
           "policyVersion"
+        ],
+        "additionalProperties": false
+      },
+      "SettingsResponse": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "purchaseEnabled": {
+            "type": "boolean"
+          },
+          "freightTemplates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FreightTemplateWrite"
+            }
+          },
+          "freightMode": {
+            "type": "string",
+            "enum": [
+              "free",
+              "fixed"
+            ]
+          },
+          "freightCent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "paymentMinutes": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "autoReceiveDays": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "aftersaleDays": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "defaultBlockedRegionCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "contactText": {
+            "type": "string"
+          },
+          "dispatchAddressMasked": {
+            "type": "string"
+          },
+          "returnAddressMasked": {
+            "type": "string"
+          },
+          "dispatchAddress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WarehouseAddressView"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "仅 mall.settings.write 权限可读取完整地址；其他读取者为null"
+          },
+          "returnAddress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WarehouseAddressView"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "仅 mall.settings.write 权限可读取完整地址；其他读取者为null"
+          },
+          "returnInstructions": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "version",
+          "enabled",
+          "purchaseEnabled",
+          "freightTemplates",
+          "freightMode",
+          "freightCent",
+          "paymentMinutes",
+          "autoReceiveDays",
+          "aftersaleDays",
+          "defaultBlockedRegionCodes",
+          "contactText",
+          "dispatchAddressMasked",
+          "returnAddressMasked",
+          "dispatchAddress",
+          "returnAddress",
+          "returnInstructions"
         ],
         "additionalProperties": false
       },
@@ -10045,10 +10122,6 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
-          },
-          "pendingPlatformReport": {
-            "type": "integer",
-            "minimum": 0
           }
         },
         "required": [
@@ -10056,8 +10129,7 @@
           "pendingAftersale",
           "pendingInvoice",
           "paidTodayCent",
-          "refundedTodayCent",
-          "pendingPlatformReport"
+          "refundedTodayCent"
         ],
         "additionalProperties": false
       },
@@ -10213,6 +10285,18 @@
           "productName": {
             "type": "string"
           },
+          "coverUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "商品主图的临时访问地址；缺少或不可用时为null"
+          },
           "optionsText": {
             "type": "string"
           },
@@ -10233,15 +10317,32 @@
           "skuVersion": {
             "type": "integer",
             "minimum": 1
+          },
+          "productType": {
+            "type": "string",
+            "enum": [
+              "physical",
+              "virtual"
+            ]
+          },
+          "deliveryMethod": {
+            "type": "string",
+            "enum": [
+              "express",
+              "virtual"
+            ]
           }
         },
         "required": [
           "skuId",
           "productName",
+          "coverUrl",
           "quantity",
           "unitPriceCent",
           "lineAmountCent",
-          "skuVersion"
+          "skuVersion",
+          "productType",
+          "deliveryMethod"
         ],
         "additionalProperties": false
       },
@@ -10308,6 +10409,46 @@
           "contactName",
           "phone",
           "regionCodes",
+          "addressLine"
+        ],
+        "additionalProperties": false
+      },
+      "WarehouseAddressView": {
+        "type": "object",
+        "properties": {
+          "contactName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "description": "仅具备 mall.settings.write 权限时返回"
+          },
+          "regionCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "regionNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 0,
+            "maxItems": 3
+          },
+          "addressLine": {
+            "type": "string",
+            "description": "仅具备 mall.settings.write 权限时返回"
+          }
+        },
+        "required": [
+          "contactName",
+          "phone",
+          "regionCodes",
+          "regionNames",
           "addressLine"
         ],
         "additionalProperties": false
@@ -12215,7 +12356,7 @@
             "type": "string"
           },
           "data": {
-            "$ref": "#/components/schemas/Settings"
+            "$ref": "#/components/schemas/SettingsResponse"
           },
           "requestId": {
             "type": "string"
@@ -12660,7 +12801,14 @@
             }
           },
           "address": {
-            "$ref": "#/components/schemas/Address"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuyerOrderAddressDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "shipment": {
             "anyOf": [
@@ -12818,6 +12966,23 @@
               "type": "string",
               "maxLength": 64
             }
+          },
+          "deliveryMethod": {
+            "type": "string",
+            "enum": [
+              "express",
+              "virtual"
+            ]
+          },
+          "virtualDelivery": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VirtualDeliveryView"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -12853,10 +13018,12 @@
           "closeReason",
           "consumptionId",
           "timeline",
-          "availableActions"
+          "availableActions",
+          "deliveryMethod",
+          "virtualDelivery"
         ],
         "additionalProperties": false,
-        "description": "本人订单详情，无内部备注/内部时间线"
+        "description": "本人订单详情；重新核验订单归属后返回完整收件资料，无内部备注/内部时间线"
       },
       "ResponseBuyerOrderDetail": {
         "type": "object",
@@ -12956,7 +13123,14 @@
             }
           },
           "address": {
-            "$ref": "#/components/schemas/Address"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Address"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "shipment": {
             "anyOf": [
@@ -13131,6 +13305,23 @@
           },
           "fulfillmentCheck": {
             "$ref": "#/components/schemas/FulfillmentCheck"
+          },
+          "deliveryMethod": {
+            "type": "string",
+            "enum": [
+              "express",
+              "virtual"
+            ]
+          },
+          "virtualDelivery": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VirtualDeliveryView"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -13169,7 +13360,9 @@
           "availableActions",
           "buyer",
           "internalNote",
-          "fulfillmentCheck"
+          "fulfillmentCheck",
+          "deliveryMethod",
+          "virtualDelivery"
         ],
         "additionalProperties": false,
         "description": "有订单读取权的后台详情；对象、字段和动作仍按实时权限过滤"
@@ -13236,6 +13429,96 @@
         ],
         "additionalProperties": false,
         "description": "当前业务事实的发货前检查，不代替执行时校验或表示实际发货能力已经开放。"
+      },
+      "VirtualDeliveryCreate": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "deliveryContent": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "deliveryContent"
+        ],
+        "additionalProperties": false
+      },
+      "VirtualDeliveryView": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "maxLength": 5000
+          },
+          "deliveredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "content",
+          "deliveredAt"
+        ],
+        "additionalProperties": false
+      },
+      "VirtualDeliveryResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "deliveredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "deliveredAt",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "ResponseVirtualDelivery": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "const": 0
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/VirtualDeliveryResult"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "serverTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "data",
+          "requestId",
+          "serverTime"
+        ],
+        "additionalProperties": false
       }
     }
   }

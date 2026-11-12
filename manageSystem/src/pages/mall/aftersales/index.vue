@@ -1,12 +1,9 @@
 <template>
-  <section class="mall-page">
-    <header>
-      <h2>售后处理</h2>
-      <el-button data-test="reload" :loading="loading" @click="load">
-        刷新
-      </el-button>
+  <section class="mall-page mall-management-page">
+    <header class="page-header">
+      <h2 class="page-title">售后处理</h2>
     </header>
-    <el-form inline @submit.prevent="search">
+    <el-form inline class="mall-management-filters" @submit.prevent="search">
       <el-form-item label="售后状态">
         <el-select v-model="filters.status" clearable placeholder="全部状态">
           <el-option
@@ -28,13 +25,16 @@
         </el-button>
       </el-form-item>
     </el-form>
-    <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <el-table
       v-loading="loading"
       :data="items"
       empty-text="暂无符合条件的售后申请"
     >
       <el-table-column prop="aftersaleNo" label="售后单号" min-width="250" />
+      <el-table-column label="商品名称" min-width="220" show-overflow-tooltip>
+        <template #default="{ row }">{{ productNames(row) }}</template>
+      </el-table-column>
+      <el-table-column prop="orderNo" label="订单号" min-width="220" show-overflow-tooltip />
       <el-table-column prop="orderId" label="订单ID" min-width="100" />
       <el-table-column label="类型" min-width="110">
         <template #default="{ row }">
@@ -45,9 +45,11 @@
       </el-table-column>
       <el-table-column label="状态" min-width="120">
         <template #default="{ row }">
-          {{
-            aftersaleStates[row.status] || '待核实'
-          }}
+          <el-tag :type="aftersaleStateType(row.status)">
+            {{
+              aftersaleStates[row.status] || '待核实'
+            }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column label="退款申请金额" min-width="135">
@@ -57,21 +59,18 @@
       </el-table-column>
       <el-table-column label="操作" width="110" fixed="right">
         <template #default="{ row }">
-          <el-button link @click="router.push(`/mall/aftersales/${row.id}`)">
+          <el-button link type="primary" @click="router.push(`/mall/aftersales/${row.id}`)">
             查看处理
           </el-button>
         </template>
       </el-table-column>
     </el-table>
-    <footer>
-      <span>共 {{ total }} 条</span>
-      <el-button :disabled="loading || !history.length" @click="previous">
-        上一页
-      </el-button>
-      <el-button :disabled="loading || !nextCursor" @click="next">
-        下一页
-      </el-button>
-    </footer>
+    <MallPagination
+      :current-page="currentPage"
+      :total="total"
+      :disabled="loading"
+      @change="changePage"
+    />
   </section>
 </template>
 
@@ -79,7 +78,16 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { listAdminAftersales } from '@/api/mall-aftersales'
-import { aftersaleMethods, aftersaleStates, money } from './aftersale-view'
+import MallPagination from '@/components/mall/MallPagination.vue'
+import { MALL_PAGE_SIZE } from '@/components/mall/mall-pagination'
+import { useMallCursorPagination } from '@/composables/useMallCursorPagination'
+import { useMallToast } from '@/composables/useMallToast'
+import {
+  aftersaleMethods,
+  aftersaleStateType,
+  aftersaleStates,
+  money,
+} from './aftersale-view'
 
 const router = useRouter()
 const filters = reactive({ status: '' })
@@ -87,10 +95,29 @@ const items = ref([])
 const total = ref(0)
 const loading = ref(false)
 const error = ref('')
-const cursor = ref(null)
-const nextCursor = ref(null)
-const history = ref([])
+useMallToast(error)
+const {
+  currentPage,
+  cursorForPage,
+  loadPage: loadCursorPage,
+  recordPage,
+  resetPages,
+} = useMallCursorPagination()
 let applied = {}
+
+function productNames(row) {
+  const names = [
+    ...new Set(
+      (row.items || [])
+        .map((item) => item.productName)
+        .filter((name) => typeof name === 'string' && name.trim())
+    ),
+  ]
+  if (names.length) return names.join('、')
+  return Number(row.goodsRefundCent || 0) === 0
+    ? '运费退款'
+    : '商品信息缺失'
+}
 
 async function load() {
   if (loading.value) return
@@ -100,16 +127,17 @@ async function load() {
   try {
     const result = await listAdminAftersales({
       ...applied,
-      pageSize: 20,
-      ...(cursor.value ? { cursor: cursor.value } : {}),
+      pageSize: MALL_PAGE_SIZE,
+      ...(cursorForPage(currentPage.value)
+        ? { cursor: cursorForPage(currentPage.value) }
+        : {}),
     })
     items.value = result.items
     total.value = result.total
-    nextCursor.value = result.nextCursor
+    recordPage(currentPage.value, result)
   } catch (failure) {
     error.value = failure.userMessage || failure.message || '售后列表读取失败'
     total.value = 0
-    nextCursor.value = null
   } finally {
     loading.value = false
   }
@@ -118,39 +146,34 @@ async function load() {
 async function search() {
   if (loading.value) return
   applied = filters.status ? { status: filters.status } : {}
-  cursor.value = null
-  history.value = []
+  resetPages()
   await load()
 }
 
-async function next() {
-  if (loading.value || !nextCursor.value) return
-  history.value.push(cursor.value)
-  cursor.value = nextCursor.value
-  await load()
-}
-
-async function previous() {
-  if (loading.value || !history.value.length) return
-  cursor.value = history.value.pop()
-  await load()
+async function changePage(page) {
+  if (loading.value || page === currentPage.value) return
+  loading.value = true
+  error.value = ''
+  try {
+    const result = await loadCursorPage(page, (cursor) =>
+      listAdminAftersales({
+        ...applied,
+        pageSize: MALL_PAGE_SIZE,
+        ...(cursor ? { cursor } : {}),
+      })
+    )
+    if (!result) {
+      error.value = '售后数据已变化，请刷新后重试'
+      return
+    }
+    items.value = result.items
+    total.value = result.total
+  } catch (failure) {
+    error.value = failure.userMessage || failure.message || '售后列表读取失败'
+  } finally {
+    loading.value = false
+  }
 }
 
 onMounted(load)
 </script>
-
-<style scoped>
-.mall-page {
-  padding: 20px;
-}
-header,
-footer {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 16px 0;
-}
-header {
-  justify-content: space-between;
-}
-</style>

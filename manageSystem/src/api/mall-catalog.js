@@ -33,10 +33,6 @@ export function saveProduct({ id, expectedVersion, product }, key) {
 }
 export const setProductStatus = ({ id, ...body }, key) =>
   http.post(`${root}/products/${id}/status`, body, headers(key)).then(unwrap)
-export const copyProduct = ({ id, expectedVersion }, key) =>
-  http
-    .post(`${root}/products/${id}/copy`, { expectedVersion }, headers(key))
-    .then(unwrap)
 export const adjustStock = ({ id, ...body }, key) =>
   http
     .post(`${root}/skus/${id}/stock-adjustments`, body, headers(key))
@@ -44,8 +40,6 @@ export const adjustStock = ({ id, ...body }, key) =>
 export const listStockMovements = (id, params) =>
   http.get(`${root}/skus/${id}/stock-movements`, { params }).then(unwrap)
 
-// Keep this state in the component until completion. Retrying verify never
-// reuploads staging bytes or requests another ticket after a lost response.
 export async function uploadProductImage(state) {
   const file = state.file
   if (
@@ -55,47 +49,16 @@ export async function uploadProductImage(state) {
   ) {
     throw new Error('请选择不超过 5 MB 的 JPG 或 PNG 图片')
   }
-  if (!state.ticket) {
-    const digest = await crypto.subtle.digest(
-      'SHA-256',
-      await file.arrayBuffer()
-    )
-    const sha256 = Array.from(new Uint8Array(digest), (b) =>
-      b.toString(16).padStart(2, '0')
-    ).join('')
-    state.ticket = await http
-      .post(
-        `${root}/files/upload-ticket`,
-        {
-          purpose: 'product_image',
-          fileName: file.name,
-          contentType: file.type,
-          fileSize: file.size,
-          sha256,
-        },
-        headers(state.ticketKey)
-      )
-      .then(unwrap)
-  }
-  if (!state.uploaded) {
-    const url = new URL(state.ticket.uploadUrl)
-    if (url.protocol !== 'https:') throw new Error('上传地址不合法')
-    const response = await fetch(url.href, {
-      method: 'PUT',
-      credentials: 'omit',
-      redirect: 'error',
-      headers: { 'Content-Type': file.type },
-      body: file,
+  if (state.result) return state.result
+  const form = new FormData()
+  form.append('file', file, file.name)
+  state.result = await http
+    .post(`${root}/products/images`, form, {
+      headers: { 'Content-Type': undefined },
     })
-    if (!response.ok)
-      throw new Error('图片上传失败，请重试；凭证过期时重新选择图片')
-    state.uploaded = true
-  }
-  return http
-    .post(
-      `${root}/files/${state.ticket.fileId}/verify`,
-      null,
-      headers(state.verifyKey)
-    )
     .then(unwrap)
+  return state.result
 }
+
+export const listFreightTemplateOptions = () =>
+  http.get(`${root}/freight-template-options`).then(unwrap)

@@ -4,7 +4,6 @@ import { createPinia } from 'pinia'
 import ElementPlus from 'element-plus'
 import PaymentsPage from '@/pages/mall/payments/index.vue'
 import RefundsPage from '@/pages/mall/refunds/index.vue'
-import ReconciliationPanel from '@/components/mall/ReconciliationPanel.vue'
 import { useAuthStore } from '@/stores/auth'
 import * as api from '@/api/mall-finance'
 
@@ -17,15 +16,6 @@ vi.mock('@/api/mall-finance', () => ({
   listAdminMallRefunds: vi.fn(),
   queryAdminMallRefund: vi.fn(),
   exportAdminMallRefunds: vi.fn(),
-  listMallReconciliations: vi.fn(),
-  getMallReconciliation: vi.fn(),
-  closeMallReconciliation: vi.fn(),
-  listMallDifferences: vi.fn(),
-  updateMallDifference: vi.fn(),
-  addMallDifference: vi.fn(),
-  createMallReconciliation: vi.fn(),
-  createReconciliationEvidenceUploadState: vi.fn(),
-  uploadReconciliationEvidence: vi.fn(),
   getAdminMallFileAccess: vi.fn(),
 }))
 
@@ -68,33 +58,6 @@ const refund = {
   version: 1,
 }
 
-const batch = {
-  id: '91',
-  businessDate: '2026-11-06',
-  status: 'processing',
-  expectedPaidCent: 12000,
-  expectedRefundCent: 3000,
-  localPaidCent: 12000,
-  localRefundCent: 3000,
-  openDifferenceCount: 1,
-  version: 3,
-}
-
-const difference = {
-  id: '101',
-  batchId: '91',
-  orderId: '9',
-  externalReference: null,
-  differenceType: 'amount_mismatch',
-  expectedCent: 12000,
-  actualCent: 11000,
-  status: 'processing',
-  assignedTo: '31',
-  resolution: '核对差异原因',
-  evidenceFileIds: [],
-  version: 2,
-}
-
 function page(Component, permissions) {
   const pinia = createPinia()
   const auth = useAuthStore(pinia)
@@ -131,17 +94,6 @@ beforeEach(() => {
     jobId: '613',
     status: 'pending',
     version: 1,
-  })
-  api.listMallReconciliations.mockResolvedValue({
-    items: [structuredClone(batch)],
-    total: 1,
-    nextCursor: null,
-  })
-  api.getMallReconciliation.mockResolvedValue(structuredClone(batch))
-  api.listMallDifferences.mockResolvedValue({
-    items: [structuredClone(difference)],
-    total: 1,
-    nextCursor: null,
   })
 })
 
@@ -251,25 +203,5 @@ it('keeps the same export intent when an async export fails and is reclaimed', a
   expect(second[0]).toEqual(first[0])
   expect(second[1]).toBe(first[1])
   expect(wrapper.text()).toContain('导出已重新领取')
-  wrapper.unmount()
-})
-
-it('blocks difference review without verified evidence and blocks batch close with open differences', async () => {
-  const wrapper = page(ReconciliationPanel, [
-    'mall.reconciliations.read',
-    'mall.reconciliations.write',
-  ])
-  await flushPromises()
-
-  expect(wrapper.find('[data-test="review-difference"]').attributes('disabled'))
-    .toBeDefined()
-  expect(wrapper.find('[data-test="close-reconciliation"]').attributes('disabled'))
-    .toBeDefined()
-  await wrapper.vm.reviewDifference(structuredClone(difference))
-  expect(wrapper.text()).toContain('先上传并核验处理证据')
-  await wrapper.vm.closeBatch(structuredClone(batch))
-  expect(api.updateMallDifference).not.toHaveBeenCalled()
-  expect(api.closeMallReconciliation).not.toHaveBeenCalled()
-  expect(wrapper.text()).toContain('仍有未决差异')
   wrapper.unmount()
 })

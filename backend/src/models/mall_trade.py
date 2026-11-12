@@ -11,6 +11,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -196,6 +197,19 @@ class MallShipment(MallRecord, Base):
     logistics_fetched_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
     logistics_next_query_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
     logistics_last_error_code: Mapped[str | None] = mapped_column(String(64))
+
+
+class MallVirtualDelivery(MallRecord, Base):
+    __tablename__ = "mall_virtual_deliveries"
+    __table_args__ = (UniqueConstraint("order_id", name="uq_mall_virtual_delivery_order"),)
+    order_id: Mapped[int] = mapped_column(
+        MALL_ID, ForeignKey("mall_orders.id", ondelete="RESTRICT")
+    )
+    delivery_content: Mapped[str] = mapped_column(Text)
+    delivered_by: Mapped[int] = mapped_column(
+        Integer, ForeignKey("admin_accounts.id", ondelete="RESTRICT")
+    )
+    delivered_at: Mapped[datetime] = mapped_column(UTC_TIME)
 
 
 class MallAftersale(MallRecord, Base):

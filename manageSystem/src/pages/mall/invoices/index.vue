@@ -1,17 +1,13 @@
 <template>
-  <section class="invoice-page">
-    <header class="page-heading">
+  <section class="invoice-page mall-management-page">
+    <header class="page-heading page-header">
       <div>
-        <h2>发票与红冲</h2>
+        <h2 class="page-title">发票与红冲</h2>
         <p>按实际票据事实办理。买家税号仅显示掩码，原文交付目前关闭。</p>
       </div>
-      <el-button data-test="reload" :loading="loading" @click="load">
-        刷新
-      </el-button>
     </header>
 
-    <el-alert v-if="error" :title="error" type="error" :closable="false" />
-    <div class="filters">
+    <div class="filters mall-management-filters">
       <el-select v-model="statusFilter" clearable placeholder="全部申请状态">
         <el-option
           v-for="(label, status) in requestStates"
@@ -38,6 +34,9 @@
     >
       <el-table-column prop="requestNo" label="申请单号" min-width="190" />
       <el-table-column prop="orderId" label="订单号" min-width="100" />
+      <el-table-column label="商品名称" min-width="180" show-overflow-tooltip>
+        <template #default="{ row }">{{ row.productName || '—' }}</template>
+      </el-table-column>
       <el-table-column label="抬头类型" width="110">
         <template #default="{ row }">
           {{ row.buyerType === 'company' ? '企业' : '个人' }}
@@ -64,22 +63,19 @@
       </el-table-column>
       <el-table-column label="操作" width="120" fixed="right">
         <template #default="{ row }">
-          <el-button link @click="router.push(`/mall/invoices/${row.id}`)">
+          <el-button link type="primary" @click="router.push(`/mall/invoices/${row.id}`)">
             查看办理
           </el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <footer class="pager">
-      <span>共 {{ total }} 条</span>
-      <el-button :disabled="loading || !history.length" @click="previous">
-        上一页
-      </el-button>
-      <el-button :disabled="loading || !nextCursor" @click="next">
-        下一页
-      </el-button>
-    </footer>
+    <MallPagination
+      :current-page="currentPage"
+      :total="total"
+      :disabled="loading"
+      @change="changePage"
+    />
   </section>
 </template>
 
@@ -87,6 +83,10 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { listAdminMallInvoiceRequests } from '@/api/mall-invoices'
+import MallPagination from '@/components/mall/MallPagination.vue'
+import { MALL_PAGE_SIZE } from '@/components/mall/mall-pagination'
+import { useMallCursorPagination } from '@/composables/useMallCursorPagination'
+import { useMallToast } from '@/composables/useMallToast'
 
 const requestStates = {
   submitted: '待处理',
@@ -102,13 +102,18 @@ const items = ref([])
 const total = ref(0)
 const loading = ref(false)
 const error = ref('')
+useMallToast(error)
 const statusFilter = ref('')
 const keyword = ref('')
 const appliedStatus = ref('')
 const appliedKeyword = ref('')
-const cursor = ref(null)
-const nextCursor = ref(null)
-const history = ref([])
+const {
+  currentPage,
+  cursorForPage,
+  loadPage: loadCursorPage,
+  recordPage,
+  resetPages,
+} = useMallCursorPagination()
 
 const visibleItems = computed(() =>
   items.value.filter((item) => {
@@ -139,17 +144,18 @@ async function load() {
   items.value = []
   try {
     const result = await listAdminMallInvoiceRequests({
-      pageSize: 20,
+      pageSize: MALL_PAGE_SIZE,
       ...(appliedStatus.value ? { status: appliedStatus.value } : {}),
-      ...(cursor.value ? { cursor: cursor.value } : {}),
+      ...(cursorForPage(currentPage.value)
+        ? { cursor: cursorForPage(currentPage.value) }
+        : {}),
     })
     items.value = result.items || []
     total.value = result.total || 0
-    nextCursor.value = result.nextCursor || null
+    recordPage(currentPage.value, result)
   } catch (failure) {
     error.value = failure.userMessage || failure.message || '发票申请读取失败'
     total.value = 0
-    nextCursor.value = null
   } finally {
     loading.value = false
   }
@@ -158,64 +164,46 @@ async function load() {
 async function searchLocal() {
   appliedStatus.value = statusFilter.value
   appliedKeyword.value = keyword.value.trim()
-  cursor.value = null
-  history.value = []
+  resetPages()
   await load()
 }
 
+async function changePage(page) {
+  if (loading.value || page === currentPage.value) return
+  loading.value = true
+  error.value = ''
+  try {
+    const result = await loadCursorPage(page, (cursor) =>
+      listAdminMallInvoiceRequests({
+        pageSize: MALL_PAGE_SIZE,
+        ...(appliedStatus.value ? { status: appliedStatus.value } : {}),
+        ...(cursor ? { cursor } : {}),
+      })
+    )
+    if (!result) {
+      error.value = '发票申请数据已变化，请刷新后重试'
+      return
+    }
+    items.value = result.items || []
+    total.value = result.total || 0
+  } catch (failure) {
+    error.value = failure.userMessage || failure.message || '发票申请读取失败'
+  } finally {
+    loading.value = false
+  }
+}
 async function next() {
-  if (loading.value || !nextCursor.value) return
-  history.value.push(cursor.value)
-  cursor.value = nextCursor.value
-  await load()
+  return changePage(currentPage.value + 1)
 }
-
 async function previous() {
-  if (loading.value || !history.value.length) return
-  cursor.value = history.value.pop()
-  await load()
+  return changePage(currentPage.value - 1)
 }
 
 function reload() {
-  cursor.value = null
-  history.value = []
+  resetPages()
   return load()
 }
 
 onMounted(load)
 defineExpose({ load, reload, searchLocal, next, previous, items, visibleItems })
 </script>
-
-<style scoped>
-.invoice-page {
-  padding: 20px;
-}
-.page-heading,
-.pager {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin: 12px 0 20px;
-}
-.page-heading h2 {
-  margin: 0 0 6px;
-}
-.page-heading p {
-  margin: 0;
-  color: #6b7280;
-}
-.filters {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-  max-width: 760px;
-}
-.filters .el-input {
-  max-width: 320px;
-}
-.pager {
-  justify-content: flex-end;
-  color: #606266;
-}
-</style>

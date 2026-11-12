@@ -21,6 +21,10 @@ class ShipmentCreate(VersionAction):
     tracking_no: str = Field(min_length=4, max_length=64, pattern=r"^[A-Za-z0-9-]+$")
 
 
+class VirtualDeliveryCreate(VersionAction):
+    delivery_content: str = Field(min_length=1, max_length=5000)
+
+
 class TrackingCorrection(VersionAction):
     shipment_version: int = Field(ge=1)
     courier_code: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,31}$")

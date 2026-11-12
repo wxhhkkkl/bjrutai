@@ -177,9 +177,13 @@ test('product detail loads current SKU prices and exposes sold-out variants with
     assert.equal(fixture.page.data.state, 'success')
     assert.equal(fixture.page.data.product.name, firstProduct.name)
     assert.equal(fixture.page.data.skus[0].priceText, '9.90')
+    assert.equal(fixture.page.data.skus[0].availabilityText, '库存 2 件')
     assert.equal(fixture.page.data.skus[1].availability, 'sold_out')
+    assert.equal(fixture.page.data.skus[1].availabilityText, '暂时售罄')
+    assert.equal(fixture.page.data.availabilityText, '库存 2 件')
     fixture.page.selectSku({ currentTarget: { dataset: { id: '102' } } })
     assert.equal(fixture.page.data.selectedSkuId, '102')
+    assert.equal(fixture.page.data.availabilityText, '暂时售罄')
   } finally { fixture.restore() }
 })
 
@@ -194,4 +198,37 @@ test('catalog UI follows the two-column reference hierarchy without a combined t
   assert.match(catalog, /wx:for="\{\{products\}\}"/)
   assert.match(detail, /库存/)
   assert.ok(app.pages.includes('pages/mall-product/index'))
+})
+
+test('catalog card retries single-spec add with the same key and routes multi-spec items to details', async (t) => {
+  const checkout = require('../../services/mall-checkout-service')
+  const intent = require('../../services/mall-intent-service')
+  const session = require('../../services/session-service')
+  let pending = null
+  const addCalls = []
+  t.mock.method(session, 'getAccessToken', () => 'test-token')
+  t.mock.method(intent, 'getPendingIntent', () => pending)
+  t.mock.method(intent, 'savePendingIntent', (value) => (pending = { ...value, idempotencyKey: 'test-cart-retry-key' }))
+  t.mock.method(intent, 'clearPendingIntent', () => { pending = null })
+  t.mock.method(checkout, 'addToCart', async (...args) => {
+    addCalls.push(args)
+    if (addCalls.length === 1) throw new Error('请求超时')
+  })
+  const single = { ...firstProduct, id: '42', skus: [{ ...firstProduct.skus[0], marketPriceCent: 800 }] }
+  const fixture = loadPage('pages/mall/index.js', {
+    listCategories: async () => categories,
+    listProducts: async () => ({ items: [single, firstProduct] })
+  })
+  try {
+    await fixture.page.onLoad()
+    assert.equal(fixture.page.data.products[0].marketPriceText, '8.00')
+    const tap = (id) => fixture.page.addCardProduct({ currentTarget: { dataset: { id } } })
+    await Promise.all([tap('42'), tap('42')])
+    assert.equal(addCalls.length, 1)
+    await tap('42')
+    assert.deepEqual(addCalls, [['101', 1, 'test-cart-retry-key'], ['101', 1, 'test-cart-retry-key']])
+    assert.equal(pending, null)
+    await tap('41')
+    assert.deepEqual(fixture.navigations, ['/pages/mall-product/index?id=41'])
+  } finally { fixture.restore() }
 })

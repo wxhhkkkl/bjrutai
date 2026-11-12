@@ -175,6 +175,7 @@ test('invoice detail shows needs-info and linked blue/red/reissue facts without 
   const request = {
     id: '41', orderId: '12', buyerType: 'company', title: '北京鲁泰有限公司',
     invoiceType: 'manual_special_request', taxNoMasked: '91**********12', status: 'needs_info', netPaidCent: 7900, version: 4,
+    infoRequestReason: '请核对抬头后重新提交',
     invoices: [
       { id: '81', orderId: '12', requestId: '41', invoiceNo: 'BLUE-1', kind: 'blue', totalCent: 9900, status: 'fully_red', fileId: '91', version: 3 },
       { id: '82', orderId: '12', requestId: '41', invoiceNo: 'RED-1', kind: 'red', totalCent: 9900, status: 'valid', originalInvoiceId: '81', fileId: '92', version: 1 },
@@ -194,8 +195,12 @@ test('invoice detail shows needs-info and linked blue/red/reissue facts without 
     assert.equal(Object.hasOwn(fixture.page.data.request, 'taxNo'), false)
     assert.deepEqual(fixture.page.data.invoices.map((item) => item.chainLabel), ['蓝票', '原蓝票的红票', '重开蓝票'])
     assert.equal(fixture.page.data.request.canSupplement, true)
+    assert.equal(fixture.page.data.request.infoRequestReason, '请核对抬头后重新提交')
     const markup = fs.readFileSync(path.resolve(__dirname, '../../pages/mall-invoice-detail/index.wxml'), 'utf8')
     assert.match(markup, /为保护信息，税号需要重新输入/)
+    assert.match(markup, /请确认抬头并重新填写税号/)
+    assert.match(markup, /请确认抬头并勾选用途/)
+    assert.match(markup, /商家说明：\{\{request\.infoRequestReason\}\}/)
     assert.doesNotMatch(markup, /邮件送达即开票|邮箱送达即开票/)
   } finally { fixture.restore() }
 })

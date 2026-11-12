@@ -7,6 +7,20 @@ from ..models.mall_catalog import MallCategory, MallProduct, MallSku
 from ..models.mall_trade import MallCartItem
 from .mall_address_service import lock_buyer
 from .mall_catalog_query_service import _page, serialize_sku, visible_categories
+from .mall_catalog_service import _image
+
+
+async def _cart_cover_url(db, product):
+    if not product.cover_file_id:
+        return None
+    from ..integrations.cos_client import MallCOSStore, get_cos_client
+
+    try:
+        image = await _image(db, product.cover_file_id)
+        storage = MallCOSStore(get_cos_client(), outbound_enabled=True)
+        return await storage.sign_get(image.object_key, expires_seconds=300)
+    except ValueError:
+        return None
 
 
 async def cart_item_state(db, sku, quantity, *, current=False):
@@ -122,13 +136,27 @@ async def remove_cart_item(db, actor, identity, expected_version):
     await db.flush()
 
 
-async def serialize_cart_item(db, row):
+async def serialize_cart_item(db, row, *, cover_urls=None):
     sku = await db.get(MallSku, row.sku_id, populate_existing=True)
     product, reason = await cart_item_state(db, sku, row.quantity)
+    cover_key = str(product.id)
+    if cover_urls is not None and cover_key in cover_urls:
+        cover_url = cover_urls[cover_key]
+    else:
+        cover_url = await _cart_cover_url(db, product)
+        if cover_urls is not None:
+            cover_urls[cover_key] = cover_url
     return {
         "id": str(row.id),
         "sku": serialize_sku(sku),
         "productName": product.name,
+        "productType": product.product_type,
+        "deliveryMethod": (
+            "virtual"
+            if product.product_type == "virtual"
+            else product.delivery_method or "express"
+        ),
+        "coverUrl": cover_url,
         "quantity": row.quantity,
         "valid": reason is None,
         "invalidReason": reason,
@@ -146,8 +174,12 @@ async def list_cart(db, actor, *, cursor=None, page_size=20):
         cursor=cursor,
         page_size=page_size,
     )
+    cover_urls = {}
+    items = []
+    for row in rows:
+        items.append(await serialize_cart_item(db, row, cover_urls=cover_urls))
     return {
-        "items": [await serialize_cart_item(db, row) for row in rows],
+        "items": items,
         "nextCursor": next_cursor,
         "total": total,
     }

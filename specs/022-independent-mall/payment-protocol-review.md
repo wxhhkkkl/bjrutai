@@ -1,53 +1,36 @@
-# 支付协议复核与当前实施边界
+# 商城支付协议复核
 
-更新：2026-11-09（含恢复worker与回调续作）。范围为直连商户JSAPI/小程序支付。只核对官方文档并运行合成RSA、MockTransport及隔离MySQL测试；没有核验真实商户、AppID绑定、证书、公钥来源、通知域名或实际订单。
+更新：2026-11-12。用户明确要求商城微信支付继续使用 APIv2。此前记录的 APIv3 适配已由本决定替换；历史验收记录仍保留在 `implementation-log.md`，不代表当前支付适配器仍为 APIv3。
 
-## 1. 适配与依据
+## 当前协议实现
 
-| 能力 | 当前适配 | 官方依据 |
+| 能力 | 当前实现 | 官方依据 |
 |---|---|---|
-| 下单 | POST `/v3/pay/transactions/jsapi`；商户/AppID、稳定商户单号、CNY整数金额、期限、商户配置的HTTPS通知地址及付款人openid | [JSAPI/小程序下单](https://pay.wechatpay.cn/doc/v3/merchant/4012791856) |
-| 查原单 | GET `/v3/pay/transactions/out-trade-no/{out_trade_no}?mchid=…`；选取需要的已签名交易字段，不把整个报文返回买家 | [商户订单号查单](https://pay.wechatpay.cn/doc/v3/merchant/4012791859) |
-| 关单 | POST `/v3/pay/transactions/out-trade-no/{out_trade_no}/close`；仅验签通过的空204应答产生内部VerifiedClose，超时/错误不代表关闭 | [关闭订单](https://pay.wechatpay.cn/doc/v3/merchant/4012791860) |
-| 应答验签 | 时间戳、随机串与原始应答字节构造校验；按精确Wechatpay-Serial选取已配置公钥/证书，未知身份拒绝 | [公钥验签](https://pay.wechatpay.cn/doc/v3/merchant/4013053249)、[平台证书验签](https://pay.wechatpay.cn/doc/v3/merchant/4013053420) |
-| 小程序调起签名 | 对AppID/时间戳/随机串/package用商户私钥签名；每次生成新随机串，不缓存完整调起参数 | [小程序调起支付签名](https://pay.wechatpay.cn/doc/v3/merchant/4012365341) |
+| JSAPI/小程序下单 | `POST /pay/unifiedorder`，XML 请求/响应；使用 `appid`、`mch_id`、商户单号、CNY 分金额、`openid`、终端 IP、失效时间和支付通知地址。 | [统一下单（APIv2）](https://pay.wechatpay.cn/doc/v2/merchant/4011936987) |
+| 查单、关单 | `POST /pay/orderquery` 与 `POST /pay/closeorder`；响应按 APIv2 商户密钥验签，未签名、身份不符或含糊错误都不作为资金事实。 | [查询订单](https://pay.wechatpay.cn/doc/v2/merchant/4011987538)、[关闭订单](https://pay.wechatpay.cn/doc/v2/merchant/4011935216) |
+| 原路退款、退款查询 | `POST /secapi/pay/refund` 使用商户双向证书；受理后再通过 `POST /pay/refundquery` 核对退款状态。两者均使用 APIv2 XML 签名。 | [申请退款](https://pay.wechatpay.cn/doc/v2/merchant/4011941262)、[查询退款](https://pay.wechatpay.cn/doc/v2/merchant/4011987766) |
+| 小程序调起支付 | 使用 APIv2 `MD5` 或 `HMAC-SHA256` 对 `appId`、时间戳、随机串、`package` 和 `signType` 签名；签名类型需与统一下单保持一致。 | [小程序调起支付](https://pay.wechatpay.cn/doc/v2/merchant/4011939566) |
+| 支付通知 | XML 通知体；按 APIv2 商户密钥校验 `sign`，匹配小程序、商户、订单号、付款人及金额后，持久提交事件和恢复任务，再返回 XML ACK。 | [支付结果通知](https://pay.wechatpay.cn/doc/v2/merchant/4011935221)、[签名算法](https://pay.wechatpay.cn/doc/v2/merchant/4011985891) |
+| 退款通知 | XML 外层含加密的 `req_info`；按官方方式用 `MD5(APIv2 key)` 的小写十六进制文本作为 AES-256-ECB 密钥、PKCS7 解密，再核对本地退款和金额。 | [退款结果通知](https://pay.wechatpay.cn/doc/v2/merchant/4011985425) |
 
-商户API私钥与平台验签公钥分别使用，不互相替代。多key映射支持新旧公钥/证书并存；证书核对序列号和有效期，公钥核对配置ID。没有从不可信应答动态下载并信任新key，也没有声称自动下载、CA链验证或真实证书轮换已验收。首次可信密钥配置与真实账号能力仍由上线阶段核实。
+APIv2 不使用 APIv3 商户 RSA 私钥签名、平台公钥/证书验签或 APIv3 AES-GCM 通知密钥。APIv2 退款的双向 TLS 证书仍需要单独配置；APIv2 密钥和商户证书不是同一配置。
 
-## 2. 本地安全边界
+## 配置项
 
-- 适配器默认不允许出站；固定HTTPS主机、禁止重定向及代理环境继承，限制1MB应答及整次请求截止时间。请求签名使用实际发送的同一份UTF-8字节；应答先验签再解析，包括空204及错误应答。
-- 缺签名、未知key、探测签名、内容被改、过期/超前时间、错误算法、证书过期均不产生可信结果。自动化只用生成的RSA密钥及MockTransport，不读取或使用实际商户私钥来构造成功测试。
-- 新增MALL_WECHAT_MCHID、MALL_WECHAT_MERCHANT_SERIAL、MALL_WECHAT_PRIVATE_KEY_PEM、MALL_WECHAT_VERIFY_KEYS配置；示例保持空值。私钥和信任配置不出现在Settings repr中。恢复续作已新增运行时适配配置函数；只有live和资金出站同时开启才提供付款handler，当前配置仍关闭。
-- 内部PaymentFact/VerifiedClose不是公开请求schema，没有“提交付款成功JSON”的买家或后台接口。事实应用还会比对支付原始AppID、商户号、商户请求号、金额/CNY及付款人；成功需渠道流水、有效成功时间和实付金额一致。
-- 付款实付与应付不一致、其它币种或平台优惠映射未核实的情况不自动记账；当前保持占用并抛出需核实冲突，后续worker须形成责任待办，不能重新发起一笔付款来解决。
+- `MALL_WECHAT_API_V2_KEY`：商户平台 APIv2 密钥，32 字节，保存在本地受控环境，不写入示例文件或日志。
+- `MALL_WECHAT_API_V2_SIGN_TYPE`：`MD5`（默认）或 `HMAC-SHA256`。
+- `MALL_WECHAT_SPBILL_CREATE_IP`：统一下单传给微信的服务器出口 IP。
+- `MALL_WECHAT_NOTIFY_URL`、`MALL_WECHAT_REFUND_NOTIFY_URL`：公网 HTTPS 且不带 query 的支付/退款通知地址。
+- `MALL_WECHAT_REFUND_CLIENT_CERT_PATH`、`MALL_WECHAT_REFUND_CLIENT_KEY_PATH`：APIv2 退款接口所需的商户双向证书及配对私钥文件路径。
 
-## 3. 核实事实的本地事务
+APIv2 密钥轮换前应先停止通知接收并清空待处理的回调事件任务，再切换密钥；入箱事实的完整性 MAC 与接收时的 APIv2 密钥绑定。
 
-| 既有状态与事实 | 结果 | 库存和来源 |
-|---|---|---|
-| 待付且占用完整，核实SUCCESS | 待发货；保存实际收款及成功时间 | 只把待付占用转已售，不二扣可售；同订单一条消费来源 |
-| 核实未付关闭 | 业务关闭 | 释放占用一次；不生成消费 |
-| 已成功后收到旧NOTPAY/CLOSED | 保留成功 | 不释放、不覆盖已收事实 |
-| 已关闭/无法履约后核实SUCCESS | 记实收并转原路退款人工待办，业务保持关闭 | 不重新抢库存；来源仍以实际商品款生成，后续真实退款再修正 |
-| 异常出现第二个成功付款身份 | 保留第二笔收款记录及人工退款待办 | 原业务应付/库存/来源不加第二次，不伪造额外可交付商品 |
+订单预付令牌仍由 `MALL_PREPAY_KEYS` / `MALL_PREPAY_ACTIVE_KEY` 独立加密；它们不是微信 API 密钥。`MALL_GATEWAY_MODE`、资金出站、回调和 worker 开关仍控制执行，代码切换不会自动开启支付或调用商户平台。
 
-来源金额只含商品款，运费排除；商品款部分退款保持原基数，商品款全退归零。实际退款事件尚未接入该函数。北京时间支付月独立于旧Bill归期；现有有效User-Customer授权绑定才能自动确定人员，不使用收件电话匹配。迟绑定、停用或无可验证关系保留待归属，已有来源不随之后绑定变化重新归属。
+## 恢复与安全边界
 
-期间协调行采用原子upsert后锁定递增，避免多个首次来源的缺行锁/锁升级竞争。已审核旧结算不重算、不改原值；新来源进入人工后续待办。此处只建立来源，旧业绩/绩效各入口合并及冻结证据、差额与核销仍属US5，未完成全链路绩效联动。
-
-## 4. 当前接口与恢复执行
-
-- POST/GET `/api/v1/mall/orders/{orderId}/payment`重验本人权限、成功响应no-store。POST持久准备唯一付款身份及工作项；已有有效密文、待付业务状态、有效期限且运行时配置可用时，解密并生成全新调起签名。重放只复用付款身份，不缓存签名。GET只查本地核实进度，不下发调起参数、不触发出站。商户配置、openid、预付密文和原始报文不进入公开响应。
-- 预付令牌以AES-256-GCM存入现有prepay_ciphertext。AAD绑定付款ID、商户单号、AppID、商户号、金额、币种及到期时间；nonce随机，带版本/key ID，支持读旧key写新key。专用密钥缺失、移除旧key或内容被改时拒绝交付，不生成降级令牌。
-- 每次预付、查单、关单前先提交unknown，再关闭事务出站；成功结果重新取得订单/付款锁及有效任务租约才可写入。丢失/过期租约不能发布令牌或应用事实。重建执行器后只从数据库恢复，unknown先查原号，不创建新付款号；配置商户/AppID变化时停止，不借用新商户凭据。
-- 正常未付查单每30秒延后同一任务，不消耗连续失败预算；未知、验签/传输失败按现有退避重试，连续5次失败进入manual，库存仍占用。超过到期15分钟仍USERPAYING进入同样人工路径，不擅自关单。
-- 已到期或已申请取消的付款先查原号：SUCCESS入账，CLOSED应用已核实关闭，NOTPAY才请求关单，只有已验签204才能释放。关单超时仍unknown，下次重新查原号。仅查单验签通过的404/ORDER_NOT_EXIST可作为不存在证据：有效且未申请关闭的订单复用原号再次预付；已到期/已关闭/已申请取消则进入人工，不把不存在当已关单或释放依据。[官方查单错误码](https://pay.wechatpay.cn/doc/v3/merchant/4012791859)于恢复续作重新核对。
-- runtime按开关组合付款handler，单次worker截止40秒、租约60秒；运行时渠道单次截止8秒，查询和后续预付/关单均在锁外执行。MALL_HANDLERS常量仍只作基础注册，实际付款handler在worker运行时构造。MALL_WORKER_ENABLED和MALL_GATEWAY_OUTBOUND_ENABLED保持false；默认PaymentSession仍不能调起。
-
-## 5. 尚未完成的上线及业务项
-
-- 2026-11-09后续推进：宪章3.0.0已正式限定仅两个微信入站通知端点可使用供应商ACK，微信商户文档已核对。T048新建`mall_gateway_callbacks.py`和持久事件worker，独立接入签名/时间戳验签、APIv3 AES-GCM解密、本地支付/退款身份金额核对、提交事件+唯一任务后空204；无效签名、金额冲突、提交异常分别返回失败响应。回调开关与APIv3密钥新增为独立配置，默认关闭/空值。隔离回调集成10项通过；支付/退款周边定向回归62项、隔离MySQL 8.0.46套件44项通过；037迁移已将回调资源扩为MEDIUMBLOB并在MySQL验收。一次回归发现并修复通用幂等缓存对外部回调跳过验签的问题。T048本地任务已完成；生产通知地址、密钥/账号及G-LIVE授权未就绪，没有真实渠道请求或部署。
-- 取消/到期续作已接本人取消接口及无付款历史到期handler。028持久close_requested_at与私有reason；取消一经受理，即阻止包括原键重放在内的准备付款和令牌交付，进行中的出站预付结果也不能重新交付。已有付款只排原号查证关闭，不先释放库存；取消时查到已收款则保留正常资金事实、关闭任务转manual，取消命令不得显示completed。无付款历史的到期关闭不调用渠道，也不依赖买家仍启用、新购开关或资金密钥可用；资金配置在各自领取后的任务内校验，不能阻断本地到期任务。
-- 查单不存在且已过期/已申请取消、异常实付或缺原主体凭据等场景先保留库存及人工待办；面向运营的人工处理页面尚待后续，不宣称所有异常已有自动解决流程。发货前改地址按成交配送规则验证，保留金额及付款身份，已申请关闭时拒绝修改；查到已付的取消人工待办在后续履约故事中也必须阻止未核实的出库。
-- 已验证真实MySQL多worker竞争、租约到期回收、事务回滚后查证，以及重建adapter/executor。未执行OS进程杀死/重启、真实账号或生产发布；T132真机验收后由用户于2026-11-10确认完成，逐设备/逐人记录未归档。商城绩效集成的后续验收证据见T096、T128及T130记录。
+- XML 解析拒绝 DTD、实体声明、重复字段和超大正文；所有 API 请求固定 HTTPS 主机、禁止重定向及代理环境继承，并设响应大小和总截止时间。
+- API 响应必须通过 APIv2 签名及 AppID/商户身份核对后，才可形成内部支付/退款事实。退款申请的受理响应不作为退款成功，之后必须查退款状态。
+- 支付通知验证 APIv2 签名；退款通知解密 `req_info` 后再匹配退款单、原交易、金额及状态。支付通知入箱时检查 openid，持久化时不保留 openid 或原始 XML；最小化事实另以 APIv2 密钥派生的 HMAC 绑定事件类型、身份和原始正文摘要，worker 应用前再次核验。
+- 只有事件和恢复任务同一事务提交后才向微信确认；成功/失败响应符合 APIv2 XML ACK 格式。重复通知可安全重放。
+- 当前仍未进行真实商户联调、真实支付/退款、生产通知域名登记或部署。APIv2 配置需在本地受控环境逐项补齐后再验收。

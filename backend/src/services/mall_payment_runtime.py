@@ -19,9 +19,12 @@ def wechat_gateway_client(payment):
         gateway = WechatPayClient(
             appid=payment.appid_snapshot,
             mchid=payment.mchid_snapshot,
-            merchant_serial=settings.mall_wechat_merchant_serial,
-            private_key_pem=settings.mall_wechat_private_key_pem,
-            verify_keys=settings.mall_wechat_verify_keys,
+            api_key=settings.mall_wechat_api_v2_key,
+            sign_type=settings.mall_wechat_api_v2_sign_type,
+            spbill_create_ip=settings.mall_wechat_spbill_create_ip,
+            refund_notify_url=settings.mall_wechat_refund_notify_url,
+            refund_client_cert_path=settings.mall_wechat_refund_client_cert_path,
+            refund_client_key_path=settings.mall_wechat_refund_client_key_path,
             outbound_enabled=True,
             timeout_seconds=8,
         )

@@ -1,6 +1,6 @@
 # 操作索引
 
-生成自[openapi.json](openapi.json)。当前94路径、106操作、0.8.0契约；本地包裹登记/运单更正/本人确认收货及fake快递100查询缓存已实现。微信后台人工发货登记回填由T056实现，记录员工声明、时间和审计，不调用微信发货API；真实账号入口/权限仍由T131核验，生产/真实物流请求仍受G-LIVE约束。T063/T102的内部单对象原文领取已按宪章4.0.0实现，运行开关等待留存引用/告知审阅版本。买家/后台投影分开，两个微信通知入口仅受宪章3.0.0限定例外覆盖，T048本地实现与隔离回归已完成。不是全量已部署声明。
+生成自[openapi.json](openapi.json)。当前92路径、104操作、0.8.0契约；本地包裹登记/运单更正/本人确认收货及快递100查询缓存已实现。本项目没有微信平台发货环节。快递100 live分支仅在development/test且显式开启时调用，production仍关闭；真实运单查询未验收。T063/T102的内部单对象原文领取已按宪章4.0.0实现，运行开关等待留存引用/告知审阅版本。买家/后台投影分开，两个微信通知入口仅受宪章3.0.0限定例外覆盖，T048本地实现与隔离回归已完成。不是全量已部署声明。
 
 | 方法 | 路径 | 操作 | 权限/身份 | 请求 | data结果 |
 |---|---|---|---|---|---|
@@ -23,7 +23,7 @@
 | POST | `/api/v1/mall/orders/{orderId}/cancel` | 申请关单，核实后释放 | `buyer` | `ReasonAction` | `ResponseAsyncResult` |
 | POST | `/api/v1/mall/orders/{orderId}/payment` | 复用或准备唯一支付请求 | `buyer` | `VersionAction` | `ResponsePaymentSession` |
 | GET | `/api/v1/mall/orders/{orderId}/payment` | 查询本地核实进度 | `buyer` | `-` | `ResponsePayment` |
-| POST | `/api/v1/mall/orders/{orderId}/confirm-receipt` | 本人确认收货，不冒充平台确认 | `buyer` | `VersionAction` | `ResponseOrder` |
+| POST | `/api/v1/mall/orders/{orderId}/confirm-receipt` | 本人确认收货，不以物流签收代替 | `buyer` | `VersionAction` | `ResponseOrder` |
 | PATCH | `/api/v1/mall/orders/{orderId}/address` | 发货前同运费地址修正 | `buyer` | `OrderAddressChange` | `ResponseOrder` |
 | POST | `/api/v1/mall/aftersales` | 按明细数量申请并占额度 | `buyer` | `AftersaleCreate` | `ResponseAftersale` |
 | GET | `/api/v1/mall/aftersales` | 本人售后 | `buyer` | `-` | `ResponseAftersalePage` |
@@ -48,7 +48,6 @@
 | PATCH | `/api/v1/admin/mall/products/{productId}` | 更新Product | `mall.products.write` | `ProductPatch` | `ResponseProduct` |
 | GET | `/api/v1/admin/mall/products/{productId}` | 后台商品含草稿 | `mall.products.read` | `-` | `ResponseProduct` |
 | POST | `/api/v1/admin/mall/products/{productId}/status` | 上架下架归档 | `mall.products.write` | `StatusChange` | `ResponseProduct` |
-| POST | `/api/v1/admin/mall/products/{productId}/copy` | 复制为草稿，不复制库存承诺 | `mall.products.write` | `VersionAction` | `ResponseProduct` |
 | POST | `/api/v1/admin/mall/skus/{skuId}/stock-adjustments` | 授权盘点补货 | `mall.stock.write` | `StockAdjustment` | `ResponseStockMovement` |
 | GET | `/api/v1/admin/mall/skus/{skuId}/stock-movements` | 库存变动证据 | `mall.stock.read` | `-` | `ResponseStockMovementPage` |
 | GET | `/api/v1/admin/mall/orders` | 后台受权订单 | `mall.orders.read` | `-` | `ResponseOrderPage` |
@@ -56,9 +55,9 @@
 | PATCH | `/api/v1/admin/mall/orders/{orderId}/note` | 内部备注 | `mall.orders.write` | `OrderNote` | `ResponseOrder` |
 | POST | `/api/v1/admin/mall/orders/{orderId}/cancel` | 授权未付关单 | `mall.orders.write` | `ReasonAction` | `ResponseAsyncResult` |
 | POST | `/api/v1/admin/mall/orders/{orderId}/ship` | 登记本地单包裹已出库事实；不调用微信/快递100 | `mall.shipments.write` | `ShipRequest` | `ResponseShipment` |
+| POST | `/api/v1/admin/mall/orders/{orderId}/virtual-delivery` | 已收款虚拟商品的后台手工交付；内容仅在本人订单详情返回 | `mall.orders.write` | `VirtualDeliveryCreate` | `ResponseVirtualDelivery` |
 | POST | `/api/v1/admin/mall/orders/{orderId}/fulfillment-release` | 条件性订单级收件资料交付 | `mall.fulfillment.release / governance-proposal.md:资料目的限定窄例外未生效时关闭` | `FulfillmentReleaseRequest` | `ResponseFulfillmentRelease` |
 | PATCH | `/api/v1/admin/mall/shipments/{shipmentId}` | 更正运单并留痕 | `mall.shipments.write` | `TrackingCorrection` | `ResponseShipment` |
-| POST | /api/v1/admin/mall/shipments/{shipmentId}/platform-report | 记录微信后台人工发货登记 | mall.shipments.write | VersionAction | ResponseShipment（员工确认，不是微信回执） |
 | GET | `/api/v1/admin/mall/aftersales` | 售后列表 | `mall.aftersales.read` | `-` | `ResponseAftersalePage` |
 | GET | `/api/v1/admin/mall/aftersales/{aftersaleId}` | 售后详情 | `mall.aftersales.read` | `-` | `ResponseAftersale` |
 | POST | `/api/v1/admin/mall/aftersales/{aftersaleId}/decision` | 审核不等于退钱 | `mall.aftersales.review` | `AftersaleDecision` | `ResponseAftersale` |
@@ -101,7 +100,7 @@
 | GET | `/api/v1/admin/mall/reconciliations/{batchId}/differences` | 差异列表 | `mall.reconciliations.read` | `-` | `ResponseDifferencePage` |
 | PATCH | `/api/v1/admin/mall/differences/{differenceId}` | 指派处理复核差异 | `mall.reconciliations.write` | `DifferenceUpdate` | `ResponseDifference` |
 | POST | `/api/v1/admin/mall/reconciliations/{batchId}/close` | 有证据且无未决差异才关闭 | `mall.reconciliations.write` | `ReasonAction` | `ResponseReconciliation` |
-| GET | `/api/v1/admin/mall/settings` | 脱敏配送与交易设置 | `mall.settings.read` | `-` | `ResponseSettings` |
+| GET | `/api/v1/admin/mall/settings` | 按权限读取配送与交易设置 | `mall.settings.read` | `-` | `ResponseSettings` |
 | PATCH | `/api/v1/admin/mall/settings` | 有权限更新版本化配置 | `mall.settings.write` | `SettingsUpdate` | `ResponseSettings` |
 | GET | `/api/v1/mall/commands/{commandId}` | 本人异步原结果 | `buyer` | `-` | `ResponseAsyncResult` |
 | GET | `/api/v1/admin/mall/commands/{commandId}` | 按原动作权限核查异步结果 | `dynamic_original_action_permission` | `-` | `ResponseAsyncResult` |

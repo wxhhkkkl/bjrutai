@@ -1,6 +1,6 @@
 # Data Model: 自营独立商城
 
-日期：2026-11-07；状态：业务约束与持久化模型记录，当前迁移head为033；商城整体仍在分阶段实现与验收。对应[主规格](spec.md)、[研究](research.md)和[接口](contracts/README.md)。
+日期：2026-11-11；状态：业务约束与持久化模型记录，当前迁移head为046；商城整体仍在分阶段实现与验收。对应[主规格](spec.md)、[研究](research.md)和[接口](contracts/README.md)。
 
 ## 1. 通用约定
 
@@ -23,6 +23,7 @@ erDiagram
     mall_aftersales ||--o{ mall_refunds : executes
     mall_payments ||--o{ mall_refunds : original
     mall_orders ||--o| mall_shipments : ships
+    mall_orders ||--o| mall_virtual_deliveries : delivers
     mall_orders ||--o| mall_consumptions : contributes
     mall_orders ||--o{ mall_invoice_requests : requests
     mall_invoice_requests ||--o{ mall_invoices : issues
@@ -36,9 +37,9 @@ erDiagram
 
 | 表 | 主要字段 | 唯一性/索引与不变量 |
 |---|---|---|
-| `mall_categories` | id,parent_id nullable,name VARCHAR64,sort INT,status enabled/disabled,version | 同父级名称唯一须处理NULL根级（生成normalized_parent_id=0或非空根标识）；最多两级、不成环；product引用不级联删 |
-| `mall_products` | id,category_id,name VARCHAR64,summary VARCHAR128,cover_file_id,gallery_file_ids JSON,description TEXT,instructions TEXT,status draft/on_sale/off_sale/archived,sort,version | index(status,sort,id),(category_id,status,sort,id)；发布检查完整性及有效SKUs；有历史不删 |
-| `mall_skus` | id,product_id,sku_code VARCHAR64,options JSON,sale_price_cent,available_qty,reserved_qty,warning_qty,version,status | unique(sku_code)；available/reserved≥0，正售价；index(product_id,status)；最多20组合、2维属于商品内规则 |
+| `mall_categories` | id,parent_id nullable,name VARCHAR64,sort INT,status enabled/disabled,version | 同父级名称唯一须处理NULL根级（生成normalized_parent_id=0或非空根标识）；仅支持一级，写入parent_id必须为NULL；历史层级保留到编辑保存时转为一级，不批量改动存量数据；product引用不级联删 |
+| `mall_products` | id,category_id,name VARCHAR64,product_type physical/virtual（默认physical，CHECK约束）,summary VARCHAR128,cover_file_id,gallery_file_ids JSON,description TEXT,instructions TEXT,status draft/on_sale/off_sale/archived,sort,version | index(status,sort,id),(category_id,status,sort,id)；发布检查完整性及有效SKUs；有历史不删；042将旧delivery_method=virtual回填为virtual，其余回填为physical |
+| `mall_skus` | id,product_id,sku_code VARCHAR64,options JSON,sale_price_cent,market_price_cent nullable,cost_price_cent nullable,available_qty,reserved_qty,warning_qty,version,status | unique(sku_code)；市场价/成本价选填且非负；available/reserved≥0，正售价；index(product_id,status)；最多20组合、2维属于商品内规则。市场价只作对客参考，不进入交易金额 |
 | `mall_stock_movements` | id,sku_id,event_key VARCHAR128,order_item_id nullable,aftersale_item_id nullable,kind,available_delta,reserved_delta,before/after JSON,actor_type,actor_id,reason | unique(sku_id,event_key)；index(sku_id,id)；订单占用、收款转换、关闭释放、取消回库、实物验收分别独立键 |
 | `mall_addresses` | id,user_id,recipient_name,phone,phone_masked,province/city/district codes,nullable `region_names` JSON,address_line,is_default,archived_at,version,consent_record_id | index(user_id,archived_at,id)；地区展示名与编码一起保存，旧地址可为空；一用户一个默认用用户级锁维护，或nullable默认slot唯一；GET只脱敏，原值只用履约目的；region_names由迁移030增加 |
 | `mall_cart_items` | id,user_id,sku_id,quantity,version | unique(user_id,sku_id)，qty>0；无库存占用/消费事实；结算按当前状态重验 |
@@ -55,13 +56,13 @@ erDiagram
 
 订单地址修改仅更新独立地址快照及订单版本，按policy_snapshot中的原运费/禁配重新校验，不套用后来新购规则，不改商品/支付/金额快照。当前原因留在私有地址快照changeReason；审计保留操作者、地址ID/版本、前后快照及原因摘要，不输出原文收件资料或任意原因正文。已发货、有效售后、关闭申请及过期未付均拒绝修改。
 
-`id, order_no VARCHAR32 unique, buyer_user_id, status, version, currency CNY, goods_amount_cent, freight_amount_cent, payable_amount_cent, paid_amount_cent, refunded_goods_cent, refunded_freight_cent, refund_reserved_cent, address_snapshot JSON, policy_snapshot JSON, buyer_note VARCHAR200, internal_note VARCHAR200, expires_at, paid_at, business_period, shipped_at, received_at, closed_at, close_reason, active_payment_id nullable, current_invoice_request_id nullable, consent_record_id`。
+`id, order_no VARCHAR32 unique, buyer_user_id, status, version, currency CNY, goods_amount_cent, freight_amount_cent, payable_amount_cent, paid_amount_cent, refunded_goods_cent, refunded_freight_cent, refund_reserved_cent, address_snapshot JSON（虚拟商品为空对象）, policy_snapshot JSON（包含deliveryMethod）, buyer_note VARCHAR200, internal_note VARCHAR200, expires_at, paid_at, business_period, shipped_at, received_at, closed_at, close_reason, active_payment_id nullable, current_invoice_request_id nullable, consent_record_id`。
 
 索引`(buyer_user_id,created_at,id)`、`(status,created_at,id)`、`(business_period,paid_at,id)`。支付累计、退款成功及占用满足`refunded_goods+refunded_freight+refund_reserved<=paid`；退款处理中占用按售后唯一，不是每阶段重新加。所有金额及快照由可信交易计算。电话原文与详情地址快照不进普通响应/普通日志。
 
 ### 4.2 mall_order_items
 
-`id,order_id,sku_id,product_id,product_snapshot JSON,unit_price_cent,quantity,line_amount_cent,reservation_status reserved/sold/released,returned_quantity,aftersale_reserved_quantity,refunded_goods_cent,version`。
+`id,order_id,sku_id,product_id,product_snapshot JSON（含成交时productType与deliveryMethod）,unit_price_cent,quantity,line_amount_cent,reservation_status reserved/sold/released,returned_quantity,aftersale_reserved_quantity,refunded_goods_cent,version`。
 
 `unique(order_id,sku_id)`（同SKU合并），index(sku_id,order_id)。`line_amount=price*quantity`；累计成功及处理中数量不超购买；商品退回量与资金累计分开，损坏验收不能用退款触发回库。商品可归档但成交信息不依赖现表回填。
 
@@ -95,17 +96,21 @@ unique(out_refund_no)、unique(channel_refund_id)，index(status,last_query_at)�
 
 id,order_id unique,courier_code,tracking_no,shipped_at,auto_receive_at nullable for legacy rows,shipped_by,version,platform_report_status pending/manual_reported/unknown,platform_reported_at nullable,platform_confirmation_status,platform_confirmed_at。
 
-包裹变更进审计及任务版本，不能新建第二包裹重复发货。迁移038为platform_report_status增加受约束的枚举值和索引，并增加platform_reported_at；旧platform_sync_*列暂时保留为兼容字段，不再代表本地人工登记结果。平台登记状态表示员工是否已在微信小程序后台手工录入，人工登记时间与操作者审计和平台确认收货独立；运单更正将其重置为pending。任务以shipment_id+version去重，旧版本任务不得覆盖新运单。auto_receive_at在本地出库登记时按订单冻结的autoReceiveDays计算；老行保留null，不从当前商城设置推算。029只增该字段，自动收货任务仍按包裹版本防重。
+包裹变更进审计及任务版本，不能新建第二包裹重复发货。迁移038为platform_report_status增加受约束的枚举值和索引，并增加platform_reported_at；这些`platform_*`列为历史兼容字段，本项目不存在微信平台发货或人工登记环节，代码不再读写其业务含义，也不得据此展示平台状态。任务以shipment_id+version去重，旧版本任务不得覆盖新运单。auto_receive_at在本地出库登记时按订单冻结的autoReceiveDays计算；老行保留null，不从当前商城设置推算。029只增该字段，自动收货任务仍按包裹版本防重。
+
+### 4.8 mall_virtual_deliveries
+
+`id,order_id unique,delivery_content TEXT,delivered_by admin_accounts.id,delivered_at,version`。仅虚拟商品订单在已核实收款、库存已售且无关闭/退款/有效售后异常时由具备`mall.orders.write`的后台人员提交；同单仅可交付一次，交付后订单完成并以交付时间作为售后窗口起点。内容以纯文本保存，只在买家本人和授权后台订单详情读取，不进入列表、日志正文或幂等命令明文。
 
 ## 5. 票据、文件、消费与配置（5表）
 
 | 表 | 主要字段 | 约束 |
 |---|---|---|
 | `mall_invoice_requests` | id,request_no,order_id,buyer_user_id,nullable consent_record_id,buyer_type personal/company,title,tax_no,email nullable (legacy),invoice_type,requested_goods_cent,requested_freight_cent,source_order_version,status,active_slot,claimed_by,claimed_at,version | unique(request_no)、unique(order_id,active_slot)，在途slot=1；`consent_record_id`引用最近一次明确开票用途确认，旧申请可为空，历史确认仍在consent_records保留；当前小程序不采集邮箱，数据库字段保留兼容历史申请；金额不可任填；一单一有效标准申请 |
-| `mall_invoices` | id,request_id,order_id,kind blue/red,invoice_no,issued_at,total_cent,seller_snapshot JSON,file_id,status,original_invoice_id nullable,replacement_for_id nullable,issued_by,recorded_by,version | unique(seller_identity,invoice_no)（seller_identity另列稳定字符串，不只JSON）；red必须关联blue，金额覆盖原票剩余；全冲重开不删历史 |
+| `mall_invoices` | id,request_id,order_id,kind blue/red,invoice_no nullable,issued_at nullable,seller_identity nullable,total_cent,seller_snapshot JSON,file_id,status,original_invoice_id nullable,replacement_for_id nullable,issued_by,recorded_by,version | 普通蓝票可只登记PDF：金额取申请快照，三项票面信息留空，status=`pdf_uploaded`；旧接口可三项同时登记；红票必须关联blue，金额覆盖原票剩余；全冲重开不删历史 |
 | `mall_files` | id,object_key,purpose product_image/aftersale_proof/invoice_pdf/reconciliation_evidence/finance_export/attribution_evidence/performance_adjustment_evidence,owner_actor_type,owner_actor_id,order_id nullable,invoice_id nullable,mime,size,sha256,status uploading/verified/bound/rejected,expires_at | unique(object_key)；归属凭证仅后台核实权限可用；对账证据CSV/XLSX/PDF/JPG/PNG≤10MB；归属/绩效补证JPG/PNG/PDF≤10MB；票据PDF≤10MB、售后凭证JPG/PNG≤5MB；HEAD真实校验，生产缺凭据失败，signed URL不落库 |
 | `mall_consumptions` | id,order_id unique,buyer_user_id,customer_id nullable,attributed_distributor_id nullable,trade_org_id nullable,name snapshots,paid_at,business_period,original_goods_cent,successful_goods_refund_cent,performance_base_cent,status unassigned/paid/partially_refunded/refunded,source_version,attribution_evidence JSON | index(distributor_id,business_period,id)、(customer_id,paid_at,id)、(status,paid_at,id)；部分退base=original，全商品退base=0；无客户不造Bill |
-| `mall_settings` | id=1,version,enabled,purchase_enabled,freight_mode,freight_cent,blocked_regions JSON,payment_minutes,auto_receive_days,aftersale_days,dispatch/return address snapshots,contact,policy_versions JSON | 单主体配置而非通用配置中心；敏感值只受控交付，商户密钥不存此表；发布与下单取快照 |
+| `mall_settings` | id=1,version,enabled,purchase_enabled,freight_mode,freight_cent,blocked_regions JSON（默认运费模板禁配范围）,payment_minutes,auto_receive_days,aftersale_days,dispatch/return address snapshots,contact,policy_versions JSON | 禁配范围归属于默认运费模板；自定义模板在freight_templates中保存各自禁配范围。单主体配置而非通用配置中心；敏感值只受控交付，商户密钥不存此表；下单按所选模板保存规则快照 |
 
 票据request与file的invoice_id循环关系在文件先上传核实、绑定票据时填写，约束不级联删除，不因文件失效重开税务票据。开票申请状态不等于实际蓝红票税务状态。
 
@@ -193,4 +198,4 @@ unique(evidence_id,trigger_source_type,trigger_source_id,trigger_version)；先�
 
 ## 11. 快递100补充字段（不新增表）
 
-`mall_shipments`增加`logistics_provider VARCHAR32`、`logistics_status`、`provider_state VARCHAR32 nullable`、`tracking_identity_hash CHAR64`、`tracking_snapshot JSON`、`logistics_fetched_at`、`logistics_next_query_at`、`logistics_last_error_code`。更新按shipment.version与身份摘要条件写入；同票共享数据库限流，旧运单响应不能覆盖新版本。安全快照不含key/sign/原文手机号/私密地图访问令牌。查询签收、用户收货、微信确认分别保存。025实现包裹逻辑字段；033新增财务导出请求表后商城新增逻辑表共29张。
+`mall_shipments`增加`logistics_provider VARCHAR32`、`logistics_status`、`provider_state VARCHAR32 nullable`、`tracking_identity_hash CHAR64`、`tracking_snapshot JSON`、`logistics_fetched_at`、`logistics_next_query_at`、`logistics_last_error_code`。更新按shipment.version与身份摘要条件写入；同票共享数据库限流，旧运单响应不能覆盖新版本。安全快照不含key/sign/原文手机号/私密地图访问令牌。物流签收、买家收货分别保存。025实现包裹逻辑字段；033新增财务导出请求表后商城新增逻辑表共29张。

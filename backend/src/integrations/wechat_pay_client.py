@@ -1,25 +1,29 @@
-"""Bounded APIv3 adapter. Default closed; no retry or HTTP callback endpoint."""
+"""Bounded WeChat Pay APIv2 adapter. Default closed; no retries or redirects."""
 
 import asyncio
-import json
+import ipaddress
 import re
+import secrets
 import time
 from datetime import datetime, timezone
-from urllib.parse import urlencode, urlsplit
-from uuid import uuid4
+from pathlib import Path
+from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo
 
 import httpx
 
-from .wechat_pay_crypto import WechatPayVerifier, load_merchant_key, sign
+from .wechat_pay_crypto import build_v2_xml, parse_v2_xml, sign_v2, verify_v2_signature
 from .wechat_pay_types import (
     PaymentGatewayError,
     PaymentNotFoundError,
     PrepayResult,
     RefundNotFoundError,
     VerifiedClose,
-    parse_payment_fact,
-    parse_refund_fact,
+    parse_api_v2_payment_fact,
+    parse_api_v2_refund_fact,
 )
+
+_BASE_URL = "https://api.mch.weixin.qq.com"
 
 
 class WechatPayClient:
@@ -28,19 +32,31 @@ class WechatPayClient:
         *,
         appid,
         mchid,
-        merchant_serial,
-        private_key_pem,
-        verify_keys,
+        api_key,
+        spbill_create_ip,
+        sign_type="MD5",
+        refund_notify_url="",
+        refund_client_cert_path="",
+        refund_client_key_path="",
         outbound_enabled=False,
         transport=None,
         timeout_seconds=10,
     ):
-        for value in (appid, mchid, merchant_serial):
-            if not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", value):
+        for value in (appid, mchid):
+            if not isinstance(value, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,32}", value):
                 raise ValueError("payment identity is invalid")
-        self.appid, self.mchid, self.serial = appid, mchid, merchant_serial
-        self._key = load_merchant_key(private_key_pem)
-        self._verifier = WechatPayVerifier(verify_keys)
+        if not isinstance(api_key, str) or len(api_key.encode("utf-8")) != 32:
+            raise ValueError("APIv2 key must contain 32 bytes")
+        if sign_type not in {"MD5", "HMAC-SHA256"}:
+            raise ValueError("unsupported APIv2 signature type")
+        try:
+            self._spbill_create_ip = str(ipaddress.ip_address(spbill_create_ip))
+        except (TypeError, ValueError):
+            raise ValueError("payment client IP is invalid") from None
+        self.appid, self.mchid = appid, mchid
+        self._api_key, self._sign_type = api_key, sign_type
+        self._refund_notify_url = refund_notify_url
+        self._refund_cert = (refund_client_cert_path, refund_client_key_path)
         self._outbound, self._transport = outbound_enabled, transport
         if not 0 < timeout_seconds <= 20:
             raise ValueError("payment deadline is invalid")
@@ -52,93 +68,117 @@ class WechatPayClient:
             raise ValueError("payment order identity is invalid")
         return value
 
-    async def _request(
-        self, method, path, body=None, *, expected=200, allow_absent=False, absent_code=None
-    ):
-        try:
-            async with asyncio.timeout(self._timeout):
-                return await self._bounded_request(
-                    method,
-                    path,
-                    body,
-                    expected=expected,
-                    allow_absent=allow_absent,
-                    absent_code=absent_code or "ORDER_NOT_EXIST",
-                )
-        except TimeoutError:
-            raise PaymentGatewayError("transport_result_unknown") from None
+    @staticmethod
+    def _refund_no(value):
+        if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", value):
+            raise ValueError("refund identity is invalid")
+        return value
 
-    async def _bounded_request(
-        self, method, path, body=None, *, expected=200, allow_absent=False, absent_code=None
-    ):
-        if not self._outbound:
-            raise PaymentGatewayError("payment_outbound_disabled")
-        raw = (
-            json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()
-            if body is not None
-            else b""
-        )
-        timestamp, nonce = str(int(time.time())), uuid4().hex
-        message = f"{method}\n{path}\n{timestamp}\n{nonce}\n".encode() + raw + b"\n"
-        auth = (
-            f'WECHATPAY2-SHA256-RSA2048 mchid="{self.mchid}",nonce_str="{nonce}",'
-            f'timestamp="{timestamp}",serial_no="{self.serial}",'
-            f'signature="{sign(self._key, message)}"'
-        )
-        try:
-            async with httpx.AsyncClient(
-                timeout=10, transport=self._transport, trust_env=False, follow_redirects=False
-            ) as remote:
-                async with remote.stream(
-                    method,
-                    "https://api.mch.weixin.qq.com" + path,
-                    content=raw,
-                    headers={
-                        "Authorization": auth,
-                        "Accept": "application/json",
-                        "Content-Type": "application/json",
-                    },
-                ) as reply:
-                    payload = bytearray()
-                    async for chunk in reply.aiter_bytes():
-                        payload.extend(chunk)
-                        if len(payload) > 1048576:
-                            raise PaymentGatewayError("response_too_large")
-                    content = bytes(payload)
-                    self._verifier.verify(reply.headers, content)
-                    if reply.status_code != expected:
-                        if allow_absent and reply.status_code == 404:
-                            error = json.loads(content)
-                            if isinstance(error, dict) and error.get("code") == absent_code:
-                                if absent_code == "ORDER_NOT_EXIST":
-                                    raise PaymentNotFoundError()
-                                if absent_code == "RESOURCE_NOT_EXISTS":
-                                    raise RefundNotFoundError()
-                        # No signed error, timeout or ambiguous transport result is a close fact.
-                        raise PaymentGatewayError("gateway_result_requires_query")
-                    if expected == 204:
-                        if content:
-                            raise PaymentGatewayError("invalid_close_response")
-                        return None
-                    parsed = json.loads(content)
-                    if not isinstance(parsed, dict):
-                        raise ValueError()
-                    return parsed
-        except httpx.HTTPError:
-            raise PaymentGatewayError("transport_result_unknown") from None
-        except (ValueError, UnicodeError):
-            raise PaymentGatewayError("invalid_gateway_json") from None
-
-    async def prepay(self, *, out_trade_no, amount_cent, openid, expires_at, notify_url):
-        self._order_no(out_trade_no)
-        parsed = urlsplit(notify_url)
+    @staticmethod
+    def _callback_url(value, *, optional=False):
+        if not isinstance(value, str) or (optional and not value):
+            if optional and value == "":
+                return
+            raise ValueError("callback URL is invalid")
+        parsed = urlsplit(value)
         if (
             parsed.scheme != "https"
             or not parsed.hostname
             or parsed.username
             or parsed.password
+            or parsed.query
             or parsed.fragment
-            or type(amount_cent) is not int
+        ):
+            raise ValueError("callback URL must be a public HTTPS URL without query parameters")
+
+    def _signed_xml(self, params):
+        payload = {
+            **params,
+            "appid": self.appid,
+            "mch_id": self.mchid,
+            "nonce_str": secrets.token_hex(16),
+            "sign_type": self._sign_type,
+        }
+        payload["sign"] = sign_v2(payload, self._api_key, self._sign_type)
+        return payload, build_v2_xml(payload)
+
+    async def _request(
+        self,
+        path,
+        params,
+        *,
+        client_certificate=False,
+        allow_absent_code=None,
+        tolerate_error_codes=(),
+    ):
+        if not self._outbound:
+            raise PaymentGatewayError("payment_outbound_disabled")
+        cert = None
+        if client_certificate:
+            cert_path, key_path = self._refund_cert
+            if not cert_path or not key_path or not Path(cert_path).is_file() or not Path(key_path).is_file():
+                raise PaymentGatewayError("refund_client_certificate_unavailable")
+            cert = (cert_path, key_path)
+        _, request_body = self._signed_xml(params)
+        try:
+            async with asyncio.timeout(self._timeout):
+                client_options = {
+                    "timeout": self._timeout,
+                    "transport": self._transport,
+                    "trust_env": False,
+                    "follow_redirects": False,
+                }
+                if cert:
+                    client_options["cert"] = cert
+                async with httpx.AsyncClient(**client_options) as remote:
+                    async with remote.stream(
+                        "POST",
+                        _BASE_URL + path,
+                        content=request_body,
+                        headers={
+                            "Accept": "application/xml, text/xml",
+                            "Content-Type": "text/xml; charset=utf-8",
+                        },
+                    ) as response:
+                        body = bytearray()
+                        async for chunk in response.aiter_bytes():
+                            body.extend(chunk)
+                            if len(body) > 1_100_000:
+                                raise PaymentGatewayError("response_too_large")
+                        if response.status_code != 200:
+                            raise PaymentGatewayError("gateway_result_requires_query")
+                        data = parse_v2_xml(bytes(body))
+            if data.get("return_code") != "SUCCESS":
+                # APIv2 communication failures are not financial facts.
+                raise PaymentGatewayError("gateway_result_requires_query")
+            if not verify_v2_signature(
+                data, self._api_key, fallback_sign_type=self._sign_type
+            ):
+                raise PaymentGatewayError("response_verification_failed")
+            if data.get("appid") != self.appid or data.get("mch_id") != self.mchid:
+                raise PaymentGatewayError("transaction_identity_mismatch")
+            if data.get("result_code") != "SUCCESS":
+                error_code = data.get("err_code")
+                if allow_absent_code and error_code == allow_absent_code:
+                    if allow_absent_code == "ORDERNOTEXIST":
+                        raise PaymentNotFoundError()
+                    raise RefundNotFoundError()
+                if error_code in tolerate_error_codes:
+                    return data
+                raise PaymentGatewayError("gateway_result_requires_query")
+            return data
+        except (PaymentNotFoundError, RefundNotFoundError, PaymentGatewayError):
+            raise
+        except TimeoutError:
+            raise PaymentGatewayError("transport_result_unknown") from None
+        except (httpx.HTTPError, OSError):
+            raise PaymentGatewayError("transport_result_unknown") from None
+
+    async def prepay(self, *, out_trade_no, amount_cent, openid, expires_at, notify_url):
+        self._order_no(out_trade_no)
+        self._callback_url(notify_url)
+        if (
+            type(amount_cent) is not int
             or not 0 < amount_cent <= 9007199254740991
             or not isinstance(openid, str)
             or not 0 < len(openid) <= 128
@@ -152,92 +192,117 @@ class WechatPayClient:
         if expiry <= datetime.now(timezone.utc):
             raise ValueError("payment request expired")
         data = await self._request(
-            "POST",
-            "/v3/pay/transactions/jsapi",
+            "/pay/unifiedorder",
             {
-                "appid": self.appid,
-                "mchid": self.mchid,
-                "description": "商城订单",
+                "body": "商城订单",
                 "out_trade_no": out_trade_no,
-                "time_expire": expiry.isoformat(timespec="seconds"),
+                "total_fee": amount_cent,
+                "fee_type": "CNY",
+                "spbill_create_ip": self._spbill_create_ip,
+                "time_expire": expiry.astimezone(ZoneInfo("Asia/Shanghai")).strftime(
+                    "%Y%m%d%H%M%S"
+                ),
                 "notify_url": notify_url,
-                "amount": {"total": amount_cent, "currency": "CNY"},
-                "payer": {"openid": openid},
+                "trade_type": "JSAPI",
+                "openid": openid,
             },
         )
+        if data.get("trade_type") != "JSAPI":
+            raise PaymentGatewayError("invalid_prepay_response")
         prepay_id = data.get("prepay_id")
         if not isinstance(prepay_id, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", prepay_id):
             raise PaymentGatewayError("invalid_prepay_response")
         return PrepayResult(prepay_id)
 
     async def query(self, out_trade_no):
-        path = f"/v3/pay/transactions/out-trade-no/{self._order_no(out_trade_no)}"
-        path += "?" + urlencode({"mchid": self.mchid})
-        fact = parse_payment_fact(await self._request("GET", path, allow_absent=True))
-        if (fact.appid, fact.mchid, fact.out_trade_no) != (self.appid, self.mchid, out_trade_no):
+        out_trade_no = self._order_no(out_trade_no)
+        data = await self._request(
+            "/pay/orderquery",
+            {"out_trade_no": out_trade_no},
+            allow_absent_code="ORDERNOTEXIST",
+        )
+        fact = parse_api_v2_payment_fact(data)
+        if (fact.appid, fact.mchid, fact.out_trade_no) != (
+            self.appid,
+            self.mchid,
+            out_trade_no,
+        ):
             raise PaymentGatewayError("transaction_identity_mismatch")
         return fact
 
     async def close(self, out_trade_no):
-        await self._request(
-            "POST",
-            f"/v3/pay/transactions/out-trade-no/{self._order_no(out_trade_no)}/close",
-            {"mchid": self.mchid},
-            expected=204,
+        out_trade_no = self._order_no(out_trade_no)
+        data = await self._request(
+            "/pay/closeorder",
+            {"out_trade_no": out_trade_no},
+            tolerate_error_codes={"ORDERCLOSED"},
         )
+        if data.get("out_trade_no") not in {None, "", out_trade_no}:
+            raise PaymentGatewayError("transaction_identity_mismatch")
         return VerifiedClose(out_trade_no, self.mchid)
 
-    @staticmethod
-    def _refund_no(value):
-        if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", value):
-            raise ValueError("refund identity is invalid")
-        return value
-
     async def create_refund(self, *, out_trade_no, out_refund_no, total_cent, refund_cent):
-        self._order_no(out_trade_no)
-        self._refund_no(out_refund_no)
+        out_trade_no = self._order_no(out_trade_no)
+        out_refund_no = self._refund_no(out_refund_no)
         if (
             type(total_cent) is not int
             or type(refund_cent) is not int
             or not 0 < refund_cent <= total_cent <= 9007199254740991
         ):
             raise ValueError("refund amounts are invalid")
-        payload = {
-            "out_trade_no": out_trade_no,
-            "out_refund_no": out_refund_no,
-            "amount": {"refund": refund_cent, "total": total_cent, "currency": "CNY"},
-        }
-        fact = parse_refund_fact(
-            await self._request("POST", "/v3/refund/domestic/refunds", payload)
+        self._callback_url(self._refund_notify_url, optional=True)
+        accepted = await self._request(
+            "/secapi/pay/refund",
+            {
+                "out_trade_no": out_trade_no,
+                "out_refund_no": out_refund_no,
+                "total_fee": total_cent,
+                "refund_fee": refund_cent,
+                "refund_fee_type": "CNY",
+                "notify_url": self._refund_notify_url,
+            },
+            client_certificate=True,
         )
-        if fact.out_refund_no != out_refund_no or fact.out_trade_no != out_trade_no:
+        if (
+            accepted.get("out_refund_no") != out_refund_no
+            or accepted.get("out_trade_no") != out_trade_no
+            or accepted.get("refund_fee") != str(refund_cent)
+            or accepted.get("total_fee") != str(total_cent)
+        ):
             raise PaymentGatewayError("refund_identity_mismatch")
-        if fact.total_cent != total_cent or fact.refund_cent != refund_cent:
-            raise PaymentGatewayError("refund_amount_mismatch")
-        return fact
+        # Acceptance only means the provider received the request. The separate,
+        # signed refund query supplies the status fact consumed by the state machine.
+        return await self.query_refund(out_refund_no)
 
     async def query_refund(self, out_refund_no):
         out_refund_no = self._refund_no(out_refund_no)
-        fact = parse_refund_fact(
-            await self._request(
-                "GET",
-                f"/v3/refund/domestic/refunds/{out_refund_no}",
-                allow_absent=True,
-                absent_code="RESOURCE_NOT_EXISTS",
-            )
+        data = await self._request(
+            "/pay/refundquery",
+            {"out_refund_no": out_refund_no},
+            allow_absent_code="REFUNDNOTEXIST",
         )
+        fact = parse_api_v2_refund_fact(data, out_refund_no)
         if fact.out_refund_no != out_refund_no:
             raise PaymentGatewayError("refund_identity_mismatch")
         return fact
 
     def invocation(self, prepay_id):
-        if not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", prepay_id):
+        if not isinstance(prepay_id, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", prepay_id):
             raise ValueError("invalid prepay identity")
-        timestamp, nonce, package = str(int(time.time())), uuid4().hex, "prepay_id=" + prepay_id
+        timestamp = str(int(time.time()))
+        nonce = secrets.token_hex(16)
+        package = "prepay_id=" + prepay_id
+        params = {
+            "appId": self.appid,
+            "nonceStr": nonce,
+            "package": package,
+            "signType": self._sign_type,
+            "timeStamp": timestamp,
+        }
         return {
             "timeStamp": timestamp,
             "nonceStr": nonce,
             "package": package,
-            "signType": "RSA",
-            "paySign": sign(self._key, f"{self.appid}\n{timestamp}\n{nonce}\n{package}\n".encode()),
+            "signType": self._sign_type,
+            "paySign": sign_v2(params, self._api_key, self._sign_type),
         }

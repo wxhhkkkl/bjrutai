@@ -1,10 +1,10 @@
 <view class="mall-flow-page mall-aftersale-page">
   <flow-navigation title="售后进度" bind:back="goBack" />
-  <scroll-view class="mall-flow-scroll" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}" refresher-enabled="{{true}}" bindrefresherrefresh="refresh">
-    <view wx:if="{{state === 'loading'}}" class="mall-flow-state"><van-icon name="replay" size="30px" color="#27645B" /><text>正在读取售后进度</text></view>
+  <scroll-view class="mall-flow-scroll" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}" refresher-enabled="{{true}}" refresher-triggered="{{refreshing}}" bindrefresherrefresh="refresh">
+    <view wx:if="{{state === 'loading'}}" class="mall-flow-state"><van-icon name="replay" size="30px" color="#1677FF" /><text>正在读取售后进度</text></view>
     <view wx:elif="{{state === 'recoverable-error'}}" class="mall-flow-state"><text class="mall-flow-state__title">售后记录暂时不可用</text><text>{{stateMessage}}</text><button class="mall-primary-button tap-target" bindtap="retry" hover-class="tap-feedback">重新加载</button></view>
     <block wx:elif="{{state === 'success' && aftersale}}">
-      <view class="mall-after-status"><view class="mall-after-status__icon"><van-icon name="{{aftersale.status === 'completed' ? 'checked' : aftersale.status === 'rejected' ? 'close' : 'clock-o'}}" size="27px" color="#27645B" /></view><view class="mall-after-status__copy"><text class="mall-after-status__title">{{aftersale.statusLabel}}</text><text class="mall-after-status__hint">申请编号 {{aftersale.aftersaleNo || aftersale.id}}</text></view></view>
+      <view class="mall-after-status"><view class="mall-after-status__icon"><van-icon name="{{aftersale.status === 'completed' ? 'checked' : aftersale.status === 'rejected' ? 'close' : 'clock-o'}}" size="27px" color="#1677FF" /></view><view class="mall-after-status__copy"><text class="mall-after-status__title">{{aftersale.statusLabel}}</text><text class="mall-after-status__hint">申请编号 {{aftersale.aftersaleNo || aftersale.id}}</text></view></view>
       <view class="mall-aftersale-detail-card">
         <view class="mall-section-heading"><text>申请内容</text><text class="mall-muted">{{aftersale.methodLabel}}</text></view>
         <text class="mall-after-field">申请原因：{{aftersale.reason || '未提供'}}</text>

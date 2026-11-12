@@ -57,6 +57,7 @@ from .mall_trade import (  # noqa: F401
     MallOrder,
     MallOrderItem,
     MallShipment,
+    MallVirtualDelivery,
 )
 from .mall_finance import (  # noqa: F401
     MallFinanceExportRequest,

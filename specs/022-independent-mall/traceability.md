@@ -2,7 +2,7 @@
 
 本表仅表示计划覆盖，不代表接口、测试或验收已完成。操作来自当前OpenAPI（已纳入快递100补充），详细依赖见[tasks.md](tasks.md)与[tasks-map.json](tasks-map.json)。
 
-## 106个操作归属
+## 105个操作归属
 
 | operationId | 方法/路径 | 实现任务 | 条件 |
 |---|---|---|---|
@@ -50,7 +50,6 @@
 | `updateAdminMallProduct` | PATCH `/api/v1/admin/mall/products/{productId}` | T032 | 通用实时授权/状态/幂等 |
 | `getAdminMallProduct` | GET `/api/v1/admin/mall/products/{productId}` | T032 | 通用实时授权/状态/幂等 |
 | `setMallProductStatus` | POST `/api/v1/admin/mall/products/{productId}/status` | T032 | 通用实时授权/状态/幂等 |
-| `copyMallProduct` | POST `/api/v1/admin/mall/products/{productId}/copy` | T032 | 通用实时授权/状态/幂等 |
 | `adjustMallStock` | POST `/api/v1/admin/mall/skus/{skuId}/stock-adjustments` | T032 | 通用实时授权/状态/幂等 |
 | `listMallStockMovements` | GET `/api/v1/admin/mall/skus/{skuId}/stock-movements` | T032 | 通用实时授权/状态/幂等 |
 | `listAdminMallOrders` | GET `/api/v1/admin/mall/orders` | T062 | 通用实时授权/状态/幂等 |
@@ -60,7 +59,6 @@
 | `shipMallOrder` | POST `/api/v1/admin/mall/orders/{orderId}/ship` | T062 | 通用实时授权/状态/幂等 |
 | `releaseMallFulfillment` | POST `/api/v1/admin/mall/orders/{orderId}/fulfillment-release` | T063 | governance-proposal.md:资料目的限定窄例外未生效时关闭 |
 | `correctMallTracking` | PATCH `/api/v1/admin/mall/shipments/{shipmentId}` | T062 | 通用实时授权/状态/幂等 |
-| recordMallPlatformShipmentReport | POST /api/v1/admin/mall/shipments/{shipmentId}/platform-report | T056 | 通用实时授权/状态/幂等；只登记管理员的微信后台手工录入确认，不调用微信API |
 | `listAdminMallAftersales` | GET `/api/v1/admin/mall/aftersales` | T072 | 通用实时授权/状态/幂等 |
 | `getAdminMallAftersale` | GET `/api/v1/admin/mall/aftersales/{aftersaleId}` | T072 | 通用实时授权/状态/幂等 |
 | `decideMallAftersale` | POST `/api/v1/admin/mall/aftersales/{aftersaleId}/decision` | T072 | 通用实时授权/状态/幂等 |
@@ -293,16 +291,16 @@
 - 进行中：T131、T133。
 - T052完成本地测试模式的地址至支付集成及恢复证据，T062完成本地订单/履约管理路由与AC-053；两者均不表示真实平台或商城整体发布已完成。T135完成本追踪核对也不替代其余门禁。
 
-少数已完成任务的范围只覆盖经记录的独立切片：T062已完成本地订单/履约接口与权限；T054确定第一期通过微信后台手工录入、不接发货API；T056完成商城内人工登记状态回填，不代表微信后台真实账号能力已经验收。T064/T079/T116依赖本地接口/权限；T052和T128分别提供测试支付恢复与合成跨域AC-045证据，均不替代真实支付渠道验收。T108完成本地发票申请/经办确认上传/用户下载闭环；按用户决策不需要真实发票或税务平台真伪验证，生产COS仍由T131核验；T134只完成条件式文档，不打开T133发布门禁。不得把这些局部证据扩张成整项平台验收。
+少数已完成任务的范围只覆盖经记录的独立切片：T062已完成本地订单/履约接口与权限；本项目没有微信平台发货环节，发货只登记商城本地事实，T054/T056原人工登记/回填方案已于2026-11-11作废。T064/T079/T116依赖本地接口/权限；T052和T128分别提供测试支付恢复与合成跨域AC-045证据，均不替代真实支付渠道验收。T108完成本地发票申请/经办确认上传/用户下载闭环；按用户决策不需要真实发票或税务平台真伪验证，生产COS仍由T131核验；T134只完成条件式文档，不打开T133发布门禁。不得把这些局部证据扩张成整项平台验收。
 
-OpenAPI与追踪表核对结果：94条路径、106个HTTP操作、106个operationId及106个operation owner；94条FR、53项AC均在任务图中有覆盖；Q-01至Q-10在上表登记当前实际证据。两个通知operation归T048并仅使用已采纳G-PROTOCOL例外；recordMallPlatformShipmentReport归T056，只记录微信后台手工登记的管理员确认，不调用微信API或冒充平台回执；T063/T102仅按批准的内部范围实现，生产原文访问受配置门禁约束。
+OpenAPI与追踪表核对结果：92条路径、104个HTTP操作、104个operationId及104个operation owner；94条FR、53项AC均在任务图中有覆盖；Q-01至Q-10在上表登记当前实际证据。两个通知operation归T048并仅使用已采纳G-PROTOCOL例外；T063/T102仅按批准的内部范围实现，生产原文访问受配置门禁约束。
 
 | 分析项 | 修订任务 | 剩余条件 |
 |---|---|---|
 | C1 通知协议 | T002、T048、T073、T131、T133 | 宪章3.0.0例外已采纳、协议已核验，T048本地实现/隔离回归通过；生产登记需G-LIVE授权 |
 | C2 单命令环境 | T005、T028 | Q-10本地隔离runner已有证据；生产环境不适用 |
-| I1 订单详情 | T053、T055、T062、T067 | AC-053本地/合成验收有证据；微信后台人工登记状态回填已由T056完成 |
+| I1 订单详情 | T053、T055、T062、T067 | AC-053本地/合成验收有证据；发货只登记本地事实，不存在微信平台登记 |
 | U1 无原结果调整 | T006、T012、T013、T018、T081、T082、T087–T091、T096 | AC-052本地闭环已记录；完整实际经营数据仍按发布准备核验 |
-| I2 发货登记 | T054、T056、T131 | 第一期开通后台人工录入路径；商城状态回填已实现，真实账号验收仍由T131负责 |
+| I2 发货登记 | T055、T062 | 商城后台登记本地包裹及运单即完成发货；本项目不存在微信平台发货或人工回填环节 |
 
 旧接口兼容仍覆盖T083/T084统一来源、T085–T087月份与冻结、T090/T091净额核销及T130原功能回归，不建立钱包。

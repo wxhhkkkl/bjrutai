@@ -136,6 +136,7 @@ class MallSettings(MallRecord, Base):
     purchase_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     freight_mode: Mapped[str] = mapped_column(String(16), default="fixed")
     freight_cent: Mapped[int] = mapped_column(BigInteger, default=0)
+    freight_templates: Mapped[list | None] = mapped_column(JSON)
     blocked_regions: Mapped[list] = mapped_column(JSON, default=list)
     payment_minutes: Mapped[int] = mapped_column(Integer, default=30)
     auto_receive_days: Mapped[int] = mapped_column(Integer, default=15)

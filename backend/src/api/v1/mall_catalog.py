@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.deps import get_db
 from ...core.error_handler import _build_response
 from ...services import mall_catalog_query_service as queries
+from ...services.mall_settings_service import get_mall_settings
 
 router = APIRouter(prefix="/mall", tags=["mall-catalog"])
 
@@ -54,4 +55,10 @@ async def product(
     product_id: int = Path(alias="productId", gt=0), db: AsyncSession = Depends(get_db)
 ):
     value = await queries.get_product(db, product_id, public=True)
-    return _build_response(0, "success", await queries.serialize_product(db, value))
+    result = await queries.serialize_product(db, value)
+    instructions = value.return_instructions.strip()
+    if not instructions:
+        settings = await get_mall_settings(db)
+        instructions = settings.return_instructions or ""
+    result["returnInstructions"] = instructions
+    return _build_response(0, "success", result)

@@ -66,7 +66,7 @@ async def manual_exception(db, order, payment, code):
     job.status, job.last_error_code = "manual", code
 
 
-async def apply_verified_payment(db, identity, fact):
+async def apply_verified_payment(db, identity, fact, *, payer_identity_verified=False):
     order, payment = await locked_payment(db, identity)
     if (
         not isinstance(fact, PaymentFact)
@@ -95,7 +95,7 @@ async def apply_verified_payment(db, identity, fact):
             or fact.payer_total_cent != payment.amount_cent
             or not buyer
             or not buyer.openid
-            or fact.openid != buyer.openid
+            or (not payer_identity_verified and fact.openid != buyer.openid)
         ):
             raise ConflictException(message="支付付款人、实付金额、时间或渠道身份需核实")
         if payment.status == "succeeded":
@@ -135,7 +135,11 @@ async def apply_verified_payment(db, identity, fact):
         audit_payment(db, order, payment, "mall_payment_succeeded")
         if not duplicate:
             status_text = (
-                "订单正在等待发货。"
+                (
+                    "订单正在等待商家交付。"
+                    if (order.policy_snapshot or {}).get("deliveryMethod") == "virtual"
+                    else "订单正在等待发货。"
+                )
                 if order.status == "pending_shipment"
                 else "订单情况需要商家核实。"
             )

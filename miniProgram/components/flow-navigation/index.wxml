@@ -16,7 +16,7 @@
       aria-role="button"
       aria-label="返回"
     >
-      <van-icon name="arrow-left" size="27px" color="#050505" />
+      <van-icon name="arrow-left" size="22px" color="#050505" />
     </view>
     <text class="flow-navigation__title">{{title}}</text>
   </view>

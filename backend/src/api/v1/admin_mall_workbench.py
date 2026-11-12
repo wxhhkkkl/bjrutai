@@ -27,7 +27,6 @@ read_workbench = require_mall_admin_any(
     "mall.invoices.write",
     "mall.stock.read",
     "mall.stock.write",
-    "mall.reconciliations.read",
 )
 
 

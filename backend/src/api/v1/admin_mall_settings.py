@@ -21,12 +21,19 @@ router = APIRouter(prefix="/admin/mall/settings", tags=["admin-mall-settings"])
 
 @router.get("")
 async def get_settings(
-    _actor: MallActor = Depends(require_mall_admin("mall.settings.read")),
+    actor: MallActor = Depends(require_mall_admin("mall.settings.read")),
     db: AsyncSession = Depends(get_db),
 ):
     settings = await get_mall_settings(db)
     await db.commit()
-    return _build_response(0, "success", serialize_mall_settings(settings))
+    can_view_address_details = "mall.settings.write" in actor.permissions
+    return _build_response(
+        0,
+        "success",
+        serialize_mall_settings(
+            settings, include_address_details=can_view_address_details
+        ),
+    )
 
 
 @router.patch("")
@@ -55,14 +62,17 @@ async def patch_settings(
                 purchase_enabled=value.purchase_enabled,
                 freight_mode=value.freight_mode,
                 freight_cent=value.freight_cent,
-                blocked_regions=value.blocked_region_codes,
+                blocked_regions=value.default_blocked_region_codes,
                 payment_minutes=value.payment_minutes,
                 auto_receive_days=value.auto_receive_days,
                 aftersale_days=value.aftersale_days,
                 contact=value.contact_text,
                 return_instructions=value.return_instructions,
-                policy_versions={"policy": value.policy_version},
             )
+            if body.freight_templates is not None:
+                changes["freight_templates"] = [
+                    item.model_dump(by_alias=True) for item in body.freight_templates
+                ]
             if body.dispatch_address is not None:
                 changes["dispatch_address_snapshot"] = body.dispatch_address.model_dump(
                     by_alias=True
@@ -82,7 +92,11 @@ async def patch_settings(
             )
             await complete_mall_command(db, reservation, entity_type="mall_settings", entity_id=1)
         await db.commit()
-        return _build_response(0, "success", serialize_mall_settings(settings))
+        return _build_response(
+            0,
+            "success",
+            serialize_mall_settings(settings, include_address_details=True),
+        )
     except Exception:
         await db.rollback()
         raise

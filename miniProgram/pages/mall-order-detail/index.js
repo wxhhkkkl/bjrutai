@@ -1,7 +1,9 @@
 const mallOrderService = require('../../services/mall-order-service')
 const mallIntentService = require('../../services/mall-intent-service')
 const sessionService = require('../../services/session-service')
+const { courierName } = require('../../utils/courier')
 const { createRequestKeyManager } = require('../../utils/request-key')
+const { formatChinaDateTimeCompact } = require('../../utils/date-time')
 
 const STATUS_LABELS = {
   pending_payment: '等待付款',
@@ -38,27 +40,28 @@ function money(value) {
 }
 
 function timeLabel(value) {
-  if (typeof value !== 'string') return ''
-  return value.replace('T', ' ').replace(/(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$/, '').slice(0, 16)
+  return formatChinaDateTimeCompact(value)
 }
 
 function viewOrder(order) {
   const address = order && order.address || {}
-  const shipment = order && order.shipment || null
+  const rawShipment = order && order.shipment || null
+  const shipment = rawShipment
+    ? { ...rawShipment, courierName: courierName(rawShipment.courierCode) }
+    : null
   const invoiceRequestId = String(order && order.invoiceRequestId || '')
   const paid = Number(order && order.paidAmountCent) || 0
   const refunded = (Number(order && order.refundedGoodsCent) || 0) + (Number(order && order.refundedFreightCent) || 0)
   const netPaidCent = Math.max(0, paid - refunded)
+  const fullyRefunded = Boolean(order && order.status === 'closed' && paid > 0 && refunded >= paid)
   const canApplyInvoice = order && order.paymentStatus === 'succeeded' && netPaidCent > 0 && !/^[1-9][0-9]*$/.test(invoiceRequestId)
-  const platformStatus = shipment && shipment.platformReportStatus
-  const platformReportLabels = {
-    pending: '商家待登记微信平台发货信息',
-    manual_reported: '商家已登记微信平台发货信息',
-    unknown: '微信平台登记状态待核实'
-  }
   return {
     ...order,
-    statusLabel: STATUS_LABELS[order && order.status] || '订单处理中',
+    statusLabel: order && order.status === 'pending_shipment' && order.deliveryMethod === 'virtual'
+      ? '等待商家交付'
+      : fullyRefunded
+        ? '订单已退款'
+        : STATUS_LABELS[order && order.status] || '订单处理中',
     paymentStatusLabel: PAYMENT_LABELS[order && order.paymentStatus] || '付款状态待核实',
     invoiceStatusLabel: INVOICE_LABELS[order && order.invoiceStatus] || (order && order.invoiceStatus ? '开票状态处理中' : '未申请'),
     invoiceRequestId: /^[1-9][0-9]*$/.test(invoiceRequestId) ? invoiceRequestId : '',
@@ -80,12 +83,15 @@ function viewOrder(order) {
     receivedLabel: timeLabel(order && order.receivedAt),
     address: {
       ...address,
+      phoneDisplay: String(address.phone || address.phoneMasked || ''),
       regionLabel: Array.isArray(address.regionNames) ? address.regionNames.filter(Boolean).join(' ') : '',
-      addressLineLabel: address.addressMasked || '详细地址已保存'
+      addressLineLabel: address.addressLine || address.addressMasked || '详细地址已保存'
     },
-    shipment: shipment ? { ...shipment, platformReportLabel: platformReportLabels[platformStatus] || '微信平台登记状态待核实' } : null,
+    virtualDelivery: order && order.virtualDelivery ? order.virtualDelivery : null,
+    shipment,
     items: Array.isArray(order && order.items) ? order.items.map((item) => ({
       ...item,
+      coverImageFailed: false,
       unitPriceText: money(item.unitPriceCent),
       lineAmountText: money(item.lineAmountCent)
     })) : [],
@@ -147,6 +153,16 @@ Page({
 
   retry() {
     return this.loadOrder()
+  },
+
+  onOrderItemImageError(event) {
+    const id = String(event && event.currentTarget && event.currentTarget.dataset.id || '')
+    if (!id || !this.data.order) return
+    this.setData({
+      'order.items': this.data.order.items.map((item) => (
+        item.id === id ? { ...item, coverImageFailed: true } : item
+      ))
+    })
   },
 
   openLogistics() {

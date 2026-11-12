@@ -14,6 +14,14 @@ page {
   flex: none;
 }
 
+.mall-product-virtual-hint {
+  display: block;
+  margin-top: 14rpx;
+  color: #49665d;
+  font-size: 24rpx;
+  line-height: 1.45;
+}
+
 .mall-product-detail__scroll {
   min-height: 0;
   flex: 1;
@@ -46,7 +54,7 @@ page {
 }
 
 .mall-product-detail__content {
-  padding: 20rpx 24rpx 40rpx;
+  padding: 20rpx 24rpx 126rpx;
 }
 
 .mall-product-summary,
@@ -66,11 +74,32 @@ page {
   gap: 12rpx;
 }
 
+.mall-product-summary__price-group {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7rpx;
+}
+
 .mall-product-summary__price {
   color: #bd563f;
   font-size: 43rpx;
   font-weight: 750;
   line-height: 1.1;
+}
+
+.mall-product-summary__market-price {
+  color: #929a94;
+  font-size: 24rpx;
+  line-height: 1.2;
+  text-decoration: line-through;
+}
+
+.mall-product-summary__sale-label {
+  margin-right: 10rpx;
+  font-size: 24rpx;
+  font-weight: 500;
 }
 
 .mall-product-summary__currency {
@@ -80,11 +109,11 @@ page {
 
 .mall-product-summary__availability {
   color: #89938d;
-  font-size: 23rpx;
+  font-size: 24rpx;
 }
 
 .mall-product-summary__availability--available {
-  color: #52766b;
+  color: var(--blue);
 }
 
 .mall-product-summary__name {
@@ -117,15 +146,6 @@ page {
   font-weight: 700;
 }
 
-.mall-product-section__hint {
-  overflow: hidden;
-  color: #829087;
-  font-size: 22rpx;
-  font-weight: 400;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
 .mall-product-skus {
   display: flex;
   flex-direction: column;
@@ -146,8 +166,8 @@ page {
 }
 
 .mall-product-sku--selected {
-  border-color: #7da79b;
-  background: #f0f5f1;
+  border-color: var(--blue);
+  background: var(--blue-soft);
 }
 
 .mall-product-sku--soldout .mall-product-sku__name,
@@ -173,7 +193,7 @@ page {
 
 .mall-product-sku__stock {
   color: #929a94;
-  font-size: 20rpx;
+  font-size: 24rpx;
 }
 
 .mall-product-sku__price {
@@ -181,6 +201,21 @@ page {
   color: #bd563f;
   font-size: 27rpx;
   font-weight: 700;
+}
+
+.mall-product-sku__price-group {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3rpx;
+}
+
+.mall-product-sku__market-price {
+  color: #929a94;
+  font-size: 24rpx;
+  line-height: 1.2;
+  text-decoration: line-through;
 }
 
 .mall-product-section__title {
@@ -207,7 +242,7 @@ page {
   gap: 8rpx;
   padding: 18rpx 0 8rpx;
   color: #87918b;
-  font-size: 21rpx;
+  font-size: 24rpx;
 }
 
 .mall-product-detail-state {
@@ -241,7 +276,7 @@ page {
   margin-top: 30rpx;
   padding: 0 26rpx;
   color: #ffffff;
-  background: #27645b;
+  background: var(--blue);
   border: 0;
   border-radius: 999rpx;
   font-size: 25rpx;
@@ -254,45 +289,6 @@ page {
   border-top: 1rpx solid #e4e7e1;
   background: #ffffff;
 }
-
-.mall-product-footer__top,
-.mall-product-footer__quantity {
-  display: flex;
-  align-items: center;
-}
-
-.mall-product-footer__top {
-  justify-content: space-between;
-  min-height: 58rpx;
-}
-
-.mall-product-footer__cart {
-  min-width: 114rpx;
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  color: #53645a;
-  font-size: 21rpx;
-}
-
-.mall-product-footer__quantity {
-  gap: 14rpx;
-  color: #748078;
-  font-size: 20rpx;
-}
-
-.mall-product-footer__quantity .mall-quantity {
-  height: 48rpx;
-  display: flex;
-  align-items: center;
-  border: 1rpx solid #e5e8e3;
-  border-radius: 10rpx;
-  color: #334139;
-  font-size: 23rpx;
-}
-
-.mall-product-footer__quantity .mall-quantity text { min-width: 48rpx; text-align: center; }
-.mall-product-footer__quantity .mall-quantity__step { width: 48rpx; height: 48rpx; display: flex; align-items: center; justify-content: center; color: #587267; font-size: 30rpx; }
 
 .mall-product-footer__actions {
   display: flex;
@@ -310,16 +306,16 @@ page {
 }
 
 .mall-product-footer__secondary {
-  border: 1rpx solid #8ca99b;
-  color: #27645b;
-  background: #f4f7f3;
+  border: 1rpx solid #9dc5ff;
+  color: var(--blue);
+  background: var(--blue-soft);
 }
 
 .mall-product-footer__primary {
   border: 0;
   color: #ffffff;
-  background: #27645b;
+  background: var(--blue);
 }
 
 .mall-product-footer__actions button[disabled] { opacity: .45; }
-.mall-product-footer__message { display: block; margin: 4rpx 0 6rpx; color: #a24e3d; font-size: 19rpx; }
+.mall-product-footer__message { display: block; margin: 4rpx 0 6rpx; color: #a24e3d; font-size: 24rpx; }

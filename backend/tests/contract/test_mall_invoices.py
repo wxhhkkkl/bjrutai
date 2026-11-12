@@ -181,6 +181,13 @@ async def test_admin_claim_and_needs_info_allow_only_versioned_buyer_correction_
         },
     )
     assert needs_info.status_code == 200 and needs_info.json()["data"]["status"] == "needs_info"
+    assert needs_info.json()["data"]["infoRequestReason"] == "请确认发票抬头"
+    buyer_view = await client.get(
+        f"/api/v1/mall/invoice-requests/{request['id']}",
+        headers=buyer_headers(buyer, "invoice-buyer-read-needs-info-01"),
+    )
+    assert buyer_view.status_code == 200, buyer_view.text
+    assert buyer_view.json()["data"]["infoRequestReason"] == "请确认发票抬头"
 
     writer["Idempotency-Key"] = "invoice-buyer-correction-001"
     corrected = await client.patch(
@@ -196,6 +203,7 @@ async def test_admin_claim_and_needs_info_allow_only_versioned_buyer_correction_
     )
     assert corrected.status_code == 200, corrected.text
     assert corrected.json()["data"]["title"] == "更正后的个人抬头"
+    assert corrected.json()["data"]["infoRequestReason"] is None
     writer["Idempotency-Key"] = "invoice-withdraw-before-issue-001"
     withdrawn = await client.post(
         f"/api/v1/mall/invoice-requests/{request['id']}/withdraw",

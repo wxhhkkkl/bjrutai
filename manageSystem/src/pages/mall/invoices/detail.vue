@@ -1,33 +1,13 @@
 <template>
-  <section class="invoice-page">
-    <header class="page-heading">
+  <section class="invoice-page mall-management-page">
+    <header class="page-heading page-header">
       <div>
-        <el-button link @click="router.push('/mall/invoices')"
+        <el-button link type="primary" @click="router.push('/mall/invoices')"
           >返回发票列表</el-button
         >
-        <h2>发票办理详情</h2>
+        <h2 class="page-title">发票办理详情</h2>
       </div>
-      <el-button
-        data-test="reload"
-        :disabled="loading || command.pending.value"
-        @click="load"
-      >
-        刷新
-      </el-button>
     </header>
-    <el-alert v-if="error" :title="error" type="error" :closable="false" />
-    <el-alert
-      v-if="command.error.value"
-      :title="command.error.value"
-      type="error"
-      :closable="false"
-    />
-    <el-alert
-      v-if="notice"
-      :title="notice"
-      :type="noticeType"
-      :closable="false"
-    />
     <el-button
       v-if="command.pending.value"
       :loading="command.busy.value"
@@ -101,9 +81,6 @@
               <dd>{{ request.claimedBy || '尚未领取' }}</dd>
             </div>
           </dl>
-          <p class="gate-note">
-            普通查询不返回完整税号和邮箱。仅当前财务领取人且具有独立资料读取权限时，才可为本申请短时读取开票所需资料。
-          </p>
         </el-card>
 
         <el-card
@@ -160,20 +137,22 @@
 
         <el-card v-if="canAskForInfo" class="action-card">
           <template #header>请买家补充或更正资料</template>
-          <el-input
-            v-model="infoReason"
-            data-test="info-reason"
-            type="textarea"
-            maxlength="500"
-            placeholder="说明需要买家核实的内容，不填写完整税号或邮箱"
-          />
-          <el-button
-            data-test="needs-info"
-            :disabled="command.pending.value"
-            @click="requestInfo"
-          >
-            通知买家补充
-          </el-button>
+          <div class="info-request-form">
+            <el-input
+              v-model="infoReason"
+              data-test="info-reason"
+              type="textarea"
+              maxlength="500"
+              placeholder="说明需要买家核实的内容，不填写完整税号或邮箱"
+            />
+            <el-button
+              data-test="needs-info"
+              :disabled="command.pending.value"
+              @click="requestInfo"
+            >
+              通知买家补充
+            </el-button>
+          </div>
         </el-card>
 
         <el-card
@@ -181,78 +160,58 @@
           class="action-card"
         >
           <template #header>{{
-            issueForm.replacementForId ? '上传替代发票' : '登记并上传发票'
+            issueForm.replacementForId ? '上传替代发票 PDF' : '上传发票 PDF'
           }}</template>
-          <p v-if="issueForm.replacementForId">
-            仅当原蓝票已全额红冲后可重开；金额固定为成功退款后的净实付 ¥{{
-              money(request.netPaidCent)
-            }}。
-          </p>
-          <p v-else>
-            工作人员录入票面信息、上传PDF并确认后，系统按经办人确认登记为已处理，用户可在同一申请中下载。系统不连接税务平台查验真伪。
-          </p>
-          <el-form label-position="top" :disabled="command.pending.value">
-            <div class="form-grid">
-              <el-form-item label="票面号码（经办人录入）"
-                ><el-input v-model="issueForm.invoiceNo" maxlength="64"
-              /></el-form-item>
-              <el-form-item label="开具时间"
-                ><el-input v-model="issueForm.issuedAt" type="datetime-local"
-              /></el-form-item>
-              <el-form-item label="销售主体"
-                ><el-input v-model="issueForm.sellerIdentity" maxlength="64"
-              /></el-form-item>
-              <el-form-item label="票面金额"
-                ><el-input :model-value="money(issueAmountCent)" disabled
-              /></el-form-item>
+          <div class="invoice-upload">
+            <div class="invoice-upload__file">
+              <span class="invoice-upload__icon" aria-hidden="true">
+                <el-icon><Document /></el-icon>
+              </span>
+              <div class="invoice-upload__copy">
+                <strong :title="blueUploadState?.file?.name">
+                  {{ blueUploadState?.file?.name || '选择发票 PDF' }}
+                </strong>
+                <span v-if="uploadBusy" role="status">正在上传并校验…</span>
+                <span v-else-if="issueForm.fileId" class="invoice-upload__verified" role="status">PDF 已上传并校验</span>
+                <span v-else>PDF 格式，最大 10 MB</span>
+              </div>
+              <label class="invoice-upload__picker" :class="{ 'is-disabled': uploadBusy || command.pending.value }">
+                {{ blueUploadState ? '更换文件' : '选择文件' }}
+                <input
+                  data-test="blue-file"
+                  type="file"
+                  accept="application/pdf"
+                  aria-label="选择发票 PDF"
+                  :disabled="uploadBusy || command.pending.value"
+                  @change="chooseBlueFile"
+                />
+              </label>
             </div>
-            <label class="file-label"
-              >发票 PDF
-              <input
-                data-test="blue-file"
-                type="file"
-                accept="application/pdf"
-                :disabled="uploadBusy"
-                @change="chooseBlueFile"
-              />
-            </label>
-            <span v-if="issueForm.fileId" class="file-state"
-              >文件已上传并校验（{{ issueForm.fileId }}）</span
-            >
-            <el-alert
-              v-if="uploadError"
-              :title="uploadError"
-              type="error"
-              :closable="false"
-            />
-            <el-button
-              v-if="blueUploadState && uploadError"
-              data-test="retry-blue-upload"
-              :disabled="uploadBusy"
-              @click="uploadBlueState"
-              >重试上传/文件校验</el-button
-            >
-            <el-input
-              v-model="issueForm.reason"
-              class="reason"
-              maxlength="500"
-              placeholder="备注（可选，不包含完整税号或邮箱）"
-            />
-            <el-button
-              data-test="record-blue"
-              type="primary"
-              :disabled="!issueForm.fileId || command.pending.value"
-              @click="recordBlue"
-            >
-              确认已开具并上传
-            </el-button>
-          </el-form>
+            <div class="invoice-upload__actions">
+              <el-button
+                v-if="blueUploadState && uploadError"
+                data-test="retry-blue-upload"
+                :disabled="uploadBusy || command.pending.value"
+                @click="uploadBlueState"
+              >重试上传/文件校验</el-button>
+              <el-button
+                data-test="record-blue"
+                type="primary"
+                :disabled="uploadBusy || !issueForm.fileId || command.pending.value"
+                @click="recordBlue"
+              >
+                确认上传
+              </el-button>
+            </div>
+          </div>
         </el-card>
 
         <el-card v-if="request.invoices?.length" class="chain-card">
           <template #header>发票记录</template>
           <el-table :data="request.invoices" empty-text="暂无票据">
-            <el-table-column prop="invoiceNo" label="票号" min-width="190" />
+            <el-table-column label="票号" min-width="190">
+              <template #default="{ row }">{{ row.invoiceNo || '详见 PDF' }}</template>
+            </el-table-column>
             <el-table-column label="类型" width="90">
               <template #default="{ row }">{{
                 row.kind === 'blue' ? '蓝票' : '红票'
@@ -289,7 +248,9 @@
                   v-if="
                     canHandleIssuedInvoice &&
                     row.kind === 'blue' &&
-                    ['valid', 'partially_red'].includes(row.status)
+                    ['valid', 'pdf_uploaded', 'partially_red'].includes(
+                      row.status
+                    )
                   "
                   link
                   :disabled="command.pending.value"
@@ -318,7 +279,7 @@
                   :data-test="`record-red-${row.id}`"
                   link
                   :disabled="command.pending.value"
-                  @click="activeRedInvoiceId = row.id"
+                  @click="openRedInvoice(row)"
                   >回传红票</el-button
                 >
                 <el-button
@@ -340,72 +301,158 @@
             </el-table-column>
           </el-table>
 
-          <el-card v-if="activeRedInvoice" class="sub-action">
-            <template #header
-              >回传红票：关联蓝票 {{ activeRedInvoice.invoiceNo }}</template
-            >
-            <div class="form-grid">
-              <el-input
-                v-model="redForms[activeRedInvoice.id].invoiceNo"
-                placeholder="红票票号"
-              />
-              <el-input
-                v-model="redForms[activeRedInvoice.id].issuedAt"
-                type="datetime-local"
-              />
-              <el-input-number
-                v-model="redForms[activeRedInvoice.id].totalCent"
-                :min="1"
-                :max="redRemaining(activeRedInvoice)"
-              />
-              <el-input
-                v-model="redForms[activeRedInvoice.id].reason"
-                placeholder="红冲说明"
-              />
-            </div>
-            <label class="file-label"
-              >真实红票 PDF
-              <input
-                type="file"
-                accept="application/pdf"
-                :disabled="uploadBusy"
-                @change="chooseRedFile(activeRedInvoice.id, $event)"
-              />
-            </label>
-            <el-button
-              data-test="save-red"
-              :disabled="
-                !redForms[activeRedInvoice.id].fileId || command.pending.value
-              "
-              @click="recordRed(activeRedInvoice.id)"
-              >保存实际红票</el-button
-            >
-          </el-card>
+        <div v-if="activeRedInvoice || activeFileInvoice" class="invoice-followups">
+          <section v-if="activeRedInvoice" class="invoice-followup invoice-followup--primary">
+            <header class="invoice-followup__header">
+              <div>
+                <h3>回传红票</h3>
+                <p>
+                  关联蓝票
+                  <strong>{{ activeRedInvoice.invoiceNo || '详见 PDF' }}</strong>
+                </p>
+              </div>
+              <span class="invoice-followup__context">
+                剩余可红冲 ¥{{ money(redRemaining(activeRedInvoice)) }}
+              </span>
+            </header>
 
-          <el-card v-if="activeFileInvoice" class="sub-action">
-            <template #header>补交同一张票据文件</template>
-            <p>仅更换文件引用；不新增票号、不重复确认发票金额或绩效消费。</p>
-            <label class="file-label"
-              >核验后的 PDF
-              <input
-                type="file"
-                accept="application/pdf"
-                :disabled="uploadBusy"
-                @change="chooseReplacementFile(activeFileInvoice.id, $event)"
-              />
-            </label>
-            <el-input
-              v-model="replacementReason"
-              maxlength="500"
-              placeholder="说明原文件无法使用的原因"
-            />
-            <el-button
-              data-test="replace-file"
-              :disabled="!replacementFileId || command.pending.value"
-              @click="replaceFile(activeFileInvoice.id)"
-              >替换票据文件</el-button
-            >
-          </el-card>
+            <div class="invoice-red-form">
+              <label class="invoice-form-field">
+                <span class="invoice-form-field__label"><i>*</i>红票票号</span>
+                <el-input
+                  v-model="redForms[activeRedInvoice.id].invoiceNo"
+                  placeholder="请输入红票票号"
+                  maxlength="64"
+                />
+              </label>
+              <label class="invoice-form-field">
+                <span class="invoice-form-field__label"><i>*</i>开票时间</span>
+                <el-input
+                  v-model="redForms[activeRedInvoice.id].issuedAt"
+                  type="datetime-local"
+                  aria-label="开票时间"
+                />
+              </label>
+              <label class="invoice-form-field">
+                <span class="invoice-form-field__label"><i>*</i>本次红冲金额（元）</span>
+                <el-input-number
+                  :model-value="redAmountYuan(activeRedInvoice.id)"
+                  :min="0.01"
+                  :max="redRemaining(activeRedInvoice) / 100"
+                  :step="0.01"
+                  :precision="2"
+                  controls-position="right"
+                  @update:model-value="updateRedAmountYuan(activeRedInvoice.id, $event)"
+                />
+                <span class="invoice-form-field__hint">
+                  最多可红冲 ¥{{ money(redRemaining(activeRedInvoice)) }}
+                </span>
+              </label>
+              <label class="invoice-form-field">
+                <span class="invoice-form-field__label"><i>*</i>红冲说明</span>
+                <el-input
+                  v-model="redForms[activeRedInvoice.id].reason"
+                  placeholder="说明本次红冲原因"
+                  maxlength="500"
+                />
+              </label>
+            </div>
+
+            <div class="invoice-pdf-field">
+              <div class="invoice-form-field__label"><i>*</i>真实红票 PDF</div>
+              <div class="invoice-pdf-picker">
+                <span class="invoice-pdf-picker__icon" aria-hidden="true">
+                  <el-icon><Document /></el-icon>
+                </span>
+                <span class="invoice-pdf-picker__copy">
+                  <strong :title="redUploadStates[activeRedInvoice.id]?.file?.name">
+                    {{ redUploadStates[activeRedInvoice.id]?.file?.name || '选择红票 PDF' }}
+                  </strong>
+                  <span v-if="uploadBusy" role="status">正在上传并校验…</span>
+                  <span v-else-if="redForms[activeRedInvoice.id].fileId" class="is-success" role="status">
+                    PDF 已上传并校验
+                  </span>
+                  <span v-else>PDF 格式，单个文件不超过 10 MB</span>
+                </span>
+                <label class="invoice-pdf-picker__button" :class="{ 'is-disabled': uploadBusy || command.pending.value }">
+                  {{ redForms[activeRedInvoice.id].fileId ? '更换文件' : '选择文件' }}
+                  <input
+                    data-test="red-file"
+                    type="file"
+                    accept="application/pdf"
+                    aria-label="选择真实红票 PDF"
+                    :disabled="uploadBusy || command.pending.value"
+                    @change="chooseRedFile(activeRedInvoice.id, $event)"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div class="invoice-followup__actions">
+              <el-button
+                data-test="save-red"
+                type="primary"
+                :disabled="!redForms[activeRedInvoice.id].fileId || uploadBusy || command.pending.value"
+                @click="recordRed(activeRedInvoice.id)"
+              >保存实际红票</el-button>
+            </div>
+          </section>
+
+          <section v-if="activeFileInvoice" class="invoice-followup invoice-followup--secondary">
+            <header class="invoice-followup__header">
+              <div>
+                <h3>补交同一张票据文件</h3>
+                <p>仅替换文件引用，不新增票号，也不重复确认发票金额或绩效消费。</p>
+              </div>
+            </header>
+            <div class="invoice-replacement-form">
+              <div class="invoice-form-field">
+                <span class="invoice-form-field__label"><i>*</i>核验后的 PDF</span>
+                <div class="invoice-pdf-picker invoice-pdf-picker--compact">
+                  <span class="invoice-pdf-picker__icon" aria-hidden="true">
+                    <el-icon><Document /></el-icon>
+                  </span>
+                  <span class="invoice-pdf-picker__copy">
+                    <strong :title="replacementUploadState?.file?.name">
+                      {{ replacementUploadState?.file?.name || '选择票据 PDF' }}
+                    </strong>
+                    <span v-if="uploadBusy" role="status">正在上传并校验…</span>
+                    <span v-else-if="replacementFileId" class="is-success" role="status">
+                      PDF 已上传并校验
+                    </span>
+                    <span v-else>PDF 格式，单个文件不超过 10 MB</span>
+                  </span>
+                  <label class="invoice-pdf-picker__button" :class="{ 'is-disabled': uploadBusy || command.pending.value }">
+                    {{ replacementFileId ? '更换文件' : '选择文件' }}
+                    <input
+                      data-test="replacement-file"
+                      type="file"
+                      accept="application/pdf"
+                      aria-label="选择替换票据 PDF"
+                      :disabled="uploadBusy || command.pending.value"
+                      @change="chooseReplacementFile(activeFileInvoice.id, $event)"
+                    />
+                  </label>
+                </div>
+              </div>
+              <label class="invoice-form-field">
+                <span class="invoice-form-field__label"><i>*</i>替换原因</span>
+                <el-input
+                  v-model="replacementReason"
+                  maxlength="500"
+                  placeholder="说明原文件无法使用的原因"
+                />
+              </label>
+            </div>
+            <div class="invoice-followup__actions">
+              <el-button
+                data-test="replace-file"
+                :disabled="!replacementFileId || !replacementReason.trim() || uploadBusy || command.pending.value"
+                @click="replaceFile(activeFileInvoice.id)"
+              >替换票据文件</el-button>
+            </div>
+          </section>
+        </div>
         </el-card>
         <el-alert
           v-if="request.status === 'unknown'"
@@ -418,6 +465,7 @@
     </div>
     <el-dialog
       v-model="billingReleaseOpen"
+      class="mall-management-overlay"
       title="确认查看本申请开票资料"
       :close-on-click-modal="false"
       :close-on-press-escape="false"
@@ -446,10 +494,12 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter } from 'vue-router'
+import { Document } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import * as api from '@/api/mall-invoices'
 import { commandKey, useMallCommand } from '@/composables/useMallCommand'
 import { useExpiringSensitiveData } from '@/composables/useExpiringSensitiveData'
+import { useMallToast } from '@/composables/useMallToast'
 
 const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
@@ -463,11 +513,7 @@ const notice = ref('')
 const noticeType = ref('success')
 const infoReason = ref('')
 const issueForm = reactive({
-  invoiceNo: '',
-  issuedAt: '',
-  sellerIdentity: '',
   fileId: '',
-  reason: '',
   replacementForId: '',
 })
 const redForms = reactive({})
@@ -475,6 +521,9 @@ const replacementReason = ref('')
 const replacementFileId = ref('')
 const uploadBusy = ref(false)
 const uploadError = ref('')
+useMallToast(error)
+useMallToast(notice, () => noticeType.value)
+useMallToast(uploadError)
 const fileBusy = ref('')
 const activeRedInvoiceId = ref('')
 const activeFileInvoiceId = ref('')
@@ -504,6 +553,7 @@ const requestStates = {
 }
 const invoiceStates = {
   valid: '已登记（经办人确认）',
+  pdf_uploaded: 'PDF 已上传',
   red_pending: '待红冲',
   awaiting_counterparty: '待对方确认',
   partially_red: '部分红冲',
@@ -602,6 +652,19 @@ function ensureRedForm(invoice) {
     }
   }
 }
+function openRedInvoice(invoice) {
+  ensureRedForm(invoice)
+  activeRedInvoiceId.value = invoice.id
+}
+function redAmountYuan(invoiceId) {
+  return Number(redForms[invoiceId]?.totalCent || 0) / 100
+}
+function updateRedAmountYuan(invoiceId, value) {
+  const amount = Number(value)
+  redForms[invoiceId].totalCent = Number.isFinite(amount)
+    ? Math.round(amount * 100)
+    : 0
+}
 function redRemaining(invoice) {
   const redeemed = (request.value?.invoices || [])
     .filter(
@@ -623,11 +686,7 @@ function canReplace(invoice) {
 function beginReplacement(invoice) {
   if (!canReissueBlue.value || !canReplace(invoice)) return
   Object.assign(issueForm, {
-    invoiceNo: '',
-    issuedAt: '',
-    sellerIdentity: invoice.sellerIdentity || '',
     fileId: '',
-    reason: '',
     replacementForId: invoice.id,
   })
 }
@@ -792,40 +851,24 @@ async function recordBlue() {
     command.pending.value
   )
     return
-  if (
-    !issueForm.invoiceNo.trim() ||
-    !issueForm.issuedAt ||
-    !issueForm.sellerIdentity.trim()
-  ) {
-    error.value = '请填写票面号码、开具时间和销售主体'
-    return
-  }
   const result = await command.run(api.recordMallInvoice, {
     id: props.id,
     expectedVersion: request.value.version,
-    invoiceNo: issueForm.invoiceNo.trim(),
-    issuedAt: new Date(issueForm.issuedAt).toISOString(),
-    sellerIdentity: issueForm.sellerIdentity.trim(),
     totalCent: issueAmountCent.value,
     fileId: issueForm.fileId,
     ...(issueForm.replacementForId
       ? { replacementForId: issueForm.replacementForId }
       : {}),
-    ...(issueForm.reason.trim() ? { reason: issueForm.reason.trim() } : {}),
   })
   await afterCommand(
     result,
     issueForm.replacementForId
-      ? '已登记替代发票，用户可在申请中下载。'
-      : '已确认并登记发票，用户可在申请中下载。'
+      ? '替代发票 PDF 已登记，用户可在申请中下载。'
+      : '发票 PDF 已登记，用户可在申请中下载。'
   )
   if (result)
     Object.assign(issueForm, {
-      invoiceNo: '',
-      issuedAt: '',
-      sellerIdentity: '',
       fileId: '',
-      reason: '',
       replacementForId: '',
     })
 }
@@ -1012,21 +1055,11 @@ defineExpose({
 </script>
 
 <style scoped>
-.invoice-page {
-  padding: 20px;
-}
-.page-heading,
 .card-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-}
-.page-heading {
-  margin: 12px 0 20px;
-}
-.page-heading h2 {
-  margin: 8px 0 0;
 }
 .facts {
   display: grid;
@@ -1035,23 +1068,22 @@ defineExpose({
   margin: 0;
 }
 .facts dt {
-  color: #6b7280;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
 }
 .facts dd {
   margin: 5px 0 0;
   font-weight: 600;
 }
-.gate-note {
-  color: #9a6700;
-  background: #fff9e8;
-  padding: 10px 12px;
-  border-radius: 4px;
-}
 .action-card,
 .chain-card,
 .sub-action {
   margin-top: 16px;
+}
+.info-request-form {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
 }
 .released-fields {
   display: grid;
@@ -1064,7 +1096,7 @@ defineExpose({
   gap: 12px;
 }
 .released-fields dt {
-  color: #6b7280;
+  color: var(--el-text-color-secondary);
 }
 .released-fields dd {
   margin: 0;
@@ -1075,6 +1107,289 @@ defineExpose({
   grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: 12px;
 }
+.invoice-followups {
+  margin-top: 20px;
+  border-top: 1px solid var(--app-border-color);
+}
+.invoice-followup {
+  min-width: 0;
+  padding: 20px 4px;
+}
+.invoice-followup__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.invoice-followup__header h3 {
+  margin: 0;
+  padding-left: 12px;
+  border-left: 4px solid var(--el-color-primary);
+  color: var(--app-text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.invoice-followup__header p {
+  margin: 0;
+  padding-left: 16px;
+  border-left: 1px solid var(--app-border-color);
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.invoice-followup__header strong {
+  color: var(--el-color-primary);
+  font-weight: 600;
+}
+.invoice-followup__context {
+  flex: 0 0 auto;
+  padding-top: 3px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.invoice-red-form,
+.invoice-replacement-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 28px;
+  row-gap: 16px;
+}
+.invoice-form-field {
+  display: grid;
+  grid-template-columns: minmax(112px, 150px) minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 5px;
+  min-width: 0;
+  color: var(--app-text-regular);
+  font-size: 13px;
+}
+.invoice-form-field__label {
+  grid-column: 1;
+  grid-row: 1;
+  color: var(--app-text-regular);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.invoice-form-field > :deep(.el-input),
+.invoice-form-field > :deep(.el-input-number),
+.invoice-form-field > .invoice-pdf-picker {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+.invoice-form-field > .invoice-pdf-picker {
+  width: 100%;
+}
+.invoice-form-field__label i {
+  margin-right: 3px;
+  color: var(--el-color-danger);
+  font-style: normal;
+}
+.invoice-form-field__hint {
+  grid-column: 2;
+  grid-row: 2;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.invoice-form-field :deep(.el-input-number) {
+  width: 100%;
+}
+.invoice-pdf-field {
+  display: grid;
+  grid-template-columns: minmax(112px, 150px) minmax(0, 1fr);
+  align-items: start;
+  column-gap: 12px;
+  margin-top: 20px;
+}
+.invoice-pdf-field > .invoice-form-field__label {
+  padding-top: 10px;
+}
+.invoice-pdf-picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 68px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px dashed var(--el-border-color);
+  border-radius: var(--app-radius-md);
+  background: #fafbfd;
+}
+.invoice-pdf-picker__icon {
+  display: grid;
+  flex: 0 0 40px;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--app-radius-sm);
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  font-size: 20px;
+}
+.invoice-pdf-picker__copy {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 4px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.invoice-pdf-picker__copy strong {
+  overflow: hidden;
+  color: var(--app-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.invoice-pdf-picker__copy .is-success {
+  color: var(--el-color-success);
+}
+.invoice-pdf-picker__button {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 13px;
+  border: 1px solid var(--app-border-color);
+  border-radius: var(--app-radius-sm);
+  background: var(--el-bg-color);
+  color: var(--app-text-regular);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: border-color var(--app-dur-fast) var(--app-ease), color var(--app-dur-fast) var(--app-ease);
+}
+.invoice-pdf-picker__button:hover {
+  border-color: var(--el-color-primary-light-5);
+  color: var(--el-color-primary);
+}
+.invoice-pdf-picker__button.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.invoice-pdf-picker__button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+.invoice-followup__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+.invoice-followup--secondary {
+  border-top: 1px solid var(--app-border-color);
+}
+.invoice-followup--secondary .invoice-followup__header {
+  margin-bottom: 14px;
+}
+.invoice-followup--secondary .invoice-pdf-picker {
+  margin-top: 0;
+}
+.invoice-pdf-picker--compact {
+  min-height: 48px;
+  padding: 6px 8px;
+  border-style: solid;
+  border-color: var(--app-border-color);
+  background: var(--el-bg-color);
+}
+.invoice-pdf-picker--compact .invoice-pdf-picker__icon {
+  flex-basis: 32px;
+  width: 32px;
+  height: 32px;
+  font-size: 17px;
+}
+.invoice-followup--secondary .invoice-followup__actions {
+  margin-top: 12px;
+}
+.invoice-upload {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.invoice-upload__file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  flex: 0 1 620px;
+  max-width: 100%;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  background: var(--el-fill-color-lighter);
+}
+.invoice-upload__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  font-size: 21px;
+}
+.invoice-upload__copy {
+  display: grid;
+  flex: 1 1 130px;
+  min-width: 0;
+  gap: 4px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+.invoice-upload__copy strong {
+  overflow: hidden;
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.invoice-upload__verified { color: var(--el-color-success); }
+.invoice-upload__picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 6px;
+  background: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+  cursor: pointer;
+}
+.invoice-upload__picker:focus-within {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}
+.invoice-upload__picker.is-disabled { opacity: 0.55; cursor: not-allowed; }
+.invoice-upload__picker input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.invoice-upload__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.invoice-upload__actions :deep(.el-button + .el-button) { margin-left: 0; }
 .file-label {
   display: inline-flex;
   flex-direction: column;
@@ -1082,7 +1397,7 @@ defineExpose({
   margin: 10px 14px 10px 0;
 }
 .file-state {
-  color: #217346;
+  color: var(--el-color-success);
   margin-right: 12px;
 }
 .reason {
@@ -1092,8 +1407,52 @@ defineExpose({
 }
 @media (max-width: 800px) {
   .facts,
-  .form-grid {
+  .form-grid,
+  .invoice-red-form,
+  .invoice-replacement-form {
     grid-template-columns: 1fr;
+  }
+  .invoice-followup__context {
+    white-space: normal;
+    text-align: right;
+  }
+}
+@media (max-width: 560px) {
+  .invoice-followup__header {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .invoice-followup__context {
+    text-align: left;
+  }
+  .invoice-pdf-picker {
+    flex-wrap: wrap;
+  }
+  .invoice-form-field,
+  .invoice-pdf-field {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 7px;
+  }
+  .invoice-form-field__label,
+  .invoice-form-field > :deep(.el-input),
+  .invoice-form-field > :deep(.el-input-number),
+  .invoice-form-field > .invoice-pdf-picker,
+  .invoice-form-field__hint,
+  .invoice-pdf-field > .invoice-form-field__label {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .invoice-pdf-field > .invoice-form-field__label {
+    padding-top: 0;
+  }
+  .invoice-form-field__hint {
+    margin-top: -3px;
+  }
+  .invoice-pdf-picker__button {
+    margin-left: 52px;
+  }
+  .invoice-followup__actions :deep(.el-button) {
+    width: 100%;
   }
 }
 </style>

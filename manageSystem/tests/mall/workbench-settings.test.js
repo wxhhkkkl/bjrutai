@@ -26,7 +26,7 @@ const settings = {
   purchaseEnabled: false,
   freightMode: 'fixed',
   freightCent: 1500,
-  blockedRegionCodes: ['110101'],
+  defaultBlockedRegionCodes: ['110101'],
   paymentMinutes: 30,
   autoReceiveDays: 7,
   aftersaleDays: 7,
@@ -75,10 +75,18 @@ it('shows only actionable, permission-scoped workbench items and routes to exist
   ])
   await flushPromises()
 
-  expect(wrapper.get('[data-test="work-item-pendingShipment"]').text()).toContain('3')
-  expect(wrapper.get('[data-test="work-item-paymentUnknown"]').text()).toContain('2')
-  expect(wrapper.find('[data-test="work-item-pendingAftersale"]').exists()).toBe(false)
-  expect(wrapper.find('[data-test="work-item-unassigned"]').exists()).toBe(false)
+  expect(
+    wrapper.get('[data-test="work-item-pendingShipment"]').text()
+  ).toContain('3')
+  expect(
+    wrapper.get('[data-test="work-item-paymentUnknown"]').text()
+  ).toContain('2')
+  expect(
+    wrapper.find('[data-test="work-item-pendingAftersale"]').exists()
+  ).toBe(false)
+  expect(wrapper.find('[data-test="work-item-unassigned"]').exists()).toBe(
+    false
+  )
   await wrapper.get('[data-test="work-link-paymentUnknown"]').trigger('click')
   expect(routerMocks.push).toHaveBeenCalledWith('/mall/payments')
   wrapper.unmount()
@@ -89,17 +97,24 @@ it('keeps failed workbench reads explicit instead of displaying zero counts', as
   const wrapper = page(Workbench, ['mall.orders.read'])
   await flushPromises()
 
-  expect(wrapper.get('[data-test="workbench-error"]').text()).toContain('工作台暂不可用')
+  expect(wrapper.get('[data-test="workbench-error"]').text()).toContain(
+    '工作台暂不可用'
+  )
   expect(wrapper.find('[data-test="workbench-summary"]').exists()).toBe(false)
   await wrapper.get('[data-test="workbench-reload"]').trigger('click')
   await flushPromises()
   expect(wrapper.find('[data-test="workbench-error"]').exists()).toBe(false)
-  expect(wrapper.get('[data-test="work-item-pendingShipment"]').text()).toContain('3')
+  expect(
+    wrapper.get('[data-test="work-item-pendingShipment"]').text()
+  ).toContain('3')
   wrapper.unmount()
 })
 
 it('saves versioned trade settings and hides writes from read-only staff', async () => {
-  const wrapper = page(TradeSettings, ['mall.settings.read', 'mall.settings.write'])
+  const wrapper = page(TradeSettings, [
+    'mall.settings.read',
+    'mall.settings.write',
+  ])
   await flushPromises()
 
   await wrapper.get('[data-test="purchase-enabled"]').trigger('click')
@@ -120,7 +135,9 @@ it('saves versioned trade settings and hides writes from read-only staff', async
   const reader = page(TradeSettings, ['mall.settings.read'])
   await flushPromises()
   expect(reader.find('[data-test="save-trade-settings"]').exists()).toBe(false)
-  expect(reader.find('[data-test="purchase-enabled"]').classes()).toContain('is-disabled')
+  expect(reader.find('[data-test="purchase-enabled"]').classes()).toContain(
+    'is-disabled'
+  )
   reader.unmount()
 })
 
@@ -128,7 +145,10 @@ it('retries the original settings body and idempotency key after an unknown save
   api.saveMallSettings
     .mockRejectedValueOnce(new Error('连接中断'))
     .mockResolvedValueOnce({ ...settings, version: 5, purchaseEnabled: true })
-  const wrapper = page(TradeSettings, ['mall.settings.read', 'mall.settings.write'])
+  const wrapper = page(TradeSettings, [
+    'mall.settings.read',
+    'mall.settings.write',
+  ])
   await flushPromises()
   await wrapper.get('[data-test="purchase-enabled"]').trigger('click')
   await wrapper.get('[data-test="settings-reason"]').setValue('重试一致性检查')
@@ -138,7 +158,7 @@ it('retries the original settings body and idempotency key after an unknown save
   const original = api.saveMallSettings.mock.calls[0]
   expect(wrapper.get('[data-test="retry-settings"]').exists()).toBe(true)
 
-  await wrapper.get('[data-test="freight-yuan"]').setValue('27.50')
+  await wrapper.get('[data-test="settings-reason"]').setValue('重试时修改原因')
   await wrapper.get('[data-test="retry-settings"]').trigger('click')
   await flushPromises()
 
@@ -148,7 +168,10 @@ it('retries the original settings body and idempotency key after an unknown save
 })
 
 it('requires an explicit address replacement and never resends the untouched masked address', async () => {
-  const wrapper = page(DeliverySettings, ['mall.settings.read', 'mall.settings.write'])
+  const wrapper = page(DeliverySettings, [
+    'mall.settings.read',
+    'mall.settings.write',
+  ])
   await flushPromises()
 
   expect(wrapper.text()).toContain('已配置')
@@ -159,7 +182,9 @@ it('requires an explicit address replacement and never resends the untouched mas
   await wrapper.get('[data-test="replace-dispatch"] input').setValue(true)
   await wrapper.get('[data-test="dispatch-name"]').setValue('仓库联系人')
   await wrapper.get('[data-test="dispatch-phone"]').setValue('13800138000')
-  await wrapper.get('[data-test="dispatch-address-line"]').setValue('东城区示例路 1 号')
+  await wrapper
+    .get('[data-test="dispatch-address-line"]')
+    .setValue('东城区示例路 1 号')
   await wrapper.get('[data-test="dispatch-region-0"]').setValue('110000')
   await wrapper.get('[data-test="dispatch-region-1"]').setValue('110100')
   await wrapper.get('[data-test="dispatch-region-2"]').setValue('110101')
@@ -183,7 +208,9 @@ it('does not expose address or trade mutation controls without settings.write', 
   const wrapper = page(DeliverySettings, ['mall.settings.read'])
   await flushPromises()
   expect(wrapper.find('[data-test="replace-dispatch"]').exists()).toBe(false)
-  expect(wrapper.find('[data-test="save-delivery-settings"]').exists()).toBe(false)
+  expect(wrapper.find('[data-test="save-delivery-settings"]').exists()).toBe(
+    false
+  )
   expect(wrapper.text()).toContain('仅可查看')
   wrapper.unmount()
 })

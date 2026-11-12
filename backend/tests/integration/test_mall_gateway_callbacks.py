@@ -1,16 +1,15 @@
-"""WeChat Pay callbacks ACK only after a verified inbox and work item commit."""
+"""WeChat Pay APIv2 callbacks ACK only after a verified inbox and work item commit."""
 
 import base64
-import json
-import time
+import hashlib
 
 import pytest
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.padding import PKCS7
 from sqlalchemy import func, select
 
 from src.core.config import get_settings
+from src.integrations.wechat_pay_crypto import build_v2_xml, parse_v2_xml, sign_v2
 from src.models.mall_finance import MallPayment, MallRefund
 from src.models.mall_operations import MallGatewayEvent, MallJob
 from src.tasks.mall_tasks import run_mall_worker_once
@@ -18,75 +17,87 @@ from tests.conftest import TestAsyncSession
 from tests.unit.test_mall_payment_service import payable
 from tests.unit.test_mall_refund_service import refund_ready
 
-API_V3_KEY = "0123456789abcdef0123456789abcdef"
-PUBLIC_KEY_ID = "PUB_KEY_ID_3000000001"
+API_V2_KEY = "0123456789abcdef0123456789abcdef"
+XML_HEADERS = {"Content-Type": "text/xml"}
 
 
 @pytest.fixture
 def callback_keys(monkeypatch):
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    public_pem = private_key.public_key().public_bytes(
-        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
-    ).decode()
     settings = get_settings()
     monkeypatch.setattr(settings, "mall_gateway_callback_enabled", True, raising=False)
-    monkeypatch.setattr(settings, "mall_wechat_api_v3_key", API_V3_KEY, raising=False)
-    monkeypatch.setattr(settings, "mall_wechat_verify_keys", {PUBLIC_KEY_ID: public_pem})
-    return private_key
+    monkeypatch.setattr(settings, "mall_wechat_api_v2_key", API_V2_KEY, raising=False)
+    monkeypatch.setattr(settings, "mall_wechat_api_v2_sign_type", "MD5", raising=False)
+    monkeypatch.setattr(settings, "wechat_app_id", "wx-test", raising=False)
+    monkeypatch.setattr(settings, "mall_wechat_mchid", "test-merchant", raising=False)
+    return API_V2_KEY
 
 
-def signed_notification(private_key, *, event_id, event_type, original_type, fact, summary="通知"):
-    nonce = "123456789012"
-    associated_data = ""
-    plaintext = json.dumps(fact, ensure_ascii=False, separators=(",", ":")).encode()
-    ciphertext = AESGCM(API_V3_KEY.encode()).encrypt(
-        nonce.encode(), plaintext, associated_data.encode()
+def _envelope(payload, *, sign=True):
+    params = {"return_code": "SUCCESS", "nonce_str": "123456789012", **payload}
+    if sign:
+        params["sign_type"] = "MD5"
+        params["sign"] = sign_v2(params, API_V2_KEY, "MD5")
+    return build_v2_xml(params)
+
+
+def payment_notification(payment, order, *, sign=True, total_adjust=0):
+    return _envelope(
+        {
+            "appid": payment.appid_snapshot,
+            "mch_id": payment.mchid_snapshot,
+            "out_trade_no": payment.out_trade_no,
+            "transaction_id": "synthetic-channel-id",
+            "trade_state": "SUCCESS",
+            "result_code": "SUCCESS",
+            "total_fee": str(order.payable_amount_cent + total_adjust),
+            "cash_fee": str(order.payable_amount_cent + total_adjust),
+            "fee_type": "CNY",
+            "time_end": "20261109100000",
+            "openid": "payment-test-openid",
+        },
+        sign=sign,
     )
-    envelope = {
-        "id": event_id,
-        "create_time": "2026-11-09T10:00:00+08:00",
-        "event_type": event_type,
-        "resource_type": "encrypt-resource",
-        "summary": summary,
-        "resource": {
-            "original_type": original_type,
-            "algorithm": "AEAD_AES_256_GCM",
-            "ciphertext": base64.b64encode(ciphertext).decode(),
-            "associated_data": associated_data,
-            "nonce": nonce,
-        },
-    }
-    body = json.dumps(envelope, ensure_ascii=False, separators=(",", ":")).encode()
-    timestamp, header_nonce = str(int(time.time())), "signed-callback-nonce"
-    message = timestamp.encode() + b"\n" + header_nonce.encode() + b"\n" + body + b"\n"
-    signature = base64.b64encode(
-        private_key.sign(message, padding.PKCS1v15(), hashes.SHA256())
-    ).decode()
-    return body, {
-        "Wechatpay-Serial": PUBLIC_KEY_ID,
-        "Wechatpay-Timestamp": timestamp,
-        "Wechatpay-Nonce": header_nonce,
-        "Wechatpay-Signature": signature,
-        "Content-Type": "application/json",
-    }
 
 
-def payment_payload(payment, order):
-    return {
-        "appid": payment.appid_snapshot,
-        "mchid": payment.mchid_snapshot,
+def _encrypt_req_info(plaintext: bytes) -> str:
+    aes_key = hashlib.md5(API_V2_KEY.encode()).hexdigest().encode("ascii")
+    encryptor = Cipher(algorithms.AES(aes_key), modes.ECB()).encryptor()
+    padder = PKCS7(algorithms.AES.block_size).padder()
+    padded = padder.update(plaintext) + padder.finalize()
+    return base64.b64encode(encryptor.update(padded) + encryptor.finalize()).decode()
+
+
+def refund_notification(refund, payment, *, status="SUCCESS"):
+    refund_status = {"SUCCESS": "SUCCESS", "CLOSED": "REFUNDCLOSE", "ABNORMAL": "CHANGE"}[status]
+    req_info = {
+        "out_refund_no": refund.out_refund_no,
         "out_trade_no": payment.out_trade_no,
-        "transaction_id": "synthetic-channel-id",
-        "trade_state": "SUCCESS",
-        "success_time": "2026-11-09T10:00:00+08:00",
-        "amount": {
-            "total": order.payable_amount_cent,
-            "payer_total": order.payable_amount_cent,
-            "currency": "CNY",
-            "payer_currency": "CNY",
-        },
-        "payer": {"openid": "payment-test-openid"},
+        "transaction_id": payment.channel_transaction_id,
+        "refund_id": "synthetic-refund-id",
+        "refund_fee": str(refund.total_cent),
+        "total_fee": str(payment.amount_cent),
+        "refund_status": refund_status,
     }
+    if status == "SUCCESS":
+        req_info["success_time"] = "2026-11-09 10:00:00"
+    return _envelope(
+        {
+            "appid": payment.appid_snapshot,
+            "mch_id": payment.mchid_snapshot,
+            "req_info": _encrypt_req_info(build_v2_xml(req_info)),
+        },
+        sign=False,
+    )
+
+
+def ack_success(response):
+    assert response.status_code == 200
+    assert parse_v2_xml(response.content)["return_code"] == "SUCCESS"
+
+
+def ack_failure(response):
+    assert response.status_code == 200
+    assert parse_v2_xml(response.content)["return_code"] == "FAIL"
 
 
 @pytest.mark.asyncio
@@ -94,25 +105,19 @@ async def test_payment_callback_commits_event_and_worker_applies_payment(
     client, db_session, monkeypatch, callback_keys
 ):
     _, order, _, payment = await payable(db_session, monkeypatch)
-    body, headers = signed_notification(
-        callback_keys,
-        event_id="payment-event-001",
-        event_type="TRANSACTION.SUCCESS",
-        original_type="transaction",
-        fact=payment_payload(payment, order),
-    )
+    body = payment_notification(payment, order)
 
     response = await client.post(
-        "/api/v1/mall-gateway/wechat/payment-notify", content=body, headers=headers
+        "/api/v1/mall-gateway/wechat/payment-notify", content=body, headers=XML_HEADERS
     )
-    assert response.status_code == 204 and response.content == b""
+    ack_success(response)
 
     async with TestAsyncSession() as committed:
         event = await committed.scalar(select(MallGatewayEvent))
         job = await committed.scalar(select(MallJob).where(MallJob.kind == "gateway_event_apply"))
         assert event and event.status == "pending" and event.payload_ciphertext
         assert job and job.status == "ready" and job.entity_id == event.id
-        assert event.payload_ciphertext != body  # Store only the encrypted resource object.
+        assert event.payload_ciphertext != body  # Store a normalized fact, never the raw XML.
 
     from src.services.mall_gateway_callback_service import wechat_callback_handlers
 
@@ -135,17 +140,11 @@ async def test_failed_callback_worker_retries_and_recovers_the_committed_event(
     client, db_session, monkeypatch, callback_keys
 ):
     _, order, _, payment = await payable(db_session, monkeypatch)
-    body, headers = signed_notification(
-        callback_keys,
-        event_id="payment-event-worker-retry",
-        event_type="TRANSACTION.SUCCESS",
-        original_type="transaction",
-        fact=payment_payload(payment, order),
-    )
+    body = payment_notification(payment, order)
     response = await client.post(
-        "/api/v1/mall-gateway/wechat/payment-notify", content=body, headers=headers
+        "/api/v1/mall-gateway/wechat/payment-notify", content=body, headers=XML_HEADERS
     )
-    assert response.status_code == 204
+    ack_success(response)
 
     from src.services import mall_payment_facts_service
     from src.services.mall_gateway_callback_service import wechat_callback_handlers
@@ -197,31 +196,12 @@ async def test_refund_callback_replays_safely_and_completes_original_refund(
         key="callback-refund-execute-001",
     )
     await db_session.commit()
-    fact = {
-        "out_refund_no": refund.out_refund_no,
-        "out_trade_no": payment.out_trade_no,
-        "transaction_id": payment.channel_transaction_id,
-        "refund_id": "synthetic-refund-id",
-        "status": "SUCCESS",
-        "success_time": "2026-11-09T10:00:00+08:00",
-        "amount": {
-            "total": payment.amount_cent,
-            "refund": refund.total_cent,
-            "currency": "CNY",
-        },
-    }
-    body, headers = signed_notification(
-        callback_keys,
-        event_id="refund-event-001",
-        event_type="REFUND.SUCCESS",
-        original_type="refund",
-        fact=fact,
-    )
+    body = refund_notification(refund, payment)
     path = "/api/v1/mall-gateway/wechat/refund-notify"
-    first = await client.post(path, content=body, headers=headers)
-    replay = await client.post(path, content=body, headers=headers)
-    assert first.status_code == replay.status_code == 204
-    assert first.content == replay.content == b""
+    first = await client.post(path, content=body, headers=XML_HEADERS)
+    replay = await client.post(path, content=body, headers=XML_HEADERS)
+    ack_success(first)
+    ack_success(replay)
 
     assert await db_session.scalar(select(func.count()).select_from(MallGatewayEvent)) == 1
     assert await db_session.scalar(
@@ -239,26 +219,9 @@ async def test_refund_callback_replays_safely_and_completes_original_refund(
         updated = await settled.get(MallRefund, refund.id)
         assert updated.status == "succeeded"
 
-    stale_fact = {
-        "out_refund_no": refund.out_refund_no,
-        "out_trade_no": payment.out_trade_no,
-        "transaction_id": payment.channel_transaction_id,
-        "status": "CLOSED",
-        "amount": {
-            "total": payment.amount_cent,
-            "refund": refund.total_cent,
-            "currency": "CNY",
-        },
-    }
-    stale_body, stale_headers = signed_notification(
-        callback_keys,
-        event_id="refund-event-delayed-closed",
-        event_type="REFUND.CLOSED",
-        original_type="refund",
-        fact=stale_fact,
-    )
-    stale_response = await client.post(path, content=stale_body, headers=stale_headers)
-    assert stale_response.status_code == 204
+    stale = refund_notification(refund, payment, status="CLOSED")
+    stale_response = await client.post(path, content=stale, headers=XML_HEADERS)
+    ack_success(stale_response)
     assert await run_mall_worker_once(
         TestAsyncSession,
         handlers=wechat_callback_handlers(TestAsyncSession),
@@ -275,15 +238,15 @@ async def test_refund_callback_replays_safely_and_completes_original_refund(
 
 
 @pytest.mark.parametrize(
-    ("event_type", "status", "expected_status"),
+    ("status", "expected_status"),
     [
-        ("REFUND.CLOSED", "CLOSED", "closed"),
-        ("REFUND.ABNORMAL", "ABNORMAL", "abnormal"),
+        ("CLOSED", "closed"),
+        ("ABNORMAL", "abnormal"),
     ],
 )
 @pytest.mark.asyncio
 async def test_refund_callback_applies_closed_and_abnormal_states_without_calling_them_success(
-    client, db_session, monkeypatch, callback_keys, event_type, status, expected_status
+    client, db_session, monkeypatch, callback_keys, status, expected_status
 ):
     finance, order, aftersale, _, _, payment = await refund_ready(db_session, monkeypatch)
     from src.schemas.mall_catalog import VersionAction
@@ -297,28 +260,11 @@ async def test_refund_callback_applies_closed_and_abnormal_states_without_callin
         key=f"callback-refund-{status.lower()}-001",
     )
     await db_session.commit()
-    fact = {
-        "out_refund_no": refund.out_refund_no,
-        "out_trade_no": payment.out_trade_no,
-        "transaction_id": payment.channel_transaction_id,
-        "status": status,
-        "amount": {
-            "total": payment.amount_cent,
-            "refund": refund.total_cent,
-            "currency": "CNY",
-        },
-    }
-    body, headers = signed_notification(
-        callback_keys,
-        event_id=f"refund-event-{status.lower()}-001",
-        event_type=event_type,
-        original_type="refund",
-        fact=fact,
-    )
+    body = refund_notification(refund, payment, status=status)
     response = await client.post(
-        "/api/v1/mall-gateway/wechat/refund-notify", content=body, headers=headers
+        "/api/v1/mall-gateway/wechat/refund-notify", content=body, headers=XML_HEADERS
     )
-    assert response.status_code == 204
+    ack_success(response)
 
     from src.services.mall_gateway_callback_service import wechat_callback_handlers
 
@@ -343,19 +289,20 @@ async def test_normal_mall_api_still_uses_the_project_response_envelope(client):
 
 @pytest.mark.asyncio
 async def test_callback_signature_failure_never_creates_event(client, db_session, callback_keys):
-    body, headers = signed_notification(
-        callback_keys,
-        event_id="bad-signature-event",
-        event_type="TRANSACTION.SUCCESS",
-        original_type="transaction",
-        fact={"placeholder": True},
+    body = _envelope(
+        {
+            "appid": "wx-test",
+            "mch_id": "test-merchant",
+            "out_trade_no": "NOT-EXISTING",
+            "total_fee": "100",
+            "result_code": "SUCCESS",
+        },
+        sign=False,
     )
-    headers["Wechatpay-Signature"] = base64.b64encode(b"not-a-signature").decode()
     response = await client.post(
-        "/api/v1/mall-gateway/wechat/payment-notify", content=body, headers=headers
+        "/api/v1/mall-gateway/wechat/payment-notify", content=body, headers=XML_HEADERS
     )
-    assert response.status_code in {400, 401, 403}
-    assert response.json()["code"] == "FAIL"
+    ack_failure(response)
     assert await db_session.scalar(select(func.count()).select_from(MallGatewayEvent)) == 0
 
 
@@ -364,21 +311,11 @@ async def test_callback_never_acks_a_signed_payment_with_mismatched_amount(
     client, db_session, monkeypatch, callback_keys
 ):
     _, order, _, payment = await payable(db_session, monkeypatch)
-    fact = payment_payload(payment, order)
-    fact["amount"]["total"] += 1
-    fact["amount"]["payer_total"] += 1
-    body, headers = signed_notification(
-        callback_keys,
-        event_id="payment-event-wrong-amount",
-        event_type="TRANSACTION.SUCCESS",
-        original_type="transaction",
-        fact=fact,
-    )
+    body = payment_notification(payment, order, total_adjust=1)
     response = await client.post(
-        "/api/v1/mall-gateway/wechat/payment-notify", content=body, headers=headers
+        "/api/v1/mall-gateway/wechat/payment-notify", content=body, headers=XML_HEADERS
     )
-    assert response.status_code == 400
-    assert response.json()["code"] == "FAIL"
+    ack_failure(response)
     assert await db_session.scalar(select(func.count()).select_from(MallGatewayEvent)) == 0
 
 
@@ -387,22 +324,15 @@ async def test_callback_skips_process_local_idempotency_cache_and_reverifies_sig
     client, db_session, monkeypatch, callback_keys
 ):
     _, order, _, payment = await payable(db_session, monkeypatch)
-    body, headers = signed_notification(
-        callback_keys,
-        event_id="payment-event-cache-check",
-        event_type="TRANSACTION.SUCCESS",
-        original_type="transaction",
-        fact=payment_payload(payment, order),
-    )
-    headers["Idempotency-Key"] = "provider-callback-cache-key-001"
+    body = payment_notification(payment, order)
+    headers = {"Content-Type": "text/xml", "Idempotency-Key": "provider-callback-cache-key-001"}
     path = "/api/v1/mall-gateway/wechat/payment-notify"
     accepted = await client.post(path, content=body, headers=headers)
-    assert accepted.status_code == 204
+    ack_success(accepted)
 
-    headers["Wechatpay-Signature"] = base64.b64encode(b"bad-signature").decode()
-    rejected = await client.post(path, content=body, headers=headers)
-    assert rejected.status_code == 400
-    assert rejected.json()["code"] == "FAIL"
+    tampered = payment_notification(payment, order, sign=False)
+    rejected = await client.post(path, content=tampered, headers=headers)
+    ack_failure(rejected)
     assert await db_session.scalar(select(func.count()).select_from(MallGatewayEvent)) == 1
 
 
@@ -411,13 +341,9 @@ async def test_callback_persistence_failure_returns_retryable_failure_not_succes
     client, db_session, monkeypatch, callback_keys
 ):
     _, order, _, payment = await payable(db_session, monkeypatch)
-    body, headers = signed_notification(
-        callback_keys,
-        event_id="payment-event-commit-failure",
-        event_type="TRANSACTION.SUCCESS",
-        original_type="transaction",
-        fact=payment_payload(payment, order),
-    )
+    body = payment_notification(payment, order)
+    headers = {"Content-Type": "text/xml"}
+    path = "/api/v1/mall-gateway/wechat/payment-notify"
 
     original_commit = db_session.commit
 
@@ -425,20 +351,15 @@ async def test_callback_persistence_failure_returns_retryable_failure_not_succes
         raise RuntimeError("synthetic transaction commit failure")
 
     monkeypatch.setattr(db_session, "commit", fail_commit)
-    response = await client.post(
-        "/api/v1/mall-gateway/wechat/payment-notify", content=body, headers=headers
-    )
-    assert response.status_code == 500
-    assert response.json()["code"] == "FAIL"
+    response = await client.post(path, content=body, headers=headers)
+    ack_failure(response)
 
     # A failed commit can be ambiguous at the storage boundary. The provider
     # must be able to retry the same event, and intake must repair the job
     # without duplicating the durable inbox record.
     monkeypatch.setattr(db_session, "commit", original_commit)
-    retry = await client.post(
-        "/api/v1/mall-gateway/wechat/payment-notify", content=body, headers=headers
-    )
-    assert retry.status_code == 204
+    retry = await client.post(path, content=body, headers=headers)
+    ack_success(retry)
     assert await db_session.scalar(select(func.count()).select_from(MallGatewayEvent)) == 1
     assert await db_session.scalar(
         select(func.count()).select_from(MallJob).where(MallJob.kind == "gateway_event_apply")

@@ -18,7 +18,7 @@ from ..models.mall_catalog import MallSku
 from ..models.mall_operations import MallSettings
 from ..schemas.mall_checkout import QuoteRequest
 from .mall_address_service import audit_address, owned_address, serialize_address
-from .mall_cart_service import cart_item_state
+from .mall_cart_service import _cart_cover_url, cart_item_state
 from .mall_command_service import canonical_payload_hash
 from .mall_settings_service import get_mall_settings, require_mall_purchase_open
 
@@ -82,7 +82,7 @@ def _decode(actor, token):
         raise ConflictException(message="报价已过期或无效，请重新确认") from exc
 
 
-async def _facts(db, actor, body, *, reserve_stock=False):
+async def _facts(db, actor, body, *, reserve_stock=False, include_media=False):
     async def current(model, identity, *, write=False):
         return (
             await db.execute(
@@ -101,21 +101,10 @@ async def _facts(db, actor, body, *, reserve_stock=False):
     policy = settings.policy_versions.get("policy")
     if not policy:
         raise ConflictException(message="配送售后规则尚未配置")
-    address = await owned_address(db, actor, int(body.address_id), lock=True)
-    consent = await current(ConsentRecord, address.consent_record_id)
-    if (
-        consent is None
-        or consent.user_id != actor.actor_id
-        or not consent.confirmed
-        or consent.status != "active"
-        or consent.scopes.get("mall_address") is not True
-        or (consent.expires_at and consent.expires_at <= utc_now())
-    ):
-        raise ConflictException(message="收货资料告知已失效，请重新保存地址")
-    regions = [address.province_code, address.city_code, address.district_code]
-    if set(regions) & set(settings.blocked_regions):
-        raise ConflictException(message="当前地区不配送，请选择其他地址")
     lines, versions = [], []
+    cover_urls = {}
+    freight_ids = set()
+    delivery_methods = set()
     # Canonical ordering gives the later order writer a fixed SKU lock order.
     for item in sorted(body.items, key=lambda item: int(item.sku_id)):
         sku = await current(MallSku, int(item.sku_id), write=reserve_stock)
@@ -131,20 +120,36 @@ async def _facts(db, actor, body, *, reserve_stock=False):
                 "insufficient_stock": "商品库存不足",
             }[reason]
             raise ConflictException(message=f"{message}，请重新确认")
+        delivery_method = (
+            "virtual"
+            if product.product_type == "virtual" or product.delivery_method == "virtual"
+            else product.delivery_method or "express"
+        )
+        if delivery_method == "pickup":
+            raise ConflictException(message="当前商城暂不支持用户自提")
+        delivery_methods.add(delivery_method)
+        if delivery_method == "express":
+            freight_ids.add(product.freight_template_id or "default")
         amount = sku.sale_price_cent * item.quantity
         if not 0 < amount <= MAX_CENT:
             raise ConflictException(message="商品金额超出范围")
-        lines.append(
-            {
-                "skuId": str(sku.id),
-                "productName": product.name,
-                "optionsText": " / ".join(f"{k}：{v}" for k, v in sku.options.items()),
-                "quantity": item.quantity,
-                "unitPriceCent": sku.sale_price_cent,
-                "lineAmountCent": amount,
-                "skuVersion": sku.version,
-            }
-        )
+        line = {
+            "skuId": str(sku.id),
+            "productName": product.name,
+            "optionsText": " / ".join(f"{k}：{v}" for k, v in sku.options.items()),
+            "quantity": item.quantity,
+            "unitPriceCent": sku.sale_price_cent,
+            "lineAmountCent": amount,
+            "skuVersion": sku.version,
+            "productType": product.product_type,
+            "deliveryMethod": delivery_method,
+        }
+        if include_media:
+            product_key = str(product.id)
+            if product_key not in cover_urls:
+                cover_urls[product_key] = await _cart_cover_url(db, product)
+            line["coverUrl"] = cover_urls[product_key]
+        lines.append(line)
         versions.append(
             {
                 "sku": sku.id,
@@ -153,41 +158,88 @@ async def _facts(db, actor, body, *, reserve_stock=False):
                 "productVersion": product.version,
             }
         )
+    if len(delivery_methods) != 1:
+        raise ConflictException(message="虚拟商品与实物商品请分开下单")
+    delivery_method = next(iter(delivery_methods))
+    address = None
+    regions = []
+    if delivery_method == "virtual":
+        if body.address_id:
+            raise ConflictException(message="虚拟商品无需选择收货地址，请重新报价")
+    else:
+        if not body.address_id:
+            raise ConflictException(message="请先选择收货地址")
+        address = await owned_address(db, actor, int(body.address_id), lock=True)
+        consent = await current(ConsentRecord, address.consent_record_id)
+        if (
+            consent is None
+            or consent.user_id != actor.actor_id
+            or not consent.confirmed
+            or consent.status != "active"
+            or consent.scopes.get("mall_address") is not True
+            or (consent.expires_at and consent.expires_at <= utc_now())
+        ):
+            raise ConflictException(message="收货资料告知已失效，请重新保存地址")
+        regions = [address.province_code, address.city_code, address.district_code]
     goods = sum(line["lineAmountCent"] for line in lines)
-    freight = 0 if settings.freight_mode == "free" else settings.freight_cent
+    templates = {item["id"]: item for item in settings.freight_templates or []}
+    templates["default"] = {
+        "freightMode": settings.freight_mode,
+        "freightCent": settings.freight_cent,
+        "blockedRegionCodes": settings.blocked_regions,
+    }
+    if not freight_ids <= templates.keys():
+        raise ConflictException(message="商品运费模板已失效，请联系商家")
+    blocked_regions = set()
+    for key in freight_ids:
+        blocked_regions.update(templates[key].get("blockedRegionCodes", []))
+    if address and set(regions) & blocked_regions:
+        raise ConflictException(message="所选商品的运费模板不支持配送到当前地区")
+    freight = sum(
+        templates[key]["freightCent"] for key in freight_ids
+        if templates[key]["freightMode"] == "fixed"
+    )
     if not 0 < goods + freight <= MAX_CENT:
         raise ConflictException(message="订单金额超出范围")
-    # Only this digest goes in the signed token; no recipient or phone is embedded.
+    # Sign purchase facts only; omit cover links and recipient PII.
     digest = canonical_payload_hash(
         {
-            "addressVersion": address.version,
-            "address": {
+            "addressVersion": address.version if address else None,
+            "address": ({
                 "recipient": address.recipient_name,
                 "phone": address.phone,
                 "regions": regions,
                 "line": address.address_line,
-            },
+            } if address else None),
+            "deliveryMethod": delivery_method,
             "settingsVersion": settings.version,
             "policy": policy,
             "freight": freight,
             "versions": versions,
-            "lines": lines,
+            "lines": [
+                {key: value for key, value in line.items() if key != "coverUrl"}
+                for line in lines
+            ],
         }
     )
-    audit_address(db, actor, "mall_address_quote", address.id, address.version)
+    if address:
+        audit_address(db, actor, "mall_address_quote", address.id, address.version)
     return {
         "goodsAmountCent": goods,
         "freightAmountCent": freight,
         "payableAmountCent": goods + freight,
-        "address": serialize_address(address),
+        "address": serialize_address(address) if address else None,
+        "deliveryMethod": delivery_method,
+        "requiresAddress": delivery_method != "virtual",
         "policyVersion": policy,
+        **({"blockedRegionCodes": sorted(blocked_regions)} if reserve_stock else {}),
         "changes": [],
         "items": lines,
     }, digest
 
 
 async def quote_order(db, actor, body):
-    result, digest = await _facts(db, actor, body)
+    result, digest = await _facts(db, actor, body, include_media=True)
     return {
         **result,
         "quoteToken": _token(actor, body, digest),

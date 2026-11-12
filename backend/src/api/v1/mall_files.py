@@ -2,10 +2,11 @@
 
 import uuid
 from datetime import timedelta
+from hashlib import sha256
 from typing import Literal
 
 import httpx
-from fastapi import APIRouter, Depends, Header, Path
+from fastapi import APIRouter, Depends, Header, Path, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -179,6 +180,7 @@ def build_file_router(prefix, buyer_dep, write_dep, read_dep, admin=False):
         "/{fileId}/verify", operation_id="verifyAdminMallFile" if admin else "verifyBuyerMallFile"
     )
     async def verify(
+        request: Request,
         file_id: int = Path(alias="fileId", gt=0),
         key: str = Header(alias="Idempotency-Key", min_length=16, max_length=128),
         actor: MallActor = Depends(write_dep),
@@ -192,6 +194,18 @@ def build_file_router(prefix, buyer_dep, write_dep, read_dep, admin=False):
             if file.owner_actor_id != actor.actor_id or file.owner_actor_type != actor.actor_type:
                 raise ForbiddenException(message="只能核验本人文件")
             require_file_write_purpose(actor, file.purpose)
+            content = None
+            if request.headers.get("content-type", "").split(";", 1)[0] == "application/pdf":
+                if not admin or file.purpose != "invoice_pdf":
+                    raise ForbiddenException(message="此文件用途不支持代传发票PDF")
+                pdf = bytearray()
+                async for chunk in request.stream():
+                    if len(pdf) + len(chunk) > file.size:
+                        raise ValidationException(message="PDF与上传申请大小不一致")
+                    pdf.extend(chunk)
+                if len(pdf) != file.size or sha256(pdf).hexdigest() != file.sha256:
+                    raise ValidationException(message="PDF与上传申请内容不一致")
+                content = bytes(pdf)
             intent = await reserve_mall_command(
                 db,
                 actor=actor,
@@ -200,7 +214,9 @@ def build_file_router(prefix, buyer_dep, write_dep, read_dep, admin=False):
                 payload={"fileId": str(file_id)},
             )
             if intent.created:
-                file = await verify_mall_file(db, actor=actor, file_id=file_id, storage=storage)
+                file = await verify_mall_file(
+                    db, actor=actor, file_id=file_id, storage=storage, content=content
+                )
                 await complete_mall_command(db, intent, entity_type="mall_file", entity_id=file_id)
             await audit_file(db, actor, "mall_file_verify", file.id)
             await db.commit()

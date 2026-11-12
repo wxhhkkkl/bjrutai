@@ -18,7 +18,10 @@ class CatalogInput(BaseModel):
 
 class CategoryWrite(CatalogInput):
     name: str = Field(min_length=1, max_length=64)
-    parent_id: str | None = Field(default=None, pattern=r"^[1-9][0-9]*$")
+    parent_id: str | None = Field(
+        default=None, pattern=r"^[1-9][0-9]*$",
+        description="仅支持一级分类；必须省略或为null，非空值由分类服务拒绝",
+    )
     sort: int = 0
     status: Literal["enabled", "disabled"]
 
@@ -30,16 +33,24 @@ class OptionWrite(CatalogInput):
 
 class SkuWrite(CatalogInput):
     id: str | None = Field(default=None, pattern=r"^[1-9][0-9]*$")
+    barcode: str | None = Field(default=None, max_length=64)
     sku_code: str = Field(min_length=1, max_length=64)
     options: list[OptionWrite] = Field(default_factory=list, max_length=2)
     price_cent: int = Field(ge=1, le=9007199254740991)
+    market_price_cent: int | None = Field(default=None, ge=0, le=9007199254740991)
+    cost_price_cent: int | None = Field(default=None, ge=0, le=9007199254740991)
     initial_stock: int | None = Field(default=None, ge=0, le=2147483647)
     warning_quantity: int = Field(default=0, ge=0, le=2147483647)
 
 
 class ProductWrite(CatalogInput):
+    product_type: Literal["physical", "virtual"] = "physical"
+    delivery_method: Literal["express", "pickup", "virtual"] | None = None
+    freight_template_id: str | None = Field(default=None, pattern=r"^(default|[a-f0-9]{32})$")
     category_id: str | None = Field(default=None, pattern=r"^[1-9][0-9]*$")
     name: str = Field(min_length=1, max_length=64)
+    supports_return: bool = True
+    return_instructions: str = Field(default="", max_length=2000)
     summary: str = Field(default="", max_length=128)
     cover_file_id: str | None = Field(default=None, pattern=r"^[1-9][0-9]*$")
     gallery_file_ids: list[str] = Field(default_factory=list, max_length=8)

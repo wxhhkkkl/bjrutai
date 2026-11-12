@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
+import { QuillEditor } from '@vueup/vue-quill'
 import ElementPlus from 'element-plus'
 import Categories from '@/pages/mall/categories/index.vue'
 import Products from '@/pages/mall/products/index.vue'
@@ -14,12 +15,12 @@ import { toCent, productPayload, productForm } from '@/pages/mall/product-form'
 
 vi.mock('@/api/mall-catalog', () => ({
   listCategories: vi.fn(),
+  listFreightTemplateOptions: vi.fn().mockResolvedValue([{ id: 'default', name: '默认运费' }]),
   saveCategory: vi.fn(),
   listProducts: vi.fn(),
   getProduct: vi.fn(),
   saveProduct: vi.fn(),
   setProductStatus: vi.fn(),
-  copyProduct: vi.fn(),
   adjustStock: vi.fn(),
   listStockMovements: vi.fn(),
   uploadProductImage: vi.fn(),
@@ -72,6 +73,27 @@ describe('catalog administration', () => {
     expect(wrapper.text()).toContain('燕麦')
     wrapper.unmount()
   })
+  it('marks stock at or below the warning line in the product list', async () => {
+    api.listProducts.mockResolvedValue({
+      items: [
+        {
+          ...product,
+          skus: [
+            { id: '1', availableQuantity: 4, warningQuantity: 5 },
+            { id: '2', availableQuantity: 5, warningQuantity: 5 },
+            { id: '3', availableQuantity: 6, warningQuantity: 5 },
+          ],
+        },
+      ],
+      nextCursor: null,
+    })
+    const wrapper = page(Products)
+    await flushPromises()
+    const warnings = wrapper.findAll('.stock-warning')
+    expect(warnings).toHaveLength(2)
+    expect(warnings[0].text()).toBe('库存预警')
+    wrapper.unmount()
+  })
   it('submits edited category with the loaded version', async () => {
     const wrapper = page(Categories)
     await flushPromises()
@@ -86,6 +108,23 @@ describe('catalog administration', () => {
       category: { name: '健康食品' },
     })
     expect(api.saveCategory.mock.calls[0][1].length).toBeGreaterThanOrEqual(16)
+    wrapper.unmount()
+  })
+  it('offers only flat categories and saves a legacy category as a root', async () => {
+    const legacy = { ...category, parentId: '9' }
+    api.listCategories.mockResolvedValue({ items: [legacy], nextCursor: null })
+    const wrapper = page(Categories)
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('父分类')
+    wrapper.vm.edit(legacy)
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'ElSelect' }).exists()).toBe(false)
+    api.saveCategory.mockResolvedValue({ ...legacy, parentId: null, version: 3 })
+    await wrapper.vm.save()
+    expect(api.saveCategory.mock.calls[0][0]).toMatchObject({
+      id: '1', expectedVersion: 2,
+      category: { name: '食品', parentId: null },
+    })
     wrapper.unmount()
   })
   it('preserves the command body and key after an unknown network outcome', async () => {
@@ -118,12 +157,10 @@ describe('catalog administration', () => {
     finish({ id: '1' })
     await first
     await command.run(
-      vi
-        .fn()
-        .mockRejectedValue({
-          response: { status: 422 },
-          userMessage: '正价必填',
-        }),
+      vi.fn().mockRejectedValue({
+        response: { status: 422 },
+        userMessage: '正价必填',
+      }),
       {}
     )
     expect(command.pending.value).toBe(false)
@@ -156,8 +193,7 @@ describe('catalog administration', () => {
     expect(productPayload(draft)).not.toHaveProperty('skus')
   })
   it('retains editable product images, order and SKU warning when saving', async () => {
-    const wrapper = page(ProductEditor)
-    wrapper.vm.open({
+    api.getProduct.mockResolvedValue({
       ...product,
       coverFileId: '7',
       galleryFileIds: ['6'],
@@ -174,19 +210,26 @@ describe('catalog administration', () => {
         },
       ],
     })
+    const wrapper = page(ProductEditor)
+    await wrapper.vm.open('8')
     await flushPromises()
+    const editor = await vi.waitFor(() =>
+      wrapper.findComponent(QuillEditor).vm.getQuill()
+    )
+    editor.insertText(0, '商品详情', { bold: true }, 'user')
     const sku = wrapper.findComponent(SkuEditor).props('skus')[0]
     sku.price = '29.99'
     api.saveProduct.mockResolvedValue(product)
     const save = wrapper
       .findAllComponents({ name: 'ElButton' })
-      .find((b) => b.text().includes('保存草稿'))
+      .find((b) => b.text().includes('保存修改'))
     await save.trigger('click')
     await flushPromises()
     expect(api.saveProduct.mock.calls[0][0]).toMatchObject({
       id: '8',
       expectedVersion: 3,
       product: {
+        description: '<!--mall-rich-text--><p><strong>商品详情</strong></p>',
         coverFileId: '7',
         galleryFileIds: ['6'],
         sort: 9,
@@ -196,6 +239,18 @@ describe('catalog administration', () => {
     expect(api.saveProduct.mock.calls[0][0].product.skus[0]).not.toHaveProperty(
       'initialStock'
     )
+    wrapper.unmount()
+  })
+  it('opens the product editor as a dialog from the list', async () => {
+    const wrapper = page(Products)
+    await flushPromises()
+    const add = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('新增商品'))
+    await add.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.el-dialog').exists()).toBe(true)
+    expect(wrapper.text()).toContain('新增商品')
     wrapper.unmount()
   })
   it('adjusts only available stock with version/reason and reloads authoritative quantities', async () => {
@@ -229,10 +284,7 @@ describe('catalog administration', () => {
       ...product,
       skus: [{ ...sku, availableQuantity: 2, version: 5 }],
     })
-    await wrapper
-      .findAllComponents({ name: 'ElButton' })
-      .find((b) => b.text() === '确认调整')
-      .trigger('click')
+    await wrapper.get('form').trigger('submit')
     await flushPromises()
     expect(api.adjustStock.mock.calls[0][0]).toEqual({
       id: '2',
@@ -240,7 +292,7 @@ describe('catalog administration', () => {
       deltaAvailableQuantity: -1,
       reason: '盘点修正',
     })
-    expect(wrapper.text()).toContain('可售 2 / 待付占用 2')
+    expect(wrapper.findAll('.stock-metrics dd').map((metric) => metric.text())).toEqual(['2', '2'])
     wrapper.unmount()
   })
 })

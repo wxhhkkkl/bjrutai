@@ -100,7 +100,8 @@ async def change_order_address(db, actor, identity, data, *, key):
     if not intent.created:
         return order
     if (
-        order.version != data.expected_version
+        (order.policy_snapshot or {}).get("deliveryMethod") == "virtual"
+        or order.version != data.expected_version
         or order.status not in {"pending_payment", "pending_shipment"}
         or order.shipped_at
         or order.close_requested_at

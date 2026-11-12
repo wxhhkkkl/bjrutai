@@ -20,6 +20,6 @@ test('binding records map to the approved result states', () => {
 test('binding result view models reference sliced hero assets', () => {
   assert.equal(
     getBindingResultViewModel('failed').heroImage,
-    '/assets/images/binding-result-failed.png'
+    '/assets/images/binding-result-failed.jpg'
   );
 });

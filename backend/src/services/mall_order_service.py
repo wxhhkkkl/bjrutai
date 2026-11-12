@@ -76,7 +76,22 @@ async def create_order(db, actor, data, *, key):
     if data.consent_version != quote["policyVersion"]:
         raise ConflictException(message="商城告知版本已变化，请重新确认")
     settings = await _current(db, MallSettings, 1)
-    address = await owned_address(db, actor, int(body.address_id), lock=True)
+    address = (
+        await owned_address(db, actor, int(body.address_id), lock=True)
+        if quote["requiresAddress"]
+        else None
+    )
+    delivery_method = quote["deliveryMethod"]
+    scope_keys = {
+        "order_amount",
+        "payment_status",
+        "channel_transaction_reference",
+        "delivery_status",
+    }
+    if delivery_method == "virtual":
+        scope_keys.add("virtual_delivery_content")
+    else:
+        scope_keys.update({"recipient_contact", "delivery_address", "courier_tracking"})
     consent = await record_mall_notice_acknowledgement(
         db,
         actor,
@@ -84,15 +99,7 @@ async def create_order(db, actor, data, *, key):
         version=data.consent_version,
         current_version=quote["policyVersion"],
         confirmed=data.consent_confirmed,
-        scope_keys={
-            "order_amount",
-            "payment_status",
-            "channel_transaction_reference",
-            "recipient_contact",
-            "delivery_address",
-            "courier_tracking",
-            "delivery_status",
-        },
+        scope_keys=scope_keys,
     )
     order = MallOrder(
         order_no="M" + uuid4().hex[:31],
@@ -103,21 +110,31 @@ async def create_order(db, actor, data, *, key):
         buyer_note=data.buyer_note,
         expires_at=utc_now() + timedelta(minutes=settings.payment_minutes),
         consent_record_id=consent.id,
-        address_snapshot={
-            "id": str(address.id),
-            "version": address.version,
-            "recipientName": address.recipient_name,
-            "phone": address.phone,
-            "phoneMasked": address.phone_masked,
-            "regionCodes": [address.province_code, address.city_code, address.district_code],
-            "addressLine": address.address_line,
-        },
+        address_snapshot=(
+            {
+                "id": str(address.id),
+                "version": address.version,
+                "recipientName": address.recipient_name,
+                "phone": address.phone,
+                "phoneMasked": address.phone_masked,
+                "regionCodes": [address.province_code, address.city_code, address.district_code],
+                "regionNames": list(address.region_names or []),
+                "addressLine": address.address_line,
+            }
+            if address
+            else {}
+        ),
         policy_snapshot={
             "version": settings.version,
             "policyVersion": quote["policyVersion"],
-            "freightMode": settings.freight_mode,
-            "freightCent": settings.freight_cent,
-            "blockedRegionCodes": list(settings.blocked_regions),
+            "deliveryMethod": delivery_method,
+            "freightMode": (
+                "none"
+                if delivery_method == "virtual"
+                else "fixed" if quote["freightAmountCent"] else "free"
+            ),
+            "freightCent": quote["freightAmountCent"],
+            "blockedRegionCodes": quote["blockedRegionCodes"],
             "paymentMinutes": settings.payment_minutes,
             "autoReceiveDays": settings.auto_receive_days,
             "aftersaleDays": settings.aftersale_days,
@@ -139,6 +156,10 @@ async def create_order(db, actor, data, *, key):
             reservation_status="reserved",
             product_snapshot={
                 "name": product.name,
+                "productType": line["productType"],
+                "deliveryMethod": line["deliveryMethod"],
+                "supportsReturn": product.supports_return,
+                "returnInstructions": product.return_instructions,
                 "skuCode": sku.sku_code,
                 "options": deepcopy(sku.options),
                 "optionsText": line["optionsText"],

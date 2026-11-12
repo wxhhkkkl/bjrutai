@@ -1,5 +1,7 @@
 const mallOrderService = require('../../services/mall-order-service')
 const sessionService = require('../../services/session-service')
+const { courierName } = require('../../utils/courier')
+const { formatChinaDateTime } = require('../../utils/date-time')
 
 const QUERY_STATUS_LABELS = {
   pending: '物流查询已排队',
@@ -14,9 +16,61 @@ const QUERY_STATUS_LABELS = {
 
 function eventTime(event) {
   if (!event) return ''
-  if (event.timeText) return String(event.timeText)
-  if (typeof event.occurredAt !== 'string') return '时间未提供'
-  return event.occurredAt.replace('T', ' ').replace(/(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$/, '').slice(0, 16)
+  if (event.timeText) {
+    const timeText = String(event.timeText)
+    if (/T\d{2}:\d{2}/.test(timeText)) {
+      return formatChinaDateTime(timeText, { includeSeconds: true }) || timeText
+    }
+    return timeText
+  }
+  return formatChinaDateTime(event.occurredAt, { includeSeconds: true }) || '时间未提供'
+}
+
+function buildMap(snapshot) {
+  if (!snapshot || snapshot.mapAvailable !== true || !snapshot.route) return null
+  const source = Array.isArray(snapshot.route.points) ? snapshot.route.points : []
+  const valid = source.filter((point) => (
+    point && Number.isFinite(point.latitude) && Number.isFinite(point.longitude)
+  ))
+  if (valid.length < 2) return null
+  const latitudes = valid.map((point) => point.latitude)
+  const longitudes = valid.map((point) => point.longitude)
+  const minLat = Math.min.apply(null, latitudes)
+  const maxLat = Math.max.apply(null, latitudes)
+  const minLng = Math.min.apply(null, longitudes)
+  const maxLng = Math.max.apply(null, longitudes)
+  const span = Math.max(maxLat - minLat, maxLng - minLng)
+  const scale = span > 8 ? 4 : span > 3 ? 5 : span > 1 ? 7 : span > 0.2 ? 9 : 12
+  const passed = valid.filter((point) => point.stateName !== '预估途径节点')
+  const current = valid.find((point) => point.stateName === '当前停留节点') || passed[passed.length - 1] || valid[0]
+  const padLat = Math.max((maxLat - minLat) * 0.15, 0.01)
+  const padLng = Math.max((maxLng - minLng) * 0.15, 0.01)
+  return {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLng + maxLng) / 2,
+    scale,
+    points: [
+      { latitude: minLat - padLat, longitude: minLng - padLng },
+      { latitude: maxLat + padLat, longitude: maxLng + padLng }
+    ],
+    currentName: typeof snapshot.route.currentName === 'string' ? snapshot.route.currentName : '',
+    markers: [{
+      id: 1,
+      latitude: current.latitude,
+      longitude: current.longitude,
+      iconPath: '/assets/images/mall-map-current-pin.png',
+      width: 26,
+      height: 34,
+      anchor: { x: 0.5, y: 1 },
+      callout: { content: '当前节点', display: 'ALWAYS', padding: 6, borderRadius: 6, fontSize: 11, bgColor: '#FFFFFF', color: '#1677FF' }
+    }],
+    polyline: [{
+      points: valid.map((point) => ({ latitude: point.latitude, longitude: point.longitude })),
+      color: '#1677FF',
+      width: 6,
+      arrowLine: false
+    }]
+  }
 }
 
 function viewSnapshot(snapshot) {
@@ -25,10 +79,16 @@ function viewSnapshot(snapshot) {
   if (source === 'fake') sourceLabel = '测试模拟轨迹'
   else if (source === 'live') sourceLabel = '快递100真实查询'
   const status = snapshot && snapshot.queryStatus
+  const map = buildMap(snapshot)
   return {
     ...snapshot,
+    courierName: snapshot && snapshot.courierName || courierName(snapshot && snapshot.courierCode),
     sourceLabel,
     statusLabel: QUERY_STATUS_LABELS[status] || '物流状态待确认',
+    updatedAtText: formatChinaDateTime(snapshot && snapshot.updatedAt, { includeSeconds: true }),
+    estimatedArrivalText: typeof (snapshot && snapshot.estimatedArrivalText) === 'string' ? snapshot.estimatedArrivalText : '',
+    mapAvailable: Boolean(map),
+    map,
     events: Array.isArray(snapshot && snapshot.events) ? snapshot.events.map((event) => ({
       ...event,
       displayTime: eventTime(event),
@@ -47,7 +107,9 @@ Page({
     state: 'loading',
     stateMessage: '',
     refreshing: false,
-    mapAvailable: false
+    mapAvailable: false,
+    map: null,
+    estimatedArrivalText: ''
   },
 
   onLoad(options = {}) {
@@ -78,6 +140,8 @@ Page({
         statusLabel: view.statusLabel,
         events: view.events,
         mapAvailable: view.mapAvailable === true,
+        map: view.map || null,
+        estimatedArrivalText: view.estimatedArrivalText,
         refreshing: false,
         stateMessage: ''
       })

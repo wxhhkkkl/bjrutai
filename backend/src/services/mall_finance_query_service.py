@@ -126,7 +126,17 @@ def _refund_sum(payment_id):
     )
 
 
-def _payment_view(payment, *, order_no, buyer_id, buyer_name, refund_cent, detail=False):
+def _payment_view(
+    payment,
+    *,
+    order_no,
+    buyer_id,
+    buyer_name,
+    goods_cent,
+    freight_cent,
+    refund_cent,
+    detail=False,
+):
     net = payment.amount_cent - refund_cent if payment.status == "succeeded" else None
     result = {
         "id": str(payment.id),
@@ -138,6 +148,8 @@ def _payment_view(payment, *, order_no, buyer_id, buyer_name, refund_cent, detai
         },
         "outTradeNo": payment.out_trade_no,
         "amountCent": payment.amount_cent,
+        "goodsAmountCent": goods_cent,
+        "freightAmountCent": freight_cent,
         "currency": payment.currency,
         "refundSucceededCent": refund_cent,
         "netReceivedCent": net,
@@ -162,6 +174,8 @@ async def _payment_projection_rows(db, identities):
             MallOrder.order_no,
             MallOrder.buyer_user_id,
             User.name,
+            MallOrder.goods_amount_cent,
+            MallOrder.freight_amount_cent,
             _refund_sum(MallPayment.id).label("refund_succeeded_cent"),
         )
         .join(MallOrder, MallOrder.id == MallPayment.order_id)
@@ -170,8 +184,16 @@ async def _payment_projection_rows(db, identities):
     )
     rows = (await db.execute(statement)).all()
     return {
-        payment.id: (payment, order_no, buyer_id, name, int(refund_cent or 0))
-        for payment, order_no, buyer_id, name, refund_cent in rows
+        payment.id: (
+            payment,
+            order_no,
+            buyer_id,
+            name,
+            goods_cent,
+            freight_cent,
+            int(refund_cent or 0),
+        )
+        for payment, order_no, buyer_id, name, goods_cent, freight_cent, refund_cent in rows
     }
 
 
@@ -221,13 +243,17 @@ async def list_admin_payments(
         projected = projection.get(row.id)
         if projected is None:
             continue
-        payment, related_order_no, buyer_id, buyer_name, refund_cent = projected
+        payment, related_order_no, buyer_id, buyer_name, goods_cent, freight_cent, refund_cent = (
+            projected
+        )
         items.append(
             _payment_view(
                 payment,
                 order_no=related_order_no,
                 buyer_id=buyer_id,
                 buyer_name=buyer_name,
+                goods_cent=goods_cent,
+                freight_cent=freight_cent,
                 refund_cent=refund_cent,
             )
         )
@@ -259,7 +285,7 @@ async def get_admin_payment(db, actor: MallActor, identity: int):
     row = projection.get(identity)
     if row is None:
         raise NotFoundException(message="支付记录不存在")
-    payment, order_no, buyer_id, buyer_name, refund_cent = row
+    payment, order_no, buyer_id, buyer_name, goods_cent, freight_cent, refund_cent = row
     await record_mall_admin_audit(
         db,
         actor=actor,
@@ -273,6 +299,8 @@ async def get_admin_payment(db, actor: MallActor, identity: int):
         order_no=order_no,
         buyer_id=buyer_id,
         buyer_name=buyer_name,
+        goods_cent=goods_cent,
+        freight_cent=freight_cent,
         refund_cent=refund_cent,
         detail=True,
     )

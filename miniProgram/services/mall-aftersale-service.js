@@ -125,22 +125,47 @@ function normalizeProofMetadata(value = {}) {
 
 function defaultReadFile(filePath) {
   return new Promise((resolve, reject) => {
-    if (typeof wx === 'undefined' || !wx.getFileSystemManager) {
+    if (typeof wx === 'undefined' || !wx.getFileSystemManager || typeof wx.base64ToArrayBuffer !== 'function') {
       reject(validationError('当前环境无法读取本地图片'))
       return
     }
     wx.getFileSystemManager().readFile({
       filePath,
-      success(result) { resolve(result.data) },
+      encoding: 'base64',
+      success(result) {
+        const data = result && result.data
+        if (typeof data !== 'string' || !data) {
+          reject(validationError('无法读取售后凭证图片'))
+          return
+        }
+        try {
+          resolve(wx.base64ToArrayBuffer(data))
+        } catch (error) {
+          reject(validationError('无法读取售后凭证图片'))
+        }
+      },
       fail() { reject(validationError('无法读取售后凭证图片')) }
     })
   })
 }
 
-function byteLength(value) {
-  if (value instanceof ArrayBuffer) return value.byteLength
-  if (ArrayBuffer.isView(value)) return value.byteLength
+function binaryBytes(value) {
+  if (ArrayBuffer.isView(value)) return new Uint8Array(value.buffer, value.byteOffset, value.byteLength)
+  if (typeof ArrayBuffer !== 'undefined' && value instanceof ArrayBuffer) return new Uint8Array(value)
+  if (value && typeof value.byteLength === 'number') {
+    try {
+      return new Uint8Array(value)
+    } catch (error) {
+      // 部分运行环境返回的二进制对象不满足 instanceof 判断，走到下面抛错
+    }
+  }
   throw validationError('本地图片读取结果不合法')
+}
+
+async function computeProofSha256(filePath) {
+  const localPath = typeof filePath === 'string' ? filePath.trim() : ''
+  if (!localPath) throw validationError('图片路径不合法')
+  return sha256Hex(binaryBytes(await defaultReadFile(localPath)))
 }
 
 function createMallAftersaleService(options = {}) {
@@ -214,11 +239,12 @@ function createMallAftersaleService(options = {}) {
         if (error && error.kind) throw error
         throw validationError('无法读取售后凭证图片')
       }
-      const actualSize = byteLength(bytes)
+      const data = binaryBytes(bytes)
+      const actualSize = data.byteLength
       if (source.fileSize !== undefined && source.fileSize !== actualSize) {
         throw validationError('图片大小已变化，请重新选择')
       }
-      value = { ...source, fileSize: actualSize, sha256: sha256Hex(bytes) }
+      value = { ...source, fileSize: actualSize, sha256: sha256Hex(data) }
     }
     return send('/api/v1/mall/files/upload-ticket', {
       method: 'POST', data: normalizeProofMetadata(value),
@@ -239,7 +265,13 @@ function createMallAftersaleService(options = {}) {
         const data = await readFile(localPath)
         return uploadResponse(await upload(target, localPath, contentType, data))
       }
-      return await uploadToCos({ uploadUrl: target }, localPath, contentType, '售后凭证')
+      return await uploadToCos(
+        { uploadUrl: target },
+        localPath,
+        contentType,
+        '售后凭证',
+        { 'x-cos-acl': 'private' }
+      )
     } catch (error) {
       if (error && error.kind) throw error
       throw validationError('售后凭证上传失败，请检查网络后重试')
@@ -284,6 +316,7 @@ const service = createMallAftersaleService()
 
 module.exports = {
   createMallAftersaleService,
+  computeProofSha256,
   listMyMallAftersales: service.listMyMallAftersales,
   getMyMallAftersale: service.getMyMallAftersale,
   createMallAftersale: service.createMallAftersale,

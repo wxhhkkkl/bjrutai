@@ -64,6 +64,8 @@ async def test_quote_order_snapshot_and_never_paid_close_flow(client, db_session
         "data"
     ]
     assert detail["address"]["phoneMasked"] == "138****1234"
+    assert detail["address"]["phone"] == ADDRESS["phone"]
+    assert detail["address"]["addressLine"] == ADDRESS["addressLine"]
     assert "13900005678" not in str(detail) and "改后的虚构路" not in str(detail)
     assert detail["paymentStatus"] == "not_started"
     assert set(detail["availableActions"]) == {"cancelMallOrder", "changeMallOrderAddress"}

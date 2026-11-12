@@ -1,3 +1,6 @@
+const mallCheckoutService = require('../../services/mall-checkout-service')
+const mallIntentService = require('../../services/mall-intent-service')
+const sessionService = require('../../services/session-service')
 const mallCatalogService = require('../../services/mall-catalog-service')
 const { updateTabBar } = require('../../services/navigation-service')
 
@@ -10,15 +13,23 @@ function formatPrice(priceCent) {
 
 function mapProduct(product, categories) {
   const skus = Array.isArray(product.skus) ? product.skus : []
-  const prices = skus.map((sku) => sku.priceCent).filter((value) => Number.isSafeInteger(value) && value >= 0)
+  const lowestPriceSku = skus.reduce((lowest, sku) => {
+    if (!Number.isSafeInteger(sku.priceCent) || sku.priceCent < 0) return lowest
+    return !lowest || sku.priceCent < lowest.priceCent ? sku : lowest
+  }, null)
   const category = categories.find((item) => item.id === product.categoryId)
   const availability = mallCatalogService.productAvailability(product)
+  const marketPriceCent = lowestPriceSku && lowestPriceSku.marketPriceCent
+  const marketPriceText = Number.isSafeInteger(marketPriceCent) && marketPriceCent >= 0
+    ? formatPrice(marketPriceCent)
+    : ''
 
   return {
     ...product,
-    priceText: prices.length ? formatPrice(Math.min(...prices)) : '--',
+    priceText: lowestPriceSku ? formatPrice(lowestPriceSku.priceCent) : '--',
+    marketPriceText,
     availability,
-    availabilityText: availability === 'available' ? '有库存' : '暂时售罄',
+    availabilityText: availability === 'available' ? '' : '暂时售罄',
     categoryName: category ? category.name : ''
   }
 }
@@ -46,7 +57,9 @@ Page({
     nextCursor: '',
     hasMore: false,
     loadingMore: false,
-    loadMoreError: ''
+    loadMoreError: '',
+    addingProductId: '',
+    cartFlights: []
   },
 
   onLoad() {
@@ -62,6 +75,8 @@ Page({
 
   onUnload() {
     this.requestVersion += 1
+    this.cartFlyVersion = (this.cartFlyVersion || 0) + 1
+    if (this.cartFlyTimer) clearTimeout(this.cartFlyTimer)
   },
 
   onPullDownRefresh() {
@@ -229,7 +244,75 @@ Page({
     })
   },
 
-  openCart() {
-    wx.navigateTo({ url: '/pages/mall-cart/index' })
+  animateCartFly(source, target, version) {
+    if (!source || !target || version !== this.cartFlyVersion) return
+
+    const flight = {
+      id: version,
+      left: source.left,
+      top: source.top,
+      size: source.width,
+      deltaX: target.left + (target.width - source.width) / 2 - source.left,
+      deltaY: target.top + (target.height - source.height) / 2 - source.top
+    }
+
+    // A new key starts a fresh CSS animation even if a previous flight is visible.
+    this.setData({ cartFlights: [flight] }, () => {
+      if (version !== this.cartFlyVersion) return
+      this.cartFlyTimer = setTimeout(() => {
+        if (version === this.cartFlyVersion) this.setData({ cartFlights: [] })
+      }, 460)
+    })
+  },
+
+  playCartFly(productId) {
+    const version = (this.cartFlyVersion || 0) + 1
+    this.cartFlyVersion = version
+    if (this.cartFlyTimer) clearTimeout(this.cartFlyTimer)
+    if (this.data.cartFlights.length) this.setData({ cartFlights: [] })
+
+    const cart = this.selectComponent?.('#mall-floating-cart')
+    if (!cart || typeof cart.getIconRect !== 'function') return
+    const query = wx.createSelectorQuery().in(this)
+    query.select(`#mall-product-add-${productId}`).boundingClientRect()
+    query.exec((rects) => {
+      const source = rects && rects[0]
+      if (!source || version !== this.cartFlyVersion) return
+      cart.getIconRect((target) => this.animateCartFly(source, target, version))
+    })
+  },
+
+  async addCardProduct(event) {
+    if (this.data.addingProductId) return
+    const productId = String(event.currentTarget.dataset.id)
+    const product = this.data.products.find((item) => String(item.id) === productId)
+    if (!product || product.availability !== 'available') return
+    if (product.skus.length !== 1) return this.openProduct(event)
+
+    const skuId = String(product.skus[0].id)
+    this.setData({ addingProductId: productId })
+    try {
+      let intent = mallIntentService.getPendingIntent()
+      if (!intent || intent.action !== 'add_to_cart' || intent.skuId !== skuId || intent.quantity !== 1) {
+        intent = mallIntentService.savePendingIntent({ action: 'add_to_cart', skuId, quantity: 1 })
+      }
+      if (!sessionService.getAccessToken()) {
+        wx.navigateTo({ url: '/pages/auth/login/index?from=mall' })
+        return
+      }
+      await mallCheckoutService.addToCart(skuId, 1, intent.idempotencyKey)
+      mallIntentService.clearPendingIntent()
+      this.playCartFly(productId)
+      this.selectComponent?.('#mall-floating-cart')?.refresh()
+      wx.showToast({ title: '已加入购物车', icon: 'success' })
+    } catch (error) {
+      if (error && error.kind === 'AUTH') {
+        wx.navigateTo({ url: '/pages/auth/login/index?from=mall' })
+      } else {
+        wx.showToast({ title: safeErrorMessage(error, '加购失败，请重试'), icon: 'none' })
+      }
+    } finally {
+      this.setData({ addingProductId: '' })
+    }
   }
 })

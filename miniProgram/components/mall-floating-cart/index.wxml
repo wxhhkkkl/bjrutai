@@ -1,0 +1,12 @@
+<view
+  class="floating-cart {{aboveTabBar ? 'floating-cart--tab' : ''}}"
+  bindtap="openCart"
+  hover-class="floating-cart--pressed"
+  aria-role="button"
+  aria-label="打开购物车{{quantity ? '，共' + quantity + '件商品' : ''}}"
+>
+  <view class="floating-cart__icon">
+    <van-icon name="shopping-cart-o" size="20px" color="#FFFFFF" />
+    <text wx:if="{{quantity > 0}}" class="floating-cart__badge">{{quantity > 99 ? '99+' : quantity}}</text>
+  </view>
+</view>

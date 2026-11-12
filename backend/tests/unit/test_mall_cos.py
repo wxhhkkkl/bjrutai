@@ -1,4 +1,5 @@
 import hashlib
+from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import pytest
@@ -34,12 +35,30 @@ async def test_mall_cos_checks_actual_bytes_and_never_returns_public_url():
         sha256="a" * 64,
     )
     assert "fileUrl" not in ticket and "uploadToken" in ticket
+    signed_headers = parse_qs(urlsplit(ticket["uploadToken"]).query)["q-header-list"][0]
+    assert signed_headers == "host;x-cos-acl"
     actual = await store.head("mall/test/sample.pdf")
     assert actual == {
         "mime": "application/pdf",
         "size": len(content),
         "sha256": hashlib.sha256(content).hexdigest(),
     }
+
+
+def test_feedback_upload_ticket_pins_private_object_acl():
+    client = COSClient()
+    client._bucket, client._region = "test-123", "ap-beijing"
+    client._secret_id, client._secret_key = "test-id", "test-key"
+
+    token = client.generate_feedback_upload_token(
+        user_id=7,
+        file_name="feedback.jpg",
+        content_type="image/jpeg",
+        file_size=10,
+    )
+
+    assert "fileUrl" not in token
+    assert parse_qs(urlsplit(token["uploadUrl"]).query)["q-header-list"][0] == "host;x-cos-acl"
 
 
 @pytest.mark.asyncio

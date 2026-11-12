@@ -3,28 +3,31 @@ const aftersaleService = require('../../services/mall-aftersale-service')
 const sessionService = require('../../services/session-service')
 const mallIntentService = require('../../services/mall-intent-service')
 const { createRequestKeyManager } = require('../../utils/request-key')
-const { setMallFormError } = require('../../utils/mall-form-error')
+const { imageMeta } = require('../../services/cos-upload')
 
 const METHODS = [
   { value: 'refund_only', label: '仅退款', hint: '无需寄回商品' },
   { value: 'return_refund', label: '退货退款', hint: '商家审核通过后按地址寄回' }
 ]
 
-function imageType(file) {
-  const path = String(file && file.tempFilePath || '').toLowerCase()
-  if (path.endsWith('.png')) return 'image/png'
-  if (/\.(jpe?g)$/.test(path)) return 'image/jpeg'
-  return ''
-}
-
 function safeError(error, fallback) {
   return error && typeof error.message === 'string' && error.message ? error.message : fallback
+}
+
+function showAftersaleToast(page, message, { field = '', target = field } = {}) {
+  page.setData({ stateMessage: '', focusField: '', errorTarget: '' }, () => {
+    page.setData({
+      focusField: field,
+      errorTarget: target ? `mall-field-${target}` : ''
+    })
+  })
+  wx.showToast({ title: message, icon: 'none' })
 }
 
 Page({
   data: {
     orderId: '', order: null, items: [], methods: METHODS, method: 'refund_only',
-    scope: 'goods', reason: '', description: '', proofs: [], proofFileIds: [],
+    scope: 'goods', reason: '', proofs: [], proofFileIds: [],
     state: 'loading', stateMessage: '', focusField: '', errorTarget: '', submitting: false, uploading: false
   },
 
@@ -96,6 +99,10 @@ Page({
   selectMethod(event) {
     const method = event && event.currentTarget && event.currentTarget.dataset.method
     if (this.data.scope !== 'goods' || !METHODS.some((item) => item.value === method)) return
+    if (method === 'return_refund' && this.data.items.some((item) => item.applyQuantity > 0 && item.supportsReturn === false)) {
+      showAftersaleToast(this, '所选商品不支持退货退款，可申请仅退款')
+      return
+    }
     this.setData({ method, stateMessage: '', focusField: '', errorTarget: '' })
   },
 
@@ -105,63 +112,82 @@ Page({
     const delta = Number(dataset.delta)
     if (![-1, 1].includes(delta)) return
     const items = this.data.items.map((item) => {
-      if (item.id !== id) return item
+      if (item.id !== id || (delta > 0 && this.data.method === 'return_refund' && item.supportsReturn === false)) return item
       return { ...item, applyQuantity: Math.min(item.availableAftersaleQuantity, Math.max(0, item.applyQuantity + delta)) }
     })
     this.setData({ items, stateMessage: '', focusField: '', errorTarget: '' })
   },
 
-  onReasonInput(event) { this.setData({ reason: String(event.detail && event.detail.value || '').slice(0, 200), stateMessage: '', focusField: '', errorTarget: '' }) },
-  onDescriptionInput(event) { this.setData({ description: String(event.detail && event.detail.value || '').slice(0, 1000), stateMessage: '', focusField: '', errorTarget: '' }) },
+  onReasonInput(event) { this.setData({ reason: String(event.detail && event.detail.value || '').slice(0, 200), stateMessage: '', errorTarget: '' }) },
+
+  onReasonBlur() {
+    if (this.data.focusField === 'reason') this.setData({ focusField: '' })
+  },
 
   async chooseProofImages() {
     if (this.data.uploading || this.data.proofs.length >= 3) return
-    if (typeof wx.chooseMedia !== 'function') {
-      this.setData({ stateMessage: '当前微信版本暂不支持选择图片，请升级后重试' })
-      return
-    }
-    return new Promise((resolve) => wx.chooseMedia({
+    return new Promise((resolve) => wx.chooseImage({
       count: 3 - this.data.proofs.length,
-      mediaType: ['image'],
-      sourceType: ['album', 'camera'],
       sizeType: ['compressed'],
+      sourceType: ['album', 'camera'],
       success: async (result) => {
-        const files = Array.isArray(result.tempFiles) ? result.tempFiles : []
-        if (!files.length) { resolve(); return }
+        const paths = Array.isArray(result && result.tempFilePaths) ? result.tempFilePaths : []
+        if (!paths.length) { resolve(); return }
         this.setData({ uploading: true, stateMessage: '' })
         try {
           const proofs = [...this.data.proofs]
-          for (const file of files.slice(0, 3 - proofs.length)) {
-            const contentType = imageType(file)
-            if (!contentType || !file.tempFilePath || !Number.isInteger(file.size) || file.size < 1 || file.size > 5 * 1024 * 1024) {
+          let duplicate = false
+          for (let index = 0; index < paths.length && proofs.length < 3; index += 1) {
+            const filePath = paths[index]
+            const file = result.tempFiles && result.tempFiles[index] || {}
+            const meta = imageMeta(filePath, file)
+            const fileSize = Number(file.size) > 0 ? Number(file.size) : undefined
+            if (!filePath || !['image/jpeg', 'image/png'].includes(meta.contentType) || (fileSize && fileSize > 5 * 1024 * 1024)) {
               throw new Error('凭证仅支持5MB以内的JPG或PNG图片')
             }
-            const fileName = String(file.tempFilePath).split('/').pop() || `proof.${contentType === 'image/png' ? 'png' : 'jpg'}`
-            const ticketFlow = `mall-aftersale-proof-ticket:${this.data.orderId}:${file.tempFilePath}:${file.size}`
+            const sha256 = await aftersaleService.computeProofSha256(filePath)
+            if (proofs.some((proof) => proof.sha256 === sha256)) {
+              duplicate = true
+              continue
+            }
+            const ticketFlow = `mall-aftersale-proof-ticket:${this.data.orderId}:${filePath}:${fileSize}`
             this.proofKeyManager = this.proofKeyManager || createRequestKeyManager(() => mallIntentService.createIdempotencyKey())
             const ticketKey = this.proofKeyManager.begin(ticketFlow)
             const ticket = await aftersaleService.getAftersaleProofUploadTicket({
-              orderId: this.data.orderId, fileName, contentType, filePath: file.tempFilePath, fileSize: file.size
+              orderId: this.data.orderId, fileName: meta.fileName, contentType: meta.contentType, filePath, fileSize
             }, ticketKey)
-            await aftersaleService.uploadAftersaleProofFile(ticket.uploadUrl, file.tempFilePath, contentType)
+            await aftersaleService.uploadAftersaleProofFile(ticket.uploadUrl, filePath, meta.contentType)
             const verifyFlow = `mall-aftersale-proof-verify:${ticket.fileId}`
             const verifyKey = this.proofKeyManager.begin(verifyFlow)
             const verified = await aftersaleService.verifyAftersaleProof(ticket.fileId, verifyKey)
             if (verified.status !== 'verified') throw new Error('图片暂未通过校验，请重新选择')
             this.proofKeyManager.markSucceeded(ticketFlow)
             this.proofKeyManager.markSucceeded(verifyFlow)
-            proofs.push({ id: String(verified.id || ticket.fileId), name: fileName, status: 'verified' })
+            proofs.push({ id: String(verified.id || ticket.fileId), path: filePath, sha256, status: 'verified' })
           }
-          this.setData({ proofs, proofFileIds: proofs.map((proof) => proof.id), stateMessage: '' })
+          this.setData({
+            proofs,
+            proofFileIds: proofs.map((proof) => proof.id),
+            stateMessage: ''
+          })
+          if (duplicate) showAftersaleToast(this, '这张图片已经添加过了')
         } catch (error) {
-          this.setData({ stateMessage: safeError(error, '凭证上传或校验失败，请重试') })
+          showAftersaleToast(this, safeError(error, '凭证上传或校验失败，请重试'))
         } finally {
           this.setData({ uploading: false })
           resolve()
         }
       },
-      fail: () => { this.setData({ stateMessage: '未选择图片' }); resolve() }
+      fail: () => { showAftersaleToast(this, '未选择图片'); resolve() }
     }))
+  },
+
+  previewProof(event) {
+    const id = String(event && event.currentTarget && event.currentTarget.dataset.id || '')
+    const urls = this.data.proofs.map((proof) => proof.path).filter(Boolean)
+    if (!urls.length) return
+    const selected = this.data.proofs.find((proof) => proof.id === id)
+    wx.previewImage({ current: selected && selected.path || urls[0], urls })
   },
 
   removeProof(event) {
@@ -181,7 +207,6 @@ Page({
       scope: this.data.scope,
       items,
       reason: this.data.reason.trim(),
-      description: this.data.description.trim(),
       proofFileIds: this.data.proofFileIds.slice()
     }
   },
@@ -190,11 +215,11 @@ Page({
     if (this.data.state !== 'success' || this.data.submitting || this.data.uploading) return Promise.resolve()
     const application = this.buildApplication()
     if (!application.reason) {
-      setMallFormError(this, '请填写售后原因', { field: 'reason' })
+      showAftersaleToast(this, '请填写售后原因', { field: 'reason' })
       return Promise.resolve()
     }
     if (application.scope === 'goods' && !application.items.length) {
-      setMallFormError(this, '请至少选择一件可申请售后的商品', { target: 'items' })
+      showAftersaleToast(this, '请至少选择一件可申请售后的商品', { target: 'items' })
       return Promise.resolve()
     }
     return new Promise((resolve) => wx.showModal({
@@ -216,7 +241,7 @@ Page({
         } catch (error) {
           if (error && ['VALIDATION', 'AUTH', 'FORBIDDEN', 'NOT_FOUND', 'CONFLICT'].includes(error.kind)) this.applyKeyManager.markFailed(flowId)
           else this.applyKeyManager.markUnknown(flowId)
-          setMallFormError(this, safeError(error, '提交结果待核实，可保持内容后重试'), { target: 'error-message' })
+          showAftersaleToast(this, safeError(error, '提交结果待核实，可保持内容后重试'))
         } finally {
           this.setData({ submitting: false })
           resolve()

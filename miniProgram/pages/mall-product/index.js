@@ -8,17 +8,25 @@ function formatPrice(priceCent) {
   return (priceCent / 100).toFixed(2)
 }
 
+function stockText(quantity) {
+  return Number.isSafeInteger(quantity) && quantity > 0 ? `库存 ${quantity} 件` : '有库存'
+}
+
 function mapSku(sku) {
   const values = Array.isArray(sku.options)
     ? sku.options.map((option) => option && option.value).filter(Boolean)
     : []
   const availability = sku.stockStatus === 'available' ? 'available' : 'sold_out'
+  const marketPriceText = Number.isSafeInteger(sku.marketPriceCent) && sku.marketPriceCent >= 0
+    ? formatPrice(sku.marketPriceCent)
+    : ''
   return {
     ...sku,
     label: values.length ? values.join(' / ') : '默认规格',
     priceText: formatPrice(sku.priceCent),
+    marketPriceText,
     availability,
-    availabilityText: availability === 'available' ? '有库存' : '暂时售罄'
+    availabilityText: availability === 'available' ? stockText(sku.availableQuantity) : '暂时售罄'
   }
 }
 
@@ -34,9 +42,9 @@ Page({
     selectedSkuId: '',
     selectedSku: null,
     priceText: '--',
+    marketPriceText: '',
     availability: 'sold_out',
     availabilityText: '暂时售罄',
-    quantity: 1,
     purchaseBusy: false,
     purchaseMessage: ''
   },
@@ -83,14 +91,19 @@ Page({
         state: 'success',
         stateMessage: '',
         product,
+        descriptionHtml: typeof product.description === 'string' && product.description.startsWith('<!--mall-rich-text-->')
+          ? product.description.slice('<!--mall-rich-text-->'.length)
+          : '',
         images: imageUrls,
         skus,
         selectedSkuId: selectedSku ? selectedSku.id : '',
         selectedSku,
-      quantity: 1,
         priceText: selectedSku ? selectedSku.priceText : (prices.length ? formatPrice(Math.min(...prices)) : '--'),
+        marketPriceText: selectedSku ? selectedSku.marketPriceText : '',
         availability,
-        availabilityText: availability === 'available' ? '有库存' : '暂时售罄'
+        availabilityText: selectedSku
+          ? selectedSku.availabilityText
+          : (availability === 'available' ? '有库存' : '暂时售罄')
       })
     } catch (error) {
       if (version !== this.requestVersion) return
@@ -116,8 +129,8 @@ Page({
     this.setData({
       selectedSkuId: selectedSku.id,
       selectedSku,
-      quantity: 1,
       priceText: selectedSku.priceText,
+      marketPriceText: selectedSku.marketPriceText,
       availability: selectedSku.availability,
       availabilityText: selectedSku.availabilityText
     })
@@ -125,19 +138,6 @@ Page({
 
   goBack() {
     wx.navigateBack({ delta: 1 })
-  },
-
-  openCart() {
-    wx.navigateTo({ url: '/pages/mall-cart/index' })
-  },
-
-  changeQuantity(event) {
-    const delta = event && event.currentTarget && event.currentTarget.dataset.delta === 'down' ? -1 : 1
-    const max = this.data.selectedSku && Number.isInteger(this.data.selectedSku.availableQuantity)
-      ? Math.min(999, this.data.selectedSku.availableQuantity)
-      : 999
-    const quantity = Math.max(1, Math.min(max || 1, this.data.quantity + delta))
-    this.setData({ quantity })
   },
 
   async addToCart() {
@@ -155,10 +155,12 @@ Page({
       return
     }
     if (this.data.purchaseBusy) return
+    const quantity = 1
     const intent = {
       action,
       skuId: String(sku.id),
-      quantity: this.data.quantity
+      quantity,
+      deliveryMethod: this.data.product.deliveryMethod === 'virtual' || this.data.product.productType === 'virtual' ? 'virtual' : 'express'
     }
     if (!sessionService.getAccessToken()) {
       mallIntentService.savePendingIntent(intent)
@@ -167,7 +169,8 @@ Page({
     }
     if (action === 'buy_now') {
       mallIntentService.saveCheckoutDraft({
-        items: [{ skuId: String(sku.id), quantity: this.data.quantity }],
+        items: [{ skuId: String(sku.id), quantity }],
+        deliveryMethod: intent.deliveryMethod,
         source: 'buy_now'
       })
       mallIntentService.clearPendingIntent()
@@ -176,13 +179,14 @@ Page({
     }
 
     let pending = mallIntentService.getPendingIntent()
-    if (!pending || pending.action !== action || pending.skuId !== String(sku.id) || pending.quantity !== this.data.quantity) {
+    if (!pending || pending.action !== action || pending.skuId !== String(sku.id) || pending.quantity !== quantity) {
       pending = mallIntentService.savePendingIntent(intent)
     }
     this.setData({ purchaseBusy: true, purchaseMessage: '' })
     try {
       await mallCheckoutService.addToCart(pending.skuId, pending.quantity, pending.idempotencyKey)
       mallIntentService.clearPendingIntent()
+      this.selectComponent?.('#mall-floating-cart')?.refresh()
       wx.showToast({ title: '已加入购物车', icon: 'success' })
     } catch (error) {
       if (error && error.kind === 'AUTH') {

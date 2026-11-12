@@ -1,9 +1,16 @@
 export const orderStates = {
   pending_payment: '待付款',
-  pending_shipment: '待发货',
+  pending_shipment: '待履约',
   pending_receipt: '待收货',
   completed: '已完成',
   closed: '已关闭',
+}
+export function orderStatusLabel(order) {
+  if (order && order.status === 'pending_shipment' && order.deliveryMethod === 'virtual') {
+    return '待交付'
+  }
+  if (order && order.status === 'pending_shipment') return '待发货'
+  return orderStates[order && order.status] || '待核实'
 }
 export const paymentStates = {
   not_started: '未发起付款',
@@ -13,6 +20,17 @@ export const paymentStates = {
   succeeded: '已核实收款',
   closed: '已关闭',
   failed: '需核实',
+}
+export function orderStatusType(status) {
+  return (
+    {
+      pending_payment: 'warning',
+      pending_shipment: 'danger',
+      pending_receipt: 'primary',
+      completed: 'success',
+      closed: 'info',
+    }[status] || 'info'
+  )
 }
 export function money(value) {
   if (!Number.isSafeInteger(value)) return '—'

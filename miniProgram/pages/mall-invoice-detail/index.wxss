@@ -5,50 +5,47 @@ page { background: #f4f3ee; }
 .mall-flow-page > flow-navigation { flex: none; }
 .mall-flow-scroll { min-height: 0; flex: 1; }
 .mall-invoice-status-card { display: flex; align-items: center; gap: 14rpx; margin: 18rpx 22rpx 14rpx; padding: 22rpx; border: 1rpx solid #e6eae3; border-radius: 18rpx; background: #fff; }
-.mall-invoice-status-card__mark { width: 68rpx; height: 68rpx; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #edf3ed; }
-.mall-invoice-status-card__copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 7rpx; }
-.mall-invoice-status-card__title { color: #34443b; font-size: 25rpx; font-weight: 700; }
-.mall-invoice-status-card__hint { color: #929b95; font-size: 18rpx; }
-.mall-invoice-status-card__amount { color: #bd563f; font-size: 25rpx; font-weight: 700; }
+.mall-invoice-status-card__mark { width: 76rpx; height: 76rpx; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #eaf1ff; }
+.mall-invoice-status-card__copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 7rpx; overflow: hidden; }
+.mall-invoice-status-card__title { color: #34443b; font-size: 29rpx; font-weight: 700; }
+.mall-invoice-status-card__hint { overflow: hidden; color: #929b95; font-size: 24rpx; white-space: nowrap; text-overflow: ellipsis; }
+.mall-invoice-status-card__amount { flex: none; color: #bd563f; font-size: 29rpx; font-weight: 700; }
 .mall-invoice-section { margin: 0 22rpx 14rpx; padding: 22rpx; border: 1rpx solid #e7e9e2; border-radius: 18rpx; background: #fff; }
-.mall-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 10rpx; margin-bottom: 14rpx; color: #2c3b33; font-size: 24rpx; font-weight: 700; }
-.mall-invoice-type-label { padding: 6rpx 12rpx; border-radius: 999rpx; color: #27645b; background: #edf3ed; font-size: 17rpx; font-weight: 500; }
-.mall-invoice-fact, .mall-ticket-card__meta { display: flex; align-items: flex-start; justify-content: space-between; gap: 16rpx; min-height: 48rpx; color: #7b867f; font-size: 20rpx; line-height: 1.5; }
+.mall-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 10rpx; margin-bottom: 14rpx; color: #2c3b33; font-size: 28rpx; font-weight: 700; }
+.mall-invoice-type-label { padding: 6rpx 12rpx; border-radius: 999rpx; color: #1677ff; background: #eaf1ff; font-size: 24rpx; font-weight: 500; }
+.mall-invoice-fact, .mall-ticket-card__meta { display: flex; align-items: flex-start; justify-content: space-between; gap: 16rpx; min-height: 52rpx; color: #7b867f; font-size: 24rpx; line-height: 1.5; }
 .mall-invoice-fact text:last-child, .mall-ticket-card__meta text:last-child { color: #435249; text-align: right; word-break: break-all; }
-.mall-invoice-private-note { display: block; padding-top: 12rpx; color: #8a7251; font-size: 19rpx; line-height: 1.5; }
-.mall-required { color: #bd563f; font-size: 18rpx; font-weight: 500; }
-.mall-optional { margin-left: 8rpx; color: #929b95; font-size: 17rpx; font-weight: 400; }
+.mall-invoice-private-note { display: block; padding-top: 12rpx; color: #8a7251; font-size: 24rpx; line-height: 1.5; }
+.mall-required { color: #bd563f; font-size: 24rpx; font-weight: 500; }
+.mall-optional { margin-left: 8rpx; color: #929b95; font-size: 24rpx; font-weight: 400; }
 .mall-form-field { display: block; margin-top: 14rpx; }
-.mall-form-field__label { display: block; margin-bottom: 8rpx; color: #4b5a51; font-size: 20rpx; }
-.mall-invoice-input, .mall-invoice-textarea { width: 100%; box-sizing: border-box; padding: 17rpx; border: 1rpx solid #e8ebe6; border-radius: 12rpx; color: #405047; background: #fbfcfa; font-size: 20rpx; }
-.mall-invoice-input { height: 74rpx; }
-.mall-invoice-textarea { min-height: 100rpx; line-height: 1.5; }
-.mall-field-helper, .mall-muted { color: #929b95; font-size: 18rpx; line-height: 1.55; font-weight: 400; }
-.mall-invoice-action, .mall-primary-button { min-width: 200rpx; height: 74rpx; margin-top: 14rpx; padding: 0 28rpx; border: 0; border-radius: 999rpx; color: #fff; background: #27645b; font-size: 22rpx; font-weight: 650; line-height: 74rpx; }
+.mall-form-field__label { display: block; margin-bottom: 8rpx; color: #4b5a51; font-size: 24rpx; }
+.mall-invoice-input, .mall-invoice-textarea { width: 100%; box-sizing: border-box; padding: 18rpx; border: 1rpx solid #e8ebe6; border-radius: 12rpx; color: #405047; background: #fbfcfa; font-size: 24rpx; }
+.mall-invoice-input { height: 80rpx; }
+.mall-invoice-textarea { min-height: 108rpx; line-height: 1.5; }
+.mall-field-helper, .mall-muted { color: #929b95; font-size: 24rpx; line-height: 1.55; font-weight: 400; }
+.mall-invoice-action, .mall-primary-button { min-width: 200rpx; height: 82rpx; margin-top: 14rpx; padding: 0 28rpx; border: 0; border-radius: 999rpx; color: #fff; background: #1677ff; font-size: 27rpx; font-weight: 650; line-height: 82rpx; }
 .mall-primary-button[disabled] { background: #b6c0ba; }
 .mall-ticket-card { margin-top: 12rpx; padding: 16rpx; border: 1rpx solid #e9ece6; border-radius: 14rpx; background: #fbfcfa; }
 .mall-ticket-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12rpx; padding-bottom: 10rpx; }
 .mall-ticket-card__chain, .mall-ticket-card__number { display: block; }
-.mall-ticket-card__chain { color: #35443b; font-size: 21rpx; font-weight: 700; }
-.mall-ticket-card__number { max-width: 440rpx; margin-top: 6rpx; overflow: hidden; color: #8a958d; font-size: 17rpx; white-space: nowrap; text-overflow: ellipsis; }
-.mall-ticket-card__kind { padding: 5rpx 11rpx; border-radius: 999rpx; color: #27645b; background: #eaf1eb; font-size: 17rpx; }
+.mall-ticket-card__chain { color: #35443b; font-size: 25rpx; font-weight: 700; }
+.mall-ticket-card__number { max-width: 440rpx; margin-top: 6rpx; overflow: hidden; color: #8a958d; font-size: 24rpx; white-space: nowrap; text-overflow: ellipsis; }
+.mall-ticket-card__kind { padding: 5rpx 11rpx; border-radius: 999rpx; color: #1677ff; background: #eaf1ff; font-size: 24rpx; }
 .mall-ticket-card__kind--red { color: #9d5546; background: #f7ece8; }
-.mall-ticket-card__meta { min-height: 38rpx; font-size: 18rpx; }
+.mall-ticket-card__meta { min-height: 42rpx; font-size: 24rpx; }
 .mall-ticket-card__actions, .mall-correction-form__actions { display: flex; justify-content: flex-start; gap: 10rpx; margin-top: 10rpx; }
-.mall-ticket-link, .mall-ticket-correct { min-width: 150rpx; height: 62rpx; margin: 0; padding: 0 18rpx; border: 1rpx solid #d8e2da; border-radius: 999rpx; color: #27645b; background: #f3f7f2; font-size: 19rpx; line-height: 60rpx; }
+.mall-ticket-link, .mall-ticket-correct { min-width: 150rpx; height: 68rpx; margin: 0; padding: 0 18rpx; border: 1rpx solid #c9d9f5; border-radius: 999rpx; color: #1677ff; background: #edf2ff; font-size: 24rpx; line-height: 66rpx; }
 .mall-ticket-link[disabled] { opacity: .65; }
 .mall-correction-form { margin-top: 12rpx; padding-top: 12rpx; border-top: 1rpx solid #e8ebe6; }
-.mall-ticket-submit { min-width: 205rpx; height: 62rpx; margin: 0; font-size: 18rpx; line-height: 62rpx; }
+.mall-ticket-submit { min-width: 205rpx; height: 68rpx; margin: 0; font-size: 24rpx; line-height: 68rpx; }
 .mall-withdraw-start { color: #8d5546; border-color: #ead9d2; background: #fbf5f2; }
 .mall-withdraw-form { padding-top: 10rpx; }
-.mall-invoice-disclaimer { padding: 4rpx 28rpx 24rpx; color: #8b958e; font-size: 18rpx; line-height: 1.55; }
-.mall-invoice-purpose { display: flex; flex-direction: column; gap: 8rpx; margin-top: 14rpx; padding: 14rpx; border-radius: 12rpx; color: #68746c; background: #f5f7f3; font-size: 18rpx; line-height: 1.6; }
-.mall-invoice-purpose__title { color: #405047; font-size: 19rpx; font-weight: 650; }
-.mall-invoice-purpose__version { color: #929b95; font-size: 17rpx; }
-.mall-invoice-consent { display: flex; align-items: center; gap: 10rpx; margin-top: 13rpx; color: #435249; font-size: 19rpx; }
-.mall-invoice-consent .mall-invoice-choice__mark { width: 32rpx; height: 32rpx; border: 2rpx solid #c4cdc6; border-radius: 50%; color: #fff; background: #fff; font-size: 19rpx; line-height: 32rpx; text-align: center; box-sizing: border-box; }
-.mall-invoice-consent .mall-invoice-choice__mark--selected { border-color: #27645b; background: #27645b; }
-.mall-inline-message { display: block; margin: 8rpx 26rpx 20rpx; color: #a24e3d; font-size: 20rpx; line-height: 1.5; }
-.mall-flow-state { min-height: 55vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16rpx; padding: 40rpx; color: #7a8980; font-size: 24rpx; text-align: center; }
-.mall-flow-state__title { color: #34443b; font-size: 30rpx; font-weight: 700; }
-.mall-flow-state .mall-primary-button { height: 78rpx; line-height: 78rpx; }
+.mall-invoice-disclaimer { padding: 4rpx 28rpx 24rpx; color: #8b958e; font-size: 24rpx; line-height: 1.55; }
+.mall-invoice-consent { display: flex; align-items: center; gap: 10rpx; margin-top: 13rpx; color: #435249; font-size: 24rpx; }
+.mall-invoice-consent .mall-invoice-choice__mark { width: 34rpx; height: 34rpx; border: 2rpx solid #c4cdc6; border-radius: 50%; color: #fff; background: #fff; font-size: 21rpx; line-height: 34rpx; text-align: center; box-sizing: border-box; }
+.mall-invoice-consent .mall-invoice-choice__mark--selected { border-color: #1677ff; background: #1677ff; }
+.mall-inline-message { display: block; margin: 8rpx 26rpx 20rpx; color: #a24e3d; font-size: 24rpx; line-height: 1.5; }
+.mall-flow-state { min-height: 55vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16rpx; padding: 40rpx; color: #7a8980; font-size: 28rpx; text-align: center; }
+.mall-flow-state__title { color: #34443b; font-size: 34rpx; font-weight: 700; }
+.mall-flow-state .mall-primary-button { height: 86rpx; line-height: 86rpx; }

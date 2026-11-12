@@ -7,7 +7,7 @@
     "G-UI": "reference_received_2026-11-06_mall_style_recorded_visual_mall_tasks_unlocked",
     "G-LIVE": "requires_scope_specific_platform_and_operation_authorization",
     "G-PROTOCOL": "constitution_II_exception_adopted_protocol_verified_T048_local_implementation_and_regression_complete",
-    "G-LIVE-SHIPPING": "manual_platform_entry_required_user_confirmed_api_not_selected_real_account_entry_and_permission_pending_T131"
+    "G-LIVE-SHIPPING": "withdrawn_2026-11-11_no_wechat_platform_shipping"
   },
   "tasks": [
     {
@@ -1080,7 +1080,6 @@
         "updateAdminMallProduct",
         "getAdminMallProduct",
         "setMallProductStatus",
-        "copyMallProduct",
         "adjustMallStock",
         "listMallStockMovements"
       ],
@@ -1808,8 +1807,9 @@
       "key": "checkout_mini_ui",
       "phase": "Phase 4: US2 — 选购、下单与支付（P1）",
       "story": "US2",
-      "description": "G-UI后按参考图实现购物车、地址、确认订单及支付结果，先写对应交互测试，支付未知有清晰查单动作",
+      "description": "G-UI后按参考图实现购物车、地址、确认订单及支付结果；购物车显示商品主图并保留失败占位，支付未知有清晰查单动作",
       "paths": [
+        "backend/src/services/mall_cart_service.py",
         "miniProgram/pages/mall-cart/index.js",
         "miniProgram/pages/mall-cart/index.json",
         "miniProgram/pages/mall-cart/index.wxml",
@@ -1868,7 +1868,8 @@
         "T050",
         "T003"
       ],
-      "evidence": "node --test miniProgram/tests/integration/mall-checkout-page.test.js: 5 passed; no WeChat device acceptance"
+      "evidence": "node --test miniProgram/tests/integration/mall-checkout-page.test.js: 5 passed; no WeChat device acceptance",
+      "progress": "2026-11-11补齐购物车商品主图：本人购物车响应返回短时签名coverUrl，小程序展示主图并在加载失败时显示原占位图。另按用户后续要求移除结算页用途告知长文，提交按钮仍记录支付/履约用途确认。该补充未运行自动化测试或真机验收。"
     },
     {
       "id": "T052",
@@ -1970,7 +1971,7 @@
       "key": "shipping_platform_tests",
       "phase": "Phase 5: US3 — 发货与收货（P1）",
       "story": "US3",
-      "description": "核实并记录微信平台订单发货管理的人工录入方式、本地与平台事实隔离及账号级待验项；冻结第一期不接微信发货API",
+      "description": "（2026-11-11作废）原任务为核实微信平台人工录入方式；用户确认本项目不存在微信平台发货环节，不对接发货API，也不需要平台侧录入或回填。保留历史协议记录和本地状态隔离回归",
       "paths": [
         "backend/tests/integration/test_mall_shipping_sync.py",
         "specs/022-independent-mall/shipping-protocol-review.md",
@@ -1993,8 +1994,8 @@
       "dependencies": [
         "T028"
       ],
-      "progress": "2026-11-09核对微信支付官方开发指引和FAQ，确认交易类小程序按规则使用发货管理，且小程序后台人工录入可替代发货API。用户明确本项目必须登记发货信息并选择后台人工方式，第一期不调用微信API。原始本地收货隔离集成回归1项通过；账号入口/权限由T131核验；商城内人工登记状态由T056实现。",
-      "evidence": "https://pay.wechatpay.cn/doc/v3/merchant/4012791911（2026-06-09更新）与https://pay.wechatpay.cn/doc/v3/institution/4019800055（2026-05-25更新）；官方FAQ列出小程序后台手工录入或发货API两种方式。用户2026-11-09确认本项目采用手工录入。backend/tests/integration/test_mall_shipping_sync.py此前1 passed，仅证明本地确认不伪造平台事实，不证明真实账号能力；T131负责真实账号核验。未连接外部平台。"
+      "progress": "2026-11-11用户确认本项目没有微信平台发货环节，2026-11-09的人工录入方案作废；不对接发货API，也不需要平台侧录入或回填。shipping-protocol-review.md仅作历史记录；test_mall_shipping_sync.py只证明本地状态不伪造外部平台事实。",
+      "evidence": "backend/tests/integration/test_mall_shipping_sync.py此前1 passed，仅证明本地确认不伪造外部平台事实；specs/022-independent-mall/shipping-protocol-review.md已标注作废。未连接外部平台。"
     },
     {
       "id": "T055",
@@ -2040,7 +2041,7 @@
       "key": "shipping_platform",
       "phase": "Phase 5: US3 — 发货与收货（P1）",
       "story": "US3",
-      "description": "实现后台记录“已在微信平台登记”的人工确认工作流，不调用微信发货API；本地出库后由员工在微信小程序后台录入，再回商城按包裹版本确认，保存状态/时间/管理员审计；运单更正后重置待登记；不把人工确认写成微信回执或平台确认收货，快递100轨迹独立",
+      "description": "（2026-11-11作废）原“已在微信平台登记”人工确认工作流不存在；员工在商城后台登记本地包裹及运单即完成发货，保存版本/时间与管理员审计；运单更正按包裹版本处理；platform_*列仅作历史兼容，不再读写其业务含义",
       "paths": [
         "backend/src/api/v1/admin_mall_orders.py",
         "backend/src/services/mall_shipment_service.py",
@@ -2080,17 +2081,15 @@
       "acceptance": [],
       "parallel": false,
       "gates": [],
-      "operationIds": [
-        "recordMallPlatformShipmentReport"
-      ],
+      "operationIds": [],
       "test": true,
       "status": "completed",
       "dependencies": [
         "T054",
         "T055"
       ],
-      "progress": "2026-11-09完成本地闭环：员工在微信后台完成人工录入后，商城按包裹版本、实时权限和幂等键回填状态/时间及管理员审计；运单更正重置待登记。详情页提供人工确认，工作台计数并筛选待登记订单，买家只看到平台登记状态而不混同平台确认收货。全流程不调用微信API；真实账号入口和权限仍由T131核验。",
-      "evidence": "RED: 初次集成用例因发货响应缺少platformReportStatus失败；GREEN: backend定向SQLite回归14 passed（test_mall_shipping_sync、test_mall_workbench、test_mall_fulfillment、test_mall_fulfillment_flow），miniProgram mall-order-page 4 passed，manageSystem npm run build成功，Ruff通过。隔离MySQL runner首轮44 passed（含038迁移升级/回退）；之后收紧downgrade guard时test_028暴露原有历史pending状态会被误拦，条件已缩窄为仅manual_reported或存在platform_reported_at时拒绝降级。该最终缩窄后的MySQL runner复跑结果未保留在当前记录中，不将其计作已通过。真实微信账号未连接；商城确认仍是员工声明，不是平台回执；账号能力由T131核验。"
+      "progress": "2026-11-11按用户确认作废：不存在微信平台发货或人工回填环节，发货以商城后台登记的本地包裹及运单为准。数据库platform_*列保留为历史兼容字段。",
+      "evidence": "历史实现曾于2026-11-09完成平台回填状态、审计与迁移038。2026-11-11确认该概念不属于本项目，相关接口/界面语义停用；platform_*列仅作兼容保留。未连接外部平台。"
     },
     {
       "id": "T057",
@@ -2271,7 +2270,7 @@
       "key": "fulfillment_routes",
       "phase": "Phase 5: US3 — 发货与收货（P1）",
       "story": "US3",
-      "description": "实现后台订单查询备注关单、出库/改运单及本人确认收货；微信后台人工发货登记状态回填单列在T056；原文领取由T063作为独立、默认关闭的动作管理；详情使用BuyerOrderDetail/AdminOrderDetail，不把内部备注或原始audit返回买家",
+      "description": "实现后台订单查询备注关单、出库/改运单及本人确认收货；不存在微信平台发货或登记回填；原文领取由T063作为独立、默认关闭的动作管理；详情使用BuyerOrderDetail/AdminOrderDetail，不把内部备注或原始audit返回买家",
       "paths": [
         "backend/src/api/v1/admin_mall_orders.py",
         "backend/src/api/v1/mall_orders.py",
@@ -2311,8 +2310,8 @@
         "T055",
         "T047"
       ],
-      "progress": "本地后台订单读写、内部备注/取消、单包裹出库/运单更正及本人确认收货均完成；T062聚焦本地管理端交易路由，微信平台人工登记状态回填工作项由T056负责。G-DATA内部单对象范围后续由T063实现；生产开关当前默认关闭。",
-      "evidence": "backend/tests/contract/test_admin_mall_orders.py; tests/contract/test_mall_fulfillment.py; tests/unit/test_mall_fulfillment_service.py; tests/integration/test_mall_fulfillment_flow.py：2026-11-09共23 passed（10.45秒）。覆盖本地订单/包裹事实、权限与状态；微信后台人工登记状态回填另归T056；原文访问的单独授权与运行门禁由T063专测。"
+      "progress": "本地后台订单读写、内部备注/取消、单包裹出库/运单更正及本人确认收货均完成；发货登记仅保留本地事实，不存在平台登记环节。G-DATA内部单对象范围后续由T063实现；生产开关当前默认关闭。",
+      "evidence": "backend/tests/contract/test_admin_mall_orders.py; tests/contract/test_mall_fulfillment.py; tests/unit/test_mall_fulfillment_service.py; tests/integration/test_mall_fulfillment_flow.py：2026-11-09共23 passed（10.45秒）。覆盖本地订单/包裹事实与权限状态；不存在平台发货同步。原文访问的单独授权与运行门禁由T063专测。"
     },
     {
       "id": "T063",
@@ -5344,7 +5343,7 @@
       "key": "live_checks",
       "phase": "Phase 12: Polish — UI整合、联调与交付",
       "story": null,
-      "description": "仅G-LIVE具体授权及配置具备后核验商户关联、公钥/通知、微信后台发货管理入口/权限、快递100权限/限流和COS私有桶；发票上传按经办人确认，不做税务平台验真；不在任务文档内视为授权真实资金操作；引用T054人工录入方案并核验真实账号发货管理入口/权限；通知联调还须G-PROTOCOL已正式采纳",
+      "description": "仅G-LIVE具体授权及配置具备后核验商户关联、公钥/通知、快递100权限/限流和COS私有桶；发票上传按经办人确认，不做税务平台验真；不在任务文档内视为授权真实资金操作；通知联调还须G-PROTOCOL已正式采纳",
       "paths": [
         "specs/022-independent-mall/platform-acceptance.md",
         "backend/.env.example"
@@ -5375,8 +5374,8 @@
         "T128",
         "T121"
       ],
-      "progress": "完成本地无外连预检：只核对运行时模式/开关和配置字段存在性，不读取密钥值、不连接外部；支付及快递100身份凭据未配置，COS字段非空但未验证，商城出站保持关闭。G-LIVE仍需具体授权和平台证据；G-PROTOCOL已于2026-11-09由宪章3.0.0采纳并核验，T048本地实现与隔离回归已完成；G-DATA内部窄范围后续获批并实现T063/T102，但生产引用未配置、第三方原文传输仍未授权。真实通知、发货、物流资料及COS验收均未执行；不要求真实发票或税务平台验真。 2026-11-10重新读取后端Settings，只复核非敏感开关及凭据字段是否非空；商城、新购、支付出站/回调、存储出站、数据释放和worker均关闭；支付test、快递100 fake；AppID字段与COS字段非空，商户/快递100凭据为空。没有输出值或发起外部请求，G-LIVE仍未通过。",
-      "evidence": "2026-11-09运行时Settings核对：MALL_ENABLED=false、MALL_PURCHASE_ENABLED=false、MALL_GATEWAY_MODE=test、MALL_GATEWAY_OUTBOUND_ENABLED=false；MALL_GATEWAY_CALLBACK_ENABLED=false；微信商户身份、APIv3通知密钥、验签公钥及通知地址未配置；快递100为fake、outbound=false且客户号/key未配置；COS字段非空但MALL_STORAGE_OUTBOUND_ENABLED=false，未读取密钥值或发网络请求。protocol-governance-proposal记录G-PROTOCOL采纳/协议核验；shipping-protocol-review显示G-LIVE-SHIPPING未通过。platform-acceptance记录逐平台条件；T131未通过G-LIVE。发票真伪不属于本任务验收。 2026-11-10后端Settings只读复核：environment=development；商城/新购false，支付test且outbound/callback=false，数据释放false且留存引用/告知版本缺失，worker/storage outbound=false；WECHAT_APP_ID字段非空但未核对值/商户关联，微信商户号/证书/私钥/验签key/APIv3/notify URL未配置；快递100为fake、outbound=false、客户号/key未配置；COS secret ID/key、bucket、region字段非空但未输出值、未验证凭据/归属，也未访问网络。"
+      "progress": "完成本地无外连预检：只核对运行时模式/开关和配置字段存在性，不读取密钥值、不连接外部；支付及快递100身份凭据未配置，COS字段非空但未验证，商城出站保持关闭。G-LIVE仍需具体授权和平台证据；G-PROTOCOL已于2026-11-09由宪章3.0.0采纳并核验，T048本地实现与隔离回归已完成；G-DATA内部窄范围后续获批并实现T063/T102，但生产引用未配置；向第三方传输姓名/电话/详细地址仍未授权，2026-11-11仅授权快递100行政区名称。真实通知、物流运单及COS验收均未执行；不要求真实发票或税务平台验真。 2026-11-10重新读取后端Settings，只复核非敏感开关及凭据字段是否非空；商城、新购、支付出站/回调、存储出站、数据释放和worker均关闭；支付test、快递100 fake；AppID字段与COS字段非空，商户/快递100凭据为空。没有输出值或发起外部请求，G-LIVE仍未通过。 2026-11-10再次复核支付/物流身份字段、环境开关和COS配置存在性；支付/快递100身份未配置，COS字段非空但桶策略与对象操作未验证；未访问外部平台或执行真实资金、物流、文件操作，T131仍等待具体G-LIVE授权和账号证据。 2026-11-10复用现有COS配置只读GET ACL/policy/CORS：AllUsers具有桶级READ、未发现bucket policy、CORS允许PUT与x-cos-acl；未读写对象或修改配置。商城私有/反馈上传现已签x-cos-acl: private；浏览器Origin及对象级读写仍未验证。T131仍待具体G-LIVE授权、平台账号证据和COS策略/对象验收。 2026-11-11快递100 live分支已在本地development接通，仅发送发货地/收件地省市区名称；真实运单查询仍未执行。T131剩余微信支付/退款与通知、快递100和COS。",
+      "evidence": "2026-11-09运行时Settings核对：MALL_ENABLED=false、MALL_PURCHASE_ENABLED=false、MALL_GATEWAY_MODE=test、MALL_GATEWAY_OUTBOUND_ENABLED=false；MALL_GATEWAY_CALLBACK_ENABLED=false；微信商户身份、APIv3通知密钥、验签公钥及通知地址未配置；快递100为fake、outbound=false且客户号/key未配置；COS字段非空但MALL_STORAGE_OUTBOUND_ENABLED=false，未读取密钥值或发网络请求。protocol-governance-proposal记录G-PROTOCOL采纳/协议核验；platform-acceptance记录逐平台条件；T131未通过G-LIVE。发票真伪不属于本任务验收。 2026-11-10后端Settings只读复核：environment=development；商城/新购false，支付test且outbound/callback=false，数据释放false且留存引用/告知版本缺失，worker/storage outbound=false；WECHAT_APP_ID字段非空但未核对值/商户关联，微信商户号/证书/私钥/验签key/APIv3/notify URL未配置；快递100为fake、outbound=false、客户号/key未配置；COS secret ID/key、bucket、region字段非空但未输出值、未验证凭据/归属，也未访问网络。; implementation-log.md中的“2026-11-10 T131/T133继续核验：运行配置与证据来源”记录当前非敏感设置状态；没有真实平台访问或出站调用; implementation-log.md记录本次只读COS结果和代码变更；platform-acceptance.md记录桶级AllUsers READ、无bucket policy、CORS PUT/x-cos-acl及未核验Origin/对象读写。未改变COS ACL、policy或对象。现有COS隔离前缀合成PDF实测上传200、MIME/大小/SHA-256吻合、匿名GET 403、60秒签名URL立即下载200且字节一致、删除204且复核HEAD 404。真实COS的发票接口上传、转存、绑定和买家下载均已通过。管理端浏览器直传预检403，已改为商城后端代传。相同请求重试未创建重复对象，链接过期403后重新签名下载成功，测试对象已清理。小程序真机仍待走查。快递100本地回归9项通过；live分支已接通，真实运单仍待提供。详见platform-acceptance.md。"
     },
     {
       "id": "T132",
@@ -5437,7 +5436,7 @@
       "key": "release_readiness",
       "phase": "Phase 12: Polish — UI整合、联调与交付",
       "story": null,
-      "description": "核实主体/准售清单/仓退地址/服务默认值/税务能力/平台和资料规范证据，汇总各故事未完成项；缺条件保持新购关；核对T048及G-PROTOCOL治理/实施证据，不得把宪章采纳等同于全商城可投产",
+      "description": "完成本分支发布门禁评估，记录真实平台/经营上线条件并维持新购关闭；本分支不要求本地经营资料、资质审批、税务口径或服务承诺；评估完成不等于生产可投产",
       "paths": [
         "specs/022-independent-mall/release-readiness.md",
         "specs/022-independent-mall/governance-proposal.md"
@@ -5464,13 +5463,12 @@
       ],
       "operationIds": [],
       "test": false,
-      "status": "in_progress",
-      "progress": "已完成离线证据差距初审，逐项列出经营主体、准售SKU、履约、支付/物流/税务/COS能力、内部G-DATA运行条件/G-PROTOCOL及真机条件；建议继续保持新购与各平台出站关闭。G-DATA内部窄范围于2026-11-09获用户批准并采纳为宪章4.0.0，T063/T102已实现并通过合成回归；生产运行仍待留存制度引用和告知审阅版本配置，外部原文传输仍未获授权。G-PROTOCOL及T048本地证据已完成。T056商城本地闭环已完成；T108本地发票申请/经办上传/下载闭环已通过（按工作人员确认，不验真）、T131真实平台账号核验及其它发布资料仍未完成；用户于2026-11-10确认T132真机验收完成，本轮不形成投产结论，T133保持进行中。",
-      "evidence": "release-readiness.md引用platform-acceptance.md、device-acceptance.md、payment-protocol-review.md、shipping-protocol-review.md、governance-proposal.md及protocol-governance-proposal.md；T052本地集成、T062本地路由、T048本地范围已验收；T054本地/平台状态隔离测试1 passed；T063/T102专用契约测试3 passed；T108合成发票申请/上传/下载测试通过，不要求真实票据或税务验真；生产COS由T131核验；T131本地无外连预检及T132合成UI自动化已记录。T056已完成本地人工登记闭环；T108已按经办上传确认口径完成；T132按用户验收确认已完成，T131/T133仍进行中；真机逐设备/逐人原始记录未归档。无外部平台、真实支付、设备或真实个人资料操作。",
+      "status": "completed",
+      "progress": "2026-11-10完成本分支门禁评估：按用户范围使用合成商品/商品规格验收，不要求本地经营资料、资质审批、税务口径或服务承诺；release-readiness.md明确真实开放新购仍需经营方处理相应实际条件、商城新购继续关闭。现有商品设计按“商品规格”描述，规格行包含选填条形码、规格、售价、成本价、库存和预警数量。T131真实平台核验仍进行中，T133评估完成不代表生产就绪。",
+      "evidence": "release-readiness.md记录分支验收范围、真实开售门槛及当前关闭的新购开关；platform-acceptance.md记录T131非敏感运行时状态与COS只读ACL/policy/CORS结果。用户明确本分支无需提交本地经营资料、资质审批、税务口径或服务承诺；6个合成商品/7条测试规格只用于本地验收，不作为真实经营资料。T132按用户确认已完成；T131仍进行中。",
       "dependencies": [
         "T129",
         "T130",
-        "T131",
         "T132",
         "T063",
         "T102"
@@ -5625,8 +5623,8 @@
       "operationIds": [],
       "test": false,
       "status": "completed",
-      "progress": "完成交付追踪核对：135项任务状态与tasks.md勾选同步；T056本地人工登记闭环及隔离验证完成；T054/T056已按人工录入方案重分范围；OpenAPI 94路径/106操作与106个operationId/owner对齐，修复缺少的资金导出状态operation及退款通知错误归属；核对94 FR和53 AC的任务覆盖，新增Q-01至Q-10实际证据状态。明确隔离/合成验收、未完成故事、依赖例外和真实发布门禁，不把局部证据标为整体通过。",
-      "evidence": "2026-11-10在用户明确T108上传并确认即按经办人确认有效、不做税务平台真伪验证后，更新T108范围并关闭任务；用户确认T132真机验收完成并授权标记关闭；静态核对tasks.md有135项且复选框与tasks-map一致，状态为133项完成/2项进行中/0项待开始；OpenAPI 94路径/106操作/106归属、FR覆盖94/94、AC覆盖53/53仍一致。未完成项为T131/T133；T135文档审计完成不代表商城可投产。",
+      "progress": "完成交付追踪核对：135项任务状态与tasks.md勾选同步；T056本地人工登记闭环及隔离验证完成；T054/T056已按人工录入方案重分范围；OpenAPI 94路径/106操作与106个operationId/owner对齐，修复缺少的资金导出状态operation及退款通知错误归属；核对94 FR和53 AC的任务覆盖，新增Q-01至Q-10实际证据状态。明确隔离/合成验收、未完成故事、依赖例外和真实发布门禁，不把局部证据标为整体通过。2026-11-10按用户澄清商品文档使用“商品规格”，并将T133收口为分支门禁评估完成；T131仍进行中。",
+      "evidence": "2026-11-10核对tasks.md与tasks-map：135项、134项完成、1项进行中、0项待开始，T131进行中、T133已完成；OpenAPI 94路径/106操作/106归属、FR覆盖94/94、AC覆盖53/53保持一致。T133完成仅表示分支门禁评估完成，不代表商城可投产。",
       "dependencies": [
         "T134"
       ]
@@ -5654,7 +5652,6 @@
     "updateAdminMallProduct": "T032",
     "getAdminMallProduct": "T032",
     "setMallProductStatus": "T032",
-    "copyMallProduct": "T032",
     "adjustMallStock": "T032",
     "listMallStockMovements": "T032",
     "listMallAddresses": "T047",
@@ -5737,8 +5734,7 @@
     "updateMallDifference": "T112",
     "closeMallReconciliation": "T112",
     "getAdminMallWorkbench": "T123",
-    "getAdminMallFinanceExport": "T112",
-    "recordMallPlatformShipmentReport": "T056"
+    "getAdminMallFinanceExport": "T112"
   },
   "tables": {
     "T007": [
@@ -5790,10 +5786,8 @@
   "gateDefinitions": {
     "G-LIVE-SHIPPING": {
       "parent": "G-LIVE",
-      "scope": "核验真实小程序账号的后台人工发货管理入口/适用状态；第一期不开发发货API，T056本地状态回填无需外部调用",
-      "ownerTask": "T131",
-      "consumerTask": "T056",
-      "liveVerificationTask": "T131"
+      "scope": "历史微信后台人工登记方案。微信发货账号核验已移出本分支验收范围。",
+      "status": "removed_from_branch_acceptance_scope"
     },
     "G-PROTOCOL": {
       "proposal": "protocol-governance-proposal.md",

@@ -1,47 +1,46 @@
 @import "../../styles/interactions.wxss";
 
 page { background: #f4f3ee; }
-.mall-flow-page { height: 100vh; display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom); background: #f4f3ee; box-sizing: border-box; }
+.mall-flow-page { height: 100vh; display: flex; flex-direction: column; background: #f4f3ee; box-sizing: border-box; }
 .mall-flow-page > flow-navigation { flex: none; }
 .mall-flow-scroll { min-height: 0; flex: 1; }
 .mall-invoice-content { padding: 18rpx 22rpx 28rpx; }
 .mall-invoice-summary, .mall-invoice-section { margin-bottom: 14rpx; padding: 22rpx; border: 1rpx solid #e7e9e2; border-radius: 18rpx; background: #fff; }
 .mall-invoice-summary__top { display: flex; align-items: center; justify-content: space-between; }
 .mall-invoice-summary__eyebrow, .mall-invoice-summary__title { display: block; }
-.mall-invoice-summary__eyebrow { color: #929b95; font-size: 19rpx; }
-.mall-invoice-summary__title { margin-top: 8rpx; color: #33443a; font-size: 27rpx; font-weight: 700; }
-.mall-invoice-summary__icon, .mall-invoice-state-mark { width: 70rpx; height: 70rpx; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #edf3ed; }
-.mall-invoice-summary__amount { display: flex; align-items: center; justify-content: space-between; margin: 18rpx 0 8rpx; padding-top: 14rpx; border-top: 1rpx solid #eff0eb; color: #77837a; font-size: 21rpx; }
-.mall-invoice-summary__amount text:last-child { color: #bd563f; font-size: 29rpx; font-weight: 700; }
-.mall-helper, .mall-field-helper { color: #929b95; font-size: 19rpx; line-height: 1.55; }
-.mall-section-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16rpx; color: #2c3b33; font-size: 25rpx; font-weight: 700; }
-.mall-required { color: #bd563f; font-size: 19rpx; font-weight: 500; }
-.mall-optional { margin-left: 10rpx; color: #929b95; font-size: 18rpx; font-weight: 400; }
+.mall-invoice-summary__eyebrow { color: #929b95; font-size: 24rpx; }
+.mall-invoice-summary__title { margin-top: 8rpx; color: #33443a; font-size: 31rpx; font-weight: 700; }
+.mall-invoice-summary__icon, .mall-invoice-state-mark { width: 76rpx; height: 76rpx; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #eaf1ff; }
+.mall-invoice-summary__amount { display: flex; align-items: center; justify-content: space-between; margin: 18rpx 0 8rpx; padding-top: 14rpx; border-top: 1rpx solid #eff0eb; color: #77837a; font-size: 25rpx; }
+.mall-invoice-summary__amount text:last-child { color: #bd563f; font-size: 33rpx; font-weight: 700; }
+.mall-helper, .mall-field-helper { color: #929b95; font-size: 24rpx; line-height: 1.55; }
+.mall-section-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16rpx; color: #2c3b33; font-size: 29rpx; font-weight: 700; }
+.mall-required { color: #bd563f; font-size: 24rpx; font-weight: 500; }
+.mall-optional { margin-left: 10rpx; color: #929b95; font-size: 24rpx; font-weight: 400; }
 .mall-invoice-choice-row { display: flex; gap: 12rpx; margin-bottom: 18rpx; }
-.mall-invoice-choice { min-width: 0; flex: 1; display: flex; align-items: center; gap: 12rpx; margin: 0; padding: 14rpx; border: 1rpx solid #e8ebe6; border-radius: 14rpx; color: #435249; background: #fbfcfa; text-align: left; }
-.mall-invoice-choice--selected, .mall-invoice-type--selected { border-color: #9ab5a5; background: #f3f7f2; }
-.mall-invoice-choice__mark { width: 34rpx; height: 34rpx; flex: none; display: flex; align-items: center; justify-content: center; border: 2rpx solid #c4cdc6; border-radius: 50%; color: #fff; background: #fff; font-size: 20rpx; box-sizing: border-box; }
-.mall-invoice-choice--selected .mall-invoice-choice__mark, .mall-invoice-type--selected .mall-invoice-choice__mark { border-color: #27645b; background: #27645b; }
+.mall-invoice-choice { min-width: 0; flex: 1; display: flex; align-items: center; gap: 12rpx; margin: 0; padding: 16rpx 14rpx; border: 1rpx solid #e8ebe6; border-radius: 14rpx; color: #435249; background: #fbfcfa; text-align: left; }
+.mall-invoice-choice--selected, .mall-invoice-type--selected { border-color: #a4bfff; background: #edf2ff; }
+.mall-invoice-choice__mark { width: 36rpx; height: 36rpx; flex: none; display: flex; align-items: center; justify-content: center; border: 2rpx solid #c4cdc6; border-radius: 50%; color: #fff; background: #fff; font-size: 22rpx; box-sizing: border-box; }
+.mall-invoice-choice--selected .mall-invoice-choice__mark, .mall-invoice-type--selected .mall-invoice-choice__mark { border-color: #1677ff; background: #1677ff; }
 .mall-invoice-choice > view:last-child, .mall-invoice-type__copy { min-width: 0; display: flex; flex-direction: column; gap: 6rpx; }
-.mall-invoice-choice > view:last-child text:first-child, .mall-invoice-type__copy text:first-child { color: #34443b; font-size: 22rpx; font-weight: 650; }
-.mall-invoice-choice > view:last-child text:last-child, .mall-invoice-type__copy text:last-child { color: #929b95; font-size: 18rpx; font-weight: 400; line-height: 1.45; }
+.mall-invoice-choice > view:last-child text:first-child, .mall-invoice-type__copy text:first-child { color: #34443b; font-size: 26rpx; font-weight: 650; }
+.mall-invoice-choice > view:last-child text:last-child, .mall-invoice-type__copy text:last-child { color: #929b95; font-size: 24rpx; font-weight: 400; line-height: 1.45; }
 .mall-form-field { display: block; margin-top: 16rpx; }
-.mall-form-field__label { display: block; margin-bottom: 9rpx; color: #4b5a51; font-size: 21rpx; }
-.mall-invoice-input { width: 100%; height: 78rpx; box-sizing: border-box; padding: 0 17rpx; border: 1rpx solid #e8ebe6; border-radius: 12rpx; color: #405047; background: #fbfcfa; font-size: 21rpx; }
+.mall-form-field__label { display: block; margin-bottom: 9rpx; color: #4b5a51; font-size: 25rpx; }
+.mall-invoice-input { width: 100%; height: 82rpx; box-sizing: border-box; padding: 0 18rpx; border: 1rpx solid #e8ebe6; border-radius: 12rpx; color: #405047; background: #fbfcfa; font-size: 25rpx; }
 .mall-field-helper { display: block; margin-top: 9rpx; }
-.mall-invoice-type { width: 100%; min-height: 78rpx; display: flex; align-items: center; gap: 12rpx; margin: 0; padding: 13rpx; border: 1rpx solid #e8ebe6; border-radius: 14rpx; color: #435249; background: #fbfcfa; text-align: left; }
+.mall-invoice-type { width: 100%; min-height: 82rpx; display: flex; align-items: center; gap: 12rpx; margin: 0; padding: 15rpx 13rpx; border: 1rpx solid #e8ebe6; border-radius: 14rpx; color: #435249; background: #fbfcfa; text-align: left; }
 .mall-invoice-type + .mall-invoice-type { margin-top: 10rpx; }
-.mall-invoice-notice { display: flex; align-items: flex-start; gap: 9rpx; padding: 10rpx 5rpx 20rpx; color: #8a7251; font-size: 19rpx; line-height: 1.55; }
+.mall-invoice-notice { display: flex; align-items: flex-start; gap: 9rpx; padding: 10rpx 5rpx 20rpx; color: #8a7251; font-size: 24rpx; line-height: 1.55; }
 .mall-invoice-notice van-icon { flex: none; margin-top: 2rpx; }
-.mall-invoice-purpose { display: flex; flex-direction: column; gap: 9rpx; padding: 16rpx; border-radius: 13rpx; color: #68746c; background: #f5f7f3; font-size: 18rpx; line-height: 1.6; }
-.mall-invoice-purpose__title { color: #405047; font-size: 20rpx; font-weight: 650; }
-.mall-invoice-purpose__version { color: #929b95; font-size: 17rpx; }
-.mall-invoice-consent { display: flex; align-items: center; gap: 11rpx; margin: 14rpx 2rpx 2rpx; color: #435249; font-size: 19rpx; }
-.mall-invoice-choice__mark--selected { border-color: #27645b; color: #fff; background: #27645b; }
-.mall-inline-message { display: block; margin: 8rpx 4rpx 18rpx; color: #a24e3d; font-size: 21rpx; line-height: 1.5; }
+.mall-invoice-purpose { display: flex; flex-direction: column; gap: 9rpx; padding: 16rpx; border-radius: 13rpx; color: #68746c; background: #f4f7fb; font-size: 24rpx; line-height: 1.6; }
+.mall-invoice-purpose__title { color: #405047; font-size: 24rpx; font-weight: 650; }
+.mall-invoice-consent { display: flex; align-items: center; gap: 11rpx; margin: 14rpx 2rpx 2rpx; color: #435249; font-size: 24rpx; }
+.mall-invoice-choice__mark--selected { border-color: #1677ff; color: #fff; background: #1677ff; }
+.mall-inline-message { display: block; margin: 8rpx 4rpx 18rpx; color: #a24e3d; font-size: 25rpx; line-height: 1.5; }
 .mall-invoice-footer { flex: none; padding: 12rpx 24rpx calc(16rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid #e7e8e2; background: #fff; }
 .mall-invoice-submit { display: block; width: 100%; margin-top: 9rpx; }
-.mall-primary-button { min-width: 210rpx; height: 82rpx; padding: 0 34rpx; border: 0; border-radius: 999rpx; color: #fff; background: #27645b; font-size: 27rpx; font-weight: 650; line-height: 82rpx; }
+.mall-primary-button { min-width: 210rpx; height: 86rpx; padding: 0 34rpx; border: 0; border-radius: 999rpx; color: #fff; background: #1677ff; font-size: 29rpx; font-weight: 650; line-height: 86rpx; }
 .mall-primary-button[disabled] { background: #b6c0ba; }
-.mall-flow-state { min-height: 55vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16rpx; padding: 40rpx; color: #7a8980; font-size: 24rpx; text-align: center; }
-.mall-flow-state__title { color: #34443b; font-size: 30rpx; font-weight: 700; }
+.mall-flow-state { min-height: 55vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16rpx; padding: 40rpx; color: #7a8980; font-size: 28rpx; text-align: center; }
+.mall-flow-state__title { color: #34443b; font-size: 34rpx; font-weight: 700; }

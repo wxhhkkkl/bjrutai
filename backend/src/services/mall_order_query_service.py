@@ -2,11 +2,20 @@
 
 from sqlalchemy import func, or_, select
 
+from ..integrations.cos_client import MallCOSStore, get_cos_client
 from ..models.audit import AuditLog
 from ..models.mall_base import utc_now
 from ..models.mall_consumption import MallConsumption
 from ..models.mall_finance import MallInvoiceRequest, MallPayment
-from ..models.mall_trade import MallAftersale, MallOrder, MallOrderItem, MallShipment
+from ..models.mall_operations import MallFile
+from ..models.mall_catalog import MallProduct
+from ..models.mall_trade import (
+    MallAftersale,
+    MallOrder,
+    MallOrderItem,
+    MallShipment,
+    MallVirtualDelivery,
+)
 from .mall_catalog_query_service import _page
 from .mall_order_service import audit_order
 from .mall_order_text import safe_order_text
@@ -16,8 +25,10 @@ def timestamp(value):
     return value.isoformat() + "Z" if value else None
 
 
-def address_view(snapshot):
-    return {
+def address_view(snapshot, *, include_delivery_details=False):
+    if not snapshot or not snapshot.get("id"):
+        return None
+    result = {
         "id": snapshot["id"],
         "recipientName": snapshot["recipientName"],
         "phoneMasked": snapshot["phoneMasked"],
@@ -26,6 +37,14 @@ def address_view(snapshot):
         "isDefault": False,
         "version": snapshot["version"],
     }
+    if include_delivery_details:
+        # Only opt in after the buyer's order ownership has been verified.
+        result.update(
+            phone=snapshot.get("phone", ""),
+            regionNames=snapshot.get("regionNames", []),
+            addressLine=snapshot.get("addressLine", ""),
+        )
+    return result
 
 
 async def _relations(db, orders):
@@ -39,6 +58,9 @@ async def _relations(db, orders):
             "invoice": None,
             "consumption": None,
             "shipment": None,
+            "virtualDelivery": None,
+            "coverUrls": {},
+            "itemCoverFileIds": {},
         }
         for identity in identities
     }
@@ -55,6 +77,7 @@ async def _relations(db, orders):
         ),
         (MallConsumption, "consumption", MallConsumption.order_id, identities),
         (MallShipment, "shipment", MallShipment.order_id, identities),
+        (MallVirtualDelivery, "virtualDelivery", MallVirtualDelivery.order_id, identities),
     ]:
         if not values:
             continue
@@ -87,10 +110,68 @@ async def _relations(db, orders):
         existing = result[payment.order_id]["payment"]
         if existing is None or existing.id != active[payment.order_id]:
             result[payment.order_id]["payment"] = payment
+
+    cover_file_ids = set()
+    missing_product_ids = set()
+    for related in result.values():
+        for item in related["items"]:
+            try:
+                identity = int((item.product_snapshot or {}).get("coverFileId"))
+            except (TypeError, ValueError):
+                missing_product_ids.add(item.product_id)
+                continue
+            if identity > 0:
+                cover_file_ids.add(identity)
+                related["itemCoverFileIds"][str(item.id)] = str(identity)
+            else:
+                missing_product_ids.add(item.product_id)
+    if missing_product_ids:
+        products = await db.execute(
+            select(MallProduct.id, MallProduct.cover_file_id).where(
+                MallProduct.id.in_(missing_product_ids)
+            )
+        )
+        cover_ids_by_product = {product_id: cover_id for product_id, cover_id in products}
+        for related in result.values():
+            for item in related["items"]:
+                if str(item.id) in related["itemCoverFileIds"]:
+                    continue
+                cover_id = cover_ids_by_product.get(item.product_id)
+                if cover_id:
+                    related["itemCoverFileIds"][str(item.id)] = str(cover_id)
+                    cover_file_ids.add(cover_id)
+    if cover_file_ids:
+        files = await db.scalars(
+            select(MallFile).where(
+                MallFile.id.in_(cover_file_ids),
+                MallFile.purpose == "product_image",
+                MallFile.status.in_({"verified", "bound"}),
+                MallFile.expires_at <= utc_now(),
+            )
+        )
+        storage = MallCOSStore(get_cos_client(), outbound_enabled=True)
+        cover_urls = {}
+        for file in files:
+            try:
+                cover_urls[str(file.id)] = await storage.sign_get(
+                    file.object_key, expires_seconds=300
+                )
+            except ValueError:
+                continue
+        for related in result.values():
+            related["coverUrls"] = cover_urls
     return result
 
 
-async def serialize_order(db, order, *, detail=False, relations=None):
+async def serialize_order(
+    db,
+    order,
+    *,
+    detail=False,
+    include_delivery_details=False,
+    payment_identifiers=False,
+    relations=None,
+):
     related = (relations if relations is not None else await _relations(db, [order]))[order.id]
     items, payment, invoice = related["items"], related["payment"], related["invoice"]
     aftersales, consumption, shipment = (
@@ -98,10 +179,17 @@ async def serialize_order(db, order, *, detail=False, relations=None):
         related["consumption"],
         related["shipment"],
     )
+    virtual_delivery = related["virtualDelivery"]
+    delivery_method = (order.policy_snapshot or {}).get("deliveryMethod") or (
+        "virtual"
+        if any(item.product_snapshot.get("productType") == "virtual" for item in items)
+        else "express"
+    )
     result = {
         "id": str(order.id),
         "orderNo": order.order_no,
         "status": order.status,
+        "deliveryMethod": delivery_method,
         "paymentStatus": (
             payment.status
             if payment
@@ -123,6 +211,12 @@ async def serialize_order(db, order, *, detail=False, relations=None):
                 "id": str(item.id),
                 "skuId": str(item.sku_id),
                 "productName": item.product_snapshot["name"],
+                "coverUrl": related.get("coverUrls", {}).get(
+                    related.get("itemCoverFileIds", {}).get(str(item.id), "")
+                ),
+                "productType": item.product_snapshot.get("productType", "physical"),
+                "deliveryMethod": item.product_snapshot.get("deliveryMethod", "express"),
+                "supportsReturn": item.product_snapshot.get("supportsReturn", True),
                 "optionsText": item.product_snapshot.get("optionsText", ""),
                 "unitPriceCent": item.unit_price_cent,
                 "quantity": item.quantity,
@@ -138,7 +232,10 @@ async def serialize_order(db, order, *, detail=False, relations=None):
             }
             for item in items
         ],
-        "address": address_view(order.address_snapshot),
+        "address": address_view(
+            order.address_snapshot,
+            include_delivery_details=include_delivery_details,
+        ),
         "version": order.version,
         "shipment": (
             {
@@ -148,8 +245,6 @@ async def serialize_order(db, order, *, detail=False, relations=None):
                 "shippedAt": timestamp(shipment.shipped_at),
                 "autoReceiveAt": timestamp(shipment.auto_receive_at),
                 "platformSyncStatus": shipment.platform_sync_status,
-                "platformReportStatus": shipment.platform_report_status,
-                "platformReportedAt": timestamp(shipment.platform_reported_at),
                 "platformConfirmedAt": timestamp(shipment.platform_confirmed_at),
                 "version": shipment.version,
             }
@@ -168,6 +263,9 @@ async def serialize_order(db, order, *, detail=False, relations=None):
         "aftersaleIds": [str(row.id) for row in aftersales],
         "paymentId": str(payment.id) if payment else None,
     }
+    if payment_identifiers:
+        result["outTradeNo"] = payment.out_trade_no if payment else None
+        result["channelTransactionId"] = payment.channel_transaction_id if payment else None
     if detail:
         labels = {
             "mall_order_created": ("created", "提交订单", "买家"),
@@ -185,12 +283,8 @@ async def serialize_order(db, order, *, detail=False, relations=None):
             "mall_admin_cancel_requested": ("cancel_requested", "商家申请取消，核实关闭中", "商家"),
             "mall_admin_order_closed": ("closed", "商家关闭未付款订单", "商家"),
             "mall_admin_order_shipped": ("shipped", "商家登记发货", "商家"),
+            "mall_admin_virtual_delivered": ("delivered", "商家完成虚拟商品交付", "商家"),
             "mall_admin_tracking_corrected": ("tracking_corrected", "商家更正运单", "商家"),
-            "mall_admin_platform_shipment_reported": (
-                "platform_shipment_reported",
-                "商家登记微信平台发货信息",
-                "商家",
-            ),
             "mall_order_received": ("received", "确认收货", "买家"),
             "mall_order_auto_received": ("received", "系统自动确认收货", "系统"),
         }
@@ -208,6 +302,14 @@ async def serialize_order(db, order, *, detail=False, relations=None):
         result.update(
             buyerNote=safe_order_text(order.buyer_note),
             receivedAt=timestamp(order.received_at),
+            virtualDelivery=(
+                {
+                    "content": virtual_delivery.delivery_content,
+                    "deliveredAt": timestamp(virtual_delivery.delivered_at),
+                }
+                if virtual_delivery
+                else None
+            ),
             closedAt=timestamp(order.closed_at),
             closeReason=safe_order_text(order.close_reason),
             consumptionId=str(consumption.id) if consumption else None,
@@ -233,6 +335,7 @@ async def serialize_order(db, order, *, detail=False, relations=None):
                     + (
                         ["changeMallOrderAddress"]
                         if order.status in {"pending_payment", "pending_shipment"}
+                        and delivery_method != "virtual"
                         and not shipment
                         and not order.shipped_at
                         and (order.status != "pending_payment" or order.expires_at > utc_now())

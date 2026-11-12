@@ -61,7 +61,7 @@ function viewAftersale(value) {
 }
 
 Page({
-  data: { aftersaleId: '', aftersale: null, state: 'loading', stateMessage: '', withdrawing: false },
+  data: { aftersaleId: '', aftersale: null, state: 'loading', stateMessage: '', withdrawing: false, refreshing: false },
 
   onLoad(options = {}) {
     const id = String(options.id || '')
@@ -103,7 +103,10 @@ Page({
   },
 
   retry() { return this.loadAftersale() },
-  refresh() { return this.loadAftersale(true) },
+  refresh() {
+    this.setData({ refreshing: true })
+    return this.loadAftersale(true).finally(() => this.setData({ refreshing: false }))
+  },
   onPullDownRefresh() {
     const result = this.refresh()
     if (result && result.finally) result.finally(() => wx.stopPullDownRefresh())

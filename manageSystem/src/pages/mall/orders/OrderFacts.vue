@@ -1,154 +1,248 @@
 <template>
-  <el-descriptions :column="2" border>
-    <el-descriptions-item label="订单号">
-      {{
-        order.orderNo
-      }}
-    </el-descriptions-item>
-    <el-descriptions-item label="状态">
-      {{ orderStates[order.status] || '待核实' }} /
-      {{ paymentStates[order.paymentStatus] || '待核实' }}
-    </el-descriptions-item>
-    <el-descriptions-item label="买家">
-      {{ order.buyer?.displayName }}（编号
-      {{ order.buyer?.id }}）
-    </el-descriptions-item>
-    <el-descriptions-item label="应付">
-      ¥{{ money(order.payableAmountCent) }}
-    </el-descriptions-item>
-    <el-descriptions-item label="商品 / 运费">
-      ¥{{ money(order.goodsAmountCent) }} / ¥{{
-        money(order.freightAmountCent)
-      }}
-    </el-descriptions-item>
-    <el-descriptions-item label="实收 / 净收">
-      ¥{{ money(order.paidAmountCent) }} / ¥{{
-        money(order.netReceivedCent)
-      }}
-    </el-descriptions-item>
-    <el-descriptions-item label="商品退款 / 运费退款">
-      ¥{{ money(order.refundedGoodsCent) }} / ¥{{
-        money(order.refundedFreightCent)
-      }}
-    </el-descriptions-item>
-    <el-descriptions-item label="退款处理中占用">
-      ¥{{ money(order.refundReservedCent) }}
-    </el-descriptions-item>
-    <el-descriptions-item label="收件信息">
-      {{ order.address.recipientName }} {{ order.address.phoneMasked }} ·
-      {{ order.address.addressMasked }}
-    </el-descriptions-item>
-    <el-descriptions-item label="地区编码">
-      {{
-        order.address.regionCodes.join(' / ')
-      }}
-    </el-descriptions-item>
-    <el-descriptions-item label="买家备注">
-      {{
-        order.buyerNote || '未填写'
-      }}
-    </el-descriptions-item>
-    <el-descriptions-item label="内部备注">
-      {{
-        order.internalNote || '未填写'
-      }}
-    </el-descriptions-item>
-    <el-descriptions-item label="下单 / 到期">
-      {{ time(order.createdAt) }} /
-      {{ time(order.expiresAt) }}
-    </el-descriptions-item>
-    <el-descriptions-item label="支付 / 收货">
-      {{ time(order.paidAt) }} /
-      {{ time(order.receivedAt) }}
-    </el-descriptions-item>
-    <el-descriptions-item label="关闭时间">
-      {{
-        time(order.closedAt)
-      }}
-    </el-descriptions-item>
-    <el-descriptions-item label="关闭原因">
-      {{
-        order.closeReason || '—'
-      }}
-    </el-descriptions-item>
-    <el-descriptions-item label="支付单">
-      {{
-        order.paymentId || '尚无付款请求'
-      }}
-    </el-descriptions-item>
-    <el-descriptions-item label="售后 / 发票申请">
-      {{
-        order.aftersaleIds.length ? order.aftersaleIds.join('、') : '尚无售后'
-      }}
-      / {{ order.invoiceRequestId || '尚无开票申请' }}
-    </el-descriptions-item>
-  </el-descriptions>
-  <h3>成交商品</h3>
-  <el-table :data="order.items">
-    <el-table-column prop="productName" label="商品" />
-    <el-table-column prop="optionsText" label="规格" />
-    <el-table-column prop="quantity" label="数量" />
-    <el-table-column label="单价">
-      <template #default="{ row }">
-        ¥{{ money(row.unitPriceCent) }}
-      </template>
-    </el-table-column>
-    <el-table-column label="小计">
-      <template #default="{ row }">
-        ¥{{ money(row.lineAmountCent) }}
-      </template>
-    </el-table-column>
-  </el-table>
-  <h3>发货前检查</h3>
-  <el-alert
-    v-if="order.fulfillmentCheck.businessReady"
-    title="业务条件已满足"
-    type="success"
-    :closable="false"
-  />
-  <el-alert
-    v-for="reason in order.fulfillmentCheck.blockingReasons"
-    :key="reason.code"
-    :title="reason.message"
-    type="warning"
-    :closable="false"
-  />
-  <p class="muted">
-    发货操作只登记本地发货事实；微信平台发货与快递100物流查询尚未启用。
-  </p>
-  <p v-if="order.shipment">
-    包裹：{{ order.shipment.courierCode }}
-    {{ order.shipment.trackingNo }}；出库时间
-    {{ time(order.shipment.shippedAt) }}；自动收货时间
-    {{ time(order.shipment.autoReceiveAt) }}
-  </p>
-  <p v-else class="muted">尚无发货记录</p>
-  <h3>办理记录</h3>
-  <el-timeline v-if="order.timeline.length">
-    <el-timeline-item
-      v-for="event in order.timeline"
-      :key="event.id"
-      :timestamp="time(event.occurredAt)"
-    >
-      {{ event.label }} · {{ event.actorLabel }}
-    </el-timeline-item>
-  </el-timeline>
-  <p v-else class="muted">暂无办理记录</p>
+  <div class="order-facts">
+    <section class="facts-section">
+      <h3 class="section-title">买家与订单信息</h3>
+      <dl class="facts-grid">
+        <div class="fact-pair">
+          <dt>买家</dt>
+          <dd>{{ order.buyer?.displayName }}（编号 {{ order.buyer?.id }}）</dd>
+        </div>
+        <div class="fact-pair">
+          <dt>履约方式</dt>
+          <dd>{{ order.deliveryMethod === 'virtual' ? '虚拟商品 · 后台人工交付' : '实物商品 · 快递发货' }}</dd>
+        </div>
+        <div v-if="order.address" class="fact-pair">
+          <dt>地区编码</dt>
+          <dd>{{ order.address.regionCodes.join(' / ') || '—' }}</dd>
+        </div>
+        <div v-if="order.address" class="fact-pair">
+          <dt>收件信息</dt>
+          <dd>{{ order.address.recipientName }} {{ order.address.phoneMasked }} · {{ order.address.addressMasked }}</dd>
+        </div>
+        <div class="fact-pair">
+          <dt>买家备注</dt>
+          <dd>{{ order.buyerNote || '未填写' }}</dd>
+        </div>
+        <div class="fact-pair">
+          <dt>下单 / 到期</dt>
+          <dd>{{ time(order.createdAt) }} / {{ time(order.expiresAt) }}</dd>
+        </div>
+        <div class="fact-pair">
+          <dt>内部备注</dt>
+          <dd>{{ order.internalNote || '未填写' }}</dd>
+        </div>
+        <div class="fact-pair">
+          <dt>关闭时间</dt>
+          <dd>{{ time(order.closedAt) }}</dd>
+        </div>
+        <div class="fact-pair">
+          <dt>关闭原因</dt>
+          <dd>{{ order.closeReason || '—' }}</dd>
+        </div>
+        <div class="fact-pair">
+          <dt>支付单</dt>
+          <dd>{{ order.paymentId || '尚无付款请求' }}</dd>
+        </div>
+        <div class="fact-pair">
+          <dt>售后 / 发票申请</dt>
+          <dd>{{ order.aftersaleIds.length ? order.aftersaleIds.join('、') : '尚无售后' }} / {{ order.invoiceRequestId || '尚无开票申请' }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="facts-section">
+      <h3 class="section-title">购买商品</h3>
+      <el-table :data="order.items" class="ledger-table" row-key="id">
+        <el-table-column prop="productName" label="商品" min-width="220" />
+        <el-table-column prop="optionsText" label="规格" min-width="180">
+          <template #default="{ row }">{{ row.optionsText || '默认规格' }}</template>
+        </el-table-column>
+        <el-table-column prop="quantity" label="数量" min-width="100" />
+        <el-table-column label="单价" min-width="140">
+          <template #default="{ row }">¥{{ money(row.unitPriceCent) }}</template>
+        </el-table-column>
+        <el-table-column label="小计" min-width="140" align="right">
+          <template #default="{ row }">¥{{ money(row.lineAmountCent) }}</template>
+        </el-table-column>
+      </el-table>
+    </section>
+
+    <section class="facts-section">
+      <h3 class="section-title">履约核对</h3>
+      <dl class="fulfillment-grid">
+        <div class="fulfillment-fact">
+          <dt>付款状态</dt>
+          <dd>{{ paymentStates[order.paymentStatus] || '待核实' }}</dd>
+        </div>
+        <div class="fulfillment-fact">
+          <dt>订单状态</dt>
+          <dd>{{ orderStatusLabel(order) }}</dd>
+        </div>
+        <div class="fulfillment-fact">
+          <dt>商品数量</dt>
+          <dd>{{ itemCount }}</dd>
+        </div>
+        <div v-if="order.address" class="fulfillment-fact recipient-information">
+          <dt>收件信息</dt>
+          <dd class="recipient-summary">
+            <template v-if="fulfillmentReleased">
+              <div class="recipient-detail-list" data-test="fulfillment-release-data">
+                <span>收件人：{{ fulfillmentReleased.recipientName }}</span>
+                <span>联系电话：{{ fulfillmentReleased.phone }}</span>
+                <span>收件地址：{{ fullRecipientAddress }}</span>
+                <span class="release-expiry">资料仅用于本单履约，将于 {{ fulfillmentSecondsRemaining }} 秒后清除</span>
+              </div>
+              <el-button
+                class="clear-recipient-data"
+                data-test="clear-fulfillment-release"
+                link
+                type="primary"
+                @click="$emit('clear-fulfillment-release')"
+              >
+                立即清除
+              </el-button>
+            </template>
+            <template v-else>
+              <span>{{ order.address.phoneMasked }} · {{ order.address.addressMasked }}</span>
+              <el-button
+                v-if="canRequestFulfillmentRelease"
+                data-test="release-fulfillment"
+                link
+                type="primary"
+                :disabled="!order.fulfillmentCheck.businessReady || fulfillmentReleaseBusy"
+                :loading="fulfillmentReleaseBusy"
+                @click="$emit('request-fulfillment-release')"
+              >
+                查看完整信息
+              </el-button>
+              <span
+                v-if="canRequestFulfillmentRelease && !order.fulfillmentCheck.businessReady"
+                class="release-hint"
+              >
+                当前订单尚未满足发货条件
+              </span>
+              <span v-else-if="fulfillmentReleaseUiEnabled" class="release-hint">
+                当前账号没有履约资料查看权限
+              </span>
+              <span v-else class="release-hint">
+                完整信息查看功能暂未启用
+              </span>
+            </template>
+          </dd>
+        </div>
+        <div class="fulfillment-fact">
+          <dt>订单金额</dt>
+          <dd>¥{{ money(order.payableAmountCent) }}</dd>
+        </div>
+        <div class="fulfillment-fact fulfillment-status">
+          <dt>{{ order.deliveryMethod === 'virtual' ? '交付条件' : '发货条件' }}</dt>
+          <dd>
+            <el-tag :type="order.fulfillmentCheck.businessReady ? 'success' : 'warning'" effect="light">
+              {{ order.fulfillmentCheck.businessReady ? '业务条件已满足' : '需要核对' }}
+            </el-tag>
+          </dd>
+        </div>
+      </dl>
+      <div class="shipment-summary">
+        <span class="shipment-summary-label">{{ order.deliveryMethod === 'virtual' ? '交付记录' : '包裹记录' }}</span>
+        <template v-if="order.shipment">
+          <span>{{ courierName(order.shipment.courierCode) }} · {{ order.shipment.trackingNo }}</span>
+          <span>出库 {{ time(order.shipment.shippedAt) }}</span>
+          <span>自动收货 {{ time(order.shipment.autoReceiveAt) }}</span>
+        </template>
+        <template v-else-if="order.virtualDelivery">
+          <span>商家手工交付</span>
+          <span>交付时间 {{ time(order.virtualDelivery.deliveredAt) }}</span>
+        </template>
+        <span v-else class="muted">{{ order.deliveryMethod === 'virtual' ? '尚未交付' : '尚无发货记录' }}</span>
+      </div>
+      <OrderLogistics v-if="order.shipment" :key="`${order.id}:${order.shipment.id}:${order.shipment.version}`" :order-id="order.id" />
+      <div v-if="order.virtualDelivery" class="virtual-delivery-content">
+        <strong>买家可见的交付内容</strong>
+        <pre>{{ order.virtualDelivery.content }}</pre>
+      </div>
+      <p v-if="order.deliveryMethod !== 'virtual'" class="fulfillment-note">
+        发货操作只登记本地发货事实。
+      </p>
+    </section>
+
+    <section class="facts-section timeline-section">
+      <h3 class="section-title">处理时间线</h3>
+      <div v-if="order.fulfillmentCheck.blockingReasons.length" class="timeline-warnings">
+        <div
+          v-for="reason in order.fulfillmentCheck.blockingReasons"
+          :key="reason.code"
+          class="timeline-warning"
+        >
+          <span class="warning-indicator" aria-hidden="true" />
+          <span>{{ reason.message }}</span>
+        </div>
+      </div>
+      <el-timeline v-if="order.timeline.length" class="order-timeline">
+        <el-timeline-item
+          v-for="event in order.timeline"
+          :key="event.id"
+          :timestamp="time(event.occurredAt)"
+        >
+          {{ event.label }} · {{ event.actorLabel }}
+        </el-timeline-item>
+      </el-timeline>
+      <p v-else-if="!order.fulfillmentCheck.blockingReasons.length" class="muted empty-timeline">
+        暂无办理记录
+      </p>
+    </section>
+  </div>
 </template>
 
 <script setup>
-import { money, time, orderStates, paymentStates } from './order-view'
-defineProps({ order: { type: Object, required: true } })
+import { computed } from 'vue'
+import { money, time, paymentStates, orderStatusLabel } from './order-view'
+import { courierName } from './couriers'
+import OrderLogistics from './OrderLogistics.vue'
+
+const props = defineProps({
+  order: { type: Object, required: true },
+  fulfillmentReleased: { type: Object, default: null },
+  fulfillmentSecondsRemaining: { type: Number, default: 0 },
+  fulfillmentReleaseBusy: { type: Boolean, default: false },
+  fulfillmentReleaseUiEnabled: { type: Boolean, default: false },
+  canRequestFulfillmentRelease: { type: Boolean, default: false },
+})
+defineEmits(['request-fulfillment-release', 'clear-fulfillment-release'])
+const itemCount = computed(() =>
+  props.order.items.reduce((total, item) => total + item.quantity, 0)
+)
+const fullRecipientAddress = computed(() => {
+  if (!props.fulfillmentReleased) return ''
+  const regionNames = Array.isArray(props.fulfillmentReleased.regionNames)
+    ? props.fulfillmentReleased.regionNames
+    : []
+  return [...regionNames, props.fulfillmentReleased.addressLine]
+    .filter(Boolean)
+    .join('')
+})
 </script>
+
 <style scoped>
-h3 {
-  margin-top: 24px;
+.virtual-delivery-content {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-lighter);
 }
-.muted {
-  color: #606266;
+
+.virtual-delivery-content strong {
+  color: var(--el-text-color-primary);
   font-size: 14px;
 }
-.el-alert {
-  margin-bottom: 8px;
+
+.virtual-delivery-content pre {
+  margin: 10px 0 0;
+  color: var(--el-text-color-regular);
+  font: inherit;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 </style>

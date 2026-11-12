@@ -82,6 +82,7 @@ function createMallIntentService(options = {}) {
       skuId,
       quantity,
       idempotencyKey,
+      deliveryMethod: intent.deliveryMethod === 'virtual' ? 'virtual' : 'express',
       userId: String(getUserId() || ''),
       createdAt: now()
     }
@@ -102,6 +103,7 @@ function createMallIntentService(options = {}) {
       skuId,
       quantity: saved.quantity,
       idempotencyKey: String(saved.idempotencyKey || ''),
+      deliveryMethod: saved.deliveryMethod === 'virtual' ? 'virtual' : 'express',
       userId: String(saved.userId || ''),
       createdAt: saved.createdAt
     }
@@ -128,6 +130,7 @@ function createMallIntentService(options = {}) {
     return {
       items,
       addressId,
+      deliveryMethod: value.deliveryMethod === 'virtual' ? 'virtual' : 'express',
       source: value.source === 'buy_now' ? 'buy_now' : 'cart',
       userId: String(getUserId() || ''),
       createdAt: now()
@@ -147,6 +150,7 @@ function createMallIntentService(options = {}) {
       const normalized = normalizeDraft({
         items: saved.items,
         addressId: saved.addressId,
+        deliveryMethod: saved.deliveryMethod,
         source: saved.source
       })
       return { ...normalized, userId: String(saved.userId || ''), createdAt: saved.createdAt }

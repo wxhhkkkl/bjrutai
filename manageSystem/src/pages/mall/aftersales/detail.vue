@@ -1,33 +1,13 @@
 <template>
-  <section class="mall-page">
-    <header>
+  <section class="mall-page mall-management-page">
+    <header class="page-header">
       <div>
-        <el-button link @click="router.push('/mall/aftersales')">
+        <el-button link type="primary" @click="router.push('/mall/aftersales')">
           返回售后列表
         </el-button>
-        <h2>售后详情</h2>
+        <h2 class="page-title">售后详情</h2>
       </div>
-      <el-button
-        data-test="reload"
-        :disabled="command.pending.value || loading"
-        @click="load"
-      >
-        刷新
-      </el-button>
     </header>
-    <el-alert v-if="error" :title="error" type="error" :closable="false" />
-    <el-alert
-      v-if="command.error.value"
-      :title="command.error.value"
-      type="error"
-      :closable="false"
-    />
-    <el-alert
-      v-if="notice"
-      :title="notice"
-      :type="noticeType"
-      :closable="false"
-    />
     <el-button
       v-if="command.pending.value"
       :loading="command.busy.value"
@@ -92,16 +72,62 @@
           </p>
           <section v-if="aftersale.proofFileIds?.length" class="proofs">
             <strong>申请凭证</strong>
-            <el-button
-              v-for="fileId in aftersale.proofFileIds"
-              :key="fileId"
-              link
-              :disabled="!canReadProofs || proofBusy === fileId"
-              :loading="proofBusy === fileId"
-              @click="openProof(fileId)"
-            >
-              查看凭证 {{ fileId }}
-            </el-button>
+            <div class="proof-gallery">
+              <div
+                v-for="fileId in aftersale.proofFileIds"
+                :key="fileId"
+                class="proof-item"
+              >
+                <button
+                  type="button"
+                  class="proof-thumb-button"
+                  :disabled="
+                    !canReadProofs ||
+                      proofBusy === fileId ||
+                      proofPreviewLoading[fileId] ||
+                      !proofPreviewUrls[fileId]
+                  "
+                  @click="openProof(fileId)"
+                >
+                  <img
+                    v-if="proofPreviewUrls[fileId]"
+                    :src="proofPreviewUrls[fileId]"
+                    :alt="`售后凭证 ${fileId}`"
+                    class="proof-thumb"
+                    @error="handleProofImageError(fileId)"
+                  />
+                  <span v-else class="proof-placeholder">
+                    {{
+                      proofPreviewLoading[fileId]
+                        ? '图片加载中'
+                        : proofPreviewErrors[fileId] || `凭证 ${fileId}`
+                    }}
+                  </span>
+                </button>
+                <div class="proof-item-actions">
+                  <span>凭证 {{ fileId }}</span>
+                  <el-button
+                    link
+                    size="small"
+                    :disabled="!canReadProofs || proofBusy === fileId"
+                    :loading="proofBusy === fileId"
+                    @click="openProof(fileId)"
+                  >
+                    查看原图
+                  </el-button>
+                  <el-button
+                    v-if="proofPreviewErrors[fileId]"
+                    link
+                    size="small"
+                    :disabled="!canReadProofs || proofPreviewLoading[fileId]"
+                    :loading="proofPreviewLoading[fileId]"
+                    @click="loadProofPreview(fileId)"
+                  >
+                    重试
+                  </el-button>
+                </div>
+              </div>
+            </div>
             <small v-if="!canReadProofs">凭证访问需要售后读取与商城文件读取权限。</small>
           </section>
         </el-card>
@@ -132,13 +158,25 @@
           class="action-card"
         >
           <template #header>审核售后</template>
+          <p v-if="aftersale.method === 'refund_only'">
+            同意后系统会自动发起退款。
+          </p>
+          <p v-else>
+            退货退款需等买家寄回商品并完成验收后再处理退款。
+          </p>
+          <el-alert
+            v-if="aftersale.method === 'refund_only' && !canExecuteRefund"
+            title="当前账号没有发起退款的权限，请联系管理员。"
+            type="warning"
+            :closable="false"
+          />
           <el-input
             v-model="reviewReason"
             data-test="review-reason"
             type="textarea"
             maxlength="500"
             show-word-limit
-            placeholder="记录审核结论或拒绝原因"
+            placeholder="填写审核说明（必填）"
             :disabled="command.pending.value"
           />
           <div class="actions">
@@ -147,6 +185,7 @@
               type="danger"
               plain
               :disabled="command.pending.value"
+              :loading="reviewDecision === 'reject' && command.busy.value"
               @click="decide('reject')"
             >
               拒绝申请
@@ -154,10 +193,18 @@
             <el-button
               data-test="approve"
               type="primary"
-              :disabled="command.pending.value"
+              :disabled="
+                command.pending.value ||
+                  (aftersale.method === 'refund_only' && !canExecuteRefund)
+              "
+              :loading="reviewDecision === 'approve' && command.busy.value"
               @click="decide('approve')"
             >
-              同意申请
+              {{
+                aftersale.method === 'refund_only'
+                  ? '同意并发起退款'
+                  : '同意退货申请'
+              }}
             </el-button>
           </div>
         </el-card>
@@ -225,9 +272,9 @@
           "
           class="action-card"
         >
-          <template #header>原路退款</template>
+          <template #header>发起退款</template>
           <p>
-            退款会排入财务处理队列。队列受理不等于退款到账，只有核实到渠道成功结果才更新订单。
+            审核已通过。点击后系统会按原支付方式提交退款，到账后订单状态会更新。
           </p>
           <el-button
             data-test="execute-refund"
@@ -235,80 +282,85 @@
             :disabled="command.pending.value"
             @click="executeRefund"
           >
-            发起原路退款
+            发起退款
           </el-button>
         </el-card>
         <el-alert
-          v-if="aftersale.status === 'refunding'"
-          title="退款请求已进入核实流程，待确认渠道结果；当前状态不代表到账。"
+          v-if="
+            aftersale.status === 'refunding' &&
+              !['unknown', 'abnormal', 'succeeded'].includes(refund?.status)
+          "
+          class="status-alert"
+          title="退款已发起，正在等待支付渠道处理；到账后状态会更新。"
           type="warning"
           :closable="false"
         />
         <el-alert
           v-if="aftersale.status === 'awaiting_refund' && aftersale.refundId"
-          title="原退款请求已有记录，需在退款资金台账核实或按权限处理后再继续。"
+          class="status-alert"
+          title="已有退款请求，请稍后查看结果，不要重复发起。"
           type="warning"
           :closable="false"
         />
         <el-alert
           v-if="aftersale.status === 'disputed'"
-          title="此售后存在超期、验收或渠道异常，保留原占用并等待人工核实。"
+          class="status-alert"
+          title="此售后需要管理员核实后才能继续。"
           type="warning"
           :closable="false"
         />
         <el-alert
           v-if="refund?.status === 'unknown'"
-          title="退款渠道结果未知，资金和商品数量占用保留。先查证原退款号；如重试，系统会先查原号并只复用该退款号。"
+          class="status-alert"
+          title="退款结果暂时无法确认，请联系管理员核对后再处理。"
           type="warning"
           :closable="false"
         />
         <el-alert
           v-if="refund?.status === 'abnormal'"
-          title="渠道返回退款异常，资金和商品数量占用保留。需人工核实，不能自动重试。"
+          class="status-alert"
+          title="退款处理遇到异常，请联系管理员核实。"
           type="error"
           :closable="false"
         />
         <el-alert
           v-if="refund?.status === 'succeeded'"
-          title="已核实渠道退款成功；该状态来自渠道成功事实，不来自退款受理。"
+          class="status-alert"
+          title="退款已成功。"
           type="success"
           :closable="false"
         />
-        <el-card v-if="canQueryRefund" class="action-card">
-          <template #header>退款渠道查证</template>
-          <p>查证只读取原退款号，不会因查不到记录自动发起退款。</p>
-          <el-button
-            data-test="query-refund"
-            :disabled="command.pending.value"
-            @click="queueRefundQuery"
-          >
-            查证原退款号
-          </el-button>
-        </el-card>
-        <el-card v-if="canRetryRefund" class="action-card">
-          <template #header>恢复退款请求</template>
-          <p>
-            系统会先查询原退款号；确认渠道不存在后才用同一退款号重试，处理结果仍待核实。
-          </p>
-          <el-input
-            v-model="retryReason"
-            data-test="retry-refund-reason"
-            maxlength="500"
-            placeholder="填写本次恢复核实说明"
-            :disabled="command.pending.value"
-          />
-          <el-button
-            data-test="retry-refund"
-            type="warning"
-            :disabled="command.pending.value"
-            @click="retryRefund"
-          >
-            同号恢复退款
-          </el-button>
-        </el-card>
+        <el-alert
+          v-if="refund?.channelRefundId?.startsWith('LOCAL-SIM-')"
+          class="status-alert"
+          title="本地模拟退款已完成，没有发生真实资金变动。"
+          type="warning"
+          :closable="false"
+        />
       </template>
       <el-empty v-else-if="!loading && !error" description="售后记录暂不可用" />
     </div>
+    <el-dialog
+      v-model="proofDialogVisible"
+      title="申请凭证预览"
+      width="min(900px, 90vw)"
+      append-to-body
+      @closed="closeProofPreview"
+    >
+      <el-alert
+        v-if="proofDialogError"
+        :title="proofDialogError"
+        type="error"
+        :closable="false"
+      />
+      <img
+        v-else-if="proofDialogUrl"
+        :src="proofDialogUrl"
+        alt="售后申请凭证原图"
+        class="proof-full-image"
+        @error="proofDialogError = '图片加载失败，请关闭预览后重试'"
+      />
+    </el-dialog>
   </section>
 </template>
 
@@ -318,6 +370,7 @@ import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import * as api from '@/api/mall-aftersales'
 import { useMallCommand } from '@/composables/useMallCommand'
+import { useMallToast } from '@/composables/useMallToast'
 import { aftersaleMethods, aftersaleStates, money } from './aftersale-view'
 
 const props = defineProps({ id: { type: String, required: true } })
@@ -329,13 +382,22 @@ const loading = ref(false)
 const error = ref('')
 const notice = ref('')
 const noticeType = ref('success')
+useMallToast(error)
+useMallToast(notice, () => noticeType.value)
 const reviewReason = ref('')
-const retryReason = ref('')
+const reviewDecision = ref('')
 const proofBusy = ref('')
+const proofPreviewUrls = reactive({})
+const proofPreviewErrors = reactive({})
+const proofPreviewLoading = reactive({})
+const proofDialogVisible = ref(false)
+const proofDialogUrl = ref('')
+const proofDialogError = ref('')
 const receiptForm = reactive({ result: 'accepted', reason: '' })
 const sellable = reactive({})
 const command = useMallCommand()
 let operation = null
+let pendingReviewDecision = ''
 let loadGeneration = 0
 
 const canReview = computed(() => auth.hasPermission('mall.aftersales.review'))
@@ -343,27 +405,18 @@ const canReceive = computed(() => auth.hasPermission('mall.returns.receive'))
 const canExecuteRefund = computed(() =>
   auth.hasPermission('mall.refunds.execute')
 )
-const canQueryRefund = computed(
-  () => refund.value && auth.hasPermission('mall.refunds.query')
-)
-const canRetryRefund = computed(
-  () =>
-    refund.value &&
-    ['prepared', 'unknown', 'processing'].includes(refund.value.status) &&
-    canExecuteRefund.value
-)
 const canReadProofs = computed(
   () =>
     auth.hasPermission('mall.aftersales.read') &&
     auth.hasPermission('mall.files.read')
 )
 const refundStates = {
-  prepared: '待处理',
-  processing: '渠道处理中',
-  unknown: '结果未知，待查证',
-  succeeded: '已核实到账',
-  closed: '渠道已关闭，待人工确认',
-  abnormal: '渠道异常，资金占用保留',
+  prepared: '等待提交',
+  processing: '退款处理中',
+  unknown: '状态待确认',
+  succeeded: '退款成功',
+  closed: '已关闭',
+  abnormal: '处理异常',
   rejected_unaccepted: '渠道未受理',
 }
 
@@ -375,10 +428,15 @@ async function load() {
   error.value = ''
   aftersale.value = null
   refund.value = null
+  clearProofPreviews()
+  proofDialogVisible.value = false
+  proofDialogUrl.value = ''
+  proofDialogError.value = ''
   try {
     const result = await api.getAdminAftersale(identity)
     if (generation === loadGeneration && props.id === identity) {
       aftersale.value = result
+      void loadProofPreviews(identity, result.proofFileIds || [])
       if (result.refundId && auth.hasPermission('mall.refunds.read')) {
         try {
           const refundResult = await api.getAdminMallRefund(result.refundId)
@@ -405,18 +463,8 @@ async function load() {
 function finishOperation(result) {
   if (!result) return null
   if (operation === 'refund') {
-    notice.value = '退款执行已排队；等待渠道核实结果，当前不代表到账。'
+    notice.value = '已发起退款，正在等待支付渠道处理；到账后状态会更新。'
     noticeType.value = 'warning'
-  } else if (operation === 'refundQuery') {
-    notice.value = '渠道查证已排入队列；请刷新状态，队列受理不代表渠道成功。'
-    noticeType.value = 'warning'
-  } else if (operation === 'refundRetry') {
-    notice.value =
-      '同一商户退款号的恢复操作已排队；系统会先查原请求再判断是否重试。'
-    noticeType.value = 'warning'
-  } else if (operation === 'review') {
-    notice.value = '审核结果已保存。'
-    noticeType.value = 'success'
   } else {
     notice.value = '退货验收结果已保存，库存只按可售数量回补。'
     noticeType.value = 'success'
@@ -424,21 +472,68 @@ function finishOperation(result) {
   return load()
 }
 
+async function finishReview(result, decision) {
+  if (!result) return null
+  if (decision === 'approve' && result.status === 'awaiting_refund') {
+    if (!canExecuteRefund.value) {
+      notice.value = '申请已同意，但当前账号没有发起退款的权限，请联系管理员。'
+      noticeType.value = 'warning'
+      return load()
+    }
+    operation = 'refund'
+    const refundResult = await command.run(api.executeAftersaleRefund, {
+      id: props.id,
+      expectedVersion: result.version,
+    })
+    if (refundResult) return finishOperation(refundResult)
+    if (!command.pending.value) await load()
+    return null
+  }
+  notice.value = '审核结果已保存。'
+  noticeType.value = 'success'
+  return load()
+}
+
+function notifyError(message) {
+  // Repeated validation failures need to produce feedback each time.
+  error.value = ''
+  error.value = message
+}
+
 async function decide(decision) {
   if (!aftersale.value || !canReview.value || command.pending.value) return
+  if (
+    decision === 'approve' &&
+    aftersale.value.method === 'refund_only' &&
+    !canExecuteRefund.value
+  ) {
+    notifyError('当前账号没有发起退款的权限，请联系管理员')
+    return
+  }
   const reason = reviewReason.value.trim()
   if (!reason) {
-    error.value = '请填写审核说明'
+    notifyError('请填写审核说明')
     return
   }
   operation = 'review'
-  const result = await command.run(api.decideAftersale, {
-    id: props.id,
-    expectedVersion: aftersale.value.version,
-    decision,
-    reason,
-  })
-  await finishOperation(result)
+  pendingReviewDecision = decision
+  reviewDecision.value = decision
+  try {
+    const result = await command.run(api.decideAftersale, {
+      id: props.id,
+      expectedVersion: aftersale.value.version,
+      decision,
+      reason,
+    })
+    if (result) {
+      await finishReview(result, decision)
+      pendingReviewDecision = ''
+    } else if (!command.pending.value) {
+      pendingReviewDecision = ''
+    }
+  } finally {
+    reviewDecision.value = ''
+  }
 }
 
 async function receiveReturn() {
@@ -492,43 +587,44 @@ async function executeRefund() {
   await finishOperation(result)
 }
 
-async function queueRefundQuery() {
-  if (!refund.value || !canQueryRefund.value || command.pending.value) return
-  operation = 'refundQuery'
-  await finishOperation(
-    await command.run(api.queryAdminMallRefund, {
-      id: refund.value.id,
-      expectedVersion: refund.value.version,
-    })
-  )
-}
-
-async function retryRefund() {
-  if (!refund.value || !canRetryRefund.value || command.pending.value) return
-  const reason = retryReason.value.trim()
-  if (!reason) {
-    error.value = '请填写退款恢复核实说明'
-    return
-  }
-  operation = 'refundRetry'
-  await finishOperation(
-    await command.run(api.retryAdminMallRefund, {
-      id: refund.value.id,
-      expectedVersion: refund.value.version,
-      reason,
-    })
-  )
-}
-
 async function retry() {
-  await finishOperation(await command.retry())
+  const retryingOperation = operation
+  const result = await command.retry()
+  if (!result) {
+    if (!command.pending.value && retryingOperation === 'review') {
+      pendingReviewDecision = ''
+    }
+    return null
+  }
+  if (retryingOperation === 'review') {
+    const decision = pendingReviewDecision
+    pendingReviewDecision = ''
+    return finishReview(result, decision)
+  }
+  return finishOperation(result)
 }
 
-async function openProof(fileId) {
-  if (!canReadProofs.value || proofBusy.value) return
-  const identity = props.id
-  proofBusy.value = fileId
-  error.value = ''
+function clearProofPreviews() {
+  for (const map of [
+    proofPreviewUrls,
+    proofPreviewErrors,
+    proofPreviewLoading,
+  ]) {
+    Object.keys(map).forEach((key) => delete map[key])
+  }
+}
+
+async function loadProofPreviews(identity, fileIds) {
+  if (!canReadProofs.value) return
+  await Promise.all(
+    fileIds.map((fileId) => loadProofPreview(fileId, identity))
+  )
+}
+
+async function loadProofPreview(fileId, identity = props.id) {
+  if (!canReadProofs.value || proofPreviewLoading[fileId]) return
+  proofPreviewLoading[fileId] = true
+  delete proofPreviewErrors[fileId]
   try {
     const result = await api.getAftersaleProofAccess(fileId)
     if (
@@ -539,7 +635,49 @@ async function openProof(fileId) {
     }
     const target = new URL(result.accessUrl)
     if (target.protocol !== 'https:') throw new Error('凭证访问地址不安全')
-    window.open(target.href, '_blank', 'noopener,noreferrer')
+    proofPreviewUrls[fileId] = target.href
+  } catch (failure) {
+    if (
+      props.id === identity &&
+      aftersale.value?.proofFileIds?.includes(fileId)
+    ) {
+      proofPreviewErrors[fileId] =
+        failure.userMessage || failure.message || '图片暂不可访问'
+    }
+  } finally {
+    if (props.id === identity) delete proofPreviewLoading[fileId]
+  }
+}
+
+function handleProofImageError(fileId) {
+  delete proofPreviewUrls[fileId]
+  proofPreviewErrors[fileId] = '图片加载失败，点击重试'
+}
+
+function closeProofPreview() {
+  proofDialogUrl.value = ''
+  proofDialogError.value = ''
+}
+
+async function openProof(fileId) {
+  if (!canReadProofs.value || proofBusy.value) return
+  const identity = props.id
+  proofBusy.value = fileId
+  error.value = ''
+  proofDialogUrl.value = ''
+  proofDialogError.value = ''
+  try {
+    const result = await api.getAftersaleProofAccess(fileId)
+    if (
+      props.id !== identity ||
+      !aftersale.value?.proofFileIds?.includes(fileId)
+    ) {
+      return
+    }
+    const target = new URL(result.accessUrl)
+    if (target.protocol !== 'https:') throw new Error('凭证访问地址不安全')
+    proofDialogUrl.value = target.href
+    proofDialogVisible.value = true
   } catch (failure) {
     if (props.id === identity) {
       error.value = failure.userMessage || failure.message || '凭证暂不可访问'
@@ -564,7 +702,7 @@ watch(
   () => {
     notice.value = ''
     reviewReason.value = ''
-    retryReason.value = ''
+    pendingReviewDecision = ''
     receiptForm.result = 'accepted'
     receiptForm.reason = ''
     Object.keys(sellable).forEach((key) => delete sellable[key])
@@ -575,10 +713,6 @@ onMounted(load)
 </script>
 
 <style scoped>
-.mall-page {
-  padding: 20px;
-}
-header,
 .card-heading,
 .actions,
 .receipt-line {
@@ -586,15 +720,8 @@ header,
   align-items: center;
   gap: 12px;
 }
-header,
 .card-heading {
   justify-content: space-between;
-}
-header {
-  margin-bottom: 16px;
-}
-header h2 {
-  margin: 8px 0 0;
 }
 .facts {
   display: grid;
@@ -606,7 +733,7 @@ header h2 {
   min-width: 0;
 }
 .facts dt {
-  color: #909399;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
 }
 .facts dd {
@@ -619,17 +746,96 @@ header h2 {
   margin-top: 16px;
 }
 .proofs {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  display: grid;
   gap: 10px;
 }
+.proof-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.proof-item {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+.proof-thumb-button {
+  display: grid;
+  place-items: center;
+  width: 112px;
+  height: 112px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--el-border-color);
+  border-radius: 6px;
+  background: var(--el-fill-color-lighter);
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+}
+.proof-thumb-button:disabled {
+  cursor: default;
+}
+.proof-thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.proof-placeholder {
+  padding: 8px;
+  font-size: 12px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.proof-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+.proof-full-image {
+  display: block;
+  max-width: 100%;
+  max-height: 75vh;
+  margin: 0 auto;
+  object-fit: contain;
+}
 .proofs small {
-  color: #909399;
+  color: var(--el-text-color-secondary);
 }
 .lines-card,
 .action-card {
   margin-top: 16px;
+}
+.action-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+.action-card :deep(.el-card__body > p) {
+  line-height: 1.6;
+}
+.action-card :deep(.el-card__body > .el-button) {
+  align-self: flex-start;
+}
+.action-card :deep(.el-form) {
+  display: grid;
+  gap: 12px;
+}
+.action-card :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+.action-card :deep(.actions),
+.action-card :deep(.receipt-lines) {
+  margin-top: 0;
+}
+.action-card :deep(.el-form > .el-button) {
+  justify-self: start;
+}
+.status-alert {
+  margin: 16px 0;
 }
 .actions {
   justify-content: flex-end;

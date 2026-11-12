@@ -1,48 +1,20 @@
 <template>
-  <section class="finance-page">
-    <header class="page-heading">
+  <section class="finance-page mall-management-page">
+    <header class="page-heading page-header">
       <div>
-        <h2>{{ activeView === 'reconciliation' ? '日对账' : '支付订单' }}</h2>
-        <p v-if="activeView === 'payments'">
-          按支付事实查看本次金额、成功退款和净收；待核实记录不计为实收。
-        </p>
-        <p v-else>以渠道账单和本地成功事实逐日核对，保留差异及处理证据。</p>
+        <h2 class="page-title">
+          支付订单
+        </h2>
+        <p>按支付事实查看商品金额、快递金额、成功退款和净收；待核实记录不计为实收。</p>
       </div>
-      <el-button
-        v-if="activeView === 'payments' && canReadPayments"
-        data-test="reload"
-        :loading="loading"
-        @click="load"
-      >
-        刷新
-      </el-button>
     </header>
 
-    <nav class="finance-views" aria-label="资金视图">
-      <el-button
-        v-if="canReadPayments"
-        data-test="payments-view"
-        :type="activeView === 'payments' ? 'primary' : 'default'"
-        @click="setView('payments')"
+    <template v-if="canReadPayments">
+      <el-form
+        inline
+        class="filters mall-management-filters"
+        @submit.prevent="search"
       >
-        支付流水
-      </el-button>
-      <el-button
-        v-if="canReadReconciliations"
-        data-test="reconciliation-view"
-        :type="activeView === 'reconciliation' ? 'primary' : 'default'"
-        @click="setView('reconciliation')"
-      >
-        日对账
-      </el-button>
-    </nav>
-
-    <ReconciliationPanel
-      v-if="activeView === 'reconciliation' && canReadReconciliations"
-    />
-
-    <template v-else-if="activeView === 'payments' && canReadPayments">
-      <el-form inline class="filters" @submit.prevent="search">
         <el-form-item label="支付状态">
           <el-select v-model="filters.status" clearable placeholder="全部状态">
             <el-option
@@ -89,26 +61,6 @@
           </el-button>
         </el-form-item>
       </el-form>
-      <el-alert
-        v-if="canExport && applied.orderNo"
-        title="导出支持状态和时间范围；请清空订单号筛选后导出。"
-        type="info"
-        :closable="false"
-      />
-
-      <el-alert v-if="error" :title="error" type="error" :closable="false" />
-      <el-alert
-        v-if="exportError"
-        :title="exportError"
-        type="error"
-        :closable="false"
-      />
-      <el-alert
-        v-if="exportNotice"
-        :title="exportNotice"
-        type="success"
-        :closable="false"
-      />
       <section v-if="exportIntent" class="export-state" aria-live="polite">
         <div>
           <strong>{{ exportStatusLabel || '导出请求处理中' }}</strong>
@@ -118,13 +70,6 @@
           <span v-if="exportResult?.errorCode">· {{ exportResult.errorCode }}</span>
         </div>
         <div class="export-actions">
-          <el-button
-            data-test="refresh-export"
-            :loading="exportBusy"
-            @click="refreshExport"
-          >
-            刷新状态
-          </el-button>
           <el-button
             v-if="exportResult?.status === 'failed'"
             data-test="retry-export"
@@ -148,7 +93,7 @@
       <el-table v-loading="loading" :data="items" empty-text="暂无支付记录">
         <el-table-column prop="orderNo" label="订单号" min-width="190">
           <template #default="{ row }">
-            <el-button link @click="router.push(`/mall/orders/${row.orderId}`)">
+            <el-button link type="primary" @click="router.push(`/mall/orders/${row.orderId}`)">
               {{ row.orderNo }}
             </el-button>
           </template>
@@ -157,8 +102,11 @@
         <el-table-column label="买家" min-width="120">
           <template #default="{ row }">{{ row.buyer?.displayName || '—' }}</template>
         </el-table-column>
-        <el-table-column label="本次金额" width="120" align="right">
-          <template #default="{ row }">{{ money(row.amountCent) }}</template>
+        <el-table-column label="商品金额" width="120" align="right">
+          <template #default="{ row }">{{ money(row.goodsAmountCent) }}</template>
+        </el-table-column>
+        <el-table-column label="快递金额" width="120" align="right">
+          <template #default="{ row }">{{ money(row.freightAmountCent) }}</template>
         </el-table-column>
         <el-table-column label="成功退款" width="120" align="right">
           <template #default="{ row }">{{ money(row.refundSucceededCent) }}</template>
@@ -181,43 +129,44 @@
             <el-button
               v-if="canQueryPayments && ['creating', 'pending', 'unknown'].includes(row.status)"
               link
+              type="primary"
               :disabled="queryingId === row.id"
               @click="queryPayment(row)"
             >
-              查证原支付
+              刷新支付状态
             </el-button>
           </template>
         </el-table-column>
       </el-table>
 
-      <footer class="pager">
-        <span>共 {{ total }} 条</span>
-        <el-button :disabled="loading || !history.length" @click="previous">
-          上一页
-        </el-button>
-        <el-button :disabled="loading || !nextCursor" @click="next">
-          下一页
-        </el-button>
-      </footer>
+      <MallPagination
+        :current-page="currentPage"
+        :total="total"
+        :disabled="loading"
+        @change="changePage"
+      />
     </template>
     <el-empty
-      v-else-if="!canReadReconciliations"
-      description="当前账号没有支付或对账读取权限"
+      v-else
+      description="当前账号没有支付订单读取权限"
     />
   </section>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import ReconciliationPanel from '@/components/mall/ReconciliationPanel.vue'
+import MallPagination from '@/components/mall/MallPagination.vue'
+import { MALL_PAGE_SIZE } from '@/components/mall/mall-pagination'
 import {
   exportAdminMallPayments,
   listAdminMallPayments,
   queryAdminMallPayment,
 } from '@/api/mall-finance'
 import { useMallFinanceExport } from '@/composables/useMallFinanceExport'
+import { useMallCursorPagination } from '@/composables/useMallCursorPagination'
+import { useMallToast } from '@/composables/useMallToast'
 
 const paymentStates = {
   creating: '创建中',
@@ -227,29 +176,24 @@ const paymentStates = {
   closed: '已关闭',
   failed: '支付失败',
 }
-const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const canReadPayments = computed(() => auth.hasPermission('mall.payments.read'))
 const canQueryPayments = computed(() => auth.hasPermission('mall.payments.query'))
 const canExport = computed(() => auth.hasPermission('mall.finance.export'))
-const canReadReconciliations = computed(() =>
-  auth.hasPermission('mall.reconciliations.read')
-)
-const activeView = ref(
-  route.query.view === 'reconciliation' &&
-    auth.hasPermission('mall.reconciliations.read')
-    ? 'reconciliation'
-    : 'payments'
-)
 const filters = reactive({ status: '', orderNo: '', range: [] })
 const items = ref([])
 const total = ref(0)
 const loading = ref(false)
 const error = ref('')
-const cursor = ref(null)
-const nextCursor = ref(null)
-const history = ref([])
+useMallToast(error)
+const {
+  currentPage,
+  cursorForPage,
+  loadPage: loadCursorPage,
+  recordPage,
+  resetPages,
+} = useMallCursorPagination()
 const applied = ref({})
 const exportFormat = ref('xlsx')
 const queryingId = ref('')
@@ -262,8 +206,6 @@ const {
   exportIntent,
   exportResult,
   exportBusy,
-  exportError,
-  exportNotice,
   exportStatusLabel,
   exportFiltered,
   refreshExport,
@@ -307,16 +249,17 @@ async function load() {
   try {
     const result = await listAdminMallPayments({
       ...applied.value,
-      pageSize: 20,
-      ...(cursor.value ? { cursor: cursor.value } : {}),
+      pageSize: MALL_PAGE_SIZE,
+      ...(cursorForPage(currentPage.value)
+        ? { cursor: cursorForPage(currentPage.value) }
+        : {}),
     })
     items.value = result.items || []
     total.value = result.total || 0
-    nextCursor.value = result.nextCursor || null
+    recordPage(currentPage.value, result)
   } catch (failure) {
     error.value = failure.userMessage || failure.message || '支付记录读取失败'
     total.value = 0
-    nextCursor.value = null
   } finally {
     loading.value = false
   }
@@ -330,21 +273,39 @@ async function search() {
     ...(filters.orderNo.trim() ? { orderNo: filters.orderNo.trim() } : {}),
     ...(range ? { fromAt: range.from, toAt: range.to } : {}),
   }
-  cursor.value = null
-  history.value = []
+  resetPages()
   await load()
 }
 
+async function changePage(page) {
+  if (loading.value || page === currentPage.value) return
+  loading.value = true
+  error.value = ''
+  try {
+    const result = await loadCursorPage(page, (cursor) =>
+      listAdminMallPayments({
+        ...applied.value,
+        pageSize: MALL_PAGE_SIZE,
+        ...(cursor ? { cursor } : {}),
+      })
+    )
+    if (!result) {
+      error.value = '支付数据已变化，请刷新后重试'
+      return
+    }
+    items.value = result.items || []
+    total.value = result.total || 0
+  } catch (failure) {
+    error.value = failure.userMessage || failure.message || '支付记录读取失败'
+  } finally {
+    loading.value = false
+  }
+}
 async function next() {
-  if (loading.value || !nextCursor.value) return
-  history.value.push(cursor.value)
-  cursor.value = nextCursor.value
-  await load()
+  return changePage(currentPage.value + 1)
 }
 async function previous() {
-  if (loading.value || !history.value.length) return
-  cursor.value = history.value.pop()
-  await load()
+  return changePage(currentPage.value - 1)
 }
 
 async function exportVisibleRows() {
@@ -388,31 +349,8 @@ async function queryPayment(row) {
   }
 }
 
-function setView(view) {
-  activeView.value =
-    view === 'reconciliation' && canReadReconciliations.value
-      ? 'reconciliation'
-      : 'payments'
-  router.replace?.({
-    path: '/mall/payments',
-    query: activeView.value === 'reconciliation' ? { view: activeView.value } : {},
-  })
-  if (activeView.value === 'payments') void load()
-}
-
-watch(
-  () => route.query.view,
-  (view) => {
-    activeView.value =
-      view === 'reconciliation' && canReadReconciliations.value
-        ? 'reconciliation'
-        : 'payments'
-    if (activeView.value === 'payments') void load()
-  }
-)
-
 onMounted(async () => {
-  if (activeView.value === 'payments') await load()
+  if (canReadPayments.value) await load()
   if (canExport.value) await restoreExport()
 })
 
@@ -434,68 +372,8 @@ defineExpose({
 </script>
 
 <style scoped>
-.finance-page {
-  padding: 20px;
-}
-.page-heading,
-.pager,
-.export-state,
-.export-actions,
-.finance-views {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.page-heading,
-.export-state {
-  justify-content: space-between;
-}
-.page-heading {
-  margin: 12px 0 18px;
-}
-.page-heading h2 {
-  margin: 0 0 6px;
-}
-.page-heading p {
-  margin: 0;
-  color: #6b7280;
-}
-.finance-views {
-  margin: 0 0 18px;
-  border-bottom: 1px solid #ebeef5;
-  padding-bottom: 12px;
-}
-.filters {
-  margin-bottom: 10px;
-}
 .format {
   width: 100px;
   margin-right: 8px;
-}
-.export-state {
-  padding: 12px 16px;
-  margin: 12px 0;
-  background: #f5f7fa;
-  border-radius: 6px;
-  color: #303133;
-}
-.export-state span {
-  color: #606266;
-  margin-left: 4px;
-}
-.pager {
-  justify-content: flex-end;
-  margin-top: 16px;
-  color: #606266;
-}
-@media (max-width: 720px) {
-  .page-heading,
-  .export-state {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .filters {
-    display: block;
-  }
 }
 </style>

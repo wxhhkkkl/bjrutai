@@ -1,4 +1,5 @@
 import { computed, ref } from 'vue'
+import { useMallToast } from '@/composables/useMallToast'
 
 export function commandKey() {
   return crypto.randomUUID()
@@ -8,6 +9,7 @@ export function commandKey() {
 export function useMallCommand() {
   const busy = ref(false)
   const error = ref('')
+  useMallToast(error)
   const intent = ref(null)
   const pending = computed(() => intent.value !== null)
   async function execute() {

@@ -166,7 +166,7 @@ it('labels refund execution as queued and never as money received', async () => 
   wrapper.unmount()
 })
 
-it('opens an attached proof only through a short-lived permissioned access URL', async () => {
+it('previews an attached proof only through a short-lived permissioned access URL', async () => {
   api.getAdminAftersale.mockResolvedValueOnce({
     ...structuredClone(record),
     proofFileIds: ['12'],
@@ -174,17 +174,12 @@ it('opens an attached proof only through a short-lived permissioned access URL',
   api.getAftersaleProofAccess.mockResolvedValue({
     accessUrl: 'https://storage.invalid/short-lived',
   })
-  const open = vi.spyOn(window, 'open').mockImplementation(() => null)
   const wrapper = page(Detail, ['mall.aftersales.read', 'mall.files.read'])
   await flushPromises()
   await wrapper.vm.openProof('12')
   expect(api.getAftersaleProofAccess).toHaveBeenCalledWith('12')
-  expect(open).toHaveBeenCalledWith(
-    'https://storage.invalid/short-lived',
-    '_blank',
-    'noopener,noreferrer'
-  )
-  open.mockRestore()
+  expect(wrapper.vm.proofDialogVisible).toBe(true)
+  expect(wrapper.vm.proofDialogUrl).toBe('https://storage.invalid/short-lived')
   wrapper.unmount()
 })
 

@@ -118,15 +118,6 @@ async def test_admin_create_retry_stock_retry_and_public_visibility(client, db_s
             json={"expectedVersion": 1, "category": {"name": "食品", "status": "disabled"}},
         )
     ).status_code == 409
-    headers["Idempotency-Key"] = "catalog-product-copy"
-    copied = await client.post(
-        f'/api/v1/admin/mall/products/{product["id"]}/copy',
-        headers=headers,
-        json={"expectedVersion": published.json()["data"]["version"]},
-    )
-    assert copied.status_code == 200, copied.text
-    assert copied.json()["data"]["status"] == "draft"
-    assert copied.json()["data"]["skus"][0]["availableQuantity"] == 0
     headers["Idempotency-Key"] = "catalog-product-archive"
     archived = await client.post(
         f'/api/v1/admin/mall/products/{product["id"]}/status',
@@ -135,6 +126,14 @@ async def test_admin_create_retry_stock_retry_and_public_visibility(client, db_s
     )
     assert archived.status_code == 200
     assert (await client.get(f'/api/v1/mall/products/{product["id"]}')).status_code == 404
+    child = await client.post(
+        "/api/v1/admin/mall/categories",
+        headers={**headers, "Idempotency-Key": "catalog-child-rejected"},
+        json={"name": "谷物", "parentId": category_id, "status": "enabled"},
+    )
+    assert child.status_code == 422
+    assert "仅支持一级分类" in child.json()["message"]
+
     role.permissions = {"permissions": ["mall.products.read"]}
     await db_session.commit()
     assert (await client.post(url, headers=headers, json=change)).status_code == 403

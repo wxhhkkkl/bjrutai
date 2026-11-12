@@ -9,10 +9,11 @@ from sqlalchemy import select
 from ..api.mall_deps import require_mall_admin_permission
 from ..core.config import get_settings
 from ..core.exceptions import ConflictException, NotFoundException
-from ..integrations.kuaidi100_client import FakeKuaidi100Client, Kuaidi100Error
+from ..integrations.kuaidi100_client import FakeKuaidi100Client, Kuaidi100Client, Kuaidi100Error
+from ..models.consent import ConsentRecord
 from ..models.mall_base import utc_now
-from ..models.mall_operations import MallJob
-from ..models.mall_trade import MallOrder, MallShipment
+from ..models.mall_operations import MallJob, MallSettings
+from ..models.mall_trade import MallAddress, MallOrder, MallShipment
 from ..schemas.mall_catalog import VersionAction
 from ..tasks.mall_tasks import MallWorkItem
 from .mall_admin_order_service import admin_order
@@ -46,6 +47,63 @@ SAFE_QUERY_ERRORS = {
     "service_error",
     "config_required",
 }
+# Kuaidi100 requires a recipient phone for these carrier codes.
+PHONE_REQUIRED_COURIERS = {"shunfeng", "shunfengkuaiyun", "zhongtong"}
+LOCATION_PATTERN = re.compile(r"^(-?[0-9]{1,3}(?:\.[0-9]+)?),(-?[0-9]{1,3}(?:\.[0-9]+)?)$")
+
+
+def _parse_location(value):
+    if not isinstance(value, str):
+        return None
+    match = LOCATION_PATTERN.fullmatch(value.strip())
+    if not match:
+        return None
+    longitude, latitude = float(match.group(1)), float(match.group(2))
+    if not (-180 <= longitude <= 180 and -90 <= latitude <= 90):
+        return None
+    return latitude, longitude
+
+
+def _arrival_text(value):
+    if not isinstance(value, str) or not value.strip():
+        return None
+    candidate = value.strip()
+    parsed = None
+    for fmt in ("%Y-%m-%d %H", "%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S"):
+        try:
+            parsed = datetime.strptime(candidate, fmt)
+            break
+        except ValueError:
+            continue
+    if parsed is None:
+        try:
+            parsed = datetime.fromisoformat(candidate)
+        except ValueError:
+            return None
+    return f"预计 {parsed.month}月{parsed.day}日 {parsed.hour}时前送达"
+
+
+async def _shared_recipient_phone(db, order):
+    """Only send a phone when the order's active fulfillment consent covers contact."""
+    if not order.consent_record_id:
+        return None
+    consent = await db.get(ConsentRecord, order.consent_record_id)
+    scopes = consent.scopes if consent is not None and isinstance(consent.scopes, dict) else {}
+    now = utc_now()
+    if not (
+        consent is not None
+        and consent.user_id == order.buyer_user_id
+        and consent.confirmed is True
+        and consent.status == "active"
+        and (consent.expires_at is None or consent.expires_at > now)
+        and scopes.get("mall_fulfillment") is True
+        and scopes.get("recipient_contact") is True
+    ):
+        return None
+    phone = (order.address_snapshot or {}).get("phone")
+    if not isinstance(phone, str) or not phone.strip():
+        return None
+    return phone.strip()
 
 
 def _sanitize_text(value, *, limit=500):
@@ -77,6 +135,41 @@ def _parse_provider_time(value):
         return None
 
 
+def _normalize_route(result):
+    points = []
+    for row in (result.get("predictedRoute") or [])[:MAX_EVENTS]:
+        if not isinstance(row, dict):
+            continue
+        coordinates = _parse_location(row.get("location"))
+        if coordinates is None:
+            continue
+        points.append(
+            {
+                "latitude": coordinates[0],
+                "longitude": coordinates[1],
+                "stateName": _sanitize_text(row.get("state"), limit=20) or None,
+                "name": _sanitize_text(row.get("name"), limit=80) or None,
+            }
+        )
+    route_info = result.get("routeInfo") if isinstance(result.get("routeInfo"), dict) else {}
+    current = route_info.get("cur") if isinstance(route_info.get("cur"), dict) else {}
+    current_name = _sanitize_text(current.get("name"), limit=80) or None
+    if not current_name:
+        for row in result.get("predictedRoute") or []:
+            if isinstance(row, dict) and row.get("state") == "当前停留节点":
+                current_name = _sanitize_text(row.get("city") or row.get("name"), limit=80) or None
+                break
+    return points, current_name
+
+
+def _hosted_map_url(value):
+    if not isinstance(value, str) or len(value) > 2048:
+        return None
+    if re.fullmatch(r"https://(?:api|f\.apimap)\.kuaidi100\.com/[A-Za-z0-9/_~.%?=&+,-]+", value):
+        return value
+    return None
+
+
 def _normalize_provider_result(result, *, source):
     state_code = result.get("state")
     state_code = str(state_code) if state_code is not None else None
@@ -106,11 +199,17 @@ def _normalize_provider_result(result, *, source):
                 "areaName": area_name or None,
             }
         )
+    route_points, current_name = _normalize_route(result)
     return {
         "source": source,
         "stateCode": state_code,
         "stateName": STATE_NAMES.get(state_code),
         "events": events,
+        "estimatedArrivalText": _arrival_text(result.get("arrivalTime")),
+        "mapUrl": _hosted_map_url(result.get("trailUrl")) if source == "live" else None,
+        "route": (
+            {"currentName": current_name, "points": route_points} if route_points else None
+        ),
     }
 
 
@@ -130,11 +229,24 @@ async def _has_active_query(db, shipment):
     )
 
 
-async def _schedule_if_allowed(db, shipment, *, now=None):
+async def _schedule_if_allowed(db, shipment, *, now=None, allow_config_retry=False):
     now = now or utc_now()
     if await _has_active_query(db, shipment):
         return False
-    if shipment.logistics_next_query_at and shipment.logistics_next_query_at > now:
+    settings = get_settings()
+    cached_snapshot = shipment.tracking_snapshot or {}
+    can_replace_fake_snapshot = (
+        cached_snapshot.get("source") == "fake"
+        and settings.app_environment in {"development", "test"}
+        and settings.mall_kuaidi100_mode == "live"
+        and settings.mall_kuaidi100_outbound_enabled
+    )
+    if (
+        shipment.logistics_next_query_at
+        and shipment.logistics_next_query_at > now
+        and not can_replace_fake_snapshot
+        and not allow_config_retry
+    ):
         return False
     key = f"mall-logistics:{shipment.id}:{shipment.version}:{int(now.timestamp())}"
     shipment.logistics_next_query_at = now + QUERY_INTERVAL
@@ -156,6 +268,8 @@ async def _schedule_if_allowed(db, shipment, *, now=None):
 
 def _snapshot_view(order, shipment):
     data = shipment.tracking_snapshot or {}
+    route = data.get("route") if isinstance(data.get("route"), dict) else None
+    points = route.get("points") if route else None
     return {
         "orderId": str(order.id),
         "shipmentId": str(shipment.id),
@@ -170,8 +284,9 @@ def _snapshot_view(order, shipment):
         "events": data.get("events", []),
         "updatedAt": shipment.logistics_fetched_at,
         "nextQueryAt": shipment.logistics_next_query_at,
-        "estimatedArrivalText": None,
-        "mapAvailable": False,
+        "estimatedArrivalText": data.get("estimatedArrivalText"),
+        "route": route,
+        "mapAvailable": bool(isinstance(points, list) and len(points) >= 2),
         "errorCode": shipment.logistics_last_error_code,
     }
 
@@ -186,12 +301,13 @@ async def get_buyer_logistics(db, actor, order_id):
     )
     if shipment is None:
         raise ConflictException(message="订单尚无物流包裹")
-    await _schedule_if_allowed(db, shipment)
+    allow_config_retry = await _can_retry_configured_query(db, order, shipment)
+    await _schedule_if_allowed(db, shipment, allow_config_retry=allow_config_retry)
     audit_order(db, actor, order, "mall_order_logistics_read")
     return _snapshot_view(order, shipment)
 
 
-async def get_admin_logistics(db, actor, order_id):
+async def get_admin_logistics(db, actor, order_id, *, schedule_refresh=True):
     order = await admin_order(db, order_id, lock=True)
     shipment = await db.scalar(
         select(MallShipment)
@@ -201,7 +317,9 @@ async def get_admin_logistics(db, actor, order_id):
     )
     if shipment is None:
         raise ConflictException(message="订单尚无物流包裹")
-    await _schedule_if_allowed(db, shipment)
+    if schedule_refresh:
+        allow_config_retry = await _can_retry_configured_query(db, order, shipment)
+        await _schedule_if_allowed(db, shipment, allow_config_retry=allow_config_retry)
     await record_mall_admin_audit(
         db,
         actor=actor,
@@ -210,7 +328,13 @@ async def get_admin_logistics(db, actor, order_id):
         entity_id=str(order.id),
         detail={"shipmentId": str(shipment.id), "shipmentVersion": shipment.version},
     )
-    return _snapshot_view(order, shipment)
+    snapshot = _snapshot_view(order, shipment)
+    snapshot["mapUrl"] = (
+        _hosted_map_url((shipment.tracking_snapshot or {}).get("mapUrl"))
+        if snapshot["source"] == "live"
+        else None
+    )
+    return snapshot
 
 
 async def refresh_logistics(db, actor, shipment_id, body: VersionAction, *, key):
@@ -253,7 +377,10 @@ async def refresh_logistics(db, actor, shipment_id, body: VersionAction, *, key)
         }
     if shipment.version != body.expected_version:
         raise ConflictException(message="包裹版本已变化，请重新读取")
-    scheduled = await _schedule_if_allowed(db, shipment)
+    allow_config_retry = await _can_retry_configured_query(db, order, shipment)
+    scheduled = await _schedule_if_allowed(
+        db, shipment, allow_config_retry=allow_config_retry
+    )
     await complete_mall_command(
         db,
         intent,
@@ -280,8 +407,83 @@ async def refresh_logistics(db, actor, shipment_id, body: VersionAction, *, key)
     }
 
 
-def logistics_handlers(sessions, *, client=None):
-    """Version-fenced worker; production remains closed until data-release governance."""
+def _region_text(names):
+    if not isinstance(names, list) or len(names) != 3:
+        return None
+    parts = [str(name).strip() for name in names]
+    if any(not part for part in parts):
+        return None
+    return ",".join(parts)
+
+
+async def _destination_region_names(db, order):
+    """Use the order snapshot first; recover only matching labels for legacy snapshots."""
+    address_snapshot = order.address_snapshot or {}
+    region_names = address_snapshot.get("regionNames") or address_snapshot.get("region_names")
+    if _region_text(region_names):
+        return region_names
+
+    address_id = address_snapshot.get("id")
+    region_codes = address_snapshot.get("regionCodes") or address_snapshot.get("region_codes")
+    if (
+        not isinstance(address_id, (str, int))
+        or not str(address_id).isdigit()
+        or not isinstance(region_codes, list)
+        or len(region_codes) != 3
+    ):
+        return region_names
+
+    saved_address = (
+        await db.execute(
+            select(
+                MallAddress.province_code,
+                MallAddress.city_code,
+                MallAddress.district_code,
+                MallAddress.region_names,
+            ).where(
+                MallAddress.id == int(address_id),
+                MallAddress.user_id == order.buyer_user_id,
+            )
+        )
+    ).first()
+    if saved_address is None:
+        return region_names
+
+    snapshot_codes = [str(code) for code in region_codes]
+    saved_codes = [str(code) for code in saved_address[:3]]
+    if snapshot_codes != saved_codes or not _region_text(saved_address[3]):
+        return region_names
+    return saved_address[3]
+
+
+async def _query_regions(db, order):
+    settings_row = await db.get(MallSettings, 1)
+    dispatch = (settings_row.dispatch_address_snapshot if settings_row else None) or {}
+    origin = _region_text(dispatch.get("regionNames") or dispatch.get("region_names"))
+    destination = _region_text(await _destination_region_names(db, order))
+    return origin, destination
+
+
+async def _can_retry_configured_query(db, order, shipment):
+    settings = get_settings()
+    snapshot = shipment.tracking_snapshot or {}
+    if (
+        shipment.logistics_status != "config_required"
+        or snapshot.get("source")
+        or snapshot.get("events")
+        or settings.app_environment not in {"development", "test"}
+        or settings.mall_kuaidi100_mode != "live"
+        or not settings.mall_kuaidi100_outbound_enabled
+        or not settings.kuaidi100_customer
+        or not settings.kuaidi100_key
+    ):
+        return False
+    origin, destination = await _query_regions(db, order)
+    return bool(origin and destination)
+
+
+def logistics_handlers(sessions, *, client=None, live_client=None):
+    """Version-fenced worker with fake, live and closed provider states."""
     fake_client = client or FakeKuaidi100Client()
 
     async def query(item: MallWorkItem):
@@ -317,10 +519,21 @@ def logistics_handlers(sessions, *, client=None):
             version, tracking_hash = shipment.version, shipment.tracking_identity_hash
             courier_code, tracking_no = shipment.courier_code, shipment.tracking_no
             settings = get_settings()
+            origin_city, destination_city = await _query_regions(db, order)
+            phone = (
+                await _shared_recipient_phone(db, order)
+                if courier_code in PHONE_REQUIRED_COURIERS
+                else None
+            )
             local_fake = (
                 settings.app_environment in {"development", "test"}
                 and settings.mall_kuaidi100_mode == "fake"
                 and not settings.mall_kuaidi100_outbound_enabled
+            )
+            local_live = (
+                settings.app_environment in {"development", "test"}
+                and settings.mall_kuaidi100_mode == "live"
+                and settings.mall_kuaidi100_outbound_enabled
             )
             await db.commit()
 
@@ -336,6 +549,30 @@ def logistics_handlers(sessions, *, client=None):
                 failure = exc.code if exc.code in SAFE_QUERY_ERRORS else "service_error"
             except Exception:
                 failure = "service_error"
+        elif local_live:
+            if not origin_city or not destination_city:
+                failure = "config_required"
+            else:
+                provider = live_client or Kuaidi100Client(
+                    customer=settings.kuaidi100_customer,
+                    key=settings.kuaidi100_key,
+                    outbound_enabled=True,
+                )
+                try:
+                    query_kwargs = {
+                        "courier_code": courier_code,
+                        "tracking_no": tracking_no,
+                        "from_city": origin_city,
+                        "to_city": destination_city,
+                    }
+                    if phone:
+                        query_kwargs["phone"] = phone
+                    result = await provider.query(**query_kwargs)
+                    source = "live"
+                except Kuaidi100Error as exc:
+                    failure = exc.code if exc.code in SAFE_QUERY_ERRORS else "service_error"
+                except Exception:
+                    failure = "service_error"
         else:
             failure = "data_release_gate_inactive"
 
