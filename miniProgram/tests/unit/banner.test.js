@@ -1,7 +1,12 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 
-const { adaptBanner, adaptBannerList, normalizeBannerId } = require('../../models/banner')
+const {
+  adaptBanner,
+  adaptBannerList,
+  normalizeBannerId,
+  resolveBannerImageMode
+} = require('../../models/banner')
 
 const source = {
   bannerId: '0012',
@@ -41,4 +46,13 @@ test('adapts a public list and keeps the no-action variant inert', () => {
     sortOrder: 3
   }])
   assert.throws(() => adaptBannerList({}), /轮播图列表/)
+})
+
+test('anchors the banner crop to the top when the image is taller than the banner box', () => {
+  const boxAspect = 428 / 493
+
+  assert.equal(resolveBannerImageMode(1728, 2304, boxAspect), 'widthFix')
+  assert.equal(resolveBannerImageMode(2420, 1280, boxAspect), 'aspectFill')
+  assert.equal(resolveBannerImageMode(1000, 1000, 0.8), 'aspectFill')
+  assert.equal(resolveBannerImageMode(0, 0, boxAspect), 'aspectFill')
 })

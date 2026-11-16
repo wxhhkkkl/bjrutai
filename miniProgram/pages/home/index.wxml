@@ -13,7 +13,7 @@
             <swiper class="home-banners__swiper" autoplay="{{bannerItems.length > 1}}" circular="{{bannerItems.length > 1}}" interval="4500" duration="380" indicator-dots="{{bannerItems.length > 1}}" indicator-color="rgba(35, 105, 98, .35)" indicator-active-color="#237b74">
                 <swiper-item wx:for="{{bannerItems}}" wx:key="bannerId">
                     <view class="home-banners__item tap-target" data-id="{{item.bannerId}}" bindtap="openBanner" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80">
-                        <image class="home-banners__image" src="{{item.imageUrl}}" mode="aspectFill" binderror="hideBrokenBanner" data-id="{{item.bannerId}}" />
+                        <image class="home-banners__image {{item.imageMode === 'aspectFill' ? 'home-banners__image--fill' : ''}}" src="{{item.imageUrl}}" mode="{{item.imageMode}}" bindload="onBannerImageLoad" binderror="hideBrokenBanner" data-id="{{item.bannerId}}" />
                         <view class="home-banners__veil"></view>
                     </view>
                 </swiper-item>

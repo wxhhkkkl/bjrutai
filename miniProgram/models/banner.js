@@ -47,8 +47,18 @@ function adaptBannerList(payload) {
   return payload.items.map(adaptBanner)
 }
 
+// 竖版素材在首屏剩余高度里按宽度铺满，顶端对齐裁掉底部，避免裁掉海报标题。
+function resolveBannerImageMode(imageWidth, imageHeight, boxAspect) {
+  const width = Number(imageWidth)
+  const height = Number(imageHeight)
+  const aspect = Number(boxAspect)
+  if (!(width > 0) || !(height > 0) || !(aspect > 0)) return 'aspectFill'
+  return width / height < aspect ? 'widthFix' : 'aspectFill'
+}
+
 module.exports = {
   adaptBanner,
   adaptBannerList,
-  normalizeBannerId
+  normalizeBannerId,
+  resolveBannerImageMode
 }

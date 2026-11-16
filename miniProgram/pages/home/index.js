@@ -3,7 +3,7 @@ const articleService = require('../../services/article-service')
 const bannerService = require('../../services/banner-service')
 const shareConfigService = require('../../services/share-config-service')
 const { normalizeArticleId, adaptArticlePage, adaptArticleCategories } = require('../../models/article')
-const { adaptBannerList } = require('../../models/banner')
+const { adaptBannerList, resolveBannerImageMode } = require('../../models/banner')
 const { openAction, updateTabBar } = require('../../services/navigation-service')
 const { resumePendingBinding } = require('../../services/pending-binding-service')
 
@@ -45,6 +45,8 @@ Page({
   },
 
   onLoad() {
+    this.bannerImageSizes = {}
+    this.bannerBoxAspect = 0
     wx.showShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
   },
 
@@ -266,16 +268,55 @@ Page({
     try {
       const payload = await bannerService.listBanners()
       if (version !== this.bannerRequestVersion) return
-      const items = adaptBannerList(payload)
+      const items = adaptBannerList(payload).map((item) => Object.assign({}, item, {
+        imageMode: 'widthFix'
+      }))
       this.setData({
         bannerState: items.length ? 'success' : 'empty',
         bannerItems: items
+      }, () => {
+        if (version === this.bannerRequestVersion && items.length) this.measureBannerBox()
       })
     } catch (error) {
       if (version !== this.bannerRequestVersion) return
       // 轮播图属于可选内容，加载失败不影响首页内容与文章资讯。
       this.setData({ bannerState: 'recoverable-error', bannerItems: [] })
     }
+  },
+
+  measureBannerBox() {
+    wx.createSelectorQuery()
+      .in(this)
+      .select('.home-banners')
+      .boundingClientRect((rect) => {
+        if (!rect || !rect.width || !rect.height) return
+        this.bannerBoxAspect = rect.width / rect.height
+        this.applyBannerImageModes()
+      })
+      .exec()
+  },
+
+  onBannerImageLoad(e) {
+    const detail = e.detail || {}
+    const data = e.currentTarget && e.currentTarget.dataset
+    const bannerId = data ? String(data.id || '') : ''
+    if (!bannerId || !detail.width || !detail.height) return
+    this.bannerImageSizes[bannerId] = { width: detail.width, height: detail.height }
+    this.applyBannerImageModes()
+  },
+
+  applyBannerImageModes() {
+    if (!this.bannerBoxAspect) return
+    let changed = false
+    const bannerItems = this.data.bannerItems.map((item) => {
+      const size = this.bannerImageSizes[item.bannerId]
+      if (!size) return item
+      const imageMode = resolveBannerImageMode(size.width, size.height, this.bannerBoxAspect)
+      if (item.imageMode === imageMode) return item
+      changed = true
+      return Object.assign({}, item, { imageMode })
+    })
+    if (changed) this.setData({ bannerItems })
   },
 
   openBanner(e) {
