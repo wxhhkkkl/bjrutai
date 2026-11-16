@@ -381,7 +381,7 @@ test('order detail links paid unbilled orders to apply and existing invoice requ
     const app = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'))
     assert.ok(app.pages.includes('pages/mall-invoice-apply/index'))
     assert.ok(app.pages.includes('pages/mall-invoice-detail/index'))
-    assert.equal(app.tabBar.list.length, 4)
+    assert.equal(app.tabBar.list.length, 5)
     const markup = fs.readFileSync(path.join(root, 'pages/mall-order-detail/index.wxml'), 'utf8')
     assert.match(markup, /bindtap="openInvoice"/)
   } finally { fixture.restore() }

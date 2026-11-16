@@ -7,9 +7,10 @@
 | `home` | 首页 | `/pages/home/index` | 保留首页品牌与微信胶囊区域 |
 | `customers` | 客户 | `/pages/customers/index` | 禁止返回按钮和页面标题导航 |
 | `internet-hospital` | 互联网医院 | `/pages/internet-hospital/index` | 公开的建设中占位内容，保留微信胶囊安全区 |
+| `mall` | 商城 | `/pages/mall/index` | 仅登录后显示，禁止返回按钮和页面标题导航 |
 | `profile` | 我的 | `/pages/profile/index` | 禁止返回按钮和页面标题导航 |
 
-Tab 顺序：普通用户为首页 → 互联网医院 → 我的；业务成员在首页后保留客户 Tab，即首页 → 客户 → 互联网医院 → 我的。商城页面仍注册，但不出现在 Tab 导航中。
+Tab 顺序：登录用户为首页 → 互联网医院 → 商城 → 我的；业务成员在首页后保留客户 Tab，即首页 → 客户 → 互联网医院 → 商城 → 我的。未登录访客不显示商城 Tab（2026-11-16 恢复商城入口，同时按最新要求对未登录隐藏）。
 
 ## Business Service Entry
 

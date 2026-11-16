@@ -364,14 +364,14 @@ test('dedicated map page renders only https map URLs and recovers an empty respo
   } finally { fixture.restore() }
 })
 
-test('mall order routes and the profile entry keep the primary tabs unchanged', () => {
+test('mall order routes and the profile entry preserve five primary tabs', () => {
   const root = path.resolve(__dirname, '../..')
   const app = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'))
   const navigation = require('../../models/navigation')
   for (const route of ['pages/mall-orders/index', 'pages/mall-order-detail/index', 'pages/mall-logistics/index']) {
     assert.ok(app.pages.includes(route), `missing ${route}`)
   }
-  assert.equal(app.tabBar.list.length, 4)
+  assert.equal(app.tabBar.list.length, 5)
   assert.equal(navigation.ACTION_TARGETS['mall-orders'].path, '/pages/mall-orders/index')
   const profile = fs.readFileSync(path.join(root, 'pages/profile/index.js'), 'utf8')
   const profileMarkup = fs.readFileSync(path.join(root, 'pages/profile/index.wxml'), 'utf8')

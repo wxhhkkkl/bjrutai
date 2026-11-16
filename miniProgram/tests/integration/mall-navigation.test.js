@@ -57,7 +57,7 @@ function loadProfile(overrides = {}) {
   }
 }
 
-test('mall journeys are registered while the primary tabs stay unchanged', () => {
+test('mall journeys are registered while the five primary tabs stay unchanged', () => {
   const app = JSON.parse(read('app.json'))
   const mallRoutes = [
     'pages/mall/index',
@@ -81,6 +81,7 @@ test('mall journeys are registered while the primary tabs stay unchanged', () =>
     'pages/home/index',
     'pages/customers/index',
     'pages/internet-hospital/index',
+    'pages/mall/index',
     'pages/profile/index'
   ])
 })

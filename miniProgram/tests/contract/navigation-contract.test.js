@@ -6,17 +6,18 @@ const {
   ACTION_TARGETS
 } = require('../../models/navigation');
 
-test('four visible tabs have unique routes and mall remains a registered hidden page', () => {
-  assert.equal(TAB_ITEMS.length, 4);
+test('five visible tabs have unique routes and mall requires login', () => {
+  assert.equal(TAB_ITEMS.length, 5);
   assert.equal(
     new Set(TAB_ITEMS.map((item) => item.pagePath)).size,
-    4
+    5
   );
   assert.equal(TAB_ITEMS[2].id, 'internet-hospital');
-  assert.equal(TAB_ITEMS[3].id, 'profile');
-  assert.ok(TAB_ITEMS.every((item) => item.id !== 'mall'));
+  assert.equal(TAB_ITEMS[3].id, 'mall');
+  assert.equal(TAB_ITEMS[3].requiresLogin, true);
+  assert.equal(TAB_ITEMS[4].id, 'profile');
   assert.ok(appConfig.pages.includes('pages/mall/index'));
-  assert.ok(appConfig.tabBar.list.every((item) => item.pagePath !== 'pages/mall/index'));
+  assert.ok(appConfig.tabBar.list.some((item) => item.pagePath === 'pages/mall/index'));
 });
 
 test('action routes point to registered mini program pages', () => {

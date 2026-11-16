@@ -16,10 +16,10 @@ test('personal account has no customer or consumption capability', () => {
   const capabilities = getCollaboratorCapabilities(personal)
   assert.equal(capabilities.customerBinding, false)
   assert.equal(capabilities.contribution, false)
-  assert.deepEqual(getVisibleTabs(personal).map((item) => item.id), ['home', 'internet-hospital', 'profile'])
+  assert.deepEqual(getVisibleTabs(personal).map((item) => item.id), ['home', 'internet-hospital', 'mall', 'profile'])
 })
 
-test('business member sees customer and internet hospital tabs while mall stays hidden', () => {
+test('business member sees customer, internet hospital and mall tabs', () => {
   const member = normalizeSession({
     userId: '2',
     distributorId: '20',
@@ -33,7 +33,7 @@ test('business member sees customer and internet hospital tabs while mall stays 
 
   assert.deepEqual(
     getVisibleTabs(member).map((item) => item.id),
-    ['home', 'customers', 'internet-hospital', 'profile']
+    ['home', 'customers', 'internet-hospital', 'mall', 'profile']
   )
 })
 

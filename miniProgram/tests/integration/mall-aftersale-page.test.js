@@ -368,7 +368,7 @@ test('all aftersale routes are registered under the existing mall flow', () => {
     'pages/mall-aftersale-detail/index',
     'pages/mall-return-shipment/index'
   ]) assert.ok(app.pages.includes(route), `missing ${route}`)
-  assert.equal(app.tabBar.list.length, 4)
+  assert.equal(app.tabBar.list.length, 5)
 })
 
 test('goods-only aftersale methods use a block-level if/else pair valid for WXML compilation', () => {
