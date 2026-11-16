@@ -1,7 +1,7 @@
 """Create durable finance, aftersale, file, job and reconciliation records.
 
-Revision ID: 025
-Revises: 024
+Revision ID: mall025
+Revises: mall024
 
 The final section adds the nullable cross-batch and invoice/file-cycle foreign
 keys only after both referenced tables exist.  All money and operational
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import mysql
 
-revision = "025"
-down_revision = "024"
+revision = "mall025"
+down_revision = "mall024"
 branch_labels = None
 depends_on = None
 

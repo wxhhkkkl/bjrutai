@@ -1,7 +1,7 @@
 """Create the independent mall catalog, intent and order core.
 
-Revision ID: 024
-Revises: 023
+Revision ID: mall024
+Revises: 025
 
 This revision intentionally leaves references to later finance/file/aftersale
 tables as nullable scalar columns.  Revision 025 creates those tables and then
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import mysql
 
-revision = "024"
-down_revision = "023"
+revision = "mall024"
+down_revision = "025"
 branch_labels = None
 depends_on = None
 

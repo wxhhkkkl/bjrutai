@@ -60,6 +60,11 @@ Page({
       })) : []
       const freightOnlyAvailable = order.status === 'pending_shipment' && Number(order.freightAmountCent) >
         Number(order.refundedFreightCent || 0) + Number(order.refundReservedCent || 0)
+      // Unshipped goods can only be refunded without returning anything.
+      const unshipped = order.status === 'pending_shipment' && !order.shipment && !order.shippedAt
+      const methods = unshipped
+        ? METHODS.filter((item) => item.value === 'refund_only')
+        : METHODS
       const goodsAvailable = ['pending_shipment', 'pending_receipt', 'completed'].includes(order.status) &&
         items.some((item) => item.availableAftersaleQuantity > 0)
       if (!goodsAvailable && !freightOnlyAvailable) {
@@ -67,7 +72,7 @@ Page({
         return
       }
       this.setData({
-        state: 'success', order, items, freightOnlyAvailable, goodsAvailable,
+        state: 'success', order, items, methods, freightOnlyAvailable, goodsAvailable,
         scope: goodsAvailable ? 'goods' : 'freight_only',
         method: 'refund_only', stateMessage: ''
       })
@@ -98,7 +103,7 @@ Page({
 
   selectMethod(event) {
     const method = event && event.currentTarget && event.currentTarget.dataset.method
-    if (this.data.scope !== 'goods' || !METHODS.some((item) => item.value === method)) return
+    if (this.data.scope !== 'goods' || !this.data.methods.some((item) => item.value === method)) return
     if (method === 'return_refund' && this.data.items.some((item) => item.applyQuantity > 0 && item.supportsReturn === false)) {
       showAftersaleToast(this, '所选商品不支持退货退款，可申请仅退款')
       return

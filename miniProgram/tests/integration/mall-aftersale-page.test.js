@@ -76,7 +76,7 @@ const order = {
 
 function applyDependencies(options = {}) {
   return {
-    'services/mall-order-service.js': { getMyMallOrder: async () => order },
+    'services/mall-order-service.js': { getMyMallOrder: async () => options.order || order },
     'services/mall-aftersale-service.js': {
       createMallAftersale: options.createMallAftersale || (async () => ({ id: '51', version: 1, status: 'submitted' })),
       computeProofSha256: async () => 'proof-sha256-digest',
@@ -127,6 +127,7 @@ test('application loads the server snapshot, constrains item quantity and submit
     assert.equal(fixture.page.data.scope, 'freight_only')
     fixture.page.selectScope({ currentTarget: { dataset: { scope: 'goods' } } })
     fixture.page.selectMethod({ currentTarget: { dataset: { method: 'return_refund' } } })
+    assert.equal(fixture.page.data.method, 'refund_only')
     fixture.page.changeQuantity({ currentTarget: { dataset: { id: '101', delta: '1' } } })
     fixture.page.changeQuantity({ currentTarget: { dataset: { id: '102', delta: '1' } } })
     await fixture.page.submitApplication()
@@ -137,7 +138,7 @@ test('application loads the server snapshot, constrains item quantity and submit
 
     assert.equal(calls.length, 1)
     assert.deepEqual(calls[0][0], {
-      orderId: '31', expectedOrderVersion: 7, method: 'return_refund', scope: 'goods',
+      orderId: '31', expectedOrderVersion: 7, method: 'refund_only', scope: 'goods',
       items: [{ orderItemId: '101', quantity: 1 }], reason: '商品外包装破损',
       proofFileIds: []
     })
@@ -145,6 +146,26 @@ test('application loads the server snapshot, constrains item quantity and submit
     assert.deepEqual(fixture.navigation.at(-1), ['redirectTo', '/pages/mall-aftersale-detail/index?id=51'])
     assert.equal(fixture.modals.length, 1)
   } finally { fixture.restore() }
+})
+
+test('unshipped orders offer refund-only while shipped orders still allow return refund', async () => {
+  const unshipped = loadPage('pages/mall-aftersale-apply/index.js', applyDependencies())
+  try {
+    await unshipped.page.onLoad({ orderId: '31' })
+    assert.deepEqual(unshipped.page.data.methods.map((item) => item.value), ['refund_only'])
+    unshipped.page.selectMethod({ currentTarget: { dataset: { method: 'return_refund' } } })
+    assert.equal(unshipped.page.data.method, 'refund_only')
+  } finally { unshipped.restore() }
+
+  const shipped = loadPage('pages/mall-aftersale-apply/index.js', applyDependencies({
+    order: { ...order, status: 'pending_receipt', shipment: { id: '9' } }
+  }))
+  try {
+    await shipped.page.onLoad({ orderId: '31' })
+    assert.deepEqual(shipped.page.data.methods.map((item) => item.value), ['refund_only', 'return_refund'])
+    shipped.page.selectMethod({ currentTarget: { dataset: { method: 'return_refund' } } })
+    assert.equal(shipped.page.data.method, 'return_refund')
+  } finally { shipped.restore() }
 })
 
 test('freight-only orders open with the only available scope selected', async () => {

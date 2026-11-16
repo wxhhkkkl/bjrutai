@@ -45,6 +45,7 @@
                         <view class="mall-aftersale-option__copy"><text>仅退款</text><text>运费售后不需要寄回商品</text></view>
                     </view>
                 </block>
+                <text wx:if="{{scope === 'goods' && methods.length === 1}}" class="mall-helper">商家尚未发货，无需寄回商品，仅支持仅退款。</text>
             </view>
             <view class="mall-aftersale-section">
                 <view class="mall-section-heading"><text>申请原因</text><text class="mall-required">必填</text></view>

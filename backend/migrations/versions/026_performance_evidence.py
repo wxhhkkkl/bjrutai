@@ -1,7 +1,7 @@
 """Add the mall consumption source and immutable performance evidence.
 
 Revision ID: 026
-Revises: 025
+Revises: mall025
 
 Historical commission and settlement facts are extended only with nullable
 compatibility metadata (plus ``origin_kind='normal'``).  This migration never
@@ -14,7 +14,7 @@ from alembic import op
 from sqlalchemy.dialects import mysql
 
 revision = "026"
-down_revision = "025"
+down_revision = "mall025"
 branch_labels = None
 depends_on = None
 
