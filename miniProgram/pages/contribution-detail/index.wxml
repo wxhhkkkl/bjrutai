@@ -32,7 +32,7 @@
     </view>
     <image
       class="contribution-summary__visual"
-      src="/assets/images/contribution-detail-hero.png"
+      src="/assets/images/contribution-detail-hero.jpg"
       mode="aspectFit"
       aria-role="img"
       aria-label="消费趋势"

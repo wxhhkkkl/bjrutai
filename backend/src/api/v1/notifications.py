@@ -34,7 +34,9 @@ def _ok(data=None) -> dict:
 # ──────────────────────────────────────────────────────────────────
 @router.get("")
 async def list_notifications(
-    category: Optional[str] = Query(None, description="system, binding, promotion, bill, followup, qualification"),
+    category: Optional[str] = Query(
+        None, description="system, binding, promotion, bill, followup, qualification, mall"
+    ),
     unreadOnly: bool = Query(False, alias="unreadOnly"),
     cursor: Optional[str] = Query(None, description="Pagination cursor (last id)"),
     pageSize: int = Query(20, ge=1, le=100),

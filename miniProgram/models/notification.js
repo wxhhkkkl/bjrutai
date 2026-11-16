@@ -7,11 +7,12 @@ const CATEGORY_LABELS = Object.freeze({
   promotion: '推广',
   bill: '消费',
   followup: '跟进',
-  qualification: '资质'
+  qualification: '资质',
+  mall: '商城'
 })
 
 function getNotificationFilters(role) {
-  const categoryIds = ['all', 'unread', 'system', 'binding', 'bill']
+  const categoryIds = ['all', 'unread', 'system', 'mall', 'binding', 'bill']
   const visibleIds = role === 'personal'
     ? categoryIds.filter((id) => id !== 'binding' && id !== 'bill')
     : categoryIds
@@ -24,7 +25,10 @@ const TARGET_PATHS = Object.freeze([
   '/pages/customers/index',
   '/pages/contribution-detail/index',
   '/pages/help-feedback/index',
-  '/pages/account-profile/index'
+  '/pages/account-profile/index',
+  '/pages/mall-order-detail/index',
+  '/pages/mall-aftersale-detail/index',
+  '/pages/mall-invoice-detail/index'
 ])
 
 function resolveNotificationTarget(target) {

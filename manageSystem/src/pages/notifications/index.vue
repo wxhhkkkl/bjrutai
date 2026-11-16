@@ -7,6 +7,7 @@
       <el-radio-group v-model="filterCategory" size="small" @change="handleFilterChange">
         <el-radio-button label="">全部</el-radio-button>
         <el-radio-button label="system">系统</el-radio-button>
+        <el-radio-button label="mall">商城</el-radio-button>
         <el-radio-button label="binding">绑定</el-radio-button>
         <el-radio-button label="promotion">推广</el-radio-button>
         <el-radio-button label="bill">账单</el-radio-button>
@@ -101,11 +102,11 @@ const unreadCount = ref(0)
 
 const categoryLabels = {
   system: '系统', binding: '绑定', promotion: '推广',
-  bill: '账单', followup: '跟进', qualification: '资质',
+  bill: '账单', followup: '跟进', qualification: '资质', mall: '商城',
 }
 const categoryTagTypes = {
   system: 'info', binding: 'success', promotion: 'warning',
-  bill: '', followup: '', qualification: 'warning',
+  bill: '', followup: '', qualification: 'warning', mall: 'success',
 }
 
 function categoryLabel(c) { return categoryLabels[c] || c }

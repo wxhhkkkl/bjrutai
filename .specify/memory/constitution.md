@@ -1,6 +1,85 @@
 <!--
   Sync Impact Report
   ==================
+  Date: 2026-11-09
+  Version change: 3.0.0 → 4.0.0 (MAJOR: Principle IV adds a narrow,
+    approved internal mall data-release exception)
+
+  Principles changed:
+  - IV. Database Integrity: retain masking as the default, while allowing
+    purpose-limited, single-order fulfillment data and single-application
+    invoice title/tax ID access by currently authorized mall staff. Access is
+    rechecked against live role, object state/version and the buyer's active
+    purpose notice. Responses are no-store; audit metadata never includes
+    original values. No external recipient or third-party transfer is covered.
+
+  Rationale:
+  - The user explicitly approved the narrow internal-only proposal on
+    2026-11-09. Operational retention policy references and reviewed notice
+    version are still required before enabling the runtime flag. The approval
+    does not authorize sending raw data to WeChat, carriers, or Kuaidi100.
+
+  Sections added: None
+  Sections changed: Core Principles (IV. Database Integrity)
+
+  Templates requiring updates:
+  - .specify/templates/plan-template.md: principle checks remain applicable
+  - .specify/templates/spec-template.md: no change needed
+  - .specify/templates/tasks-template.md: no change needed
+  - CLAUDE.md: update mall data-release status and preserve runtime gate
+
+  Follow-up:
+  - T063/T102 implement the two exact internal endpoints and positive/negative
+    consent, state, audit and no-store checks. Runtime remains disabled until
+    approved retention and notice references are configured and reviewed.
+  - External transfer remains separately gated by verified provider fields and
+    G-LIVE authorization.
+-->
+<!--
+  Sync Impact Report
+  ==================
+  Date: 2026-11-09
+  Version change: 2.0.0 → 3.0.0 (MAJOR: Principle II adds a narrow external
+    notification protocol exception)
+
+  Principles changed:
+  - II. API-First Design: keep the unified response envelope for all project
+    APIs; allow only the two registered WeChat Pay payment/refund inbound
+    notification routes to use the verified provider acknowledgment protocol.
+    Successful acknowledgment requires signature verification and durable
+    inbox+work-item commit. No JWT or project response envelope is used there.
+
+  Rationale:
+  - The project-approved standalone mall needs to receive WeChat Pay v3
+    callbacks. Official merchant docs prescribe provider acknowledgments
+    (HTTP 200/204 empty on success; 4xx/5xx with FAIL body on failure), which
+    cannot be represented by the normal project envelope. The exception is
+    limited to the exact two callback routes and does not change business API
+    contracts or authorize live channel use.
+  - User approved the narrow proposal on 2026-11-09. Official merchant docs
+    verified: payment notification
+    https://pay.wechatpay.cn/doc/v3/merchant/4012791861 and ordinary order
+    refund notification https://pay.wechatpay.cn/doc/v3/merchant/4013071196.
+
+  Sections added: None
+  Sections changed: Core Principles (II. API-First Design)
+
+  Templates requiring updates:
+  - .specify/templates/plan-template.md: aligned; no change needed
+  - .specify/templates/spec-template.md: aligned; no change needed
+  - .specify/templates/tasks-template.md: aligned; no change needed
+  - CLAUDE.md: aligned; no change needed
+
+  Follow-up:
+  - T048 completed locally on 2026-11-09: the exact two routes, durable
+    commit-before-ACK, duplicate/replay handling, failure behavior, and normal
+    API envelope isolation passed focused and isolated MySQL checks.
+    G-PROTOCOL adoption does not authorize platform configuration, deployment,
+    or live payment; G-LIVE remains independent.
+-->
+<!--
+  Sync Impact Report
+  ==================
   Version change: 1.0.0 → 2.0.0 (MAJOR: Principle IV redefinition)
   
   Principles changed:
@@ -57,7 +136,10 @@ The backend REST API is the single source of truth for all business data and log
 
 - Frontend applications (Vue admin, WeChat mini-program) MUST only consume backend APIs — never access the database directly
 - API contracts (request/response schemas, error codes) MUST be defined and reviewed before implementation
-- All APIs MUST follow the unified response format: `{code, message, data, requestId, serverTime}`
+- All project business APIs MUST follow the unified response format: `{code, message, data, requestId, serverTime}`.
+- The only exception is the registered external WeChat Pay v3 inbound callback pair: `POST /api/v1/mall-gateway/wechat/payment-notify` and `POST /api/v1/mall-gateway/wechat/refund-notify`. These routes MUST use the provider's verified acknowledgment protocol, without project JWT authentication or the project response envelope. No other route or provider is covered.
+- A successful callback acknowledgment MUST only be sent after the request signature and timestamp are verified and the authenticated notification plus its recoverable processing work item are durably committed. The stored event MUST be idempotent; repeated identical notifications may be acknowledged after confirming the committed event, while event identity/content conflicts, invalid signatures, invalid payloads, and persistence failures MUST NOT receive a success acknowledgment. Callback bodies and audit details MUST not expose secrets or decrypted personal data.
+- Provider failure acknowledgments and success status/body MUST match the current verified provider documentation. This exception does not authorize production callback registration, deployment, or real payment activity; those remain subject to G-LIVE and operational authorization.
 - API versioning MUST be URL-path-based (`/api/v1/...`) with backward-compatible changes within a major version
 - Breaking changes require a new API version and migration plan
 
@@ -86,7 +168,9 @@ All persistent data is stored in MySQL on Tencent Cloud, accessed exclusively th
 
 - The database connection MUST be configured via environment variables — never hardcoded
 - All database schema changes MUST be managed through versioned migration scripts
-- Sensitive data (phone numbers, ID cards, medical account numbers) MUST be masked on all output channels (前后台脱敏): backend API responses and frontend UI displays MUST only expose masked values (e.g., `138****1234`, `110***********1234`); storage at rest is plaintext
+- Sensitive data (phone numbers, ID cards, medical account numbers) MUST be masked on all output channels by default (前后台脱敏): backend API responses and frontend UI displays MUST only expose masked values (e.g., `138****1234`, `110***********1234`); storage at rest is plaintext.
+- The only approved mall internal raw-data views are the exact order-level fulfillment release and invoice-request billing release. They may expose buyer-submitted recipient name/phone/address for one currently paid, not-yet-shipped, unblocked order to an active administrator with the live `mall.fulfillment.release` permission, and invoice title/company tax ID for one currently claimable request held by an active finance administrator with the live `mall.billing.release` permission. Each access MUST recheck current account/role, object state and version, buyer ownership, and the active purpose-specific consent record. Other output remains masked; no general lookup, bulk export, or third-party transfer is authorized.
+- Raw-data responses MUST use `Cache-Control: no-store, private`, MUST NOT enter ordinary caches, logs, analytics, command replay stores, or audit detail, and MUST expire from the intended UI display within 60 seconds. Audit entries MUST contain metadata only. The two runtime release paths MUST remain disabled until an approved retention-policy reference and reviewed notice version are configured; this principle exception does not itself turn on access.
 - Audit logs MUST be written for all sensitive data access and modifications
 - The database connection MUST use TLS for data in transit
 - No client application (mini-program, admin SPA, third-party) may connect directly to the database
@@ -188,4 +272,4 @@ This constitution supersedes all other development practices and guidelines. Whe
 - When the constitution is silent on a topic, `CLAUDE.md` guidance applies
 - Project-specific conventions not covered here SHOULD be documented in `CLAUDE.md`
 
-**Version**: 2.0.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-08-03
+**Version**: 3.0.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-11-09

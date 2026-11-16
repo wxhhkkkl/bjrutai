@@ -1,4 +1,7 @@
 {
+  "enablePullDownRefresh": true,
+  "backgroundColor": "#ffffff",
+  "backgroundTextStyle": "dark",
   "usingComponents": {
     "page-state": "/components/page-state/index"
   }

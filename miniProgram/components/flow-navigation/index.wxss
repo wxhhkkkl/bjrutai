@@ -16,16 +16,16 @@
 
 .flow-navigation__back {
   position: absolute;
-  left: 40rpx;
-  width: 68rpx;
-  height: 68rpx;
+  left: calc(75rpx - 22px);
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #ffffff;
-  border: 1rpx solid #edf0f4;
-  border-radius: 50%;
-  box-shadow: 0 8rpx 18rpx rgba(24, 48, 82, 0.11);
+}
+
+.flow-navigation__back.tap-feedback {
+  background-color: transparent;
 }
 
 .flow-navigation__title {

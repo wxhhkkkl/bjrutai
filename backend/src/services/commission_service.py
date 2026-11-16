@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.exceptions import BadRequestException, NotFoundException
 from ..models.commission_result import CommissionResult
 from ..models.distributor import Distributor, OrgRole
+from ..models.performance_adjustment import PerformanceAdjustmentApplication
 from ..models.performance_rule import PerformanceRule, RuleStatus, RuleType
 from ..models.performance_settlement import PerformanceSettlement, SettlementStatus
 from ..models.personal_performance_rule import PersonalPerformanceRule
@@ -26,6 +27,7 @@ from . import distributor_service, organization_service
 from .consumption_service import (
     consumption_by_distributor as _consumption_by_distributor,
 )
+from .performance_period_service import lock_period
 
 
 def _apply_tiers(tiers: list, base_cent: int) -> float:
@@ -48,10 +50,14 @@ def _ratio_str(ratio: float) -> str:
     return f"{ratio:.6f}"
 
 
+def _rule_type_value(value) -> str:
+    return value.value if hasattr(value, "value") else str(value)
+
+
 def _rule_snapshot(rule: PerformanceRule) -> dict:
     """Snapshot of the active rule used at computation time (FR-007)."""
     return {
-        "ruleType": rule.rule_type.value if hasattr(rule.rule_type, "value") else str(rule.rule_type),
+        "ruleType": _rule_type_value(rule.rule_type),
         "tiers": rule.tiers,
         "version": rule.version,
     }
@@ -133,6 +139,7 @@ async def _upsert_result(
         existing.base_cent = base_cent
         existing.ratio = _ratio_str(ratio)
         existing.commission_cent = commission_cent
+        existing.origin_kind = "normal"
         if rule_snapshot is not None:
             existing.rule_snapshot = rule_snapshot
         existing.computed_at = datetime.now(timezone.utc)
@@ -152,7 +159,23 @@ async def _delete_result(
         )
     ).scalars().first()
     if existing is not None:
-        await db.delete(existing)
+        application_count = int(
+            await db.scalar(
+                select(func.count(PerformanceAdjustmentApplication.id)).where(
+                    PerformanceAdjustmentApplication.target_result_id == existing.id
+                )
+            )
+            or 0
+        )
+        if application_count:
+            existing.base_cent = 0
+            existing.ratio = "0.000000"
+            existing.commission_cent = 0
+            existing.rule_snapshot = None
+            existing.origin_kind = "adjustment_only"
+            existing.computed_at = datetime.now(timezone.utc)
+        else:
+            await db.delete(existing)
 
 
 async def _load_org_people(db: AsyncSession) -> tuple[dict, dict, list]:
@@ -241,8 +264,16 @@ async def compute_commission(db: AsyncSession, period: str) -> dict:
                 )
                 computed += 1
     await _ensure_pending_settlement(db, period)
+    from .performance_adjustment_application_service import apply_adjustments_to_period
+
+    adjustment_applications = await apply_adjustments_to_period(db, period)
     await db.flush()
-    return {"period": period, "computed": computed, "frozen": False}
+    return {
+        "period": period,
+        "computed": computed,
+        "adjustmentApplications": adjustment_applications,
+        "frozen": False,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -268,15 +299,27 @@ async def preview_org_commission(db: AsyncSession, org_id: int, period: str) -> 
                 .order_by(CommissionResult.id)
             )
         ).scalars().all()
+        from .performance_adjustment_application_service import (
+            adjustment_summaries_for_results,
+        )
+
+        summaries = await adjustment_summaries_for_results(db, rows)
         intra_items, mgmt_items = [], []
         for row in rows:
+            amounts = summaries[row.id]
             item = {
                 "distributorId": str(row.distributor_id),
                 "name": await _distributor_name(db, row.distributor_id),
                 "baseCent": row.base_cent,
                 "ratio": float(row.ratio),
-                "commissionCent": row.commission_cent,
-                "pointsBalance": 0.0 if row.points_redeemed_at else row.commission_cent / 100,
+                "commissionCent": amounts["normalCommissionCent"],
+                **amounts,
+                "originKind": row.origin_kind,
+                "pointsBalance": (
+                    0.0
+                    if row.points_redeemed_at
+                    else amounts["redeemableCent"] / 100
+                ),
                 "pointsRedeemed": row.points_redeemed_at is not None,
                 "pointsRedeemedAt": (
                     row.points_redeemed_at.isoformat() if row.points_redeemed_at else None
@@ -320,7 +363,15 @@ async def preview_org_commission(db: AsyncSession, org_id: int, period: str) -> 
         base = consumption.get(d.id, 0)
         ratio = _apply_tiers(tiers, base)
         if ratio > 0:
-            intra_items.append(_preview_item(d.id, await _distributor_name(db, d.id), base, ratio))
+            intra_items.append(
+                _preview_item(
+                    d.id,
+                    await _distributor_name(db, d.id),
+                    base,
+                    ratio,
+                    RuleType.INTRA_ORG,
+                )
+            )
     if not intra_rule and (not people or len(personal_rules) < len(people)):
         unconfigured.append(RuleType.INTRA_ORG.value)
 
@@ -333,9 +384,93 @@ async def preview_org_commission(db: AsyncSession, org_id: int, period: str) -> 
             ratio = _apply_tiers(mgmt_rule.tiers, base)
             if ratio <= 0:
                 continue
-            mgmt_items.append(_preview_item(admin.id, await _distributor_name(db, admin.id), base, ratio))
+            mgmt_items.append(
+                _preview_item(
+                    admin.id,
+                    await _distributor_name(db, admin.id),
+                    base,
+                    ratio,
+                    RuleType.ORG_MANAGEMENT,
+                )
+            )
     else:
         unconfigured.append(RuleType.ORG_MANAGEMENT.value)
+
+    result_rows = (
+        await db.scalars(
+            select(CommissionResult).where(
+                CommissionResult.period == period,
+                CommissionResult.org_id == org_id,
+            )
+        )
+    ).all()
+    from .performance_adjustment_application_service import (
+        adjustment_summaries_for_results,
+    )
+
+    summaries = await adjustment_summaries_for_results(db, result_rows)
+    results_by_key = {
+        (row.distributor_id, _rule_type_value(row.rule_type)): row for row in result_rows
+    }
+    for items, rule_type in (
+        (intra_items, RuleType.INTRA_ORG.value),
+        (mgmt_items, RuleType.ORG_MANAGEMENT.value),
+    ):
+        for item in items:
+            identity = (int(item["distributorId"]), rule_type)
+            row = results_by_key.get(identity)
+            amounts = summaries.get(row.id, {}) if row else {}
+            normal = item["commissionCent"]
+            confirmed_delta = amounts.get("confirmedAdjustmentCent", 0)
+            item.update(
+                {
+                    "ruleType": rule_type,
+                    "normalCommissionCent": normal,
+                    "confirmedAdjustmentCent": confirmed_delta,
+                    "appliedDebtCent": amounts.get("appliedDebtCent", 0),
+                    "redeemableCent": max(0, normal + confirmed_delta),
+                    "pendingDebtCent": amounts.get("pendingDebtCent", 0),
+                    "originKind": row.origin_kind if row else "normal",
+                    "pointsBalance": max(0, normal + confirmed_delta) / 100,
+                    "pointsRedeemed": bool(row and row.points_redeemed_at),
+                    "pointsRedeemedAt": (
+                        row.points_redeemed_at.isoformat()
+                        if row and row.points_redeemed_at
+                        else None
+                    ),
+                }
+            )
+        present = {int(item["distributorId"]) for item in items}
+        for row in result_rows:
+            if (
+                _rule_type_value(row.rule_type) == rule_type
+                and row.origin_kind == "adjustment_only"
+                and row.distributor_id not in present
+            ):
+                amounts = summaries[row.id]
+                items.append(
+                    {
+                        "distributorId": str(row.distributor_id),
+                        "name": await _distributor_name(db, row.distributor_id),
+                        "baseCent": 0,
+                        "ratio": 0.0,
+                        "commissionCent": 0,
+                        **amounts,
+                        "originKind": row.origin_kind,
+                        "ruleType": rule_type,
+                        "pointsBalance": (
+                            0.0
+                            if row.points_redeemed_at
+                            else amounts["redeemableCent"] / 100
+                        ),
+                        "pointsRedeemed": row.points_redeemed_at is not None,
+                        "pointsRedeemedAt": (
+                            row.points_redeemed_at.isoformat()
+                            if row.points_redeemed_at
+                            else None
+                        ),
+                    }
+                )
 
     return {
         "orgId": str(org_id),
@@ -346,7 +481,9 @@ async def preview_org_commission(db: AsyncSession, org_id: int, period: str) -> 
     }
 
 
-def _preview_item(distributor_id: int, name, base_cent: int, ratio: float) -> dict:
+def _preview_item(
+    distributor_id: int, name, base_cent: int, ratio: float, rule_type: RuleType
+) -> dict:
     commission_cent = int(round(base_cent * ratio))
     return {
         "distributorId": str(distributor_id),
@@ -354,6 +491,13 @@ def _preview_item(distributor_id: int, name, base_cent: int, ratio: float) -> di
         "baseCent": base_cent,
         "ratio": float(ratio),
         "commissionCent": commission_cent,
+        "normalCommissionCent": commission_cent,
+        "confirmedAdjustmentCent": 0,
+        "appliedDebtCent": 0,
+        "redeemableCent": commission_cent,
+        "pendingDebtCent": 0,
+        "originKind": "normal",
+        "ruleType": _rule_type_value(rule_type),
         "pointsBalance": commission_cent / 100,
         "pointsRedeemed": False,
         "pointsRedeemedAt": None,
@@ -373,27 +517,40 @@ async def redeem_commission_points(
     except ValueError as exc:
         raise BadRequestException(message="无效的提成类型") from exc
 
-    settlement = (
-        await db.execute(
-            select(PerformanceSettlement).where(PerformanceSettlement.period == period)
-        )
-    ).scalars().first()
+    await lock_period(db, period)
+    settlement = await db.scalar(
+        select(PerformanceSettlement)
+        .where(PerformanceSettlement.period == period)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if settlement is None or settlement.status != SettlementStatus.REVIEWED:
         raise BadRequestException(message="仅已确认（冻结）的月份可以核销积分")
 
-    row = (
-        await db.execute(
-            select(CommissionResult).where(
-                CommissionResult.period == period,
-                CommissionResult.distributor_id == distributor_id,
-                CommissionResult.rule_type == parsed_rule_type,
-            )
+    row = await db.scalar(
+        select(CommissionResult)
+        .where(
+            CommissionResult.period == period,
+            CommissionResult.distributor_id == distributor_id,
+            CommissionResult.rule_type == parsed_rule_type,
         )
-    ).scalars().first()
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if row is None:
         raise NotFoundException(message="未找到该月提成记录")
     if row.points_redeemed_at is not None:
         raise BadRequestException(message="该笔提成积分已核销")
+
+    from .performance_adjustment_application_service import (
+        adjustment_summaries_for_results,
+        settle_positive_applications_for_result,
+    )
+
+    amounts = (await adjustment_summaries_for_results(db, [row]))[row.id]
+    redeemable_cent = amounts["redeemableCent"]
+    if redeemable_cent <= 0:
+        raise BadRequestException(message="当前净可兑现积分不足")
 
     # 1 元 = 1 积分，commission_cent is cents, so the same integer stores
     # hundredths of a point and preserves the exact 1:1 conversion.
@@ -405,7 +562,7 @@ async def redeem_commission_points(
             CommissionResult.points_redeemed_at.is_(None),
         )
         .values(
-            redeemed_points_x100=row.commission_cent,
+            redeemed_points_x100=redeemable_cent,
             points_redeemed_by=operator_id,
             points_redeemed_at=now,
         )
@@ -413,13 +570,16 @@ async def redeem_commission_points(
     if result.rowcount == 0:
         raise BadRequestException(message="该笔提成积分已核销，请刷新后重试")
 
+    await settle_positive_applications_for_result(db, row.id, consumed_at=now)
+
     await db.flush()
     return {
         "period": period,
         "distributorId": str(distributor_id),
         "ruleType": parsed_rule_type.value,
-        "commissionCent": row.commission_cent,
-        "redeemedPoints": row.commission_cent / 100,
+        "commissionCent": amounts["normalCommissionCent"],
+        **amounts,
+        "redeemedPoints": redeemable_cent / 100,
         "pointsBalance": 0,
         "pointsRedeemed": True,
         "pointsRedeemedBy": operator_id,
@@ -455,9 +615,13 @@ async def list_results(
         )
     ).scalars().all()
 
+    from .performance_adjustment_application_service import adjustment_summaries_for_results
+
+    adjustment_summaries = await adjustment_summaries_for_results(db, rows)
     items = []
     for r in rows:
         name = await _distributor_name(db, r.distributor_id)
+        amounts = adjustment_summaries[r.id]
         items.append({
             "period": r.period,
             "distributorId": str(r.distributor_id),
@@ -466,11 +630,20 @@ async def list_results(
             "ruleType": r.rule_type.value if hasattr(r.rule_type, "value") else str(r.rule_type),
             "baseCent": r.base_cent,
             "ratio": float(r.ratio),
-            "commissionCent": r.commission_cent,
+            "commissionCent": amounts["normalCommissionCent"],
+            **amounts,
+            "originKind": r.origin_kind,
+            "redeemedPointsX100": r.redeemed_points_x100,
             "computedAt": r.computed_at.isoformat() if r.computed_at else None,
         })
 
-    return {"items": items, "total": total, "page": page, "pageSize": page_size, "hasMore": page * page_size < total}
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "pageSize": page_size,
+        "hasMore": page * page_size < total,
+    }
 
 
 async def _distributor_name(db: AsyncSession, distributor_id: int) -> Optional[str]:
@@ -488,7 +661,9 @@ async def _org_names(db: AsyncSession, org_ids: set[int]) -> dict[int, str]:
         return {}
     from ..models.organization import Organization
 
-    rows = (await db.execute(select(Organization).where(Organization.id.in_(org_ids)))).scalars().all()
+    rows = (
+        await db.execute(select(Organization).where(Organization.id.in_(org_ids)))
+    ).scalars().all()
     return {o.id: o.name for o in rows}
 
 
@@ -511,12 +686,17 @@ async def export_results_csv(
 
     rows = (
         await db.execute(
-            select(CommissionResult).where(*filters).order_by(CommissionResult.org_id, CommissionResult.id)
+            select(CommissionResult)
+            .where(*filters)
+            .order_by(CommissionResult.org_id, CommissionResult.id)
         )
     ).scalars().all()
 
     org_ids = {r.org_id for r in rows}
     names = await _org_names(db, org_ids)
+    from .performance_adjustment_application_service import adjustment_summaries_for_results
+
+    adjustment_summaries = await adjustment_summaries_for_results(db, rows)
 
     buf = io.StringIO()
     # Include a UTF-8 BOM so spreadsheet apps such as Excel detect Chinese headers.
@@ -524,9 +704,12 @@ async def export_results_csv(
     writer = csv.writer(buf)
     writer.writerow([
         "月份", "组织ID", "组织名称", "推广员ID", "姓名",
-        "提成类型", "计算基数（分）", "提成比例", "提成金额（分）", "计算时间",
+        "提成类型", "计算基数（分）", "提成比例", "提成金额（分）",
+        "已确认调整（分）", "已抵债（分）", "净可兑现（分）", "待抵债（分）",
+        "已核销积分x100", "计算时间",
     ])
     for r in rows:
+        amounts = adjustment_summaries[r.id]
         writer.writerow([
             r.period,
             r.org_id,
@@ -536,7 +719,12 @@ async def export_results_csv(
             r.rule_type.value if hasattr(r.rule_type, "value") else str(r.rule_type),
             r.base_cent,
             r.ratio,
-            r.commission_cent,
+            amounts["normalCommissionCent"],
+            amounts["confirmedAdjustmentCent"],
+            amounts["appliedDebtCent"],
+            amounts["redeemableCent"],
+            amounts["pendingDebtCent"],
+            r.redeemed_points_x100 if r.redeemed_points_x100 is not None else "",
             r.computed_at.isoformat() if r.computed_at else "",
         ])
     return buf.getvalue()
@@ -545,7 +733,9 @@ async def export_results_csv(
 # ---------------------------------------------------------------------------
 # Real-time estimate for one distributor (mini-program, FR-009 / SC-008)
 # ---------------------------------------------------------------------------
-async def estimate_distributor(db: AsyncSession, distributor_id: int, period: str) -> Optional[dict]:
+async def estimate_distributor(
+    db: AsyncSession, distributor_id: int, period: str
+) -> Optional[dict]:
     """Real-time intra_org estimate for one distributor. Returns None when no
     rule applies or commission is 0 (aligned with preview_org_commission)."""
     dist = (
@@ -648,8 +838,15 @@ async def points_balance_for_distributor(
                 )
             )
         ).scalars().all()
+        from .performance_adjustment_application_service import (
+            adjustment_summaries_for_results,
+        )
+
+        summaries = await adjustment_summaries_for_results(db, rows)
         available_cent = sum(
-            row.commission_cent for row in rows if row.points_redeemed_at is None
+            summaries[row.id]["redeemableCent"]
+            for row in rows
+            if row.points_redeemed_at is None
         )
         return available_cent / 100
 
@@ -663,4 +860,21 @@ async def points_balance_for_distributor(
         for item in estimated_commissions
         if item
     )
+    rows = (
+        await db.scalars(
+            select(CommissionResult).where(
+                CommissionResult.period == period,
+                CommissionResult.distributor_id == distributor_id,
+            )
+        )
+    ).all()
+    if rows:
+        from .performance_adjustment_application_service import (
+            adjustment_summaries_for_results,
+        )
+
+        summaries = await adjustment_summaries_for_results(db, rows)
+        estimated_cent += sum(
+            summaries[row.id]["confirmedAdjustmentCent"] for row in rows
+        )
     return estimated_cent / 100

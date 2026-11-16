@@ -26,7 +26,7 @@ Page({
     if (!id) return
     try {
       const customer = await customerService.getCustomer(id)
-      this.setData({ customer: { id, name: customer.name || '', phone: customer.phoneMasked || customer.phone || '', contributionAvatar: '/assets/images/customer-avatar-blue.png' } })
+      this.setData({ customer: { id, name: customer.name || '', phone: customer.phoneMasked || customer.phone || '', contributionAvatar: '/assets/images/customer-avatar-blue.jpg' } })
     } catch (error) { wx.showToast({ title: error.message || '客户信息加载失败', icon: 'none' }) }
   },
 

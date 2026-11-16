@@ -1,0 +1,66 @@
+<view class="mall-flow-page mall-order-detail-page">
+  <flow-navigation title="订单详情" bind:back="goBack" />
+  <scroll-view class="mall-flow-scroll" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
+    <view wx:if="{{state === 'loading'}}" class="mall-flow-state"><van-icon name="replay" size="30px" color="#1677FF" /><text>正在读取订单</text></view>
+    <view wx:elif="{{state === 'recoverable-error'}}" class="mall-flow-state"><text class="mall-flow-state__title">订单暂时不可用</text><text>{{stateMessage}}</text><button class="mall-primary-button tap-target" bindtap="retry" hover-class="tap-feedback">重新加载</button></view>
+    <block wx:elif="{{state === 'success' && order}}">
+      <view class="mall-order-status-card">
+        <view class="mall-order-status-card__icon"><van-icon name="{{order.status === 'completed' ? 'checked' : order.status === 'closed' ? 'close' : 'clock-o'}}" size="26px" color="#1677FF" /></view>
+        <view class="mall-order-status-card__copy"><text class="mall-order-status-card__title">{{order.statusLabel}}</text><text class="mall-order-status-card__hint">{{order.status === 'pending_payment' ? '请在订单有效期内完成付款' : order.status === 'pending_shipment' ? (order.deliveryMethod === 'virtual' ? '商家确认收款后会在订单中提供交付内容' : '商家确认收款后安排发货') : order.status === 'pending_receipt' ? '包裹正在配送，请留意物流更新' : order.status === 'completed' ? '感谢您的购买' : '订单状态以服务端记录为准'}}</text></view>
+      </view>
+      <view wx:if="{{order.deliveryMethod !== 'virtual'}}" class="mall-detail-card mall-address-detail">
+        <view class="mall-detail-card__heading"><van-icon name="location-o" size="19px" color="#1677FF" /><text>收货信息</text></view>
+        <view class="mall-address-detail__person"><text>{{order.address.recipientName}}</text><text>{{order.address.phoneDisplay}}</text></view>
+        <text wx:if="{{order.address.regionLabel}}" class="mall-address-detail__region">{{order.address.regionLabel}}</text>
+        <text class="mall-address-detail__address">{{order.address.addressLineLabel}}</text>
+      </view>
+      <view wx:if="{{order.deliveryMethod === 'virtual'}}" class="mall-detail-card mall-virtual-delivery-card">
+        <view class="mall-detail-card__heading"><van-icon name="records" size="19px" color="#1677FF" /><text>虚拟商品交付</text></view>
+        <text wx:if="{{order.virtualDelivery && order.virtualDelivery.content}}" class="mall-virtual-delivery-content">{{order.virtualDelivery.content}}</text>
+        <text wx:else class="mall-virtual-delivery-pending">商家确认收款后将手工交付，交付内容会显示在这里。</text>
+      </view>
+      <view class="mall-detail-card">
+        <view class="mall-detail-card__heading"><van-icon name="records" size="19px" color="#1677FF" /><text>商品信息</text></view>
+        <view wx:for="{{order.items}}" wx:key="id" class="mall-detail-item">
+          <view class="mall-detail-item__image"><image wx:if="{{item.coverUrl && !item.coverImageFailed}}" class="mall-detail-item__image-asset" src="{{item.coverUrl}}" mode="aspectFill" lazy-load data-id="{{item.id}}" binderror="onOrderItemImageError" aria-role="img" aria-label="{{item.productName}}" /><van-icon wx:else name="photo-o" size="25px" color="#1677FF" /></view>
+          <view class="mall-detail-item__copy"><text class="mall-detail-item__name">{{item.productName}}</text><text class="mall-detail-item__options">{{item.optionsText || '默认规格'}} · ×{{item.quantity}}</text></view>
+          <text class="mall-detail-item__price">¥{{item.lineAmountText}}</text>
+        </view>
+      </view>
+      <view wx:if="{{order.shipment}}" class="mall-detail-card mall-shipment-card tap-target" bindtap="openLogistics" hover-class="tap-feedback">
+        <view class="mall-detail-card__heading"><van-icon name="logistics" size="19px" color="#1677FF" /><text>物流信息</text><van-icon class="mall-heading-arrow" name="arrow" size="16px" color="#A1AAA4" /></view>
+        <text class="mall-shipment-card__line">{{order.shipment.courierName}} · {{order.shipment.trackingNo}}</text>
+        <text class="mall-shipment-card__hint">查看快递100轨迹与更新时间</text>
+      </view>
+      <view class="mall-detail-card mall-amount-card">
+        <view class="mall-detail-card__heading"><van-icon name="bill-o" size="19px" color="#1677FF" /><text>金额与记录</text></view>
+        <view class="mall-amount-row"><text>商品金额</text><text>¥{{order.goodsAmountText}}</text></view>
+        <view class="mall-amount-row"><text>运费</text><text>¥{{order.freightAmountText}}</text></view>
+        <view class="mall-amount-row mall-amount-row--total"><text>订单应付</text><text>¥{{order.amountText}}</text></view>
+        <view class="mall-amount-row"><text>已核实收款</text><text>¥{{order.paidAmountText}} · {{order.paymentStatusLabel}}</text></view>
+        <view wx:if="{{order.refundedAmountText !== '0.00'}}" class="mall-amount-row"><text>已退款金额</text><text>¥{{order.refundedAmountText}}</text></view>
+      </view>
+      <view class="mall-detail-card mall-invoice-entry-card">
+        <view class="mall-detail-card__heading"><van-icon name="bill-o" size="19px" color="#1677FF" /><text>发票</text><text class="mall-invoice-entry-card__status">{{order.invoiceStatusLabel}}</text></view>
+        <view class="mall-invoice-entry-card__bottom"><text>{{order.invoiceHint}}</text><button wx:if="{{order.canOpenInvoice}}" class="mall-invoice-entry-card__button tap-target" bindtap="openInvoice" hover-class="tap-feedback">{{order.invoiceActionLabel}}</button></view>
+      </view>
+      <view wx:if="{{order.aftersaleRecords.length}}" class="mall-detail-card mall-aftersale-links">
+        <view class="mall-detail-card__heading"><van-icon name="after-sale" size="19px" color="#1677FF" /><text>售后记录</text></view>
+        <view wx:for="{{order.aftersaleRecords}}" wx:key="id" class="mall-aftersale-link tap-target" bindtap="openAftersaleRecord" data-id="{{item.id}}" hover-class="tap-feedback"><text>查看售后进度</text><van-icon name="arrow" size="16px" color="#A1AAA4" /></view>
+      </view>
+      <view class="mall-detail-card mall-timeline-card">
+        <view class="mall-detail-card__heading"><van-icon name="clock-o" size="19px" color="#1677FF" /><text>订单进度</text></view>
+        <view wx:for="{{order.timeline}}" wx:key="id" class="mall-timeline-row"><view class="mall-timeline-dot" /><view class="mall-timeline-copy"><text>{{item.label}}</text><text>{{item.timeLabel}}</text></view></view>
+        <text class="mall-order-number">订单号 {{order.orderNo}}</text>
+        <text class="mall-order-number">创建于 {{order.createdLabel}}</text>
+        <text wx:if="{{stateMessage}}" class="mall-inline-message">{{stateMessage}}</text>
+      </view>
+    </block>
+  </scroll-view>
+  <view wx:if="{{state === 'success' && order}}" class="mall-order-actions">
+    <button wx:if="{{order.canApplyAftersale}}" class="mall-secondary-button tap-target" bindtap="openAftersale" hover-class="tap-feedback">申请售后</button>
+    <button wx:if="{{order.shipment}}" class="mall-secondary-button tap-target" bindtap="openLogistics" hover-class="tap-feedback">查看物流</button>
+    <button wx:if="{{order.canContinuePayment}}" class="mall-primary-button tap-target" bindtap="continuePayment" hover-class="tap-feedback">查看付款状态</button>
+    <button wx:if="{{order.canConfirmReceipt}}" class="mall-primary-button tap-target" bindtap="confirmReceipt" loading="{{confirming}}" disabled="{{confirming}}" hover-class="tap-feedback">确认收货</button>
+  </view>
+</view>

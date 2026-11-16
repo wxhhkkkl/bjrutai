@@ -57,9 +57,16 @@ async def _seed_customer(db: AsyncSession, distributor_id: int) -> int:
     return c.id
 
 
-async def _seed_bill(db: AsyncSession, customer_id: int, paid_cent: int, txn_id: str) -> None:
+async def _seed_bill(
+    db: AsyncSession,
+    customer_id: int,
+    paid_cent: int,
+    txn_id: str,
+    when: datetime | None = None,
+) -> None:
     b = Bill(
-        customer_id=customer_id, transaction_id=txn_id, transaction_time=datetime(2026, 7, 15),
+        customer_id=customer_id, transaction_id=txn_id,
+        transaction_time=when or datetime(2026, 7, 15),
         paid_amount_cent=paid_cent, total_amount_cent=paid_cent, transaction_status=TransactionStatus.PAID,
     )
     db.add(b)
@@ -124,6 +131,11 @@ async def test_my_commission_points_balance_is_zero_after_redemption(
     org_id = await _seed_org(db_session)
     user_id = await seed_user(db_session, openid="openid_redeemed_points", user_type="distributor", name="顾问A")
     dist = await _seed_distributor(db_session, org_id, user_id)
+    customer_id = await _seed_customer(db_session, dist)
+    await _seed_bill(
+        db_session, customer_id, 600000, "txn_redeemed_frozen",
+        when=datetime(2026, 6, 15),
+    )
     db_session.add(CommissionResult(
         period="2026-06", distributor_id=dist, org_id=org_id, rule_type=RuleType.INTRA_ORG,
         base_cent=600000, ratio="0.050000", commission_cent=30000,
@@ -131,10 +143,17 @@ async def test_my_commission_points_balance_is_zero_after_redemption(
     ))
     db_session.add(PerformanceSettlement(period="2026-06", status=SettlementStatus.REVIEWED))
     await db_session.flush()
+    await client.put(
+        f"/api/v1/admin/orgs/{org_id}/performance-rules/intra_org",
+        json={"tiers": [{"minCent": 0, "maxCent": None, "ratio": 0.99}]},
+        headers=_admin_headers("sharing_rules.read", "sharing_rules.write"),
+    )
 
     data = _assert_envelope(await client.get(
         "/api/v1/my/performance/commission", params={"month": "2026-06"}, headers=_headers(user_id),
     ))
+    assert data["currentMonth"]["status"] == "confirmed"
+    assert data["currentMonth"]["intraOrg"]["commissionCent"] == 30000
     assert data["currentMonth"]["pointsBalance"] == 0
     assert data["confirmed"][0]["intraOrg"]["commissionCent"] == 30000
 

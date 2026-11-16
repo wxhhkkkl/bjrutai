@@ -1,7 +1,15 @@
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan:
-specs/016-admin-consumption-entry/plan.md
+For the active feature, read:
+specs/022-independent-mall/plan.md
+Specification: specs/022-independent-mall/spec.md
+Contracts: specs/022-independent-mall/contracts/README.md
+Tasks: specs/022-independent-mall/tasks.md
+Logistics: specs/022-independent-mall/logistics-integration.md
+Implementation evidence and current task state: specs/022-independent-mall/implementation-log.md (T129 isolated MySQL validation completed; 022 implementation continues)
+Do not implement mini-program visual design before reminding the user and receiving the current style references.
+The narrow internal mall fulfillment/billing data-release exception is adopted in Constitution 4.0.0 and locally implemented at T063/T102. Production access remains off until an existing retention-policy reference and a reviewed notice version are configured; this does not authorize sending buyer originals to WeChat, carriers, or Kuaidi100.
+Review remediation: specs/022-independent-mall/remediation-review.md
+G-PROTOCOL is adopted and locally implemented at T048. Production callback registration/deployment and real payment activity still require G-LIVE and scope-specific authorization.
 <!-- SPECKIT END -->
 
 # CLAUDE.md

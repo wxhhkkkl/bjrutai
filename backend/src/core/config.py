@@ -1,33 +1,71 @@
+import re
 from functools import lru_cache
+from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
+    app_environment: Literal["development", "test", "production"] = "development"
+    schema_auto_create_enabled: bool = False
+    mall_enabled: bool = False
+    mall_purchase_enabled: bool = False
+    mall_gateway_mode: Literal["test", "live"] = "test"
+    mall_gateway_outbound_enabled: bool = False
+    # Inbound callbacks are independently disabled until G-LIVE platform setup.
+    mall_gateway_callback_enabled: bool = False
+    # Sensitive mall data views stay off until retention and notice decisions exist.
+    mall_data_release_enabled: bool = False
+    mall_data_release_retention_policy_ref: str = ""
+    mall_data_release_notice_approved_version: str = ""
+    # Mall dispatch remains opt-in; domain handlers are independently registered.
+    mall_worker_enabled: bool = False
+    # Local refund simulation is isolated from the general worker and live gateway.
+    mall_refund_simulation_enabled: bool = False
+    mall_storage_outbound_enabled: bool = False
+    mall_wechat_mchid: str = ""
+    mall_wechat_api_v2_key: str = Field("", repr=False)
+    mall_wechat_api_v2_sign_type: Literal["MD5", "HMAC-SHA256"] = "MD5"
+    mall_wechat_spbill_create_ip: str = ""
+    mall_wechat_refund_client_cert_path: str = ""
+    mall_wechat_refund_client_key_path: str = Field("", repr=False)
+    mall_prepay_keys: dict[str, str] = Field(default_factory=dict, repr=False)
+    mall_prepay_active_key: str = ""
+    mall_wechat_notify_url: str = ""
+    mall_wechat_refund_notify_url: str = ""
+    mall_kuaidi100_mode: Literal["fake", "live"] = "fake"
+    mall_kuaidi100_outbound_enabled: bool = False
+    kuaidi100_customer: str = Field("", repr=False)
+    kuaidi100_key: str = Field("", repr=False)
+    # Own, ICP-filed HTTPS origin serving the mall-map.html wrapper page
+    # (required before the mini-program web-view may receive a map URL).
+    kuaidi100_map_public_base: str = ""
     # Database
-    database_url: str = "mysql+aiomysql://user:password@host:3306/bjrutai?charset=utf8mb4"
+    database_url: str = Field(
+        "mysql+aiomysql://user:password@host:3306/bjrutai?charset=utf8mb4", repr=False
+    )
 
     # WeChat
     wechat_app_id: str = ""
-    wechat_app_secret: str = ""
+    wechat_app_secret: str = Field("", repr=False)
     public_api_base_url: str = "https://bjrutai.com/api/v1"
 
     # JWT
-    jwt_secret_key: str = "dev-secret-change-in-production"
+    jwt_secret_key: str = Field("dev-secret-change-in-production", repr=False)
     access_token_expire_minutes: int = 120
     refresh_token_expire_days: int = 30
 
     # Rutai API
     rutai_api_base_url: str = "https://api.rutai.example.com"
-    rutai_api_key: str = ""
-    rutai_api_secret: str = ""
+    rutai_api_key: str = Field("", repr=False)
+    rutai_api_secret: str = Field("", repr=False)
     # Mock the external Rutai API (dev/acceptance without a live 互联网医院对接).
     rutai_mock: bool = False
 
     # COS
-    cos_secret_id: str = ""
-    cos_secret_key: str = ""
+    cos_secret_id: str = Field("", repr=False)
+    cos_secret_key: str = Field("", repr=False)
     cos_bucket: str = ""
     cos_region: str = "ap-beijing"
 
@@ -47,7 +85,32 @@ class Settings(BaseSettings):
 
     # Admin
     admin_default_username: str = "admin"
-    admin_default_password: str = "change-me"
+    admin_default_password: str = Field("change-me", repr=False)
+
+    @model_validator(mode="after")
+    def validate_mall_runtime(self):
+        if self.app_environment == "production" and self.schema_auto_create_enabled:
+            raise ValueError("production schema must be managed by Alembic")
+        if self.mall_gateway_mode == "test" and self.mall_gateway_outbound_enabled:
+            raise ValueError("test gateway cannot perform external money requests")
+        if self.mall_refund_simulation_enabled and (
+            self.app_environment == "production"
+            or self.mall_gateway_mode != "test"
+            or self.mall_gateway_outbound_enabled
+        ):
+            raise ValueError("refund simulation requires a non-production test gateway")
+        if self.app_environment == "test" and self.mall_kuaidi100_outbound_enabled:
+            raise ValueError("tests cannot perform external logistics requests")
+        if self.kuaidi100_map_public_base and not re.fullmatch(
+            r"https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?", self.kuaidi100_map_public_base
+        ):
+            raise ValueError("kuaidi100 map public base must be an HTTPS origin")
+        if self.app_environment == "production" and self.mall_data_release_enabled:
+            if not self.mall_data_release_retention_policy_ref.strip():
+                raise ValueError("enabled mall data release requires an approved retention policy")
+            if not self.mall_data_release_notice_approved_version.strip():
+                raise ValueError("enabled mall data release requires an approved notice version")
+        return self
 
     class Config:
         env_file = ".env"

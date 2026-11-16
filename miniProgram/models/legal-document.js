@@ -18,6 +18,7 @@ const CUSTOMER_PRIVACY_PARAGRAPH_OVERRIDES = {
     0: '如因提供具体功能需要共享信息，我们会将共享范围限制在实现该功能所必需的范围内。'
   }
 };
+const MALL_PURPOSE_NOTICE_VERSION = 'mall-purpose-2026-11-v2';
 
 const USER_AGREEMENT = Object.freeze({
   type: 'agreement',
@@ -53,6 +54,47 @@ const PRIVACY_POLICY = Object.freeze({
     { title: '七、政策更新与联系我们', paragraphs: [`我们会根据服务变化和法律要求更新本政策，并在本页面标注版本和生效日期。${EFFECTIVE_DATE}起适用本版本。`, '如您对隐私保护有疑问、意见或投诉，请通过小程序“我的—帮助与反馈”联系我们。'] }
   ]
 });
+
+// Purpose notices are operational disclosure copy, not a user agreement.
+// Keep them versioned separately and review before treating them as final policy.
+const MALL_PURPOSE_NOTICES = Object.freeze({
+  recipient: Object.freeze({
+    type: 'purpose_notice',
+    purpose: 'recipient',
+    title: '商城收件资料用途说明',
+    version: MALL_PURPOSE_NOTICE_VERSION,
+    reviewStatus: 'draft',
+    body: '收件人姓名、联系电话、收货地区和详细地址用于保存收货地址、完成订单配送以及处理与该订单直接相关的履约和售后事项。为配送所必需的信息会提供给实际承运方。地址可在商城中维护；已生成的订单地址快照按交易及法定留存要求保留。'
+  }),
+  payment: Object.freeze({
+    type: 'purpose_notice',
+    purpose: 'payment',
+    title: '商城支付信息用途说明',
+    version: MALL_PURPOSE_NOTICE_VERSION,
+    reviewStatus: 'draft',
+    body: '订单金额、订单编号和支付状态用于创建支付请求、核对实际收款、处理退款及订单争议。支付由微信支付等实际支付渠道处理；商城仅保存完成交易核对所需的支付标识和结果，不保存支付密码。'
+  }),
+  fulfillment: Object.freeze({
+    type: 'purpose_notice',
+    purpose: 'fulfillment',
+    title: '商城订单履约用途说明',
+    version: MALL_PURPOSE_NOTICE_VERSION,
+    reviewStatus: 'draft',
+    body: '订单商品、收件资料、发货状态、承运方和运单号用于出库、查询物流、确认送达及处理售后。物流查询服务仅按查询所需接收承运方和运单号；不用于营销画像。'
+  }),
+  invoice: Object.freeze({
+    type: 'purpose_notice',
+    purpose: 'invoice',
+    title: '商城发票资料用途说明',
+    version: MALL_PURPOSE_NOTICE_VERSION,
+    reviewStatus: 'draft',
+    body: '发票抬头和企业税号用于核验交易及办理真实交易发票；税号仅在企业抬头时收集。当前小程序不收集交付邮箱，也不自动邮件发送。工作人员在现有税务平台开具后，将票据上传到申请，用户可在商城查看进度并下载。申请状态和实际出票分别记录；申请撤回后，依法必须留存的交易与财税记录仍按适用期限保存。'
+  })
+});
+
+function getMallPurposeNotice(purpose) {
+  return MALL_PURPOSE_NOTICES[purpose] || null;
+}
 
 function getCustomerAgreement() {
   const sections = USER_AGREEMENT.sections.map((section) => {
@@ -94,4 +136,13 @@ function getLegalDocument(type, role) {
   return role === 'personal' ? getCustomerAgreement() : USER_AGREEMENT;
 }
 
-module.exports = { DOCUMENT_VERSION, EFFECTIVE_DATE, USER_AGREEMENT, PRIVACY_POLICY, getLegalDocument };
+module.exports = {
+  DOCUMENT_VERSION,
+  EFFECTIVE_DATE,
+  USER_AGREEMENT,
+  PRIVACY_POLICY,
+  MALL_PURPOSE_NOTICE_VERSION,
+  MALL_PURPOSE_NOTICES,
+  getLegalDocument,
+  getMallPurposeNotice
+};

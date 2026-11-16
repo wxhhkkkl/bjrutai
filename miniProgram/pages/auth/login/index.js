@@ -2,6 +2,7 @@ const authService = require('../../../services/auth-service');
 const sessionService = require('../../../services/session-service');
 const { validateLoginConsent } = require('../../../models/auth-onboarding');
 const { resumePendingBinding } = require('../../../services/pending-binding-service');
+const mallIntentService = require('../../../services/mall-intent-service');
 
 Page({
   data: {
@@ -15,7 +16,7 @@ Page({
   },
 
   onLoad(options = {}) {
-    const from = options.from === 'profile' || options.from === 'comment' ? options.from : '';
+    const from = options.from === 'profile' || options.from === 'comment' || options.from === 'mall' || options.from === 'mall-orders' ? options.from : '';
     const articleId = from === 'comment' && /^[1-9]\d*$/.test(String(options.articleId || ''))
       ? String(options.articleId) : '';
     this.setData({ from, articleId });
@@ -27,6 +28,20 @@ Page({
   },
 
   browseAsGuest() {
+    if (this.data.from === 'mall-orders') {
+      wx.switchTab({ url: '/pages/mall/index' });
+      return;
+    }
+    if (this.data.from === 'mall') {
+      mallIntentService.clearPendingIntent();
+      mallIntentService.clearCheckoutDraft();
+      if (typeof getCurrentPages === 'function' && getCurrentPages().length > 1) {
+        wx.navigateBack({ delta: 1 });
+      } else {
+        wx.switchTab({ url: '/pages/mall/index' });
+      }
+      return;
+    }
     if (this.data.from === 'comment' && typeof getCurrentPages === 'function' && getCurrentPages().length > 1) {
       wx.navigateBack({ delta: 1 });
       return;
@@ -155,6 +170,14 @@ Page({
       } else {
         wx.switchTab({ url: '/pages/home/index' });
       }
+      return;
+    }
+    if (this.data.from === 'mall') {
+      wx.redirectTo({ url: mallIntentService.resumePath() });
+      return;
+    }
+    if (this.data.from === 'mall-orders') {
+      wx.redirectTo({ url: '/pages/mall-orders/index' });
       return;
     }
     wx.switchTab({ url: entry.url });

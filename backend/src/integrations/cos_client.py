@@ -12,6 +12,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import quote
+from xml.etree import ElementTree
 
 import httpx
 
@@ -59,6 +60,7 @@ class COSClient:
         content_type: str,
         file_size: int,
         key_prefix: str = "qualifications/",
+        object_acl: str | None = None,
     ) -> dict:
         """Validate and generate a pre-signed upload URL + file key.
 
@@ -77,7 +79,8 @@ class COSClient:
         # --- validation ---
         if content_type not in ALLOWED_CONTENT_TYPES:
             raise ValueError(
-                f"Unsupported file type: {content_type}. Allowed: {', '.join(ALLOWED_CONTENT_TYPES)}"
+                f"Unsupported file type: {content_type}. "
+                f"Allowed: {', '.join(ALLOWED_CONTENT_TYPES)}"
             )
 
         if file_size <= 0 or file_size > MAX_FILE_SIZE:
@@ -107,6 +110,7 @@ class COSClient:
             object_key=object_key,
             content_type=content_type,
             expire_seconds=expire_seconds,
+            signed_headers={"x-cos-acl": object_acl} if object_acl else None,
         )
 
         return {
@@ -141,6 +145,7 @@ class COSClient:
             content_type=content_type,
             file_size=file_size,
             key_prefix="feedbacks/",
+            object_acl="private",
         )
         # Private objects must never be exposed as a durable public URL.
         token.pop("fileUrl", None)
@@ -213,6 +218,7 @@ class COSClient:
         content_type: str,
         expire_seconds: int,
         method: str = "PUT",
+        signed_headers: dict[str, str] | None = None,
     ) -> str:
         """Build a pre-signed PUT URL for uploading to COS.
 
@@ -235,13 +241,22 @@ class COSClient:
             hashlib.sha1,
         ).hexdigest()
 
-        # Step 2: HttpString = {method}\n{path}\n\nhost={host}\n
-        # 只签 host，不签 content-type：浏览器对 File 的 Content-Type 处理不可控，
-        # 若实际发送的与签名不一致会 SignatureDoesNotMatch。签名 host 则任意
-        # Content-Type 均可上传。
+        # Step 2: Canonicalize the signed headers. Content-Type stays unsigned
+        # because browser File handling can vary; private object ACLs are signed
+        # so a client cannot replace them with public-read.
         http_method = method.lower()
         http_uri = quote(path, safe="/")
-        http_headers = f"host={host}"
+        canonical_headers = {"host": host}
+        for name, value in (signed_headers or {}).items():
+            normalized_name = name.strip().lower()
+            if not normalized_name or normalized_name == "host":
+                raise ValueError("COS签名请求头不合法")
+            canonical_headers[normalized_name] = str(value).strip()
+        header_names = sorted(canonical_headers)
+        q_header_list = ";".join(header_names)
+        http_headers = "&".join(
+            f"{name}={quote(canonical_headers[name], safe='')}" for name in header_names
+        )
         http_string = f"{http_method}\n{http_uri}\n\n{http_headers}\n"
 
         # Step 3: StringToSign
@@ -256,7 +271,6 @@ class COSClient:
         ).hexdigest()
 
         # Build authorization parameter
-        q_header_list = "host"
         q_url_param_list = ""
         auth = (
             f"q-sign-algorithm=sha1"
@@ -272,6 +286,189 @@ class COSClient:
         upload_url = f"https://{host}{http_uri}?{auth}"
 
         return upload_url
+
+
+class MallCOSStore:
+    """Fail-closed mall adapter; HEAD metadata plus bounded byte verification.
+
+    HEAD cannot prove a SHA256 checksum.  Read the object under its ETag and
+    hash the actual bytes rather than trusting user-supplied metadata.
+    """
+
+    def __init__(
+        self,
+        client: COSClient,
+        *,
+        outbound_enabled: bool = False,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ):
+        self.client = client
+        self.outbound_enabled = outbound_enabled
+        self.transport = transport
+
+    def _check(self, object_key: str):
+        if not self.outbound_enabled:
+            raise ValueError("商城存储出站未开启")
+        if not all((self.client._bucket, self.client._secret_id, self.client._secret_key)):
+            raise ValueError("商城私有存储凭据未配置")
+        if (
+            not object_key.startswith("mall/")
+            or ".." in object_key
+            or any(c in object_key for c in ("?", "#", "\\", "\r", "\n"))
+        ):
+            raise ValueError("商城对象路径不合法")
+
+    async def issue_upload_ticket(
+        self, *, object_key: str, mime: str, size: int, sha256: str, expires_seconds: int = 600
+    ):
+        self._check(object_key)
+        if object_key.startswith("mall/verified/"):
+            raise ValueError("已核验对象禁止客户端上传")
+        return {
+            "uploadToken": self.client._build_presigned_put_url(
+                object_key,
+                mime,
+                expire_seconds=expires_seconds,
+                signed_headers={"x-cos-acl": "private"},
+            )
+        }
+
+    async def upload_staged(self, object_key: str, content: bytes, *, mime: str) -> None:
+        self._check(object_key)
+        if object_key.startswith("mall/verified/"):
+            raise ValueError("已核验对象禁止覆盖")
+        await self._put_private(object_key, content, mime=mime)
+
+    async def put_private_bytes(self, object_key: str, content: bytes, *, mime: str):
+        """Upload server-generated, bounded finance output to a private verified key."""
+        self._check(object_key)
+        allowed = {
+            "text/csv": ".csv",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+        }
+        if (
+            not object_key.startswith("mall/verified/finance-exports/")
+            or mime not in allowed
+            or not object_key.endswith(allowed[mime])
+            or not isinstance(content, bytes)
+            or not 0 < len(content) <= 10 * 1024 * 1024
+        ):
+            raise ValueError("服务端资金导出对象不合法")
+        await self._put_private(object_key, content, mime=mime)
+
+    async def _put_private(self, object_key: str, content: bytes, *, mime: str) -> None:
+        async with httpx.AsyncClient(
+            timeout=15, transport=self.transport, follow_redirects=False
+        ) as remote:
+            response = await remote.put(
+                self.client._build_presigned_put_url(
+                    object_key,
+                    mime,
+                    expire_seconds=60,
+                    method="PUT",
+                    signed_headers={"x-cos-acl": "private"},
+                ),
+                content=content,
+                headers={"Content-Type": mime, "x-cos-acl": "private"},
+            )
+            response.raise_for_status()
+
+    async def finalize(self, source_key: str, destination_key: str):
+        self._check(source_key)
+        self._check(destination_key)
+        if source_key.startswith("mall/verified/") or not destination_key.startswith(
+            "mall/verified/"
+        ):
+            raise ValueError("文件转存路径不合法")
+        async with httpx.AsyncClient(
+            timeout=15, transport=self.transport, follow_redirects=False
+        ) as remote:
+            metadata = await remote.head(
+                self.client._build_presigned_put_url(
+                    source_key, "application/octet-stream", 60, method="HEAD"
+                )
+            )
+            metadata.raise_for_status()
+            etag = metadata.headers.get("ETag")
+            if not etag:
+                raise ValueError("文件转存源版本无法核验")
+            host = f"{self.client._bucket}.cos.{self.client._region}.myqcloud.com"
+            async with remote.stream(
+                "PUT",
+                self.client._build_presigned_put_url(
+                    destination_key,
+                    "application/octet-stream",
+                    60,
+                    method="PUT",
+                    signed_headers={"x-cos-acl": "private"},
+                ),
+                headers={
+                    "x-cos-copy-source": f"{host}/{quote(source_key, safe='/')}",
+                    "x-cos-copy-source-if-match": etag,
+                    "x-cos-acl": "private",
+                },
+            ) as response:
+                response.raise_for_status()
+                payload = bytearray()
+                async for chunk in response.aiter_bytes():
+                    payload.extend(chunk)
+                    if len(payload) > 16384:
+                        raise ValueError("文件转存响应不合法")
+            try:
+                root = ElementTree.fromstring(payload)
+                tag = root.tag.rsplit("}", 1)[-1]
+                has_etag = any(n.tag.rsplit("}", 1)[-1] == "ETag" and n.text for n in root)
+                if tag != "CopyObjectResult" or not has_etag:
+                    raise ValueError("文件转存失败")
+            except ElementTree.ParseError as exc:
+                raise ValueError("文件转存响应不合法") from exc
+
+    async def head(self, object_key: str):
+        self._check(object_key)
+
+        def url(method):
+            return self.client._build_presigned_put_url(
+                object_key, "application/octet-stream", 60, method=method
+            )
+
+        async with httpx.AsyncClient(
+            timeout=15, transport=self.transport, follow_redirects=False
+        ) as remote:
+            metadata = await remote.head(url("HEAD"))
+            if metadata.status_code == 404:
+                return None
+            metadata.raise_for_status()
+            size = int(metadata.headers.get("Content-Length", "-1"))
+            if not 0 < size <= 10 * 1024 * 1024:
+                raise ValueError("商城对象大小不合法")
+            etag = metadata.headers.get("ETag")
+            if not etag:
+                raise ValueError("商城对象版本无法核验")
+            digest, total = hashlib.sha256(), 0
+            async with remote.stream(
+                "GET", url("GET"), headers={"If-Match": etag, "Accept-Encoding": "identity"}
+            ) as content:
+                content.raise_for_status()
+                async for chunk in content.aiter_raw():
+                    total += len(chunk)
+                    if total > size:
+                        raise ValueError("商城对象大小已变化")
+                    digest.update(chunk)
+            if total != size:
+                raise ValueError("商城对象内容不完整")
+            return {
+                "mime": metadata.headers.get("Content-Type", "").split(";")[0],
+                "size": total,
+                "sha256": digest.hexdigest(),
+            }
+
+    async def sign_get(self, object_key: str, *, expires_seconds: int = 60):
+        self._check(object_key)
+        if not 1 <= expires_seconds <= 300:
+            raise ValueError("文件访问期限不合法")
+        return self.client._build_presigned_put_url(
+            object_key, "application/octet-stream", expires_seconds, method="GET"
+        )
 
 
 # ------------------------------------------------------------------

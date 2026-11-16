@@ -82,12 +82,13 @@ const rules = {
 }
 
 async function handleLogin() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
-
+  if (loading.value) return
   loading.value = true
   errorMsg.value = ''
   try {
+    const valid = await formRef.value.validate().catch(() => false)
+    if (!valid) return
+
     await authStore.login(form.username, form.password)
     const redirect = route.query.redirect || '/'
     await router.push(redirect)

@@ -11,7 +11,18 @@ from sqlalchemy.orm import DeclarativeBase
 # Fix: patch both aiomysql.Connection.ping (low-level) and
 # AsyncAdapt_aiomysql_connection.ping (SQLAlchemy wrapper) to accept the kwarg.
 import aiomysql  # type: ignore[import-untyped]
+import aiomysql.connection
 from sqlalchemy.dialects.mysql.aiomysql import AsyncAdapt_aiomysql_connection
+
+# Newer PyMySQL exposes the removed private escape_bytes_prefixed symbol as a
+# sentinel string. aiomysql 0.2 still calls it for BLOB parameters. Preserve
+# binary data through standard MySQL hex literals without changing packages.
+if not callable(aiomysql.connection.escape_bytes_prefixed):
+
+    def _escape_binary_literal(value: bytes) -> str:
+        return "X'" + value.hex() + "'"
+
+    aiomysql.connection.escape_bytes_prefixed = _escape_binary_literal
 
 # Patch 1: aiomysql's own Connection.ping — accept and discard ``reconnect``
 _aiomysql_ping = aiomysql.Connection.ping

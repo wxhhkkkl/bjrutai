@@ -33,6 +33,10 @@ class CommissionResult(Base):
     commission_cent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     rule_snapshot: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # 核算时生效规则快照
     computed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Mall-derived evidence is additive.  Existing historical commission rows
+    # remain ordinary results until a later recomputation explicitly links them.
+    origin_kind: Mapped[str] = mapped_column(String(32), nullable=False, default="normal")
+    evidence_version: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     redeemed_points_x100: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     points_redeemed_by: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     points_redeemed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

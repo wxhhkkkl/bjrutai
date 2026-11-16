@@ -1,13 +1,13 @@
 """COS image upload endpoint for article editor."""
 
-import httpx
 from fastapi import APIRouter, Depends, File, UploadFile
 from pydantic import BaseModel, Field
 
 from ...api.deps import get_admin_user
 from ...core.error_handler import _build_response
 from ...core.exceptions import BadRequestException
-from ...integrations.cos_client import MAX_FILE_SIZE, get_cos_client
+from ...integrations.cos_client import get_cos_client
+from ...services.image_upload_service import upload_image_via_cos
 
 router = APIRouter(prefix="/admin/articles", tags=["cos-upload"])
 
@@ -55,36 +55,16 @@ async def upload_article_image_file(
     URL can still fail in the browser.  The API-to-COS request does not have
     that browser restriction and keeps COS credentials on the server.
     """
-    content = await file.read()
-    if not content:
-        raise BadRequestException(message="请选择要上传的图片")
-    if len(content) > MAX_FILE_SIZE:
-        raise BadRequestException(message="图片大小不能超过 10MB")
-
-    content_type = file.content_type or "application/octet-stream"
     try:
-        token = get_cos_client().generate_upload_token(
-            user_id=0,
+        token = await upload_image_via_cos(
+            await file.read(),
             file_name=file.filename or "article-cover.jpg",
-            content_type=content_type,
-            file_size=len(content),
+            content_type=file.content_type or "application/octet-stream",
+            user_id=0,
             key_prefix="articles/",
         )
     except ValueError as exc:
         raise BadRequestException(message=str(exc)) from exc
-
-    try:
-        async with httpx.AsyncClient(timeout=60) as client:
-            response = await client.put(
-                token["uploadUrl"],
-                content=content,
-                headers={"Content-Type": content_type},
-            )
-    except httpx.HTTPError as exc:
-        raise BadRequestException(message="COS 上传连接失败，请稍后重试") from exc
-
-    if response.status_code >= 300:
-        raise BadRequestException(message=f"COS 上传失败 (HTTP {response.status_code})")
 
     return _build_response(0, "success", {
         "fileUrl": token["fileUrl"],

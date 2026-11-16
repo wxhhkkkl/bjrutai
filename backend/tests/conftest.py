@@ -40,6 +40,9 @@ os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 # Disable rate limiting in tests
 os.environ["RATE_LIMIT_ENABLED"] = "false"
 
+# Keep private storage and outbound gates closed regardless of the local .env.
+os.environ["MALL_STORAGE_OUTBOUND_ENABLED"] = "false"
+
 # Override create_async_engine in sqlalchemy.ext.asyncio temporarily so
 # database.py's top-level call uses our test-safe parameters.
 _original_create_async_engine = create_async_engine
@@ -60,6 +63,7 @@ try:
 finally:
     _sa_asyncio.create_async_engine = _original_create_async_engine
 
+from src.core.config import get_settings
 from src.core.security import (
     create_access_token,
     create_refresh_token,
@@ -88,6 +92,14 @@ TestAsyncSession = async_sessionmaker(test_engine, class_=AsyncSession, expire_o
 # ---------------------------------------------------------------------------
 # Database fixtures
 # ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def isolate_mall_provider_settings(monkeypatch):
+    """Keep tests off live providers even when a developer .env enables them."""
+    settings = get_settings()
+    monkeypatch.setattr(settings, "mall_kuaidi100_mode", "fake")
+    monkeypatch.setattr(settings, "mall_kuaidi100_outbound_enabled", False)
+
+
 @pytest_asyncio.fixture(scope="function")
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     """Create tables fresh for each test, yield session, then drop."""

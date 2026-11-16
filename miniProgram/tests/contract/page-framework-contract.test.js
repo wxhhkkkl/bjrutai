@@ -188,7 +188,7 @@ test('consumption detail uses month and payment-status filters without legacy ca
 
   assert.ok(appConfig.pages.includes('pages/contribution-detail/index'));
   assert.match(source, /<flow-navigation\b/);
-  assert.match(source, /contribution-detail-hero\.png/);
+  assert.match(source, /contribution-detail-hero\.jpg/);
   assert.match(source, /fields="month"/);
   assert.match(source, /bindtap="selectStatus"/);
   assert.doesNotMatch(source, /bindtap="openCategoryFilter"/);
@@ -198,7 +198,7 @@ test('consumption detail uses month and payment-status filters without legacy ca
     fs.existsSync(
       path.join(
         projectRoot,
-        'assets/images/contribution-detail-hero.png'
+        'assets/images/contribution-detail-hero.jpg'
       )
     )
   );
@@ -392,7 +392,7 @@ test('profile tab uses approved assets and complete service controls', () => {
   );
 
   assert.doesNotMatch(source, /profile-hero-visual\.png/);
-  assert.match(source, /profile-avatar\.png/);
+  assert.match(source, /profile-avatar\.jpg/);
   assert.match(source, /class="profile-service-grid"/);
   assert.match(source, /class="profile-account-card"/);
   assert.match(source, /bindtap="logout"/);
@@ -402,10 +402,10 @@ test('profile tab uses approved assets and complete service controls', () => {
     'profile-promo-icon.png',
     'team-members-icon.png',
     'team-contribution-icon.png',
-    'contribution-icon.png',
+    'contribution-icon.jpg',
     'profile-records-icon.png',
     'profile-contribution-icon.png',
-    'profile-article-icon.png',
+    'profile-article-icon.jpg',
     'profile-notification-icon.png',
     'profile-account-icon.png',
     'profile-help-icon.png',
@@ -507,9 +507,9 @@ test('binding result page shares one structure across three approved states', ()
   assert.match(source, /bindtap="continueBinding"/);
 
   for (const file of [
-    'binding-result-matching.png',
-    'binding-result-bound.png',
-    'binding-result-failed.png'
+    'binding-result-matching.jpg',
+    'binding-result-bound.jpg',
+    'binding-result-failed.jpg'
   ]) {
     assert.ok(
       fs.existsSync(path.join(projectRoot, 'assets/images', file)),
@@ -522,14 +522,25 @@ test('all business tap targets use the shared press feedback', () => {
   const markupFiles = interactiveRoots.flatMap((root) =>
     collectFiles(root, '.wxml')
   );
-  const tapTargetPattern =
-    /<(?:view|text|button)\b[^>]*\b(?:bindtap|bind:tap|catchtap)="[^"]+"[^>]*>/gs;
+  // Match a whole opening tag, treating each quoted attribute as one unit so
+  // that bindings like `disabled="{{a >= b}}"` do not truncate the match at
+  // the `>` character inside the attribute value.
+  const tagBody = `(?:[^">]|"[^"]*")*`;
+  const tapTargetPattern = new RegExp(
+    `<(?:view|text|button)\\b${tagBody}\\b(?:bindtap|bind:tap|catchtap)="[^"]+"${tagBody}>`,
+    'gs'
+  );
 
   for (const file of markupFiles) {
     const source = fs.readFileSync(path.join(projectRoot, file), 'utf8');
     const tapTargets = source.match(tapTargetPattern) || [];
 
     for (const target of tapTargets) {
+      // catchtap="stopPropagation" is a structural propagation guard (sheet
+      // containers over a dismiss backdrop), not a business tap target.
+      if (/catchtap="stopPropagation"/.test(target) && !/bindtap|bind:tap/.test(target)) {
+        continue
+      }
       assert.match(target, /\bclass="[^"]*\btap-target\b[^"]*"/, file);
       assert.match(target, /\bhover-class="tap-feedback"/, file);
     }

@@ -1,5 +1,4 @@
 const DEFAULT_API_BASES = Object.freeze({
-  // Point the local developer build at production when inspecting live data.
   develop: 'https://bjrutai.com',
   trial: 'https://bjrutai.com',
   release: 'https://bjrutai.com'

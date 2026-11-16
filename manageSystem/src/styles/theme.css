@@ -29,6 +29,7 @@
   --app-bg-card: #ffffff;
   --app-border-color: #e8ebf1;
   --app-border-lighter: #f0f2f7;
+  --mall-table-min-height: 380px;
 
   /* ── 圆角 / 阴影（柔和多层） ── */
   --app-radius-lg: 12px;

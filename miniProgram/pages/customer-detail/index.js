@@ -11,7 +11,7 @@ Page({
     state: 'loading',
     stateMessage: '',
     customer: {},
-    heroAvatar: '/assets/images/customer-avatar-purple.png'
+    heroAvatar: '/assets/images/customer-avatar-purple.jpg'
   },
 
   onLoad(options = {}) {

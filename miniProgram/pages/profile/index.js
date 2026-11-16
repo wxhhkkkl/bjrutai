@@ -46,13 +46,13 @@ const SERVICE_ITEMS = [{
   id: 'contribution-records',
   title: '消费记录',
   description: '查看每笔消费来源',
-  icon: '/assets/images/contribution-icon.png',
+  icon: '/assets/images/contribution-icon.jpg',
   businessOnly: true
 }, {
   id: 'article-list',
   title: '文章资讯',
   description: '阅读最新内容',
-  icon: '/assets/images/profile-article-icon.png'
+  icon: '/assets/images/profile-article-icon.jpg'
 }]
 
 const ACCOUNT_ITEMS = [{
@@ -118,6 +118,20 @@ Page({
 
   onHide() {
     this.requestVersion += 1
+  },
+
+  onPullDownRefresh() {
+    const session = getCurrentSession()
+    if (!getAccessToken() || !session.userId) {
+      wx.stopPullDownRefresh()
+      return
+    }
+    const refresh = this.loadProfile(session)
+    if (refresh && typeof refresh.finally === 'function') {
+      return refresh.finally(() => wx.stopPullDownRefresh())
+    }
+    wx.stopPullDownRefresh()
+    return refresh
   },
 
   onUnload() {

@@ -34,10 +34,10 @@ const STATUS_LABELS = {
 }
 
 const DEFAULT_AVATARS = {
-  bound: '/assets/images/customer-avatar-blue.png',
-  pending: '/assets/images/customer-avatar-purple.png',
-  unbound: '/assets/images/customer-avatar-green.png',
-  fallback: '/assets/images/customer-avatar-blue.png'
+  bound: '/assets/images/customer-avatar-blue.jpg',
+  pending: '/assets/images/customer-avatar-purple.jpg',
+  unbound: '/assets/images/customer-avatar-green.jpg',
+  fallback: '/assets/images/customer-avatar-blue.jpg'
 }
 
 function adaptCustomerList(payload = {}) {

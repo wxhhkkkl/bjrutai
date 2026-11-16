@@ -6,16 +6,18 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
-from fastapi.responses import PlainTextResponse
+from fastapi import APIRouter, Depends, Path, Query
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_admin_user, get_db, require_permission
+from ...api.mall_deps import MallActor, require_mall_admin
 from ...core.error_handler import _build_response
 from ...models.organization import Organization
 from ...services import commission_service, settlement_service
+from ...services.performance_adjustment_service import get_net_entitlement
 
 router = APIRouter(prefix="/admin/performance", tags=["admin-performance"])
 
@@ -186,4 +188,20 @@ async def export_settlement(
         content=csv_text,
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get(
+    "/results/{resultId}/net-entitlement",
+    operation_id="getPerformanceNetEntitlement",
+)
+async def net_entitlement(
+    result_id: int = Path(alias="resultId", gt=0),
+    db: AsyncSession = Depends(get_db),
+    _actor: MallActor = Depends(require_mall_admin("performance.settle")),
+):
+    """Read the frozen result's normal, adjusted, and redeemable amounts."""
+    return JSONResponse(
+        _build_response(0, "success", await get_net_entitlement(db, result_id)),
+        headers={"Cache-Control": "no-store"},
     )

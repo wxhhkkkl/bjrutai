@@ -192,13 +192,25 @@ function adaptContributionTrend(payload = {}) {
 function adaptBillList(payload = {}) {
   const items = Array.isArray(payload.items) ? payload.items : []
   return { items: items.map((item) => {
+    const sourceType = String(item.sourceType || (item.source === 'mall_order' ? 'mall_order' : 'legacy_bill'))
+    const isMallOrder = sourceType === 'mall_order'
     const status = String(item.status || '')
     const occurredAt = String(item.occurredAt || '')
+    const timeText = occurredAt.replace('T', ' ').slice(0, 16)
+    const orderNo = String(item.title || item.sourceId || '')
     const value = formatCents(item.amountCent)
     return {
-      id: String(item.id || ''), title: String(item.title || '消费记录'),
-      customer: String(item.customerName || '未知客户'), phone: String(item.phoneMasked || ''),
-      occurredAt, meta: `${String(item.customerName || '未知客户')} · ${occurredAt.replace('T', ' ').slice(0, 16)}`,
+      id: String(item.id || ''),
+      title: isMallOrder ? '商城订单消费' : String(item.title || '消费记录'),
+      sourceType,
+      sourceLabel: isMallOrder ? '商城消费' : '',
+      valueLabel: isMallOrder ? '计入绩效' : '',
+      customer: isMallOrder ? '' : String(item.customerName || '未知客户'),
+      phone: isMallOrder ? '' : String(item.phoneMasked || ''),
+      occurredAt,
+      meta: isMallOrder
+        ? `${orderNo ? `订单号 ${orderNo} · ` : ''}${timeText}`
+        : `${String(item.customerName || '未知客户')} · ${timeText}`,
       value, points: value.replace(/^¥/, ''), status,
       statusLabel: STATUS_LABELS[status] || '处理中', icon: 'certificate'
     }

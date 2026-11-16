@@ -1,0 +1,64 @@
+<view class="mall-flow-page">
+  <flow-navigation title="购物车" bind:back="goBack" />
+  <scroll-view class="mall-flow-scroll" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
+    <view wx:if="{{state === 'loading'}}" class="mall-flow-state"><van-icon name="replay" size="30px" color="#27645B" /><text>正在读取购物车</text></view>
+    <view wx:elif="{{state === 'recoverable-error'}}" class="mall-flow-state"><text class="mall-flow-state__title">购物车暂时不可用</text><text>{{stateMessage}}</text><button class="mall-primary-button tap-target" bindtap="retry" hover-class="tap-feedback">重新加载</button></view>
+    <view wx:elif="{{state === 'empty'}}" class="mall-flow-state"><view class="mall-empty-mark"><van-icon name="shopping-cart-o" size="34px" color="#7D938A" /></view><text class="mall-flow-state__title">购物车还是空的</text><text class="mall-flow-state__hint">挑几件适合自己的商品再来结算</text></view>
+    <view wx:elif="{{state === 'success'}}" class="mall-cart-list">
+      <view
+        wx:for="{{items}}"
+        wx:key="id"
+        id="mall-cart-row-{{item.id}}"
+        class="mall-cart-row {{removingId === item.id && removingCollapsed ? 'mall-cart-row--collapsed' : ''}}"
+        style="{{removingId === item.id && !removingCollapsed ? 'height:' + removingHeight + 'px;' : ''}}"
+      >
+        <view wx:if="{{item.valid}}" class="mall-cart-row__delete tap-target" bindtap="removeItem" data-id="{{item.id}}" aria-role="button" aria-label="删除{{item.productName}}" hover-class="tap-feedback">删除</view>
+        <view
+          class="mall-cart-card {{!item.valid ? 'mall-cart-card--invalid' : ''}} {{openDeleteId === item.id ? 'mall-cart-card--swiped' : ''}}"
+          data-id="{{item.id}}"
+          bindtouchstart="onCartTouchStart"
+          bindtouchend="onCartTouchEnd"
+          bindtouchcancel="onCartTouchCancel"
+        >
+          <view class="mall-check {{item.selected ? 'mall-check--selected' : ''}} tap-target" bindtap="toggleItem" data-id="{{item.id}}" aria-role="checkbox" aria-checked="{{item.selected}}" hover-class="tap-feedback"><text wx:if="{{item.selected}}">✓</text></view>
+          <view class="mall-cart-card__image">
+            <image
+              wx:if="{{item.coverUrl && !item.coverImageFailed}}"
+              class="mall-cart-card__image-asset"
+              src="{{item.coverUrl}}"
+              mode="aspectFill"
+              binderror="onCartImageError"
+              data-id="{{item.id}}"
+              aria-role="img"
+              aria-label="{{item.productName}}"
+            />
+            <van-icon wx:else name="photo-o" size="27px" color="#A8B4AC" />
+          </view>
+          <view class="mall-cart-card__info">
+            <text class="mall-cart-card__name">{{item.productName}}</text>
+            <text class="mall-cart-card__spec">{{item.skuLabel}}</text>
+            <text wx:if="{{!item.valid}}" class="mall-cart-card__invalid-reason">{{item.invalidReason === 'sold_out' ? '已售罄' : item.invalidReason === 'insufficient_stock' ? '库存不足' : '商品已失效'}}</text>
+            <view class="mall-cart-card__bottom">
+              <text class="mall-price">¥{{item.priceText}}</text>
+              <view wx:if="{{item.valid}}" class="mall-quantity">
+                <view class="mall-quantity__step tap-target" bindtap="changeQuantity" data-id="{{item.id}}" data-delta="down" aria-role="button" aria-label="减少数量" hover-class="tap-feedback">−</view>
+                <text>{{item.quantity}}</text>
+                <view class="mall-quantity__step tap-target" bindtap="changeQuantity" data-id="{{item.id}}" data-delta="up" aria-role="button" aria-label="增加数量" hover-class="tap-feedback">＋</view>
+              </view>
+              <view wx:else class="mall-cart-remove tap-target" bindtap="removeItem" data-id="{{item.id}}" hover-class="tap-feedback">移除</view>
+            </view>
+          </view>
+        </view>
+      </view>
+      <text wx:if="{{stateMessage}}" class="mall-inline-message">{{stateMessage}}</text>
+    </view>
+  </scroll-view>
+  <view wx:if="{{state === 'success'}}" class="mall-cart-footer">
+    <view class="mall-cart-footer__summary">
+      <view class="mall-check {{allSelected ? 'mall-check--selected' : ''}} tap-target" bindtap="toggleAll" aria-role="checkbox" aria-checked="{{allSelected}}" aria-label="全选有效商品" hover-class="tap-feedback"><text wx:if="{{allSelected}}">✓</text></view>
+      <text class="mall-cart-footer__all tap-target" bindtap="toggleAll" hover-class="tap-feedback">全选</text>
+      <view class="mall-cart-footer__total"><text>合计</text><text class="mall-price">¥{{totalText}}</text></view>
+    </view>
+    <button class="mall-primary-button mall-cart-footer__button tap-target" bindtap="continueCheckout" hover-class="tap-feedback">去结算（{{selectedCount}}）</button>
+  </view>
+</view>

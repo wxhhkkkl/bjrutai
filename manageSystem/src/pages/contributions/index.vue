@@ -101,6 +101,59 @@
       </el-table>
     </el-card>
 
+    <el-card class="chart-card" shadow="never" data-test="mall-consumption-sources">
+      <template #header>
+        <div class="mall-source-header">
+          <span>商城消费来源（全部组织）</span>
+          <span class="mall-source-note">近期支付记录，独立于上方筛选；按支付月份计入，未归属来源不进入绩效基数</span>
+        </div>
+      </template>
+      <el-alert
+        v-if="mallSourcesError"
+        :title="mallSourcesError"
+        type="error"
+        show-icon
+        :closable="false"
+        class="mall-source-error"
+      >
+        <template #default>
+          <el-button link type="primary" @click="loadMallSources()">重试</el-button>
+        </template>
+      </el-alert>
+      <el-table
+        v-loading="mallSourcesLoading"
+        :data="mallSources"
+        stripe
+        size="small"
+        empty-text="暂无商城来源记录"
+      >
+        <el-table-column prop="businessPeriod" label="业务月份" width="110" />
+        <el-table-column prop="orderId" label="订单ID" min-width="130" />
+        <el-table-column prop="distributorId" label="归属人员ID" width="110" />
+        <el-table-column label="支付时间" min-width="160">
+          <template #default="{ row }">{{ formatTime(row.occurredAt) }}</template>
+        </el-table-column>
+        <el-table-column label="商品实付" width="120" align="right">
+          <template #default="{ row }">¥{{ fmtYuan(row.originalAmountCent) }}</template>
+        </el-table-column>
+        <el-table-column label="成功退款" width="120" align="right">
+          <template #default="{ row }">¥{{ fmtYuan(row.refundAmountCent) }}</template>
+        </el-table-column>
+        <el-table-column label="绩效基数" width="120" align="right">
+          <template #default="{ row }">¥{{ fmtYuan(row.performanceBaseCent) }}</template>
+        </el-table-column>
+        <el-table-column label="归属" width="100">
+          <template #default="{ row }">{{ mallStatusLabel(row.status) }}</template>
+        </el-table-column>
+      </el-table>
+      <div v-if="mallSourcesNextCursor" class="mall-source-pagination">
+        <span>共 {{ mallSourcesTotal }} 条</span>
+        <el-button size="small" :loading="mallSourcesLoading" @click="loadMoreMallSources">
+          加载更多
+        </el-button>
+      </div>
+    </el-card>
+
     <ManualConsumptionDialog v-model="manualDialogVisible" @success="handleManualSuccess" />
   </div>
 </template>
@@ -111,6 +164,7 @@ import { ElMessage } from 'element-plus'
 import { Plus, Refresh } from '@element-plus/icons-vue'
 import { orgApi } from '@/api/org'
 import { contributionDashboardApi } from '@/api/contributions'
+import { mallConsumptionsApi } from '@/api/mall-consumptions'
 import ManualConsumptionDialog from '@/components/contributions/ManualConsumptionDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -125,6 +179,11 @@ const orgId = ref(null)
 const treeData = ref([])
 
 const stats = ref(null)
+const mallSources = ref([])
+const mallSourcesLoading = ref(false)
+const mallSourcesError = ref('')
+const mallSourcesNextCursor = ref(null)
+const mallSourcesTotal = ref(0)
 
 function fmtYuan(cent) {
   return (Number(cent || 0) / 100).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -149,7 +208,11 @@ function statusLabel(s) {
 }
 
 function sourceLabel(source) {
-  return { manual: '人工录入', rutai_sync: '儒泰同步' }[source] || '儒泰同步'
+  return { manual: '人工录入', rutai_sync: '儒泰同步', mall_order: '商城' }[source] || '儒泰同步'
+}
+
+function mallStatusLabel(status) {
+  return { assigned: '已归属', unassigned: '待归属' }[status] || '待核实'
 }
 
 async function loadOrgTree() {
@@ -194,6 +257,33 @@ async function loadRankings() {
   }
 }
 
+async function loadMallSources({ cursor, append = false } = {}) {
+  mallSourcesLoading.value = true
+  mallSourcesError.value = ''
+  try {
+    const data = await mallConsumptionsApi.list({ cursor, pageSize: 20 })
+    const items = Array.isArray(data?.items) ? data.items : []
+    mallSources.value = append ? [...mallSources.value, ...items] : items
+    mallSourcesNextCursor.value = data?.nextCursor || null
+    mallSourcesTotal.value = Number(data?.total || 0)
+  } catch (error) {
+    mallSourcesError.value = error.response?.data?.message || '商城来源加载失败'
+    if (!append) {
+      mallSources.value = []
+      mallSourcesNextCursor.value = null
+      mallSourcesTotal.value = 0
+    }
+  } finally {
+    mallSourcesLoading.value = false
+  }
+}
+
+function loadMoreMallSources() {
+  if (mallSourcesNextCursor.value) {
+    return loadMallSources({ cursor: mallSourcesNextCursor.value, append: true })
+  }
+}
+
 function barHeight(v) {
   const max = Math.max(...trend.value.map((t) => t.amountCent), 1)
   return Math.max(4, Math.round((v / max) * 180))
@@ -205,7 +295,7 @@ function formatTime(t) {
 }
 
 async function loadAll() {
-  await Promise.all([loadDashboard(), loadRankings()])
+  await Promise.all([loadDashboard(), loadRankings(), loadMallSources()])
 }
 
 async function handleManualSuccess() {
@@ -228,6 +318,10 @@ onMounted(async () => {
 .header-actions { display: flex; gap: 8px; }
 .filter-row { display: flex; gap: 12px; align-items: center; }
 .chart-card { margin-bottom: 14px; }
+.mall-source-header { display: flex; align-items: center; gap: 12px; }
+.mall-source-note { color: var(--app-text-secondary); font-size: 12px; font-weight: 400; }
+.mall-source-error { margin-bottom: 10px; }
+.mall-source-pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; color: var(--app-text-secondary); font-size: 12px; }
 /* 本页 stat-card 为 label 在上、value 在下 */
 .stats-row .stat-label { margin-top: 0; margin-bottom: 6px; }
 .stats-row .stat-value { font-size: 26px; }

@@ -37,36 +37,84 @@
       </view>
     </view>
 
-    <!-- 008 US3: 提成预估 + 已确认 -->
     <view class="section-block" wx:if="{{commission}}">
-      <text class="section-title">提成预估{{commission.currentMonth.month ? '（' + commission.currentMonth.month + '）' : ''}}</text>
+      <view class="commission-heading">
+        <view>
+          <text class="section-title">组织绩效</text>
+          <text class="commission-heading__month">{{commission.currentMonth.month}}</text>
+        </view>
+        <text wx:if="{{commission.currentMonth.isFrozen}}" class="period-status period-status--frozen">已冻结</text>
+        <text wx:elif="{{commission.currentMonth.isEstimate}}" class="period-status period-status--estimate">实时预估</text>
+        <text wx:else class="period-status">状态待核实</text>
+      </view>
       <view class="commission-card">
         <view class="commission-row">
-          <text class="commission-row__label">组织提成</text>
-          <text class="commission-row__amount">¥{{fmtYuan(commission.currentMonth.summary.commissionCent)}}</text>
+          <view>
+            <text class="commission-row__label">组织可兑现</text>
+            <text class="commission-row__sub">正常绩效和已确认调整合并展示</text>
+          </view>
+          <text class="commission-row__amount">¥{{fmtYuan(commission.currentMonth.summary.redeemableCent)}}</text>
+        </view>
+        <view class="commission-summary">
+          <view class="commission-summary__item">
+            <text>正常绩效</text>
+            <text>¥{{fmtYuan(commission.currentMonth.summary.normalCommissionCent)}}</text>
+          </view>
+          <view class="commission-summary__item">
+            <text>调整</text>
+            <text class="{{commission.currentMonth.summary.confirmedAdjustmentCent < 0 ? 'commission-negative' : 'commission-positive'}}">{{fmtSignedYuan(commission.currentMonth.summary.confirmedAdjustmentCent)}}</text>
+          </view>
+          <view class="commission-summary__item">
+            <text>已抵债</text>
+            <text>¥{{fmtYuan(commission.currentMonth.summary.appliedDebtCent)}}</text>
+          </view>
+          <view class="commission-summary__item">
+            <text>待抵扣</text>
+            <text>¥{{fmtYuan(commission.currentMonth.summary.pendingDebtCent)}}</text>
+          </view>
         </view>
         <view wx:if="{{commission.currentMonth.members.length}}" class="member-table">
-          <view class="member-table__head">
-            <text>成员</text>
-            <text>提成金额</text>
-          </view>
+          <text class="member-table__title">成员绩效</text>
           <view
             wx:for="{{commission.currentMonth.members}}"
             wx:key="distributorId"
             class="member-table__row"
           >
-            <text>{{item.name}}</text>
-            <text>¥{{fmtYuan(item.commissionCent)}}</text>
+            <view class="member-table__top">
+              <text class="member-table__name">{{item.name}}</text>
+              <text class="member-table__net">可兑现 ¥{{fmtYuan(item.redeemableCent)}}</text>
+            </view>
+            <view class="member-table__details">
+              <text>正常 ¥{{fmtYuan(item.normalCommissionCent)}}</text>
+              <text>调整 {{fmtSignedYuan(item.confirmedAdjustmentCent)}}</text>
+              <text>已抵债 ¥{{fmtYuan(item.appliedDebtCent)}}</text>
+              <text>待抵扣 ¥{{fmtYuan(item.pendingDebtCent)}}</text>
+            </view>
           </view>
         </view>
+        <view wx:else class="commission-empty">当前月份暂无可展示绩效</view>
       </view>
       <view
         wx:for="{{commission.confirmed}}"
         wx:key="month"
-        class="commission-row commission-row--confirmed"
+        class="commission-card commission-card--confirmed"
       >
-        <text>{{item.month}}（已确认）</text>
-        <text class="commission-row__amount">¥{{fmtYuan(item.summary.commissionCent)}}</text>
+        <view class="commission-heading">
+          <text class="commission-heading__month">{{item.month}}</text>
+          <text class="period-status period-status--frozen">已冻结</text>
+        </view>
+        <view class="commission-row">
+          <text class="commission-row__label">正常绩效</text>
+          <text>¥{{fmtYuan(item.summary.normalCommissionCent)}}</text>
+        </view>
+        <view class="commission-row">
+          <text class="commission-row__label">调整 / 已抵债</text>
+          <text>{{fmtSignedYuan(item.summary.confirmedAdjustmentCent)}} / ¥{{fmtYuan(item.summary.appliedDebtCent)}}</text>
+        </view>
+        <view class="commission-row commission-row--net">
+          <text class="commission-row__label">可兑现</text>
+          <text class="commission-row__amount">¥{{fmtYuan(item.summary.redeemableCent)}}</text>
+        </view>
       </view>
     </view>
 

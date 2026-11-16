@@ -5,7 +5,7 @@ const {
   normalizeIdentityType
 } = require('./collaborator');
 
-const DEFAULT_AVATAR = '/assets/images/profile-avatar.png';
+const DEFAULT_AVATAR = '/assets/images/profile-avatar.jpg';
 
 function createAccountProfileForm(session) {
   const value = session || {};

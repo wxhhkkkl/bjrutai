@@ -23,6 +23,7 @@ from ..models.performance_rule import (
 from ..models.personal_performance_rule import PersonalPerformanceRule
 from ..schemas.performance_rule import PersonalPerformanceRuleUpdateRequest
 from . import distributor_service, organization_service
+from .performance_period_service import bump_unfrozen_periods, periods_for_distributors
 
 
 # ---------------------------------------------------------------------------
@@ -127,21 +128,40 @@ async def save_rule(
     return _rule_to_dict(result.scalars().first())
 
 
+async def _distributors_for_rule_scope(db, org_id: int, rule_type: RuleType) -> list[int]:
+    org_ids = {org_id}
+    if rule_type == RuleType.ORG_MANAGEMENT:
+        subtree = await organization_service.get_subtree(db, org_id)
+        org_ids |= distributor_service._collect_org_ids(subtree)
+    return list(
+        (
+            await db.execute(
+                select(Distributor.id).where(Distributor.org_id.in_(org_ids))
+            )
+        ).scalars().all()
+    )
+
+
 async def _upsert_rule(
     db: AsyncSession, org_id: int, rule_type: RuleType, tiers: list, operator_id: int,
-    operation: Optional[ChangeOperation] = None,
+    operation: Optional[ChangeOperation] = None, *, mark_periods_dirty: bool = True,
 ) -> None:
     """Create or overwrite an org's rule of a type, bumping version + change log.
 
     ``operation`` defaults to create/update based on whether the rule exists;
     pass ``ChangeOperation.APPLY`` when copying to descendants.
     """
+    if mark_periods_dirty:
+        distributor_ids = await _distributors_for_rule_scope(db, org_id, rule_type)
+        affected_periods = await periods_for_distributors(db, distributor_ids)
+        await bump_unfrozen_periods(db, affected_periods)
+
     now = datetime.now(timezone.utc)
     result = await db.execute(
         select(PerformanceRule).where(
             PerformanceRule.org_id == org_id,
             PerformanceRule.rule_type == rule_type,
-        )
+        ).with_for_update()
     )
     rule = result.scalars().first()
     if rule is None:
@@ -199,8 +219,23 @@ async def apply_rule_to_descendants(
 
     subtree = await organization_service.get_subtree(db, org_id)
     desc_ids = distributor_service._collect_org_ids(subtree) - {org_id}
+    affected_distributor_ids = (
+        await db.execute(
+            select(Distributor.id).where(Distributor.org_id.in_(desc_ids))
+        )
+    ).scalars().all()
+    affected_periods = await periods_for_distributors(db, affected_distributor_ids)
+    await bump_unfrozen_periods(db, affected_periods)
     for did in desc_ids:
-        await _upsert_rule(db, did, rule_type, source.tiers, operator_id, operation=ChangeOperation.APPLY)
+        await _upsert_rule(
+            db,
+            did,
+            rule_type,
+            source.tiers,
+            operator_id,
+            operation=ChangeOperation.APPLY,
+            mark_periods_dirty=False,
+        )
 
     return {"applied": len(desc_ids), "orgIds": sorted(str(x) for x in desc_ids)}
 
@@ -274,10 +309,20 @@ async def save_personal_rule(
     distributor = await distributor_service.get_distributor_or_404(db, distributor_id)
     validate_tiers(data.tiers)
     tiers = [tier.model_dump() for tier in data.tiers]
+    affected_periods = await periods_for_distributors(db, [distributor.id])
+    await bump_unfrozen_periods(db, affected_periods)
+    distributor = (
+        await db.execute(
+            select(Distributor)
+            .where(Distributor.id == distributor_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one()
     result = await db.execute(
         select(PersonalPerformanceRule).where(
             PersonalPerformanceRule.distributor_id == distributor.id
-        )
+        ).with_for_update()
     )
     rule = result.scalars().first()
     now = datetime.now(timezone.utc)
@@ -305,11 +350,19 @@ async def save_personal_rule(
 
 async def clear_personal_rule(db: AsyncSession, distributor_id: int) -> dict:
     """Remove the personal override so the distributor inherits org tiers."""
-    await distributor_service.get_distributor_or_404(db, distributor_id)
+    distributor = await distributor_service.get_distributor_or_404(db, distributor_id)
+    affected_periods = await periods_for_distributors(db, [distributor.id])
+    await bump_unfrozen_periods(db, affected_periods)
+    await db.execute(
+        select(Distributor)
+        .where(Distributor.id == distributor_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     result = await db.execute(
         select(PersonalPerformanceRule).where(
             PersonalPerformanceRule.distributor_id == distributor_id
-        )
+        ).with_for_update()
     )
     rule = result.scalars().first()
     if rule is not None:

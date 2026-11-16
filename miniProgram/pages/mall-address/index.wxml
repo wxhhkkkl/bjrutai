@@ -1,0 +1,33 @@
+<view class="mall-flow-page">
+  <flow-navigation title="收货地址" bind:back="goBack" />
+  <scroll-view class="mall-flow-scroll" scroll-y="{{true}}" scroll-into-view="{{errorTarget}}" enhanced="{{true}}" show-scrollbar="{{false}}">
+    <view wx:if="{{state === 'loading'}}" class="mall-flow-state"><van-icon name="replay" size="30px" color="#1677FF" /><text>正在读取地址</text></view>
+    <view wx:elif="{{state === 'recoverable-error'}}" class="mall-flow-state"><text class="mall-flow-state__title">地址暂时不可用</text><text>{{stateMessage}}</text><button class="mall-primary-button tap-target" bindtap="retry" hover-class="tap-feedback">重新加载</button></view>
+    <view wx:else class="mall-address-content">
+      <view wx:if="{{returnToCheckout}}" class="mall-address-tip">选择地址后返回订单确认</view>
+      <view wx:for="{{addresses}}" wx:key="id" class="mall-address-card {{returnToCheckout ? 'mall-address-card--selectable' : ''}} tap-target" bindtap="selectAddress" data-id="{{item.id}}" hover-class="tap-feedback">
+        <view class="mall-address-card__top"><text class="mall-address-card__name">{{item.recipientName}}</text><text class="mall-address-card__phone">{{item.phoneMasked}}</text><text wx:if="{{item.isDefault}}" class="mall-address-default">默认</text></view>
+        <text class="mall-address-card__region">{{item.regionText}}</text>
+        <text class="mall-address-card__detail">{{item.addressMasked}}</text>
+        <view wx:if="{{!returnToCheckout && !item.isDefault}}" class="mall-address-card__action tap-target" catchtap="setDefault" data-id="{{item.id}}" hover-class="tap-feedback">设为默认</view>
+      </view>
+      <view wx:if="{{state === 'empty'}}" class="mall-address-empty"><view class="mall-empty-mark"><van-icon name="location-o" size="34px" color="#7D938A" /></view><text>还没有收货地址</text><text class="mall-flow-state__hint">添加地址后即可查看配送报价</text></view>
+      <view wx:if="{{formVisible}}" class="mall-address-form">
+        <view class="mall-address-form__heading"><text>新增收货地址</text><text class="mall-address-form__close tap-target" bindtap="hideAddressForm" hover-class="tap-feedback">收起</text></view>
+        <label id="mall-field-recipientName" class="mall-address-field"><text>收件人</text><input value="{{recipientName}}" data-field="recipientName" bindinput="onFieldInput" bindblur="onFieldBlur" maxlength="50" placeholder="请输入收件人姓名" focus="{{focusField === 'recipientName'}}" adjust-position="true" cursor-spacing="80" /></label>
+        <label id="mall-field-phone" class="mall-address-field"><text>手机号</text><input value="{{phone}}" data-field="phone" bindinput="onFieldInput" bindblur="onFieldBlur" maxlength="11" type="number" placeholder="用于订单配送联系" focus="{{focusField === 'phone'}}" adjust-position="true" cursor-spacing="80" /></label>
+        <picker id="mall-field-region" mode="region" bindchange="onRegionChange" custom-item="全部">
+          <view class="mall-address-field mall-address-field--picker"><text>所在地区</text><text class="{{regionCodes.length ? 'mall-address-value' : 'mall-address-placeholder'}}">{{regionText}}</text><van-icon name="arrow" size="17px" color="#9AA59E" /></view>
+        </picker>
+        <label id="mall-field-addressLine" class="mall-address-field mall-address-field--textarea"><text>详细地址</text><textarea value="{{addressLine}}" data-field="addressLine" bindinput="onFieldInput" bindblur="onFieldBlur" maxlength="200" placeholder="街道、楼栋、门牌号" focus="{{focusField === 'addressLine'}}" adjust-position="true" cursor-spacing="80" /></label>
+        <view class="mall-address-option tap-target" bindtap="toggleDefault" hover-class="tap-feedback"><view class="mall-check {{isDefault ? 'mall-check--selected' : ''}}"><text wx:if="{{isDefault}}">✓</text></view><text>设为默认地址</text></view>
+        <view class="mall-address-purpose"><text>{{purposeNotice.body}}</text></view>
+        <view id="mall-field-consent" class="mall-address-consent tap-target" bindtap="toggleConsent" hover-class="tap-feedback"><view class="mall-check {{consentConfirmed ? 'mall-check--selected' : ''}}"><text wx:if="{{consentConfirmed}}">✓</text></view><text>我已阅读并确认收件资料用途说明</text></view>
+        <text id="mall-field-policy" class="mall-address-policy">用途告知版本：{{policyVersion || '未配置'}} · 文案版本：{{purposeNotice.version}}</text>
+        <text wx:if="{{stateMessage}}" id="mall-field-error-message" class="mall-inline-message" aria-role="alert">{{stateMessage}}</text>
+        <button class="mall-primary-button mall-address-save tap-target" bindtap="saveAddress" loading="{{saving}}" disabled="{{saving || !consentConfirmed || !policyVersion}}" hover-class="tap-feedback">保存地址</button>
+      </view>
+      <button wx:else class="mall-address-add tap-target" bindtap="showAddressForm" hover-class="tap-feedback"><van-icon name="plus" size="18px" color="#1677FF" /><text>新增收货地址</text></button>
+    </view>
+  </scroll-view>
+</view>

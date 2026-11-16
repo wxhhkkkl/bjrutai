@@ -8,44 +8,102 @@
   />
 
   <block wx:if="{{state === 'success'}}">
-    <!-- 当月预估 -->
     <view class="est-card">
-      <text class="est-card__title">当月预估{{currentMonth.month ? '（' + currentMonth.month + '）' : ''}}</text>
-      <block wx:if="{{currentMonth.intraOrg}}">
-        <view class="est-row">
-          <text class="est-row__label">组织内提成</text>
-          <text class="est-row__amount">¥{{fmtYuan(currentMonth.intraOrg.commissionCent)}}</text>
+      <view class="est-card__heading">
+        <view>
+          <text class="est-card__title">本月绩效</text>
+          <text class="est-card__month">{{currentMonth.month}}</text>
         </view>
-        <view class="est-row est-row--sub">
-          <text>基数 ¥{{fmtYuan(currentMonth.intraOrg.baseCent)}} · 比例 {{fmtRatio(currentMonth.intraOrg.ratio)}}</text>
+        <text wx:if="{{currentMonth.isFrozen}}" class="period-status period-status--frozen">已冻结</text>
+        <text wx:elif="{{currentMonth.isEstimate}}" class="period-status period-status--estimate">实时预估</text>
+        <text wx:else class="period-status">状态待核实</text>
+      </view>
+      <view wx:if="{{currentMonth.isEstimate}}" class="estimate-note">
+        预估金额会随本月消费和规则变化，月度审核后以冻结结果为准
+      </view>
+      <view wx:elif="{{currentMonth.isFrozen}}" class="frozen-note">
+        当前显示已审核结果；调整额和可兑现额分列，已抵债不会重复扣减
+      </view>
+
+      <block wx:if="{{currentMonth.intraOrg}}">
+        <view class="rule-card">
+          <view class="rule-card__heading">
+            <text class="rule-card__title">组织内绩效</text>
+            <view class="redeemable-amount">
+              <text>可兑现</text>
+              <text>¥{{fmtYuan(currentMonth.intraOrg.redeemableCent)}}</text>
+            </view>
+          </view>
+          <text class="rule-card__base">合并消费基数 ¥{{fmtYuan(currentMonth.intraOrg.baseCent)}} · {{fmtRatio(currentMonth.intraOrg.ratio)}}</text>
+          <view class="amount-grid">
+            <view class="amount-cell">
+              <text class="amount-cell__label">正常绩效</text>
+              <text class="amount-cell__value">¥{{fmtYuan(currentMonth.intraOrg.normalCommissionCent)}}</text>
+            </view>
+            <view class="amount-cell">
+              <text class="amount-cell__label">调整</text>
+              <text class="amount-cell__value {{currentMonth.intraOrg.confirmedAdjustmentCent < 0 ? 'amount-cell__value--negative' : 'amount-cell__value--positive'}}">{{fmtSignedYuan(currentMonth.intraOrg.confirmedAdjustmentCent)}}</text>
+            </view>
+            <view class="amount-cell">
+              <text class="amount-cell__label">已抵债</text>
+              <text class="amount-cell__value">¥{{fmtYuan(currentMonth.intraOrg.appliedDebtCent)}}</text>
+            </view>
+            <view class="amount-cell">
+              <text class="amount-cell__label">待抵扣</text>
+              <text class="amount-cell__value">¥{{fmtYuan(currentMonth.intraOrg.pendingDebtCent)}}</text>
+            </view>
+          </view>
         </view>
       </block>
       <block wx:if="{{currentMonth.orgManagement}}">
-        <view class="est-row">
-          <text class="est-row__label">组织管理提成</text>
-          <text class="est-row__amount">¥{{fmtYuan(currentMonth.orgManagement.commissionCent)}}</text>
-        </view>
-        <view class="est-row est-row--sub">
-          <text>基数 ¥{{fmtYuan(currentMonth.orgManagement.baseCent)}} · 比例 {{fmtRatio(currentMonth.orgManagement.ratio)}}</text>
+        <view class="rule-card">
+          <view class="rule-card__heading">
+            <text class="rule-card__title">组织管理绩效</text>
+            <view class="redeemable-amount">
+              <text>可兑现</text>
+              <text>¥{{fmtYuan(currentMonth.orgManagement.redeemableCent)}}</text>
+            </view>
+          </view>
+          <text class="rule-card__base">合并消费基数 ¥{{fmtYuan(currentMonth.orgManagement.baseCent)}} · {{fmtRatio(currentMonth.orgManagement.ratio)}}</text>
+          <view class="amount-grid">
+            <view class="amount-cell">
+              <text class="amount-cell__label">正常绩效</text>
+              <text class="amount-cell__value">¥{{fmtYuan(currentMonth.orgManagement.normalCommissionCent)}}</text>
+            </view>
+            <view class="amount-cell">
+              <text class="amount-cell__label">调整</text>
+              <text class="amount-cell__value {{currentMonth.orgManagement.confirmedAdjustmentCent < 0 ? 'amount-cell__value--negative' : 'amount-cell__value--positive'}}">{{fmtSignedYuan(currentMonth.orgManagement.confirmedAdjustmentCent)}}</text>
+            </view>
+            <view class="amount-cell">
+              <text class="amount-cell__label">已抵债</text>
+              <text class="amount-cell__value">¥{{fmtYuan(currentMonth.orgManagement.appliedDebtCent)}}</text>
+            </view>
+            <view class="amount-cell">
+              <text class="amount-cell__label">待抵扣</text>
+              <text class="amount-cell__value">¥{{fmtYuan(currentMonth.orgManagement.pendingDebtCent)}}</text>
+            </view>
+          </view>
         </view>
       </block>
       <view wx:if="{{!currentMonth.intraOrg && !currentMonth.orgManagement}}" class="est-empty">
-        暂无预估（组织可能未配置绩效规则）
+        当前月份暂无可展示绩效
       </view>
     </view>
 
-    <!-- 已确认月份 -->
-    <view class="conf-title">已确认月份</view>
-    <view wx:if="{{confirmed.length === 0}}" class="conf-empty">暂无已确认的月度核算</view>
+    <view class="conf-title">已冻结月份</view>
+    <view wx:if="{{confirmed.length === 0}}" class="conf-empty">暂无已冻结的月度核算</view>
     <view wx:for="{{confirmed}}" wx:key="month" class="conf-card">
-      <text class="conf-card__month">{{item.month}}</text>
-      <view wx:if="{{item.intraOrg}}" class="est-row">
-        <text class="est-row__label">组织内提成</text>
-        <text class="est-row__amount">¥{{fmtYuan(item.intraOrg.commissionCent)}}</text>
+      <view class="conf-card__heading">
+        <text class="conf-card__month">{{item.month}}</text>
+        <text class="period-status period-status--frozen">已冻结</text>
       </view>
-      <view wx:if="{{item.orgManagement}}" class="est-row">
-        <text class="est-row__label">组织管理提成</text>
-        <text class="est-row__amount">¥{{fmtYuan(item.orgManagement.commissionCent)}}</text>
+      <view wx:if="{{item.intraOrg}}" class="history-row">
+        <text>组织内</text>
+        <text>正常 ¥{{fmtYuan(item.intraOrg.normalCommissionCent)}} · 调整 {{fmtSignedYuan(item.intraOrg.confirmedAdjustmentCent)}} · 可兑现 ¥{{fmtYuan(item.intraOrg.redeemableCent)}}</text>
+      </view>
+      <view wx:if="{{item.orgManagement}}" class="history-row">
+        <text>组织管理</text>
+        <text>正常 ¥{{fmtYuan(item.orgManagement.normalCommissionCent)}} · 调整 {{fmtSignedYuan(item.orgManagement.confirmedAdjustmentCent)}} · 可兑现 ¥{{fmtYuan(item.orgManagement.redeemableCent)}}</text>
       </view>
     </view>
   </block>

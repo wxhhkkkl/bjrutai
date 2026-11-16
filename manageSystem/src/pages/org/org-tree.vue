@@ -12,6 +12,7 @@
       <div class="tree-panel" v-loading="loading">
         <div class="panel-title">
           <span>组织结构</span>
+          <el-button size="small" type="primary" @click="openCreate(null)">新增顶级组织</el-button>
         </div>
         <el-empty v-if="treeData.length === 0" description="暂无组织" :image-size="60" />
         <el-tree

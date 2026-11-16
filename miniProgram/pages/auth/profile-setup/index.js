@@ -3,6 +3,7 @@ const {
 } = require('../../../services/session-service');
 const authService = require('../../../services/auth-service');
 const profileService = require('../../../services/profile-service');
+const mallIntentService = require('../../../services/mall-intent-service');
 const {
   createProfileForm,
   validateProfileForm
@@ -20,7 +21,7 @@ Page({
 
   onLoad(options = {}) {
     const session = getCurrentSession();
-    const from = options.from === 'profile' || options.from === 'comment' ? options.from : '';
+    const from = options.from === 'profile' || options.from === 'comment' || options.from === 'mall' || options.from === 'mall-orders' ? options.from : '';
     const articleId = from === 'comment' && /^[1-9]\d*$/.test(String(options.articleId || ''))
       ? String(options.articleId) : '';
 
@@ -38,9 +39,8 @@ Page({
       return;
     }
 
-    wx.reLaunch({
-      url: '/pages/auth/login/index'
-    });
+    const from = this.data.from ? `?from=${this.data.from}${this.data.articleId ? `&articleId=${this.data.articleId}` : ''}` : '';
+    wx.reLaunch({ url: `/pages/auth/login/index${from}` });
   },
 
   onFieldInput(event) {
@@ -88,6 +88,10 @@ Page({
         wx.navigateBack({ delta: 1 });
       } else if (this.data.from === 'comment' && this.data.articleId) {
         wx.redirectTo({ url: `/pages/article-detail/index?articleId=${this.data.articleId}` });
+      } else if (this.data.from === 'mall') {
+        wx.redirectTo({ url: mallIntentService.resumePath() });
+      } else if (this.data.from === 'mall-orders') {
+        wx.redirectTo({ url: '/pages/mall-orders/index' });
       } else {
         wx.switchTab({ url: '/pages/home/index' });
       }

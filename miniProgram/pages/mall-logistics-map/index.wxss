@@ -1,0 +1,7 @@
+@import "../../styles/interactions.wxss";
+
+page { background: #f4f3ee; }
+.mall-map-page { min-height: 100vh; background: #f4f3ee; }
+.mall-map-state { min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16rpx; padding: 40rpx; color: #7a8980; font-size: 28rpx; text-align: center; }
+.mall-map-state__title { color: #34443b; font-size: 34rpx; font-weight: 700; }
+.mall-map-button { min-width: 210rpx; height: 86rpx; margin-top: 18rpx; padding: 0 34rpx; border: 0; border-radius: 999rpx; color: #fff; background: #1677ff; font-size: 28rpx; line-height: 86rpx; }

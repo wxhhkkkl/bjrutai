@@ -1,0 +1,34 @@
+<view class="mall-flow-page mall-invoice-apply-page">
+  <flow-navigation title="申请发票" bind:back="goBack" />
+  <scroll-view class="mall-flow-scroll" scroll-y="{{true}}" scroll-into-view="{{errorTarget}}" enhanced="{{true}}" show-scrollbar="{{false}}">
+    <view wx:if="{{state === 'loading'}}" class="mall-flow-state"><van-icon name="replay" size="30px" color="#1677FF" /><text>正在核对订单与可开票金额</text></view>
+    <view wx:elif="{{state === 'recoverable-error'}}" class="mall-flow-state"><text class="mall-flow-state__title">暂时无法申请</text><text>{{stateMessage}}</text><button class="mall-primary-button tap-target" bindtap="retry" hover-class="tap-feedback">重新加载</button></view>
+    <view wx:elif="{{state === 'ineligible'}}" class="mall-flow-state"><view class="mall-invoice-state-mark"><van-icon name="bill-o" size="28px" color="#1677FF" /></view><text class="mall-flow-state__title">暂不可申请发票</text><text>{{stateMessage}}</text><text class="mall-helper">付款状态和可开金额以订单核实结果为准。</text></view>
+    <view wx:elif="{{state === 'success'}}" class="mall-invoice-content">
+      <view class="mall-invoice-summary">
+        <view class="mall-invoice-summary__top"><view><text class="mall-invoice-summary__eyebrow">订单 {{order.orderNo}}</text><text class="mall-invoice-summary__title">申请真实交易发票</text></view><view class="mall-invoice-summary__icon"><van-icon name="bill-o" size="25px" color="#1677FF" /></view></view>
+        <view class="mall-invoice-summary__amount"><text>当前净实付</text><text>¥{{netPaidText}}</text></view>
+        <text class="mall-helper">出票金额由订单及已核实退款计算，不由用户填写。</text>
+      </view>
+      <view class="mall-invoice-section">
+        <view class="mall-section-heading"><text>抬头类型</text><text class="mall-required">必填</text></view>
+        <view class="mall-invoice-choice-row">
+          <button class="mall-invoice-choice {{buyerType === 'personal' ? 'mall-invoice-choice--selected' : ''}} tap-target" bindtap="selectBuyerType" data-type="personal" hover-class="tap-feedback"><view class="mall-invoice-choice__mark">{{buyerType === 'personal' ? '✓' : ''}}</view><view><text>个人</text><text>使用个人姓名</text></view></button>
+          <button class="mall-invoice-choice {{buyerType === 'company' ? 'mall-invoice-choice--selected' : ''}} tap-target" bindtap="selectBuyerType" data-type="company" hover-class="tap-feedback"><view class="mall-invoice-choice__mark">{{buyerType === 'company' ? '✓' : ''}}</view><view><text>企业</text><text>需要企业名称和税号</text></view></button>
+        </view>
+        <label id="mall-field-title" class="mall-form-field"><text class="mall-form-field__label">{{buyerType === 'company' ? '企业名称' : '个人姓名'}}<text class="mall-required"> *</text></text><input class="mall-invoice-input" value="{{title}}" bindinput="onTitleInput" data-field="title" bindblur="onFieldBlur" maxlength="200" placeholder="请填写发票抬头" focus="{{focusField === 'title'}}" adjust-position="true" cursor-spacing="80" /></label>
+        <label wx:if="{{buyerType === 'company'}}" id="mall-field-taxNo" class="mall-form-field"><text class="mall-form-field__label">纳税人识别号<text class="mall-required"> *</text></text><input class="mall-invoice-input" value="{{taxNo}}" bindinput="onTaxNoInput" data-field="taxNo" bindblur="onFieldBlur" maxlength="32" placeholder="企业税号，提交前请核对" focus="{{focusField === 'taxNo'}}" adjust-position="true" cursor-spacing="80" /></label>
+        <text wx:if="{{buyerType === 'personal'}}" class="mall-field-helper">个人申请不需要填写身份证、银行卡等无关资料。</text>
+      </view>
+      <view class="mall-invoice-section">
+        <view class="mall-section-heading"><text>发票需求</text></view>
+        <button wx:for="{{invoiceTypes}}" wx:key="value" class="mall-invoice-type {{invoiceType === item.value ? 'mall-invoice-type--selected' : ''}} tap-target" bindtap="selectInvoiceType" data-type="{{item.value}}" hover-class="tap-feedback"><view class="mall-invoice-choice__mark">{{invoiceType === item.value ? '✓' : ''}}</view><view class="mall-invoice-type__copy"><text>{{item.label}}</text><text>{{item.hint}}</text></view></button>
+      </view>
+      <view class="mall-invoice-purpose"><text class="mall-invoice-purpose__title">{{purposeNotice.title}}</text><text class="mall-invoice-purpose__body">{{purposeNotice.body}}</text></view>
+      <view class="mall-invoice-consent tap-target" bindtap="togglePurposeConsent" hover-class="tap-feedback"><view class="mall-invoice-choice__mark {{consentConfirmed ? 'mall-invoice-choice__mark--selected' : ''}}">{{consentConfirmed ? '✓' : ''}}</view><text>我已阅读并确认开票资料用途</text></view>
+      <view class="mall-invoice-notice"><van-icon name="info-o" size="18px" color="#8A7251" /><text>提交后由工作人员在现有税务平台人工开具并上传。上传完成后，你可在申请进度中下载；申请成功不代表已经出票。</text></view>
+      <text wx:if="{{stateMessage}}" id="mall-field-error-message" class="mall-inline-message" aria-role="alert">{{stateMessage}}</text>
+    </view>
+  </scroll-view>
+  <view wx:if="{{state === 'success'}}" class="mall-invoice-footer"><text class="mall-helper">处理完成后，可在同一申请中查看并下载发票</text><button class="mall-primary-button mall-invoice-submit tap-target" bindtap="submitApplication" loading="{{submitting}}" disabled="{{submitting || !consentConfirmed || !policyVersion}}" hover-class="tap-feedback">提交开票申请</button></view>
+</view>

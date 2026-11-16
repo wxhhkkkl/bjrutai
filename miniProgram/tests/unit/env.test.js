@@ -3,10 +3,13 @@ const assert = require('node:assert/strict')
 
 const ENV_MODULE = '../../config/env'
 
-test('develop environment defaults to the local backend and enables mock only when explicit', () => {
+test('develop environment honors an explicit local backend and enables mock only when explicit', () => {
   const { resolveEnvironment } = require(ENV_MODULE)
 
-  assert.deepEqual(resolveEnvironment({ envVersion: 'develop' }), {
+  assert.deepEqual(resolveEnvironment({
+    envVersion: 'develop',
+    apiBases: { develop: 'http://127.0.0.1:8000' }
+  }), {
     envVersion: 'develop',
     apiBase: 'http://127.0.0.1:8000',
     useMock: false

@@ -8,6 +8,11 @@ const { formatYuan } = require('../../utils/money');
 function fmtYuan(cent) {
   return formatYuan(Number.isSafeInteger(cent) ? cent : 0, { symbol: false });
 }
+function fmtSignedYuan(cent) {
+  const amount = Number.isSafeInteger(cent) ? cent : 0;
+  const sign = amount < 0 ? '−' : amount > 0 ? '+' : '';
+  return `${sign}¥${fmtYuan(Math.abs(amount))}`;
+}
 function fmtRatio(ratio) {
   return `${(Number(ratio) * 100).toFixed(2)}%`;
 }
@@ -46,5 +51,6 @@ Page({
   },
 
   fmtYuan,
+  fmtSignedYuan,
   fmtRatio,
 });

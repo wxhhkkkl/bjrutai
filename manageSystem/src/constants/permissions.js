@@ -11,6 +11,82 @@
 
 export const PERMISSION_MODULES = [
   {
+    module: 'mall_orders',
+    label: '商城交易订单',
+    permissions: [
+      { key: 'mall.orders.read', label: '查看商城交易订单' },
+      { key: 'mall.orders.write', label: '维护商城备注及未付关单' },
+      { key: 'mall.shipments.write', label: '登记商城发货及更正运单' },
+    ],
+  },
+  {
+    module: 'mall_fulfillment',
+    label: '商城履约资料（治理门禁）',
+    permissions: [
+      {
+        key: 'mall.fulfillment.release',
+        label: '申请读取指定订单履约资料（G-DATA未生效时仍拒绝）',
+      },
+    ],
+  },
+  {
+    module: 'mall_invoices',
+    label: '商城发票与红冲',
+    permissions: [
+      { key: 'mall.invoices.read', label: '查看商城发票申请与票据' },
+      { key: 'mall.invoices.write', label: '办理商城开票、红冲和票据文件' },
+      { key: 'mall.billing.release', label: '申请读取指定开票资料（受规范门禁控制）' },
+    ],
+  },
+  {
+    module: 'mall_aftersales',
+    label: '商城售后与退款',
+    permissions: [
+      { key: 'mall.aftersales.read', label: '查看商城售后' },
+      { key: 'mall.aftersales.review', label: '审核商城售后' },
+      { key: 'mall.returns.receive', label: '验收商城退货' },
+      { key: 'mall.refunds.read', label: '查看商城退款' },
+      { key: 'mall.refunds.query', label: '查证商城渠道退款' },
+      { key: 'mall.refunds.execute', label: '发起及重试商城原路退款' },
+    ],
+  },
+  {
+    module: 'mall_finance',
+    label: '商城资金',
+    permissions: [
+      { key: 'mall.payments.read', label: '查看商城支付订单' },
+      { key: 'mall.payments.query', label: '查证商城渠道支付' },
+      { key: 'mall.finance.export', label: '导出商城支付/退款并读取本人导出文件' },
+    ],
+  },
+  {
+    module: 'mall_settings',
+    label: '商城配送与交易设置',
+    permissions: [
+      { key: 'mall.settings.read', label: '查看商城配送与交易设置' },
+      { key: 'mall.settings.write', label: '修改商城配送与交易设置' },
+    ],
+  },
+  {
+    module: 'mall_catalog',
+    label: '商城商品与库存',
+    permissions: [
+      { key: 'mall.products.read', label: '查看商城商品及分类' },
+      { key: 'mall.products.write', label: '维护商城商品及分类' },
+      { key: 'mall.stock.read', label: '查看商城库存记录' },
+      { key: 'mall.stock.write', label: '调整商城可售库存' },
+      { key: 'mall.files.read', label: '查看授权商城文件' },
+      { key: 'mall.files.write', label: '上传并核验授权商城文件' },
+    ],
+  },
+  {
+    module: 'mall_consumptions',
+    label: '商城消费归属',
+    permissions: [
+      { key: 'mall.attribution.write', label: '核实未归属商城消费' },
+    ],
+  },
+  {
     module: 'accounts',
     label: '账户管理',
     permissions: [

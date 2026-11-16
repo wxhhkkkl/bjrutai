@@ -15,7 +15,7 @@ test('customer list maps backend statuses, masks and cursor metadata', () => {
   })
   assert.equal(result.items[0].status, '已绑定')
   assert.equal(result.items[0].tone, 'blue')
-  assert.equal(result.items[0].avatar, '/assets/images/customer-avatar-blue.png')
+  assert.equal(result.items[0].avatar, '/assets/images/customer-avatar-blue.jpg')
   assert.equal(result.nextCursor, '1')
   assert.equal(result.hasMore, true)
 })

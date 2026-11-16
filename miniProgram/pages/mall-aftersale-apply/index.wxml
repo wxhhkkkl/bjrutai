@@ -1,0 +1,72 @@
+<view class="mall-flow-page mall-aftersale-page">
+    <flow-navigation title="申请售后" bind:back="goBack" />
+    <scroll-view class="mall-flow-scroll" scroll-y="{{true}}" scroll-into-view="{{errorTarget}}" enhanced="{{true}}" show-scrollbar="{{false}}">
+        <view wx:if="{{state === 'loading'}}" class="mall-flow-state">
+            <van-icon name="replay" size="30px" color="#1677FF" /><text>正在核对订单与可售后数量</text>
+        </view>
+        <view wx:elif="{{state === 'empty'}}" class="mall-flow-state"><text class="mall-flow-state__title">当前订单不可申请</text><text>{{stateMessage}}</text></view>
+        <view wx:elif="{{state === 'recoverable-error'}}" class="mall-flow-state"><text class="mall-flow-state__title">订单信息暂时不可用</text><text>{{stateMessage}}</text><button class="mall-primary-button tap-target" bindtap="retry" hover-class="tap-feedback">重新加载</button></view>
+        <view wx:elif="{{state === 'success'}}" class="mall-aftersale-content">
+            <view class="mall-aftersale-banner">
+                <view class="mall-aftersale-banner__mark">
+                    <van-icon name="after-sale" size="24px" color="#1677FF" />
+                </view>
+                <view><text class="mall-aftersale-banner__title">订单售后申请</text><text class="mall-aftersale-banner__hint">申请会由商家审核，结果和退款进度分开更新</text></view>
+            </view>
+            <view class="mall-aftersale-section">
+                <view class="mall-section-heading"><text>申请范围</text><text class="mall-muted">订单 {{orderId}}</text></view>
+                <view wx:if="{{goodsAvailable}}" class="mall-aftersale-option {{scope === 'goods' ? 'mall-aftersale-option--selected' : ''}} tap-target" bindtap="selectScope" data-scope="goods" hover-class="tap-feedback">
+                    <view class="mall-choice {{scope === 'goods' ? 'mall-choice--selected' : ''}}">{{scope === 'goods' ? '✓' : ''}}</view>
+                    <view class="mall-aftersale-option__copy"><text>商品售后</text><text>按商品选择申请数量</text></view>
+                </view>
+                <view wx:if="{{freightOnlyAvailable}}" class="mall-aftersale-option {{scope === 'freight_only' ? 'mall-aftersale-option--selected' : ''}} tap-target" bindtap="selectScope" data-scope="freight_only" hover-class="tap-feedback">
+                    <view class="mall-choice {{scope === 'freight_only' ? 'mall-choice--selected' : ''}}">{{scope === 'freight_only' ? '✓' : ''}}</view>
+                    <view class="mall-aftersale-option__copy"><text>仅申请运费</text><text>仅未发货订单可申请</text></view>
+                </view>
+            </view>
+            <view wx:if="{{scope === 'goods'}}" id="mall-field-items" class="mall-aftersale-section">
+                <view class="mall-section-heading"><text>选择商品与数量</text><text class="mall-muted">按服务器可售后数量</text></view>
+                <view wx:for="{{items}}" wx:key="id" class="mall-aftersale-item">
+                    <view class="mall-aftersale-item__copy"><text class="mall-aftersale-item__name">{{item.productName}}</text><text class="mall-muted">{{item.optionsText || '默认规格'}} · 订单数量 {{item.quantity}}</text><text wx:if="{{item.supportsReturn === false}}" class="mall-muted">支持申请仅退款</text><text wx:if="{{item.availableAftersaleQuantity === 0}}" class="mall-aftersale-item__unavailable">当前无可申请数量</text></view>
+                    <view class="mall-quantity"><button class="mall-quantity__button tap-target" bindtap="changeQuantity" data-id="{{item.id}}" data-delta="-1" disabled="{{item.applyQuantity === 0}}" hover-class="tap-feedback">−</button><text>{{item.applyQuantity}}</text><button class="mall-quantity__button tap-target" bindtap="changeQuantity" data-id="{{item.id}}" data-delta="1" disabled="{{item.applyQuantity >= item.availableAftersaleQuantity || (method === 'return_refund' && item.supportsReturn === false)}}" hover-class="tap-feedback">＋</button></view>
+                </view>
+            </view>
+            <view class="mall-aftersale-section">
+                <view class="mall-section-heading"><text>售后方式</text></view>
+                <block wx:if="{{scope === 'goods'}}">
+                    <view wx:for="{{methods}}" wx:key="value" class="mall-aftersale-option {{method === item.value ? 'mall-aftersale-option--selected' : ''}} tap-target" bindtap="selectMethod" data-method="{{item.value}}" hover-class="tap-feedback">
+                        <view class="mall-choice {{method === item.value ? 'mall-choice--selected' : ''}}">{{method === item.value ? '✓' : ''}}</view>
+                        <view class="mall-aftersale-option__copy"><text>{{item.label}}</text><text>{{item.hint}}</text></view>
+                    </view>
+                </block>
+                <block wx:else>
+                    <view class="mall-aftersale-option mall-aftersale-option--selected">
+                        <view class="mall-choice mall-choice--selected">✓</view>
+                        <view class="mall-aftersale-option__copy"><text>仅退款</text><text>运费售后不需要寄回商品</text></view>
+                    </view>
+                </block>
+                <text wx:if="{{scope === 'goods' && methods.length === 1}}" class="mall-helper">商家尚未发货，无需寄回商品，仅支持仅退款。</text>
+            </view>
+            <view class="mall-aftersale-section">
+                <view class="mall-section-heading"><text>申请原因</text><text class="mall-required">必填</text></view>
+                <textarea id="mall-field-reason" class="mall-aftersale-textarea" value="{{reason}}" bindinput="onReasonInput" bindblur="onReasonBlur" maxlength="200" auto-height="{{true}}" placeholder="简要说明遇到的问题" focus="{{focusField === 'reason'}}" adjust-position="true" cursor-spacing="80" />
+            </view>
+            <view class="mall-aftersale-section">
+                <view class="mall-section-heading"><text>问题凭证</text><text class="mall-muted">选填，最多3张</text></view>
+                <view class="mall-proof-list">
+                    <view wx:for="{{proofs}}" wx:key="id" class="mall-proof-item tap-target" data-id="{{item.id}}" bindtap="previewProof" hover-class="tap-feedback" aria-role="button" aria-label="预览凭证图片">
+                        <image class="mall-proof-item__thumb" src="{{item.path}}" mode="aspectFill" />
+                        <view class="mall-proof-item__remove tap-target" data-id="{{item.id}}" catchtap="removeProof" hover-class="tap-feedback" aria-role="button" aria-label="删除凭证图片">
+                            <van-icon name="cross" size="12px" color="#ffffff" />
+                        </view>
+                    </view>
+                </view>
+                <button wx:if="{{proofs.length < 3}}" class="mall-proof-button tap-target" bindtap="chooseProofImages" loading="{{uploading}}" disabled="{{uploading}}" hover-class="tap-feedback">
+                    <van-icon name="photograph" size="18px" color="#1677FF" /> 添加图片凭证
+                </button>
+                <text class="mall-helper">仅支持5MB以内的JPG或PNG；上传并通过校验后才会随申请提交。</text>
+            </view>
+        </view>
+    </scroll-view>
+    <view wx:if="{{state === 'success'}}" class="mall-aftersale-footer"><button class="mall-primary-button mall-aftersale-submit tap-target" bindtap="submitApplication" loading="{{submitting}}" disabled="{{submitting || uploading}}" hover-class="tap-feedback">提交申请</button></view>
+</view>

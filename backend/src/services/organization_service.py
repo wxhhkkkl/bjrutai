@@ -11,13 +11,15 @@ from ..core.exceptions import (
     ConflictException,
     NotFoundException,
 )
-from ..models.organization import Organization, OrgStatus
+from ..models.distributor import Distributor
 from ..models.org_history import OrgHistory, OrgHistoryAction
+from ..models.organization import Organization, OrgStatus
 from ..schemas.organization import (
     OrgCreate,
     OrgMigrateRequest,
     OrgUpdate,
 )
+from .performance_period_service import bump_unfrozen_periods, periods_for_distributors
 
 # 最大深度：None = 不限制（后台可配置项；未配置则不限制）
 MAX_DEPTH: Optional[int] = None
@@ -70,6 +72,36 @@ async def _get_org_by_id(db: AsyncSession, org_id: int) -> Optional[Organization
     """Fetch an org by ID without children loaded. Returns None if not found."""
     result = await db.execute(select(Organization).where(Organization.id == org_id))
     return result.scalars().first()
+
+
+async def _mark_organization_scopes_dirty(db: AsyncSession, org_ids: set[int]) -> None:
+    """Mark source months for changed subtrees and affected ancestor totals."""
+    rows = (await db.execute(select(Organization.id, Organization.parent_id))).all()
+    parents = {int(org_id): parent_id for org_id, parent_id in rows}
+    ancestors = set()
+    for org_id in org_ids:
+        current = org_id
+        while current is not None and current not in ancestors:
+            ancestors.add(current)
+            current = parents.get(current)
+
+    children: dict[int | None, list[int]] = {}
+    for org_id, parent_id in rows:
+        children.setdefault(parent_id, []).append(int(org_id))
+    affected_orgs = set()
+    stack = list(ancestors)
+    while stack:
+        current = stack.pop()
+        if current in affected_orgs:
+            continue
+        affected_orgs.add(current)
+        stack.extend(children.get(current, []))
+
+    distributor_ids = (
+        await db.execute(select(Distributor.id).where(Distributor.org_id.in_(affected_orgs)))
+    ).scalars().all()
+    periods = await periods_for_distributors(db, distributor_ids)
+    await bump_unfrozen_periods(db, periods)
 
 
 async def _record_history(
@@ -244,6 +276,23 @@ async def update_org(
     if node is None:
         raise NotFoundException(message="Organization not found")
 
+    original_status = node.status
+    original_parent_id = node.parent_id
+    if data.status is not None and data.status not in {s.value for s in OrgStatus}:
+        raise BadRequestException(message=f"Invalid org status: {data.status}")
+    if data.status is not None and data.status != original_status.value:
+        await _mark_organization_scopes_dirty(db, {org_id})
+        node = (
+            await db.execute(
+                select(Organization)
+                .where(Organization.id == org_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one()
+        if node.status != original_status or node.parent_id != original_parent_id:
+            raise ConflictException(message="组织状态或层级已变化，请刷新后重试")
+
     if data.name is not None:
         result = await db.execute(
             select(Organization).where(
@@ -261,8 +310,6 @@ async def update_org(
     if data.sort_order is not None:
         node.sort_order = data.sort_order
     if data.status is not None:
-        if data.status not in {s.value for s in OrgStatus}:
-            raise BadRequestException(message=f"Invalid org status: {data.status}")
         node.status = OrgStatus(data.status)
 
     node.updated_at = datetime.now(timezone.utc)
@@ -352,6 +399,24 @@ async def migrate_branch(
         target_level = 1
 
     old_parent_id = node.parent_id
+    if old_parent_id != new_parent_id:
+        affected_scopes = {
+            identity
+            for identity in (org_id, old_parent_id, new_parent_id)
+            if identity is not None
+        }
+        if affected_scopes:
+            await _mark_organization_scopes_dirty(db, affected_scopes)
+        node = (
+            await db.execute(
+                select(Organization)
+                .where(Organization.id == org_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one()
+        if node.parent_id != old_parent_id:
+            raise ConflictException(message="组织层级已变化，请刷新后重试")
     node.parent_id = new_parent_id
     node.level = target_level
     node.updated_at = datetime.now(timezone.utc)
@@ -414,8 +479,7 @@ async def get_org_business_blocked_reasons(db: AsyncSession, org_id: int) -> lis
     if org.status == OrgStatus.DISABLED:
         reasons.append("org_disabled")
 
-    from ..models.org_qualification import OrgQualStatus
-    from ..models.org_qualification import OrganizationQualification
+    from ..models.org_qualification import OrganizationQualification, OrgQualStatus
 
     result = await db.execute(
         select(OrganizationQualification)

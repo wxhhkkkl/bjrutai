@@ -1,0 +1,43 @@
+.floating-cart {
+  position: fixed;
+  z-index: 40;
+  right: 28rpx;
+  bottom: calc(134rpx + env(safe-area-inset-bottom));
+  width: 88rpx;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.floating-cart__icon {
+  position: relative;
+  width: 72rpx;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #bd563f;
+  box-shadow: 0 4rpx 12rpx rgba(189, 86, 63, 0.24);
+}
+
+.floating-cart--tab {
+  bottom: calc(156rpx + env(safe-area-inset-bottom));
+}
+
+.floating-cart__badge {
+  position: absolute;
+  top: -6rpx;
+  right: -8rpx;
+  min-width: 32rpx;
+  padding: 0 7rpx;
+  box-sizing: border-box;
+  border: 2rpx solid #fff;
+  border-radius: 999rpx;
+  background: #bd563f;
+  color: #fff;
+  font-size: 24rpx;
+  line-height: 34rpx;
+  text-align: center;
+}

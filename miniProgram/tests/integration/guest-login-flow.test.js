@@ -117,6 +117,14 @@ test('login returns to the intended profile tab or article', async () => {
     entry = { type: 'reLaunch', url: '/pages/auth/profile-setup/index' }
     await page.completeLogin({})
     assert.deepEqual(navigation.pop(), ['redirectTo', '/pages/auth/profile-setup/index?from=comment&articleId=12'])
+
+    page.onLoad({ from: 'mall-orders' })
+    entry = { type: 'switchTab', url: '/pages/home/index' }
+    established = { requiresWechatBinding: false, session: { userId: 'u1' } }
+    await page.completeLogin({})
+    assert.deepEqual(navigation.pop(), ['redirectTo', '/pages/mall-orders/index'])
+    page.browseAsGuest()
+    assert.deepEqual(navigation.pop(), ['switchTab', '/pages/mall/index'])
   } finally {
     restoreModules(originals)
     global.Page = previousPage

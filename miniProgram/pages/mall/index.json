@@ -1,3 +1,7 @@
 {
-  "disableScroll": true
+  "disableScroll": true,
+  "backgroundColor": "#F4F3EE",
+  "usingComponents": {
+    "mall-floating-cart": "../../components/mall-floating-cart/index"
+  }
 }

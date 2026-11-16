@@ -4,7 +4,7 @@ function pad(value) {
   return String(value).padStart(2, '0')
 }
 
-function formatChinaDateTime(value) {
+function chinaDate(value) {
   if (!value) return ''
 
   const input = typeof value === 'string' ? value.trim() : value
@@ -12,12 +12,21 @@ function formatChinaDateTime(value) {
   const hasTime = typeof input === 'string' && /T\d{2}:\d{2}/.test(input)
   // Backend DateTime columns are stored as UTC; MySQL responses may omit the
   // timezone suffix, so interpret an offset-less ISO datetime as UTC.
-  const normalized = hasTime && !hasTimezone ? `${input}Z` : input
+  let normalized = hasTime && !hasTimezone ? `${input}Z` : input
+  if (typeof normalized === 'string') {
+    // JavaScript engines may reject SQL timestamps with microsecond precision.
+    normalized = normalized.replace(/(\.\d{3})\d+(?=(?:z|[+-]\d{2}:?\d{2})?$)/i, '$1')
+  }
   const timestamp = new Date(normalized).getTime()
   if (!Number.isFinite(timestamp)) return ''
 
-  const china = new Date(timestamp + CHINA_OFFSET_MS)
-  return [
+  return new Date(timestamp + CHINA_OFFSET_MS)
+}
+
+function formatChinaDateTime(value, options = {}) {
+  const china = chinaDate(value)
+  if (!china) return ''
+  const formatted = [
     china.getUTCFullYear(),
     '年',
     china.getUTCMonth() + 1,
@@ -27,7 +36,15 @@ function formatChinaDateTime(value) {
     pad(china.getUTCHours()),
     ':',
     pad(china.getUTCMinutes())
-  ].join('')
+  ]
+  if (options.includeSeconds) formatted.push(':', pad(china.getUTCSeconds()))
+  return formatted.join('')
+}
+
+function formatChinaDateTimeCompact(value) {
+  const china = chinaDate(value)
+  if (!china) return ''
+  return `${china.getUTCFullYear()}-${pad(china.getUTCMonth() + 1)}-${pad(china.getUTCDate())} ${pad(china.getUTCHours())}:${pad(china.getUTCMinutes())}`
 }
 
 function formatMonthLabel(value) {
@@ -42,5 +59,6 @@ function formatMonthLabel(value) {
 
 module.exports = {
   formatChinaDateTime,
+  formatChinaDateTimeCompact,
   formatMonthLabel
 }

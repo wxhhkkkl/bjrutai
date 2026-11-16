@@ -97,6 +97,10 @@ const ACTION_TARGETS = {
     privacy: {
         title: '隐私与授权',
         path: '/pages/privacy-authorization/index'
+    },
+    'mall-orders': {
+        title: '商城订单',
+        path: '/pages/mall-orders/index'
     }
 }
 

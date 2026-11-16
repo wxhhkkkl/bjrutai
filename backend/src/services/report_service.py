@@ -10,9 +10,9 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.exceptions import BadRequestException, NotFoundException
@@ -20,11 +20,10 @@ from ..models.bill import Bill, TransactionStatus
 from ..models.binding import BindingStatus, Customer
 from ..models.commission_result import CommissionResult
 from ..models.distributor import Distributor
+from ..models.mall_consumption import MallConsumption
 from ..models.organization import Organization
 from ..models.performance_rule import RuleType
-from ..models.performance_settlement import PerformanceSettlement, SettlementStatus
 from ..models.report import Report
-
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -54,7 +53,9 @@ class ReportService:
             raise BadRequestException(message="Date range cannot be entirely in the future.")
 
         if (end - start).days > MAX_DATE_RANGE_DAYS:
-            raise BadRequestException(message=f"Date range cannot exceed {MAX_DATE_RANGE_DAYS} days.")
+            raise BadRequestException(
+                message=f"Date range cannot exceed {MAX_DATE_RANGE_DAYS} days."
+            )
 
         return start, end
 
@@ -92,49 +93,51 @@ class ReportService:
         from sqlalchemy import select
 
         rows = (
-            await db.execute(
-                select(Report).where(
-                    Report.source == "performance_settlement",
-                    Report.period == period,
+            (
+                await db.execute(
+                    select(Report).where(
+                        Report.source == "performance_settlement",
+                        Report.period == period,
+                    )
                 )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
 
         report_id = rows.id if rows is not None else uuid.uuid4().hex
         start_date, end_date = cls._month_range(period)
 
         results = (
-            await db.execute(
-                select(CommissionResult).where(CommissionResult.period == period)
-            )
-        ).scalars().all()
+            (await db.execute(select(CommissionResult).where(CommissionResult.period == period)))
+            .scalars()
+            .all()
+        )
 
         org_ids = {r.org_id for r in results}
         org_names: dict[int, str] = {}
         if org_ids:
             orgs = (
-                await db.execute(
-                    select(Organization).where(Organization.id.in_(org_ids))
-                )
-            ).scalars().all()
+                (await db.execute(select(Organization).where(Organization.id.in_(org_ids))))
+                .scalars()
+                .all()
+            )
             org_names = {o.id: o.name for o in orgs}
 
         dist_ids = {r.distributor_id for r in results}
         dist_names: dict[int, str] = {}
         if dist_ids:
             dists = (
-                await db.execute(
-                    select(Distributor).where(Distributor.id.in_(dist_ids))
-                )
-            ).scalars().all()
+                (await db.execute(select(Distributor).where(Distributor.id.in_(dist_ids))))
+                .scalars()
+                .all()
+            )
             from ..models.user import User
 
             user_ids = {d.user_id for d in dists if d.user_id}
             users: dict[int, str] = {}
             if user_ids:
-                us = (
-                    await db.execute(select(User).where(User.id.in_(user_ids)))
-                ).scalars().all()
+                us = (await db.execute(select(User).where(User.id.in_(user_ids)))).scalars().all()
                 users = {u.id: u.name for u in us}
             dist_names = {d.id: users.get(d.user_id, "") for d in dists}
 
@@ -147,14 +150,16 @@ class ReportService:
         total_commission = 0
         for r in results:
             total_commission += r.commission_cent or 0
-            details.append({
-                "组织": org_names.get(r.org_id) or f"Org {r.org_id}",
-                "姓名": dist_names.get(r.distributor_id) or str(r.distributor_id),
-                "提成类型": rule_labels.get(r.rule_type, str(r.rule_type)),
-                "计算基数(元)": f"{(r.base_cent or 0) / 100:.2f}",
-                "比例": f"{(float(r.ratio) * 100):.2f}%" if r.ratio else "0.00%",
-                "提成金额(元)": f"{(r.commission_cent or 0) / 100:.2f}",
-            })
+            details.append(
+                {
+                    "组织": org_names.get(r.org_id) or f"Org {r.org_id}",
+                    "姓名": dist_names.get(r.distributor_id) or str(r.distributor_id),
+                    "提成类型": rule_labels.get(r.rule_type, str(r.rule_type)),
+                    "计算基数(元)": f"{(r.base_cent or 0) / 100:.2f}",
+                    "比例": f"{(float(r.ratio) * 100):.2f}%" if r.ratio else "0.00%",
+                    "提成金额(元)": f"{(r.commission_cent or 0) / 100:.2f}",
+                }
+            )
 
         sections = {
             "performance": {
@@ -180,17 +185,19 @@ class ReportService:
                 rows.generated_by = generated_by
             db.add(rows)
         else:
-            db.add(Report(
-                id=report_id,
-                start_date=start_date,
-                end_date=end_date,
-                dimensions=["performance"],
-                sections=sections,
-                generated_by=generated_by,
-                source="performance_settlement",
-                period=period,
-                status=status,
-            ))
+            db.add(
+                Report(
+                    id=report_id,
+                    start_date=start_date,
+                    end_date=end_date,
+                    dimensions=["performance"],
+                    sections=sections,
+                    generated_by=generated_by,
+                    source="performance_settlement",
+                    period=period,
+                    status=status,
+                )
+            )
         await db.flush()
         return report_id
 
@@ -249,23 +256,23 @@ class ReportService:
     # ------------------------------------------------------------------
     async def list_reports(self, db: AsyncSession) -> dict:
         """List all historical reports ordered by most recent first."""
-        result = await db.execute(
-            select(Report).order_by(Report.generated_at.desc()).limit(50)
-        )
+        result = await db.execute(select(Report).order_by(Report.generated_at.desc()).limit(50))
         reports = result.scalars().all()
 
         items = []
         for r in reports:
-            items.append({
-                "reportId": r.id,
-                "dateRange": {"startDate": r.start_date, "endDate": r.end_date},
-                "dimensions": r.dimensions or [],
-                "generatedAt": r.generated_at.isoformat() if r.generated_at else None,
-                "generatedBy": r.generated_by,
-                "source": r.source,
-                "period": r.period,
-                "status": r.status,
-            })
+            items.append(
+                {
+                    "reportId": r.id,
+                    "dateRange": {"startDate": r.start_date, "endDate": r.end_date},
+                    "dimensions": r.dimensions or [],
+                    "generatedAt": r.generated_at.isoformat() if r.generated_at else None,
+                    "generatedBy": r.generated_by,
+                    "source": r.source,
+                    "period": r.period,
+                    "status": r.status,
+                }
+            )
 
         return {"items": items}
 
@@ -274,9 +281,7 @@ class ReportService:
     # ------------------------------------------------------------------
     async def get_detail(self, db: AsyncSession, report_id: str) -> dict:
         """Get full report detail with all sections."""
-        result = await db.execute(
-            select(Report).where(Report.id == report_id)
-        )
+        result = await db.execute(select(Report).where(Report.id == report_id))
         report = result.scalars().first()
         if report is None:
             raise NotFoundException(message="Report not found")
@@ -307,7 +312,6 @@ class ReportService:
         wb.remove(wb.active)
 
         # Style definitions
-        header_font = Font(name="微软雅黑", bold=True, size=12)
         header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
         header_font_white = Font(name="微软雅黑", bold=True, size=12, color="FFFFFF")
         thin_border = Border(
@@ -388,7 +392,9 @@ class ReportService:
                     for detail_row in details:
                         for col_idx, header in enumerate(headers, 1):
                             val = detail_row.get(header, "")
-                            cell = ws.cell(row=row, column=col_idx, value=str(val) if val is not None else "")
+                            cell = ws.cell(
+                                row=row, column=col_idx, value=str(val) if val is not None else ""
+                            )
                             cell.border = thin_border
                         row += 1
 
@@ -415,17 +421,17 @@ class ReportService:
             return org_map, org_name_map
 
         dists = (
-            await db.execute(
-                select(Distributor).where(Distributor.id.in_(distributor_ids))
-            )
-        ).scalars().all()
+            (await db.execute(select(Distributor).where(Distributor.id.in_(distributor_ids))))
+            .scalars()
+            .all()
+        )
         org_ids = {d.org_id for d in dists}
         if org_ids:
             orgs = (
-                await db.execute(
-                    select(Organization).where(Organization.id.in_(org_ids))
-                )
-            ).scalars().all()
+                (await db.execute(select(Organization).where(Organization.id.in_(org_ids))))
+                .scalars()
+                .all()
+            )
             org_name_map = {o.id: o.name for o in orgs}
         for d in dists:
             org_map[d.id] = d.org_id
@@ -436,10 +442,10 @@ class ReportService:
         if not org_ids:
             return {}
         orgs = (
-            await db.execute(
-                select(Organization).where(Organization.id.in_(org_ids))
-            )
-        ).scalars().all()
+            (await db.execute(select(Organization).where(Organization.id.in_(org_ids))))
+            .scalars()
+            .all()
+        )
         return {o.id: o.level for o in orgs}
 
     async def _build_binding_section(
@@ -457,9 +463,7 @@ class ReportService:
 
         total_bindings = len(bindings)
 
-        org_map, org_name_map = await self._org_maps(
-            db, {c.distributor_id for c in bindings}
-        )
+        org_map, org_name_map = await self._org_maps(db, {c.distributor_id for c in bindings})
 
         # Group by org
         by_org: dict[int | None, int] = {}
@@ -470,10 +474,12 @@ class ReportService:
         details = []
         for oid, count in sorted(by_org.items(), key=lambda x: -x[1]):
             name = org_name_map.get(oid) if oid is not None else None
-            details.append({
-                "组织": name or (f"Org {oid}" if oid is not None else "未分配组织"),
-                "新绑定数": count,
-            })
+            details.append(
+                {
+                    "组织": name or (f"Org {oid}" if oid is not None else "未分配组织"),
+                    "新绑定数": count,
+                }
+            )
 
         return {
             "title": "绑定汇总",
@@ -512,13 +518,15 @@ class ReportService:
         details = []
         for m in sorted(by_month.keys()):
             d = by_month[m]
-            details.append({
-                "月份": m,
-                "交易数": d["count"],
-                "总金额(元)": f"{d['totalAmount'] / 100:.2f}",
-                "实收(元)": f"{d['paidAmount'] / 100:.2f}",
-                "退款(元)": f"{d['refundAmount'] / 100:.2f}",
-            })
+            details.append(
+                {
+                    "月份": m,
+                    "交易数": d["count"],
+                    "总金额(元)": f"{d['totalAmount'] / 100:.2f}",
+                    "实收(元)": f"{d['paidAmount'] / 100:.2f}",
+                    "退款(元)": f"{d['refundAmount'] / 100:.2f}",
+                }
+            )
 
         return {
             "title": "收入汇总",
@@ -549,13 +557,15 @@ class ReportService:
 
         details = []
         for b in bills[:100]:  # limit detail rows
-            details.append({
-                "交易号": b.transaction_id,
-                "交易时间": b.transaction_time.isoformat() if b.transaction_time else "",
-                "总金额(元)": f"{b.total_amount_cent / 100:.2f}",
-                "优惠(元)": f"{b.discount_amount_cent / 100:.2f}",
-                "实收(元)": f"{b.paid_amount_cent / 100:.2f}",
-            })
+            details.append(
+                {
+                    "交易号": b.transaction_id,
+                    "交易时间": b.transaction_time.isoformat() if b.transaction_time else "",
+                    "总金额(元)": f"{b.total_amount_cent / 100:.2f}",
+                    "优惠(元)": f"{b.discount_amount_cent / 100:.2f}",
+                    "实收(元)": f"{b.paid_amount_cent / 100:.2f}",
+                }
+            )
 
         return {
             "title": "优惠汇总",
@@ -571,50 +581,74 @@ class ReportService:
     ) -> dict:
         """Build allocation section grouped by org dimension (US6-AC6).
 
-        业绩贡献 = 消费金额：按 PAID 账单 paid_amount_cent 聚合。
+        Legacy Bill rules stay intact; unfrozen mall allocation follows the
+        distributor's current organization while keeping trade_org_id immutable.
         """
-        result = await db.execute(
+        bill_result = await db.execute(
             select(Bill, Customer.distributor_id)
             .join(Customer, Customer.id == Bill.customer_id)
             .where(
                 Bill.transaction_time >= start,
                 Bill.transaction_time <= end,
-                Bill.transaction_status.notin_([TransactionStatus.REFUNDED, TransactionStatus.CANCELLED]),
+                Bill.transaction_status.notin_(
+                    [TransactionStatus.REFUNDED, TransactionStatus.CANCELLED]
+                ),
             )
         )
-        rows = result.all()  # (Bill, distributor_id)
+        bill_rows = bill_result.all()  # (Bill, current distributor_id)
+        mall_result = await db.execute(
+            select(MallConsumption, Distributor.id, Distributor.org_id)
+            .join(Distributor, Distributor.id == MallConsumption.attributed_distributor_id)
+            .where(
+                MallConsumption.status == "assigned",
+                MallConsumption.paid_at >= start,
+                MallConsumption.paid_at <= end,
+            )
+        )
+        mall_rows = mall_result.all()  # (MallConsumption, distributor_id, current_org_id)
 
         org_map, org_name_map = await self._org_maps(
-            db, {did for _, did in rows}
+            db, {did for _, did in bill_rows} | {did for _, did, _ in mall_rows}
         )
-        org_level_map = await self._org_level_map(db, set(org_name_map.keys()))
+        org_ids = set(org_name_map.keys()) | {org_id for _, _, org_id in mall_rows}
+        org_level_map = await self._org_level_map(db, org_ids)
 
         by_org: dict[int | None, dict] = {}
-        for bill, did in rows:
+        all_distributors = set()
+        for bill, did in bill_rows:
             oid = org_map.get(did)
             agg = by_org.setdefault(oid, {"totalCents": 0, "count": 0, "members": set()})
             agg["totalCents"] += bill.paid_amount_cent
             agg["count"] += 1
             agg["members"].add(did)
+            all_distributors.add(did)
+        for source, did, oid in mall_rows:
+            agg = by_org.setdefault(oid, {"totalCents": 0, "count": 0, "members": set()})
+            agg["totalCents"] += source.performance_base_cent
+            agg["count"] += 1
+            agg["members"].add(did)
+            all_distributors.add(did)
 
         details = []
         for oid, data in sorted(by_org.items(), key=lambda x: -x[1]["totalCents"]):
             name = org_name_map.get(oid) if oid is not None else None
             level = org_level_map.get(oid) if oid is not None else None
-            details.append({
-                "组织": name or (f"Org {oid}" if oid is not None else "未分配组织"),
-                "层级": f"L{level}" if level is not None else "N/A",
-                "消费金额(元)": f"{data['totalCents'] / 100:.2f}",
-                "记录数": data["count"],
-                "分销员数": len(data["members"]),
-            })
+            details.append(
+                {
+                    "组织": name or (f"Org {oid}" if oid is not None else "未分配组织"),
+                    "层级": f"L{level}" if level is not None else "N/A",
+                    "消费金额(元)": f"{data['totalCents'] / 100:.2f}",
+                    "记录数": data["count"],
+                    "分销员数": len(data["members"]),
+                }
+            )
 
         return {
             "title": "分配明细",
             "summary": {
-                "总记录数": len(rows),
+                "总记录数": len(bill_rows) + len(mall_rows),
                 "总组织数": len(by_org),
-                "总分销员数": len({did for _, did in rows}),
+                "总分销员数": len(all_distributors),
             },
             "details": details,
         }

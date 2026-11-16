@@ -85,19 +85,45 @@
             未配置默认提成方式：{{ unconfigured.map((u) => u === 'intra_org' ? '组织内' : '组织管理').join('、') }}（未单独配置的人员无该部分提成）
           </div>
 
+          <div class="performance-semantics">
+            同一人员的旧账单与商城商品款先合并后命中原阶梯；正常绩效沿用旧提成金额字段。
+            可兑现额读取净额结果，已抵扣负向调整不会重复扣减。
+          </div>
           <el-table :data="estimateItems" size="small" empty-text="该组织暂无绩效估算">
             <el-table-column prop="name" label="姓名" width="140" />
             <el-table-column prop="ruleTypeLabel" label="提成类型" width="130" />
-            <el-table-column label="计算基数">
+            <el-table-column label="合并消费基数">
               <template #default="{ row }">{{ fmtCent(row.baseCent) }}</template>
             </el-table-column>
             <el-table-column label="比例">
               <template #default="{ row }">{{ (row.ratio * 100).toFixed(2) }}%</template>
             </el-table-column>
-            <el-table-column :label="settlement?.status === 'reviewed' ? '提成金额' : '提成金额（预估）'">
+            <el-table-column label="正常绩效（原提成金额）">
               <template #default="{ row }">
-                <span class="amount">{{ fmtCent(row.commissionCent) }}</span>
+                <span class="amount">{{ fmtCent(row.normalCommissionCent) }}</span>
               </template>
+            </el-table-column>
+            <el-table-column label="调整金额">
+              <template #default="{ row }">
+                <span :class="row.confirmedAdjustmentCent < 0 ? 'amount-negative' : 'amount-adjustment'">
+                  {{ fmtSignedCent(row.confirmedAdjustmentCent) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="已抵扣负向调整">
+              <template #default="{ row }">
+                <el-tooltip content="该金额已包含在调整金额中，不会再从可兑现额重复扣减" placement="top">
+                  <span>{{ fmtCent(row.appliedDebtCent) }}</span>
+                </el-tooltip>
+              </template>
+            </el-table-column>
+            <el-table-column label="可兑现">
+              <template #default="{ row }">
+                <span class="amount">{{ fmtCent(row.redeemableCent) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="待抵扣">
+              <template #default="{ row }">{{ fmtCent(row.pendingDebtCent) }}</template>
             </el-table-column>
             <el-table-column label="积分（1元=1积分）" width="150">
               <template #default="{ row }">
@@ -155,6 +181,68 @@
       </el-table>
     </el-card>
 
+    <el-card class="status-card" shadow="never" data-test="performance-adjustments">
+      <template #header>
+        <div class="adjustment-header">
+          <span>近期原期绩效差额</span>
+          <span class="adjustment-note">保留原期证据及审核状态；未生成结果行的差额仍可追溯</span>
+        </div>
+      </template>
+      <el-alert
+        v-if="adjustmentsError"
+        :title="adjustmentsError"
+        type="error"
+        show-icon
+        :closable="false"
+        class="adjustments-error"
+      >
+        <template #default>
+          <el-button link type="primary" @click="loadAdjustments()">重试</el-button>
+        </template>
+      </el-alert>
+      <el-table
+        v-loading="adjustmentsLoading"
+        :data="adjustments"
+        size="small"
+        empty-text="暂无绩效差额"
+      >
+        <el-table-column prop="originPeriod" label="原核算月" width="110" />
+        <el-table-column prop="beneficiaryId" label="人员ID" width="100" />
+        <el-table-column label="规则" width="120">
+          <template #default="{ row }">{{ ruleTypeLabel(row.ruleType) }}</template>
+        </el-table-column>
+        <el-table-column label="原期结果行" min-width="150">
+          <template #default="{ row }">
+            <span v-if="row.originResultId">结果 {{ row.originResultId }}</span>
+            <el-tag v-else size="small" type="warning">未生成结果行</el-tag>
+            <span class="evidence-reference">证据 {{ row.originEvidenceId }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="应调整" width="120" align="right">
+          <template #default="{ row }">{{ fmtSignedCent(row.deltaCent) }}</template>
+        </el-table-column>
+        <el-table-column label="待结转" width="120" align="right">
+          <template #default="{ row }">{{ fmtSignedCent(row.remainingCent) }}</template>
+        </el-table-column>
+        <el-table-column label="状态" width="130">
+          <template #default="{ row }">
+            <el-tag size="small" :type="adjustmentStatusType(row.status)">
+              {{ adjustmentStatusLabel(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="原期证据" width="120">
+          <template #default="{ row }">{{ evidenceStatusLabel(row.evidenceStatus) }}</template>
+        </el-table-column>
+        <el-table-column prop="reason" label="处理说明" min-width="170" show-overflow-tooltip />
+      </el-table>
+      <div v-if="adjustmentsNextCursor" class="adjustments-pagination">
+        <el-button size="small" :loading="adjustmentsLoading" @click="loadMoreAdjustments">
+          加载更多
+        </el-button>
+      </div>
+    </el-card>
+
     <!-- 打回原因 -->
     <el-dialog v-model="rejectVisible" title="打回核算" width="440px">
       <el-input v-model="rejectReason" type="textarea" :rows="3" placeholder="请填写打回原因（必填）" />
@@ -197,21 +285,61 @@ const settlement = ref(null)
 const settlementItems = ref([])
 const statusLoading = ref(false)
 const redeemingKey = ref('')
+const adjustments = ref([])
+const adjustmentsLoading = ref(false)
+const adjustmentsError = ref('')
+const adjustmentsNextCursor = ref(null)
 
 const rejectVisible = ref(false)
 const rejectReason = ref('')
 const rejecting = ref(false)
 
 const estimateItems = computed(() => {
-  const intra = (estimate.value.intraOrg || []).map((it) => ({
-    ...it, ruleType: 'intra_org', ruleTypeLabel: '组织内提成',
-  }))
-  const mgmt = (estimate.value.orgManagement || []).map((it) => ({
-    ...it, ruleType: 'org_management', ruleTypeLabel: '组织管理提成',
-  }))
+  const normalize = (item, ruleType, ruleTypeLabel) => {
+    const normal = Number(item.normalCommissionCent ?? item.commissionCent ?? 0)
+    const adjustment = Number(item.confirmedAdjustmentCent ?? 0)
+    return {
+      ...item,
+      ruleType,
+      ruleTypeLabel,
+      commissionCent: Number(item.commissionCent ?? normal),
+      normalCommissionCent: normal,
+      confirmedAdjustmentCent: adjustment,
+      appliedDebtCent: Number(item.appliedDebtCent ?? 0),
+      redeemableCent: Number(item.redeemableCent ?? Math.max(0, normal + adjustment)),
+      pendingDebtCent: Number(item.pendingDebtCent ?? 0),
+    }
+  }
+  const intra = (estimate.value.intraOrg || []).map((it) => normalize(it, 'intra_org', '组织内提成'))
+  const mgmt = (estimate.value.orgManagement || []).map((it) => normalize(it, 'org_management', '组织管理提成'))
   return [...intra, ...mgmt]
 })
 const unconfigured = computed(() => estimate.value.unconfigured || [])
+
+async function loadAdjustments({ cursor, append = false } = {}) {
+  adjustmentsLoading.value = true
+  adjustmentsError.value = ''
+  try {
+    const data = await performanceApi.listAdjustments({ cursor, pageSize: 20 })
+    const items = Array.isArray(data?.items) ? data.items : []
+    adjustments.value = append ? [...adjustments.value, ...items] : items
+    adjustmentsNextCursor.value = data?.nextCursor || null
+  } catch (error) {
+    adjustmentsError.value = error.response?.data?.message || '绩效差额加载失败'
+    if (!append) {
+      adjustments.value = []
+      adjustmentsNextCursor.value = null
+    }
+  } finally {
+    adjustmentsLoading.value = false
+  }
+}
+
+function loadMoreAdjustments() {
+  if (adjustmentsNextCursor.value) {
+    return loadAdjustments({ cursor: adjustmentsNextCursor.value, append: true })
+  }
+}
 
 function flatten(n, acc = []) {
   acc.push(n)
@@ -247,7 +375,7 @@ function selectPeriod(p) {
 
 async function loadAll() {
   await loadSettleablePeriods()
-  await loadSettlementStatus()
+  await Promise.all([loadSettlementStatus(), loadAdjustments()])
   treeLoading.value = true
   try {
     const data = await orgApi.getTree()
@@ -400,8 +528,29 @@ function statusLabel(s) {
 function statusType(s) {
   return { pending: 'warning', reviewed: 'success', rejected: 'danger' }[s] || 'info'
 }
+function adjustmentStatusLabel(s) {
+  return {
+    proposed: '待审核',
+    manual_required: '待人工核实',
+    reviewed: '已确认',
+    rejected: '已拒绝',
+  }[s] || '未知'
+}
+function adjustmentStatusType(s) {
+  return { proposed: 'warning', manual_required: 'warning', reviewed: 'success', rejected: 'info' }[s] || 'info'
+}
+function evidenceStatusLabel(s) {
+  return { complete: '证据完整', manual_required: '待补证/核实' }[s] || '未知'
+}
+function ruleTypeLabel(s) {
+  return { intra_org: '组织内提成', org_management: '组织管理提成' }[s] || '未知规则'
+}
 function fmtCent(c) {
-  return `¥${((c || 0) / 100).toFixed(2)}`
+  return `¥${(Number(c || 0) / 100).toFixed(2)}`
+}
+function fmtSignedCent(c) {
+  const amount = Number(c || 0)
+  return `${amount < 0 ? '-' : ''}¥${(Math.abs(amount) / 100).toFixed(2)}`
 }
 function fmtPoints(points) {
   return Number(points || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })
@@ -419,7 +568,15 @@ onMounted(loadAll)
 .org-title { font-size: 16px; font-weight: 600; color: #303133; }
 .header-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .config-hint { color: #e6a23c; font-size: 12px; margin-bottom: 10px; }
+.performance-semantics { margin: 0 0 10px; color: var(--app-text-secondary); font-size: 12px; line-height: 1.6; }
 .amount { color: var(--el-color-primary); font-weight: 600; }
+.amount-negative { color: var(--el-color-danger); font-weight: 600; }
+.amount-adjustment { color: var(--el-color-success); font-weight: 600; }
+.adjustment-header { display: flex; align-items: center; gap: 12px; }
+.adjustment-note { color: var(--app-text-secondary); font-size: 12px; font-weight: 400; }
+.adjustments-error { margin-bottom: 10px; }
+.adjustments-pagination { display: flex; justify-content: flex-end; margin-top: 10px; }
+.evidence-reference { margin-left: 8px; color: var(--app-text-secondary); font-size: 12px; }
 .points-balance { color: #16845b; font-weight: 600; }
 .points-redeemed { color: #909399; font-weight: 600; }
 .redeemed-tag { margin-left: 6px; }

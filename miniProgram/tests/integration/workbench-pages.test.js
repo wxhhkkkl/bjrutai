@@ -97,7 +97,7 @@ test('profile exposes role-gated customer binding and staff invite entries', () 
   assert.match(source, /id:\s*['"]article-list['"]/) // 其他服务保留
   assert.match(source, /title:\s*['"]文章资讯['"]/)
   assert.match(source, /description:\s*['"]阅读最新内容['"]/)
-  assert.match(source, /profile-article-icon\.png/)
+  assert.match(source, /profile-article-icon\.jpg/)
   assert.ok(source.indexOf("id: 'article-list'") > source.indexOf("id: 'contribution-records'"))
   assert.match(source, /adminOnly/)
   assert.match(source, /businessOnly/)

@@ -1,0 +1,33 @@
+<view class="mall-flow-page mall-logistics-page">
+  <flow-navigation title="物流信息" bind:back="goBack" />
+  <scroll-view class="mall-flow-scroll" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}" refresher-enabled="{{true}}" refresher-triggered="{{refreshing}}" bindrefresherrefresh="onPullDownRefresh">
+    <view wx:if="{{state === 'loading'}}" class="mall-flow-state"><van-icon name="replay" size="30px" color="#1677FF" /><text>正在读取物流信息</text></view>
+    <view wx:elif="{{state === 'recoverable-error' || state === 'forbidden'}}" class="mall-flow-state"><text class="mall-flow-state__title">物流信息暂不可用</text><text>{{stateMessage}}</text><button class="mall-primary-button tap-target" bindtap="retry" hover-class="tap-feedback">重新查询</button></view>
+    <block wx:elif="{{state === 'success' && snapshot}}">
+      <view class="mall-logistics-summary">
+        <view class="mall-logistics-summary__icon"><van-icon name="logistics" size="27px" color="#1677FF" /></view>
+        <view class="mall-logistics-summary__copy"><text class="mall-logistics-summary__status">{{statusLabel}}</text><text class="mall-logistics-summary__source">{{sourceLabel}}</text></view>
+      </view>
+      <view class="mall-logistics-disclaimer">物流轨迹用于运输进度参考，签收轨迹不代表平台确认收货或订单已完成。</view>
+      <view class="mall-detail-card mall-logistics-number">
+        <view class="mall-detail-card__heading"><van-icon name="records" size="19px" color="#1677FF" /><text>运单信息</text></view>
+        <view class="mall-logistics-number__row"><text>承运商</text><text>{{snapshot.courierName}}</text></view>
+        <view class="mall-logistics-number__row"><text>运单号</text><text>{{snapshot.trackingNo}}</text></view>
+        <view class="mall-logistics-number__row"><text>最近更新</text><text>{{snapshot.updatedAtText || '暂无更新'}}</text></view>
+        <text wx:if="{{snapshot.estimatedArrivalText}}" class="mall-logistics-estimate">{{snapshot.estimatedArrivalText}}</text>
+        <view wx:if="{{snapshot.mapUrl}}" class="mall-logistics-map-entry tap-target" bindtap="openMap" hover-class="tap-feedback">
+          <text>地图轨迹</text><text>查看全屏地图</text>
+        </view>
+      </view>
+      <view class="mall-detail-card mall-logistics-events">
+        <view class="mall-detail-card__heading"><van-icon name="clock-o" size="19px" color="#1677FF" /><text>物流轨迹</text></view>
+        <view wx:if="{{!events.length}}" class="mall-logistics-empty"><van-icon name="underway-o" size="25px" color="#A5B0A8" /><text>{{statusLabel}}，有新轨迹后可下拉刷新</text></view>
+        <view wx:for="{{events}}" wx:key="index" class="mall-logistics-event">
+          <view class="mall-logistics-event__rail"><view class="mall-logistics-event__dot {{index === 0 ? 'mall-logistics-event__dot--latest' : ''}}" /><view wx:if="{{index < events.length - 1}}" class="mall-logistics-event__line" /></view>
+          <view class="mall-logistics-event__content"><text class="mall-logistics-event__description">{{item.displayDescription}}</text><text class="mall-logistics-event__time">{{item.displayTime}}</text><text wx:if="{{item.areaName}}" class="mall-logistics-event__area">{{item.areaName}}</text></view>
+        </view>
+      </view>
+      <view class="mall-logistics-footer">查询来源：{{sourceLabel}}<text wx:if="{{snapshot.errorCode}}"> · {{snapshot.errorCode}}</text></view>
+    </block>
+  </scroll-view>
+</view>

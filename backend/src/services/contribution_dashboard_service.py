@@ -1,8 +1,8 @@
-"""Admin 消费业绩 dashboard service — aggregation from bills (业绩贡献=消费金额).
+"""Admin 消费业绩 dashboard service — unified contribution sources.
 
 Provides stats, monthly trend, org/person rankings, bound-count rankings and
-latest-30 bill details, all aggregated in real time from bills. Amounts are in
-integer cents.
+latest-30 cross-source details. Legacy bills and mall goods bases remain
+separate source records. Amounts are in integer cents.
 """
 
 from datetime import datetime
@@ -64,7 +64,9 @@ async def _all_distributor_ids(db: AsyncSession) -> set[int]:
     return set(result.scalars().all())
 
 
-async def _person_map(db: AsyncSession, distributor_ids) -> dict[int, tuple[Optional[str], Optional[int]]]:
+async def _person_map(
+    db: AsyncSession, distributor_ids
+) -> dict[int, tuple[Optional[str], Optional[int]]]:
     if not distributor_ids:
         return {}
     result = await db.execute(
@@ -78,7 +80,9 @@ async def _person_map(db: AsyncSession, distributor_ids) -> dict[int, tuple[Opti
 async def _org_name_map(db: AsyncSession, org_ids) -> dict[int, Optional[str]]:
     if not org_ids:
         return {}
-    result = await db.execute(select(Organization.id, Organization.name).where(Organization.id.in_(org_ids)))
+    result = await db.execute(
+        select(Organization.id, Organization.name).where(Organization.id.in_(org_ids))
+    )
     return dict(result.all())
 
 
@@ -120,12 +124,16 @@ async def get_dashboard(
         org_count_stmt = org_count_stmt.where(Organization.id.in_(org_ids))
     org_count = (await db.execute(org_count_stmt)).scalar() or 0
 
-    person_stmt = select(func.count(Distributor.id)).where(Distributor.status == DistributorStatus.ACTIVE)
+    person_stmt = select(func.count(Distributor.id)).where(
+        Distributor.status == DistributorStatus.ACTIVE
+    )
     if dist_ids is not None:
         person_stmt = person_stmt.where(Distributor.id.in_(dist_ids))
     person_count = (await db.execute(person_stmt)).scalar() or 0
 
-    bound_stmt = select(func.count(Customer.id)).where(Customer.binding_status == BindingStatus.BOUND)
+    bound_stmt = select(func.count(Customer.id)).where(
+        Customer.binding_status == BindingStatus.BOUND
+    )
     if dist_ids is not None:
         bound_stmt = bound_stmt.where(Customer.distributor_id.in_(dist_ids))
     bound_count = (await db.execute(bound_stmt)).scalar() or 0
@@ -185,8 +193,13 @@ async def get_dashboard(
         })
 
     return {
-        "stats": {"monthlyAmountCent": monthly, "totalAmountCent": total, "orgCount": org_count,
-                  "personCount": person_count, "boundUserCount": bound_count},
+        "stats": {
+            "monthlyAmountCent": monthly,
+            "totalAmountCent": total,
+            "orgCount": org_count,
+            "personCount": person_count,
+            "boundUserCount": bound_count,
+        },
         "trend": trend,
         "latest": latest,
     }
@@ -203,15 +216,29 @@ async def org_ranking(
         org_ids = set((await db.execute(select(Organization.id))).scalars().all())
     org_totals = await consumption_by_organization(db, org_ids, month)
 
-    pairs = sorted(((cents, oid) for oid, cents in org_totals.items()), key=lambda x: x[0], reverse=True)
+    pairs = sorted(
+        ((cents, oid) for oid, cents in org_totals.items()), key=lambda x: x[0], reverse=True
+    )
     name_map = await _org_name_map(db, {oid for _, oid in pairs})
     cnt_by_org = {oid: cents for cents, oid in pairs}
     ranked = _assign_ranks(pairs)
-    items = [{"rank": rank, "orgId": str(oid), "orgName": name_map.get(oid), "amountCent": cnt_by_org[oid]}
-             for rank, oid in ranked]
+    items = [
+        {
+            "rank": rank,
+            "orgId": str(oid),
+            "orgName": name_map.get(oid),
+            "amountCent": cnt_by_org[oid],
+        }
+        for rank, oid in ranked
+    ]
     total = len(items)
-    return {"items": items[(page - 1) * page_size: page * page_size], "total": total,
-            "page": page, "pageSize": page_size, "hasMore": page * page_size < total}
+    return {
+        "items": items[(page - 1) * page_size : page * page_size],
+        "total": total,
+        "page": page,
+        "pageSize": page_size,
+        "hasMore": page * page_size < total,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -227,20 +254,33 @@ async def persons_ranking(
     )
     person_map = await _person_map(db, {did for did, cents in consumption.items() if cents > 0})
     org_name_map = await _org_name_map(db, {o for _, o in person_map.values()})
-    pairs = sorted(((cents, did) for did, cents in consumption.items() if cents > 0),
-                   key=lambda x: x[0], reverse=True)
+    pairs = sorted(
+        ((cents, did) for did, cents in consumption.items() if cents > 0),
+        key=lambda x: x[0],
+        reverse=True,
+    )
     ranked = _assign_ranks(pairs)
     items = []
     for rank, did in ranked:
         name, c_org = person_map.get(did, (None, None))
-        items.append({
-            "rank": rank, "distributorId": str(did), "name": name,
-            "orgId": str(c_org) if c_org else None, "orgName": org_name_map.get(c_org),
-            "amountCent": consumption[did],
-        })
+        items.append(
+            {
+                "rank": rank,
+                "distributorId": str(did),
+                "name": name,
+                "orgId": str(c_org) if c_org else None,
+                "orgName": org_name_map.get(c_org),
+                "amountCent": consumption[did],
+            }
+        )
     total = len(items)
-    return {"items": items[(page - 1) * page_size: page * page_size], "total": total,
-            "page": page, "pageSize": page_size, "hasMore": page * page_size < total}
+    return {
+        "items": items[(page - 1) * page_size : page * page_size],
+        "total": total,
+        "page": page,
+        "pageSize": page_size,
+        "hasMore": page * page_size < total,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -268,17 +308,24 @@ async def bindings_ranking(
         items = []
         for rank, did in ranked:
             name, c_org = person_map.get(did, (None, None))
-            items.append({
-                "rank": rank, "distributorId": str(did), "name": name,
-                "orgId": str(c_org) if c_org else None, "orgName": org_name_map.get(c_org),
-                "boundCount": cnt_by_person[did],
-            })
+            items.append(
+                {
+                    "rank": rank,
+                    "distributorId": str(did),
+                    "name": name,
+                    "orgId": str(c_org) if c_org else None,
+                    "orgName": org_name_map.get(c_org),
+                    "boundCount": cnt_by_person[did],
+                }
+            )
     else:  # org scope: sum bound customers across the org subtree
-        org_rows = (await db.execute(
-            select(Customer.distributor_id.label("did"), func.count(Customer.id).label("cnt"))
-            .where(Customer.binding_status == BindingStatus.BOUND)
-            .group_by(Customer.distributor_id)
-        )).all()
+        org_rows = (
+            await db.execute(
+                select(Customer.distributor_id.label("did"), func.count(Customer.id).label("cnt"))
+                .where(Customer.binding_status == BindingStatus.BOUND)
+                .group_by(Customer.distributor_id)
+            )
+        ).all()
         did_to_org = await _person_map(db, {did for did, _ in org_rows})
         org_ids_scope = await _subtree_org_ids(db, org_id)
         org_totals: dict[int, int] = {}
@@ -293,9 +340,21 @@ async def bindings_ranking(
         name_map = await _org_name_map(db, {oid for oid, _ in sorted_orgs})
         cnt_by_org = dict(sorted_orgs)
         ranked = _assign_ranks([(cnt, oid) for oid, cnt in sorted_orgs])
-        items = [{"rank": rank, "orgId": str(oid), "orgName": name_map.get(oid), "boundCount": cnt_by_org[oid]}
-                 for rank, oid in ranked]
+        items = [
+            {
+                "rank": rank,
+                "orgId": str(oid),
+                "orgName": name_map.get(oid),
+                "boundCount": cnt_by_org[oid],
+            }
+            for rank, oid in ranked
+        ]
 
     total = len(items)
-    return {"items": items[(page - 1) * page_size: page * page_size], "total": total,
-            "page": page, "pageSize": page_size, "hasMore": page * page_size < total}
+    return {
+        "items": items[(page - 1) * page_size : page * page_size],
+        "total": total,
+        "page": page,
+        "pageSize": page_size,
+        "hasMore": page * page_size < total,
+    }
