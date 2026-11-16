@@ -338,9 +338,8 @@ async def test_blue_invoice_requires_current_amount_and_verified_file_and_replay
 async def test_partial_red_then_full_red_replacement_preserves_the_invoice_chain(
     client, db_session, monkeypatch
 ):
-    from src.schemas.mall_aftersale import AftersaleDecision
     from src.schemas.mall_catalog import VersionAction
-    from src.services.mall_aftersale_service import apply_aftersale, decide_aftersale
+    from src.services.mall_aftersale_service import apply_aftersale
     from src.services.mall_refund_service import apply_verified_refund, execute_refund
     from tests.unit.test_mall_aftersale_service import admin_actor
     from tests.unit.test_mall_aftersale_service import request as aftersale_request
@@ -412,15 +411,6 @@ async def test_partial_red_then_full_red_replacement_preserves_the_invoice_chain
 
     aftersale = await apply_aftersale(
         db_session, buyer, aftersale_request(order, items[1]), key="invoice-partial-refund-apply-01"
-    )
-    aftersale = await decide_aftersale(
-        db_session,
-        finance,
-        aftersale.id,
-        AftersaleDecision(
-            expectedVersion=aftersale.version, decision="approve", reason="部分退款核验"
-        ),
-        key="invoice-partial-refund-review-01",
     )
     payment = await db_session.get(MallPayment, order.active_payment_id)
     refund = await execute_refund(

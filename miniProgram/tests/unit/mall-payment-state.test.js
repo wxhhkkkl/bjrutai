@@ -73,3 +73,33 @@ test('unknown query results stay unknown and a disabled invocation never calls W
   assert.equal(result.status, 'unknown')
   assert.equal(invocationCount, 0)
 })
+
+test('prepay preparation is awaited so one payment tap opens the sheet without a status re-check', async () => {
+  let posts = 0
+  let invocationCount = 0
+  const service = createMallPaymentService({
+    getAccessToken: () => 'buyer-token',
+    sleep: async () => {},
+    requestPayment: async (params) => {
+      invocationCount += 1
+      assert.equal(params.timeStamp, '2')
+    },
+    request: async (path, options = {}) => {
+      if (options.method === 'POST') {
+        posts += 1
+        return posts === 1
+          ? { canInvoke: false, invokeParams: null }
+          : { canInvoke: true, invokeParams: { timeStamp: '2', nonceStr: 'n' } }
+      }
+      if (path.endsWith('/payment')) return { status: 'pending', amountCent: 1200 }
+      return { id: '31', status: 'pending_payment', paymentStatus: 'pending', paidAmountCent: 0 }
+    }
+  })
+
+  const result = await service.payOrder('31', 1, 'mall-payment-key-0004')
+
+  assert.equal(posts, 2)
+  assert.equal(invocationCount, 1)
+  assert.equal(result.requestPaymentOutcome, 'submitted')
+  assert.equal(result.status, 'pending')
+})

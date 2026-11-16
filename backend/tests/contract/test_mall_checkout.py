@@ -38,6 +38,7 @@ async def test_order_creation_replay_ownership_and_snapshot_reads(client, db_ses
     body = {
         "quoteToken": quote["quoteToken"],
         "consentVersion": "mall-test-v1",
+        "consentConfirmed": True,
         "buyerNote": "测试备注",
     }
     root = "/api/v1/mall/orders"

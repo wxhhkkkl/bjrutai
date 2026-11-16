@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from ...api.deps import get_admin_user
 from ...core.error_handler import _build_response
 from ...core.exceptions import BadRequestException
+from ...integrations.cos_client import get_cos_client
 from ...services.image_upload_service import upload_image_via_cos
 
 router = APIRouter(prefix="/admin/articles", tags=["cos-upload"])

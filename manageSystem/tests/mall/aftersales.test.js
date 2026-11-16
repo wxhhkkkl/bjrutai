@@ -6,16 +6,20 @@ import Aftersales from '@/pages/mall/aftersales/index.vue'
 import Detail from '@/pages/mall/aftersales/detail.vue'
 import { useAuthStore } from '@/stores/auth'
 import * as api from '@/api/mall-aftersales'
+import { capturedToasts } from './toast'
 
+vi.mock('element-plus', async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, ElMessage: vi.fn() }
+})
 vi.mock('@/api/mall-aftersales', () => ({
   listAdminAftersales: vi.fn(),
   getAdminAftersale: vi.fn(),
   getAdminMallRefund: vi.fn(),
+  getAdminReturnLogistics: vi.fn(),
   decideAftersale: vi.fn(),
   receiveAftersaleReturn: vi.fn(),
   executeAftersaleRefund: vi.fn(),
-  queryAdminMallRefund: vi.fn(),
-  retryAdminMallRefund: vi.fn(),
   getAftersaleProofAccess: vi.fn(),
 }))
 vi.mock('vue-router', () => ({
@@ -68,6 +72,24 @@ beforeEach(() => {
   })
   api.getAdminAftersale.mockResolvedValue(structuredClone(record))
   api.getAdminMallRefund.mockResolvedValue(null)
+  api.getAdminReturnLogistics.mockResolvedValue({
+    aftersaleId: '8',
+    orderId: '9',
+    aftersaleVersion: 3,
+    provider: 'kuaidi100',
+    source: null,
+    courierCode: 'yuantong',
+    trackingNo: 'YT202611130001',
+    queryStatus: 'pending',
+    stateCode: null,
+    stateName: null,
+    events: [],
+    updatedAt: null,
+    nextQueryAt: null,
+    mapAvailable: false,
+    mapUrl: null,
+    errorCode: null,
+  })
 })
 
 it('filters the server page by an applied status and drops stale rows on failure', async () => {
@@ -81,7 +103,7 @@ it('filters the server page by an applied status and drops stale rows on failure
   })
   api.listAdminAftersales.mockRejectedValueOnce(new Error('权限已撤销'))
   await wrapper.vm.search()
-  expect(wrapper.text()).toContain('权限已撤销')
+  expect(capturedToasts()).toContain('权限已撤销')
   expect(wrapper.text()).not.toContain('A-TEST-8')
   wrapper.unmount()
 })
@@ -93,6 +115,23 @@ it('shows no review or finance controls to an aftersale reader', async () => {
   expect(wrapper.find('[data-test="approve"]').exists()).toBe(false)
   expect(wrapper.find('[data-test="reject"]').exists()).toBe(false)
   expect(wrapper.find('[data-test="execute-refund"]').exists()).toBe(false)
+  wrapper.unmount()
+})
+
+it('shows the return courier company and its return logistics card', async () => {
+  api.getAdminAftersale.mockResolvedValueOnce({
+    ...structuredClone(record),
+    status: 'awaiting_receipt',
+    returnCompany: 'yuantong',
+    returnTrackingNo: 'YT202611130001',
+  })
+  const wrapper = page(Detail, ['mall.aftersales.read'])
+  await flushPromises()
+  expect(wrapper.text()).toContain('退货快递公司')
+  expect(wrapper.text()).toContain('圆通速递')
+  expect(wrapper.text()).toContain('退货物流轨迹')
+  expect(wrapper.text()).toContain('YT202611130001')
+  expect(api.getAdminReturnLogistics).toHaveBeenCalledWith('8')
   wrapper.unmount()
 })
 
@@ -114,10 +153,10 @@ it('retries an uncertain review with the same body and idempotency key', async (
     decision: 'approve',
     reason: '核实后同意退回',
   })
-  expect(wrapper.text()).toContain('结果未确认')
+  expect(capturedToasts().join('')).toContain('结果未确认，请重试原操作')
   await wrapper.vm.retry()
   expect(api.decideAftersale.mock.calls[1]).toEqual(original)
-  expect(wrapper.text()).toContain('审核结果已保存')
+  expect(capturedToasts().join('')).toContain('审核结果已保存')
   wrapper.unmount()
 })
 
@@ -143,7 +182,7 @@ it('sends only positively inspected quantities for a partial return receipt', as
     sellableItems: [{ aftersaleItemId: '80', quantity: 1 }],
     reason: '一件可售，一件损坏',
   })
-  expect(wrapper.text()).toContain('库存只按可售数量回补')
+  expect(capturedToasts().join('')).toContain('库存只按可售数量回补')
   wrapper.unmount()
 })
 
@@ -161,7 +200,7 @@ it('labels refund execution as queued and never as money received', async () => 
     id: '8',
     expectedVersion: 3,
   })
-  expect(wrapper.text()).toContain('等待渠道核实结果')
+  expect(capturedToasts().join('')).toContain('已发起退款，正在等待支付渠道处理')
   expect(wrapper.text()).not.toContain('退款到账成功')
   wrapper.unmount()
 })
@@ -183,7 +222,7 @@ it('previews an attached proof only through a short-lived permissioned access UR
   wrapper.unmount()
 })
 
-it('shows an unknown channel refund, queues a query, and allows same-number recovery', async () => {
+it('labels an unknown channel refund as unconfirmed with no recovery controls', async () => {
   api.getAdminAftersale.mockResolvedValue({
     ...structuredClone(record),
     status: 'refunding',
@@ -194,8 +233,6 @@ it('shows an unknown channel refund, queues a query, and allows same-number reco
     status: 'unknown',
     version: 4,
   })
-  api.queryAdminMallRefund.mockResolvedValue({ status: 'pending' })
-  api.retryAdminMallRefund.mockResolvedValue({ status: 'pending' })
   const wrapper = page(Detail, [
     'mall.aftersales.read',
     'mall.refunds.read',
@@ -203,21 +240,9 @@ it('shows an unknown channel refund, queues a query, and allows same-number reco
     'mall.refunds.execute',
   ])
   await flushPromises()
-  expect(wrapper.text()).toContain('结果未知')
-  wrapper.vm.retryReason = '此前请求超时，先由同号逻辑恢复'
-  await wrapper.vm.queueRefundQuery()
-  expect(api.queryAdminMallRefund.mock.calls[0][0]).toEqual({
-    id: '15',
-    expectedVersion: 4,
-  })
-  expect(wrapper.text()).toContain('查证已排入队列')
-  await wrapper.vm.retryRefund()
-  expect(api.retryAdminMallRefund.mock.calls[0][0]).toEqual({
-    id: '15',
-    expectedVersion: 4,
-    reason: '此前请求超时，先由同号逻辑恢复',
-  })
-  expect(wrapper.text()).toContain('同一商户退款号')
+  expect(wrapper.text()).toContain('退款结果暂时无法确认，请联系管理员核对后再处理。')
+  expect(wrapper.find('[data-test="query-refund"]').exists()).toBe(false)
+  expect(wrapper.find('[data-test="retry-refund"]').exists()).toBe(false)
   wrapper.unmount()
 })
 
@@ -239,9 +264,9 @@ it('keeps abnormal refunds in manual review and hides automatic retry', async ()
     'mall.refunds.execute',
   ])
   await flushPromises()
-  expect(wrapper.text()).toContain('渠道异常，资金占用保留')
+  expect(wrapper.text()).toContain('退款处理遇到异常，请联系管理员核实。')
   expect(wrapper.find('[data-test="retry-refund"]').exists()).toBe(false)
-  expect(wrapper.find('[data-test="query-refund"]').exists()).toBe(true)
+  expect(wrapper.find('[data-test="query-refund"]').exists()).toBe(false)
   wrapper.unmount()
 })
 
@@ -267,10 +292,10 @@ it('ignores an older refund read after selecting another aftersale', async () =>
   await flushPromises()
   await wrapper.setProps({ id: '10' })
   await flushPromises()
-  expect(wrapper.text()).toContain('结果未知，待查证')
+  expect(wrapper.text()).toContain('退款结果暂时无法确认')
   finishOld({ id: '15', status: 'prepared', version: 1 })
   await flushPromises()
-  expect(wrapper.text()).toContain('结果未知，待查证')
+  expect(wrapper.text()).toContain('退款结果暂时无法确认')
   expect(wrapper.text()).not.toContain('待处理')
   wrapper.unmount()
 })

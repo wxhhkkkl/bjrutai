@@ -68,7 +68,72 @@ def test_payment_runtime_is_closed_and_rejects_changed_original_subject(monkeypa
         payment_runtime(original)
 
 
-def test_payment_worker_handler_registration_is_closed_by_default():
+def test_payment_worker_handler_registration_is_closed_by_default(monkeypatch):
+    from src.core.config import get_settings
     from src.services.mall_payment_runtime import payment_handlers
 
+    monkeypatch.setattr(get_settings(), "mall_gateway_mode", "test")
+    monkeypatch.setattr(get_settings(), "mall_gateway_outbound_enabled", False)
     assert payment_handlers(None) == {}
+
+
+def test_data_release_gate_fails_closed_and_production_requires_governance_references():
+    # Feature flag alone never enables anything.
+    dev = Settings(_env_file=None, mall_data_release_enabled=True)
+    assert dev.mall_data_release_retention_policy_ref == ""
+    assert dev.mall_data_release_notice_approved_version == ""
+    # Production cannot enable raw release without both approved references.
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            app_environment="production",
+            mall_data_release_enabled=True,
+        )
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            app_environment="production",
+            mall_data_release_enabled=True,
+            mall_data_release_retention_policy_ref="approved-retention-v1",
+        )
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            app_environment="production",
+            mall_data_release_enabled=True,
+            mall_data_release_notice_approved_version="notice-v1",
+        )
+    configured = Settings(
+        _env_file=None,
+        app_environment="production",
+        mall_data_release_enabled=True,
+        mall_data_release_retention_policy_ref="approved-retention-v1",
+        mall_data_release_notice_approved_version="notice-v1",
+    )
+    assert configured.mall_data_release_enabled
+
+
+def test_data_release_runtime_ready_requires_flag_and_both_references(monkeypatch):
+    from src.core.config import get_settings
+    from src.services.mall_data_release_service import raw_data_release_runtime_ready
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "mall_data_release_enabled", True, raising=False)
+    monkeypatch.setattr(
+        settings, "mall_data_release_retention_policy_ref", "approved-retention-v1", raising=False
+    )
+    monkeypatch.setattr(
+        settings, "mall_data_release_notice_approved_version", "notice-v1", raising=False
+    )
+    assert raw_data_release_runtime_ready(settings)
+
+    monkeypatch.setattr(settings, "mall_data_release_enabled", False, raising=False)
+    assert not raw_data_release_runtime_ready(settings)
+    monkeypatch.setattr(settings, "mall_data_release_enabled", True, raising=False)
+    monkeypatch.setattr(settings, "mall_data_release_retention_policy_ref", "", raising=False)
+    assert not raw_data_release_runtime_ready(settings)
+    monkeypatch.setattr(
+        settings, "mall_data_release_retention_policy_ref", "approved-retention-v1", raising=False
+    )
+    monkeypatch.setattr(settings, "mall_data_release_notice_approved_version", "", raising=False)
+    assert not raw_data_release_runtime_ready(settings)

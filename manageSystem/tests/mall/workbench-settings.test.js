@@ -5,8 +5,15 @@ import ElementPlus from 'element-plus'
 import Workbench from '@/pages/mall/workbench/index.vue'
 import DeliverySettings from '@/pages/mall/settings/delivery.vue'
 import TradeSettings from '@/pages/mall/settings/trade.vue'
+import FreightSettings from '@/pages/mall/settings/freight.vue'
 import { useAuthStore } from '@/stores/auth'
 import * as api from '@/api/mall-settings'
+import { capturedToasts } from './toast'
+
+vi.mock('element-plus', async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, ElMessage: vi.fn() }
+})
 
 const routerMocks = vi.hoisted(() => ({ push: vi.fn() }))
 vi.mock('vue-router', () => ({
@@ -97,13 +104,12 @@ it('keeps failed workbench reads explicit instead of displaying zero counts', as
   const wrapper = page(Workbench, ['mall.orders.read'])
   await flushPromises()
 
-  expect(wrapper.get('[data-test="workbench-error"]').text()).toContain(
-    '工作台暂不可用'
-  )
+  expect(capturedToasts()).toContain('工作台暂不可用')
+  expect(wrapper.find('[data-test="workbench-reload"]').exists()).toBe(true)
   expect(wrapper.find('[data-test="workbench-summary"]').exists()).toBe(false)
   await wrapper.get('[data-test="workbench-reload"]').trigger('click')
   await flushPromises()
-  expect(wrapper.find('[data-test="workbench-error"]').exists()).toBe(false)
+  expect(wrapper.find('[data-test="workbench-summary"]').exists()).toBe(true)
   expect(
     wrapper.get('[data-test="work-item-pendingShipment"]').text()
   ).toContain('3')
@@ -167,6 +173,48 @@ it('retries the original settings body and idempotency key after an unknown save
   wrapper.unmount()
 })
 
+it('does not resend read-only warehouse address details from the freight settings form', async () => {
+  api.getMallSettings.mockResolvedValue({
+    ...structuredClone(settings),
+    dispatchAddress: {
+      contactName: '仓库联系人',
+      phone: '13800000001',
+      regionCodes: ['110000', '110100', '110101'],
+      regionNames: ['北京市', '北京市', '昌平区'],
+      addressLine: '仓库完整地址',
+    },
+    returnAddress: {
+      contactName: '退货联系人',
+      phone: '13800000002',
+      regionCodes: ['110000', '110100', '110101'],
+      regionNames: ['北京市', '北京市', '昌平区'],
+      addressLine: '退货完整地址',
+    },
+  })
+  const pinia = createPinia()
+  useAuthStore(pinia).permissions = ['mall.settings.read', 'mall.settings.write']
+  const wrapper = mount(FreightSettings, {
+    global: { plugins: [pinia, ElementPlus], stubs: { teleport: true } },
+  })
+  await flushPromises()
+
+  const edit = wrapper
+    .findAll('button')
+    .find((button) => button.text().includes('编辑'))
+  await edit.trigger('click')
+  await flushPromises()
+  await wrapper.get('form').trigger('submit')
+  await flushPromises()
+
+  expect(api.saveMallSettings).toHaveBeenCalledTimes(1)
+  const [body] = api.saveMallSettings.mock.calls[0]
+  expect(body.settings).not.toHaveProperty('dispatchAddress')
+  expect(body.settings).not.toHaveProperty('returnAddress')
+  expect(body).not.toHaveProperty('dispatchAddress')
+  expect(body).not.toHaveProperty('returnAddress')
+  wrapper.unmount()
+})
+
 it('requires an explicit address replacement and never resends the untouched masked address', async () => {
   const wrapper = page(DeliverySettings, [
     'mall.settings.read',
@@ -179,7 +227,8 @@ it('requires an explicit address replacement and never resends the untouched mas
   expect(wrapper.text()).not.toContain('北京市东城区真实路段')
   expect(wrapper.find('[data-test="dispatch-name"]').exists()).toBe(false)
 
-  await wrapper.get('[data-test="replace-dispatch"] input').setValue(true)
+  await wrapper.get('[data-test="edit-dispatch-address"]').trigger('click')
+  await flushPromises()
   await wrapper.get('[data-test="dispatch-name"]').setValue('仓库联系人')
   await wrapper.get('[data-test="dispatch-phone"]').setValue('13800138000')
   await wrapper
@@ -188,12 +237,11 @@ it('requires an explicit address replacement and never resends the untouched mas
   await wrapper.get('[data-test="dispatch-region-0"]').setValue('110000')
   await wrapper.get('[data-test="dispatch-region-1"]').setValue('110100')
   await wrapper.get('[data-test="dispatch-region-2"]').setValue('110101')
-  await wrapper.get('[data-test="settings-reason"]').setValue('更换发货仓')
-  await wrapper.get('[data-test="save-delivery-settings"]').trigger('click')
+  await wrapper.get('[data-test="save-dispatch-address"]').trigger('click')
   await flushPromises()
 
   const [body] = api.saveMallSettings.mock.calls[0]
-  expect(body.dispatchAddress).toEqual({
+  expect(body.dispatchAddress).toMatchObject({
     contactName: '仓库联系人',
     phone: '13800138000',
     regionCodes: ['110000', '110100', '110101'],

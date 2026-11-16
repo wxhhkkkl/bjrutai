@@ -105,8 +105,12 @@ Page({
     this.setData({ consentConfirmed: !this.data.consentConfirmed, stateMessage: '', focusField: '', errorTarget: '' })
   },
 
-  onTitleInput(event) { this.setData({ title: String(event.detail && event.detail.value || '').slice(0, 200), stateMessage: '', focusField: '', errorTarget: '' }) },
-  onTaxNoInput(event) { this.setData({ taxNo: String(event.detail && event.detail.value || '').trim().slice(0, 32).toUpperCase(), stateMessage: '', focusField: '', errorTarget: '' }) },
+  onTitleInput(event) { this.setData({ title: String(event.detail && event.detail.value || '').slice(0, 200), stateMessage: '', errorTarget: '' }) },
+  onTaxNoInput(event) { this.setData({ taxNo: String(event.detail && event.detail.value || '').trim().slice(0, 32).toUpperCase(), stateMessage: '', errorTarget: '' }) },
+  onFieldBlur(event) {
+    const field = event && event.currentTarget && event.currentTarget.dataset.field
+    if (field && this.data.focusField === field) this.setData({ focusField: '' })
+  },
   buildApplication() {
     const title = String(this.data.title || '').trim()
     const taxNo = String(this.data.taxNo || '').trim().toUpperCase()

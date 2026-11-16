@@ -81,6 +81,8 @@ def test_csv_and_xlsx_export_escape_formula_text_and_never_invent_fee_columns():
     csv_text = csv_content.decode("utf-8-sig")
     assert "'=1+1" in csv_text and "'  @SUM(A1:A2)" in csv_text and "'+cmd" in csv_text
     assert "费用" not in csv_text and "feeCent" not in csv_text
+    assert "支付金额（元）" in csv_text and "支付成功" in csv_text
+    assert ",9.00,0.00,9.00," in csv_text
     assert len(csv_text.splitlines()) == 2
 
     xlsx_content, xlsx_mime = render_finance_export("payments", [row], "xlsx")
@@ -88,6 +90,8 @@ def test_csv_and_xlsx_export_escape_formula_text_and_never_invent_fee_columns():
     sheet = load_workbook(io.BytesIO(xlsx_content), read_only=True, data_only=False).active
     values = next(sheet.iter_rows(min_row=2, values_only=True))
     assert "=1+1" in values
+    assert "支付成功" in values
+    assert values[7:10] == (9, 0, 9)
     assert all(cell.data_type != "f" for row_cells in sheet.iter_rows() for cell in row_cells)
 
 

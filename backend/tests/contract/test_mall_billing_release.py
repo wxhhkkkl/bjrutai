@@ -9,6 +9,7 @@ from src.core.config import get_settings
 from src.models.audit import AuditLog
 from src.models.consent import ConsentRecord
 from src.models.mall_finance import MallInvoiceRequest
+from src.services.mall_consent_service import MALL_NOTICE_COPY_VERSION
 from tests.contract.test_admin_mall_orders import admin
 from tests.contract.test_mall_invoices import create_request, invoice_body
 from tests.unit.test_mall_aftersale_service import paid_order
@@ -26,7 +27,7 @@ async def test_claimed_company_invoice_release_is_minimal_no_store_and_rechecks_
     monkeypatch.setattr(
         settings,
         "mall_data_release_notice_approved_version",
-        "mall-purpose-2026-11-v2",
+        MALL_NOTICE_COPY_VERSION,
         raising=False,
     )
     buyer, order, _, _ = await paid_order(db_session, monkeypatch)

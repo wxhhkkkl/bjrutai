@@ -1,6 +1,4 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { webcrypto } from 'node:crypto'
-import { Buffer } from 'node:buffer'
 import http from '@/api/http'
 import { saveProduct, uploadProductImage } from '@/api/mall-catalog'
 
@@ -24,38 +22,36 @@ it('sends versioned writes with the provided idempotency key', async () => {
     { headers: { 'Idempotency-Key': 'mall-command-test-001' } }
   )
 })
-it('retries lost verification without uploading again and never sends admin auth to COS', async () => {
-  vi.stubGlobal('crypto', webcrypto)
-  const fetcher = vi.fn().mockResolvedValue({ ok: true })
-  vi.stubGlobal('fetch', fetcher)
-  http.post
-    .mockResolvedValueOnce({
-      data: {
-        data: { fileId: '3', uploadUrl: 'https://storage.invalid/staging' },
-      },
-    })
-    .mockRejectedValueOnce(new Error('lost verify response'))
-    .mockResolvedValueOnce({ data: { data: { id: '3', status: 'verified' } } })
+it('uploads an image in one multipart request and caches the verified result', async () => {
+  http.post.mockResolvedValue({ data: { data: { id: '3', status: 'verified' } } })
   const state = {
-    file: {
-      name: 'a.jpg',
+    file: new File([new Uint8Array([1, 2, 3])], 'a.jpg', {
       type: 'image/jpeg',
-      size: 3,
-      arrayBuffer: async () => Buffer.from([1, 2, 3]),
-    },
-    ticketKey: 'ticket-command-001',
-    verifyKey: 'verify-command-001',
+    }),
   }
-  await expect(uploadProductImage(state)).rejects.toThrow(
-    'lost verify response'
+  const result = await uploadProductImage(state)
+  expect(result).toEqual({ id: '3', status: 'verified' })
+  expect(http.post).toHaveBeenCalledWith(
+    '/admin/mall/products/images',
+    expect.any(FormData),
+    { headers: { 'Content-Type': undefined } }
   )
-  expect(await uploadProductImage(state)).toMatchObject({ id: '3' })
-  expect(fetcher).toHaveBeenCalledTimes(1)
-  expect(fetcher.mock.calls[0][1]).toMatchObject({
-    credentials: 'omit',
-    redirect: 'error',
-    headers: { 'Content-Type': 'image/jpeg' },
-  })
-  expect(fetcher.mock.calls[0][1].headers).not.toHaveProperty('Authorization')
-  expect(http.post.mock.calls[2]).toEqual(http.post.mock.calls[1])
+  expect(await uploadProductImage(state)).toEqual(result)
+  expect(http.post).toHaveBeenCalledTimes(1)
+})
+
+it('rejects a wrong-type or oversize image before making any request', async () => {
+  await expect(
+    uploadProductImage({
+      file: new File(['x'], 'a.txt', { type: 'text/plain' }),
+    })
+  ).rejects.toThrow('JPG 或 PNG')
+  await expect(
+    uploadProductImage({
+      file: new File([new Uint8Array(6 * 1024 * 1024)], 'a.jpg', {
+        type: 'image/jpeg',
+      }),
+    })
+  ).rejects.toThrow('5 MB')
+  expect(http.post).not.toHaveBeenCalled()
 })

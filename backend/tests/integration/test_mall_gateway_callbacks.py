@@ -32,15 +32,15 @@ def callback_keys(monkeypatch):
     return API_V2_KEY
 
 
-def _envelope(payload, *, sign=True):
+def _envelope(payload, *, sign=True, sign_type="MD5"):
     params = {"return_code": "SUCCESS", "nonce_str": "123456789012", **payload}
     if sign:
-        params["sign_type"] = "MD5"
-        params["sign"] = sign_v2(params, API_V2_KEY, "MD5")
+        params["sign_type"] = sign_type
+        params["sign"] = sign_v2(params, API_V2_KEY, sign_type)
     return build_v2_xml(params)
 
 
-def payment_notification(payment, order, *, sign=True, total_adjust=0):
+def payment_notification(payment, order, *, sign=True, total_adjust=0, sign_type="MD5"):
     return _envelope(
         {
             "appid": payment.appid_snapshot,
@@ -56,6 +56,7 @@ def payment_notification(payment, order, *, sign=True, total_adjust=0):
             "openid": "payment-test-openid",
         },
         sign=sign,
+        sign_type=sign_type,
     )
 
 
@@ -364,3 +365,238 @@ async def test_callback_persistence_failure_returns_retryable_failure_not_succes
     assert await db_session.scalar(
         select(func.count()).select_from(MallJob).where(MallJob.kind == "gateway_event_apply")
     ) == 1
+
+
+@pytest.mark.asyncio
+async def test_payment_callback_accepts_hmac_sha256_and_configured_fallback(
+    client, db_session, monkeypatch, callback_keys
+):
+    monkeypatch.setattr(
+        get_settings(), "mall_wechat_api_v2_sign_type", "HMAC-SHA256", raising=False
+    )
+    _, order, _, payment = await payable(db_session, monkeypatch)
+    explicit = payment_notification(payment, order, sign_type="HMAC-SHA256")
+    response = await client.post(
+        "/api/v1/mall-gateway/wechat/payment-notify", content=explicit, headers=XML_HEADERS
+    )
+    ack_success(response)
+
+    # A notification that omits sign_type is verified against the configured
+    # fallback, with the signature computed over the fields actually sent.
+    params = {
+        "return_code": "SUCCESS",
+        "nonce_str": "123456789012",
+        "appid": payment.appid_snapshot,
+        "mch_id": payment.mchid_snapshot,
+        "out_trade_no": payment.out_trade_no,
+        "transaction_id": "synthetic-channel-id-2",
+        "trade_state": "SUCCESS",
+        "result_code": "SUCCESS",
+        "total_fee": str(order.payable_amount_cent),
+        "cash_fee": str(order.payable_amount_cent),
+        "fee_type": "CNY",
+        "time_end": "20261109100000",
+        "openid": "payment-test-openid",
+    }
+    params["sign"] = sign_v2(params, API_V2_KEY, "HMAC-SHA256")
+    fallback = build_v2_xml(params)
+    accepted = await client.post(
+        "/api/v1/mall-gateway/wechat/payment-notify", content=fallback, headers=XML_HEADERS
+    )
+    ack_success(accepted)
+
+    # An explicit sign_type in the payload is honored as the protocol dictates;
+    # the configured value only supplies the fallback when the field is absent.
+    # What must always fail is a body signed with an unknown key, before any
+    # fact validation and without creating an inbox event.
+    wrong_key_params = {
+        "appid": payment.appid_snapshot,
+        "mch_id": payment.mchid_snapshot,
+        "out_trade_no": payment.out_trade_no,
+        "transaction_id": "synthetic-channel-id-3",
+        "trade_state": "SUCCESS",
+        "result_code": "SUCCESS",
+        "total_fee": str(order.payable_amount_cent),
+        "cash_fee": str(order.payable_amount_cent),
+        "fee_type": "CNY",
+        "time_end": "20261109100000",
+        "openid": "payment-test-openid",
+    }
+    wrong_key_params["sign_type"] = "HMAC-SHA256"
+    wrong_key_params["sign"] = sign_v2(
+        wrong_key_params, "abcdef0123456789abcdef0123456789", "HMAC-SHA256"
+    )
+    rejected = await client.post(
+        "/api/v1/mall-gateway/wechat/payment-notify",
+        content=build_v2_xml(wrong_key_params),
+        headers=XML_HEADERS,
+    )
+    ack_failure(rejected)
+    assert await db_session.scalar(select(func.count()).select_from(MallGatewayEvent)) == 2
+
+
+@pytest.mark.asyncio
+async def test_callback_rejects_non_xml_content_type_and_empty_body(
+    client, db_session, monkeypatch, callback_keys
+):
+    _, order, _, payment = await payable(db_session, monkeypatch)
+    body = payment_notification(payment, order)
+    for headers in ({"Content-Type": "application/json"}, {"Content-Type": "text/plain"}):
+        response = await client.post(
+            "/api/v1/mall-gateway/wechat/payment-notify", content=body, headers=headers
+        )
+        ack_failure(response)
+    empty = await client.post(
+        "/api/v1/mall-gateway/wechat/payment-notify", content=b"", headers=XML_HEADERS
+    )
+    ack_failure(empty)
+    assert await db_session.scalar(select(func.count()).select_from(MallGatewayEvent)) == 0
+
+
+@pytest.mark.asyncio
+async def test_callback_rejects_oversized_body_without_creating_event(
+    client, db_session, callback_keys
+):
+    from src.services.mall_gateway_callback_service import MAX_CALLBACK_BODY_BYTES
+
+    response = await client.post(
+        "/api/v1/mall-gateway/wechat/payment-notify",
+        content=b"a" * (MAX_CALLBACK_BODY_BYTES + 1),
+        headers=XML_HEADERS,
+    )
+    ack_failure(response)
+    assert await db_session.scalar(select(func.count()).select_from(MallGatewayEvent)) == 0
+
+
+@pytest.mark.asyncio
+async def test_callback_fails_closed_when_receiver_disabled_or_key_unconfigured(
+    client, db_session, monkeypatch, callback_keys
+):
+    settings = get_settings()
+    _, order, _, payment = await payable(db_session, monkeypatch)
+    body = payment_notification(payment, order)
+
+    monkeypatch.setattr(settings, "mall_gateway_callback_enabled", False, raising=False)
+    disabled = await client.post(
+        "/api/v1/mall-gateway/wechat/payment-notify", content=body, headers=XML_HEADERS
+    )
+    ack_failure(disabled)
+
+    monkeypatch.setattr(settings, "mall_gateway_callback_enabled", True, raising=False)
+    monkeypatch.setattr(settings, "mall_wechat_api_v2_key", "", raising=False)
+    unconfigured = await client.post(
+        "/api/v1/mall-gateway/wechat/payment-notify", content=body, headers=XML_HEADERS
+    )
+    ack_failure(unconfigured)
+    assert await db_session.scalar(select(func.count()).select_from(MallGatewayEvent)) == 0
+
+
+@pytest.mark.asyncio
+async def test_callback_rejects_merchant_mismatch_and_provider_failure_envelope(
+    client, db_session, callback_keys
+):
+    foreign = _envelope(
+        {
+            "appid": "wx-other-app",
+            "mch_id": "other-merchant",
+            "out_trade_no": "FOREIGN-TRADE-001",
+            "total_fee": "100",
+            "result_code": "SUCCESS",
+        }
+    )
+    response = await client.post(
+        "/api/v1/mall-gateway/wechat/payment-notify", content=foreign, headers=XML_HEADERS
+    )
+    ack_failure(response)
+
+    provider_failed = _envelope({"return_code": "FAIL", "return_msg": "provider down"})
+    failed = await client.post(
+        "/api/v1/mall-gateway/wechat/payment-notify",
+        content=provider_failed,
+        headers=XML_HEADERS,
+    )
+    ack_failure(failed)
+    assert await db_session.scalar(select(func.count()).select_from(MallGatewayEvent)) == 0
+
+
+@pytest.mark.asyncio
+async def test_callback_rejects_payment_with_result_code_failure(
+    client, db_session, monkeypatch, callback_keys
+):
+    _, order, _, payment = await payable(db_session, monkeypatch)
+    body = _envelope(
+        {
+            "appid": payment.appid_snapshot,
+            "mch_id": payment.mchid_snapshot,
+            "out_trade_no": payment.out_trade_no,
+            "transaction_id": "synthetic-channel-id",
+            "trade_state": "PAYERROR",
+            "result_code": "FAIL",
+            "total_fee": str(order.payable_amount_cent),
+            "cash_fee": str(order.payable_amount_cent),
+            "fee_type": "CNY",
+            "time_end": "20261109100000",
+            "openid": "payment-test-openid",
+        }
+    )
+    response = await client.post(
+        "/api/v1/mall-gateway/wechat/payment-notify", content=body, headers=XML_HEADERS
+    )
+    ack_failure(response)
+    assert await db_session.scalar(select(func.count()).select_from(MallGatewayEvent)) == 0
+
+
+@pytest.mark.asyncio
+async def test_refund_callback_rejects_tampered_req_info_and_unknown_refund(
+    client, db_session, monkeypatch, callback_keys
+):
+    from src.schemas.mall_catalog import VersionAction
+    from src.services.mall_refund_service import execute_refund
+
+    finance, order, aftersale, _, _, payment = await refund_ready(db_session, monkeypatch)
+    refund = await execute_refund(
+        db_session,
+        finance,
+        aftersale.id,
+        VersionAction(expectedVersion=aftersale.version),
+        key="callback-refund-tamper-001",
+    )
+    await db_session.commit()
+    path = "/api/v1/mall-gateway/wechat/refund-notify"
+
+    tampered = _envelope(
+        {
+            "appid": payment.appid_snapshot,
+            "mch_id": payment.mchid_snapshot,
+            "req_info": base64.b64encode(b"not-pkcs7-padded").decode(),
+        },
+        sign=False,
+    )
+    bad_crypto = await client.post(path, content=tampered, headers=XML_HEADERS)
+    ack_failure(bad_crypto)
+
+    # A well-formed encrypted payload for a refund this platform never issued
+    # must be rejected at identity validation, without an inbox event.
+    unknown_req_info = build_v2_xml(
+        {
+            "out_refund_no": "UNKNOWN-OUT-REFUND-001",
+            "out_trade_no": payment.out_trade_no,
+            "transaction_id": payment.channel_transaction_id,
+            "refund_id": "synthetic-refund-id",
+            "refund_fee": str(refund.total_cent),
+            "total_fee": str(payment.amount_cent),
+            "refund_status": "SUCCESS",
+            "success_time": "2026-11-09 10:00:00",
+        }
+    )
+    unknown = _envelope(
+        {
+            "appid": payment.appid_snapshot,
+            "mch_id": payment.mchid_snapshot,
+            "req_info": _encrypt_req_info(unknown_req_info),
+        },
+        sign=False,
+    )
+    not_found = await client.post(path, content=unknown, headers=XML_HEADERS)
+    ack_failure(not_found)
+    assert await db_session.scalar(select(func.count()).select_from(MallGatewayEvent)) == 0

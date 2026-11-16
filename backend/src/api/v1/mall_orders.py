@@ -83,10 +83,13 @@ async def list_my_orders(
         Literal["pending_payment", "pending_shipment", "pending_receipt", "completed", "closed"]
         | None
     ) = None,
+    aftersale: Literal["active"] | None = Query(None),
     actor: MallActor = Depends(get_mall_buyer),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await list_orders(db, actor, cursor=cursor, page_size=page_size, status=status)
+    result = await list_orders(
+        db, actor, cursor=cursor, page_size=page_size, status=status, aftersale=aftersale
+    )
     await db.commit()
     return response(result)
 

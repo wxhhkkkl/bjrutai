@@ -36,6 +36,9 @@
       </el-table-column>
       <el-table-column prop="orderNo" label="订单号" min-width="220" show-overflow-tooltip />
       <el-table-column prop="orderId" label="订单ID" min-width="100" />
+      <el-table-column label="申请时间" min-width="170">
+        <template #default="{ row }">{{ time(row.createdAt) }}</template>
+      </el-table-column>
       <el-table-column label="类型" min-width="110">
         <template #default="{ row }">
           {{
@@ -87,6 +90,7 @@ import {
   aftersaleStateType,
   aftersaleStates,
   money,
+  time,
 } from './aftersale-view'
 
 const router = useRouter()

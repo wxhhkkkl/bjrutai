@@ -109,6 +109,37 @@ test('invoice application requires a paid balance, keeps personal and company fi
   } finally { fixture.restore() }
 })
 
+test('typing in an invoice field keeps focus until the field really blurs', async () => {
+  const apply = loadPage('pages/mall-invoice-apply/index.js')
+  try {
+    apply.page.setData({ focusField: 'title' })
+    apply.page.onTitleInput({ detail: { value: '北京鲁泰有限公司' } })
+    assert.equal(apply.page.data.focusField, 'title')
+    apply.page.onFieldBlur({ currentTarget: { dataset: { field: 'title' } } })
+    assert.equal(apply.page.data.focusField, '')
+    apply.page.setData({ focusField: 'taxNo' })
+    apply.page.onTaxNoInput({ detail: { value: '91110108ABCDEFGH12' } })
+    assert.equal(apply.page.data.focusField, 'taxNo')
+  } finally { apply.restore() }
+
+  const detail = loadPage('pages/mall-invoice-detail/index.js')
+  try {
+    const handlers = [
+      ['supplementTitle', 'onTitleInput', '北京鲁泰有限公司'],
+      ['supplementTaxNo', 'onTaxNoInput', '91110108ABCDEFGH12'],
+      ['correctionReason', 'onCorrectionReasonInput', '购方名称需要更正'],
+      ['withdrawReason', 'onWithdrawReasonInput', '暂时不需要开票']
+    ]
+    handlers.forEach(([field, handler, value]) => {
+      detail.page.setData({ focusField: field })
+      detail.page[handler]({ detail: { value } })
+      assert.equal(detail.page.data.focusField, field)
+      detail.page.onFieldBlur({ currentTarget: { dataset: { field } } })
+      assert.equal(detail.page.data.focusField, '')
+    })
+  } finally { detail.restore() }
+})
+
 test('prevents an unpaid order or a company form without a tax ID from creating an invoice request', async () => {
   let createCount = 0
   const replacements = {

@@ -5,6 +5,7 @@ import hashlib
 import io
 import uuid
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 from openpyxl import Workbook
 from openpyxl.cell import WriteOnlyCell
@@ -42,9 +43,9 @@ PAYMENT_COLUMNS = (
     ("商户支付单号", "outTradeNo"),
     ("渠道交易单号", "channelTransactionId"),
     ("状态", "status"),
-    ("支付金额（分）", "amountCent"),
-    ("成功退款（分）", "refundSucceededCent"),
-    ("净收（分）", "netReceivedCent"),
+    ("支付金额（元）", "amountCent"),
+    ("成功退款（元）", "refundSucceededCent"),
+    ("净收（元）", "netReceivedCent"),
     ("支付成功时间", "confirmedAt"),
     ("记录时间", "createdAt"),
 )
@@ -56,12 +57,31 @@ REFUND_COLUMNS = (
     ("商户退款单号", "outRefundNo"),
     ("渠道退款单号", "channelRefundId"),
     ("状态", "status"),
-    ("商品退款（分）", "goodsRefundCent"),
-    ("运费退款（分）", "freightRefundCent"),
-    ("退款总额（分）", "totalCent"),
+    ("商品退款（元）", "goodsRefundCent"),
+    ("运费退款（元）", "freightRefundCent"),
+    ("退款总额（元）", "totalCent"),
     ("退款成功时间", "confirmedAt"),
     ("记录时间", "createdAt"),
 )
+PAYMENT_MONEY_FIELDS = {"amountCent", "refundSucceededCent", "netReceivedCent"}
+REFUND_MONEY_FIELDS = {"goodsRefundCent", "freightRefundCent", "totalCent"}
+PAYMENT_STATUS_TEXT = {
+    "creating": "创建中",
+    "pending": "待付款",
+    "unknown": "结果待核实",
+    "succeeded": "支付成功",
+    "closed": "已关闭",
+    "failed": "支付失败",
+}
+REFUND_STATUS_TEXT = {
+    "prepared": "待提交渠道",
+    "processing": "退款处理中",
+    "unknown": "结果待核实",
+    "succeeded": "退款成功",
+    "closed": "已关闭",
+    "abnormal": "退款异常",
+    "rejected_unaccepted": "渠道未受理",
+}
 PAYMENT_STATUSES = {"creating", "pending", "unknown", "succeeded", "closed", "failed"}
 REFUND_STATUSES = {
     "prepared",
@@ -238,16 +258,34 @@ def _csv_text(value):
     return value
 
 
+def _export_status(kind: str, value):
+    labels = PAYMENT_STATUS_TEXT if kind == "payments" else REFUND_STATUS_TEXT
+    return labels.get(value, value)
+
+
+def _export_money(cent) -> Decimal:
+    return Decimal(cent) / Decimal(100)
+
+
 def render_finance_export(kind: str, rows: list[dict], output_format: str):
     if kind not in {"payments", "refunds"} or output_format not in {"csv", "xlsx"}:
         raise ValueError("unsupported finance export format")
     columns = PAYMENT_COLUMNS if kind == "payments" else REFUND_COLUMNS
+    money_fields = PAYMENT_MONEY_FIELDS if kind == "payments" else REFUND_MONEY_FIELDS
     if output_format == "csv":
         output = io.StringIO(newline="")
         writer = csv.writer(output, lineterminator="\r\n")
         writer.writerow([label for label, _ in columns])
         for row in rows:
-            writer.writerow([_csv_text(row.get(field)) for _, field in columns])
+            cells = []
+            for _, field in columns:
+                value = row.get(field)
+                if field == "status":
+                    value = _export_status(kind, value)
+                elif field in money_fields and value is not None:
+                    value = f"{_export_money(value):.2f}"
+                cells.append(_csv_text(value))
+            writer.writerow(cells)
         return output.getvalue().encode("utf-8-sig"), CSV_MIME
 
     workbook = Workbook(write_only=True)
@@ -257,9 +295,15 @@ def render_finance_export(kind: str, rows: list[dict], output_format: str):
         cells = []
         for _, field in columns:
             value = row.get(field)
+            if field == "status":
+                value = _export_status(kind, value)
+            elif field in money_fields and value is not None:
+                value = _export_money(value)
             cell = WriteOnlyCell(sheet, value=value)
             if isinstance(value, str):
                 cell.data_type = "s"
+            elif field in money_fields and value is not None:
+                cell.number_format = "#,##0.00"
             cells.append(cell)
         sheet.append(cells)
     output = io.BytesIO()

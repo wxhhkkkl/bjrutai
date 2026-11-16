@@ -178,6 +178,23 @@ async def _payment_is_verified(db, order):
     return payment
 
 
+def _auto_refund_eligible(order, aftersale, items):
+    """Unshipped physical goods may be refunded without manual merchant review."""
+    if (
+        aftersale.status != "submitted"
+        or aftersale.method != "refund_only"
+        or order.status != "pending_shipment"
+        or order.shipped_at is not None
+    ):
+        return False
+    if (order.policy_snapshot or {}).get("deliveryMethod") == "virtual":
+        return False
+    return all(
+        (item.product_snapshot or {}).get("deliveryMethod", "express") != "virtual"
+        for item in items
+    )
+
+
 async def apply_aftersale(db, actor, data: AftersaleCreate, *, key):
     """Reserve the request once against a locked, verified paid order."""
     if actor.actor_type != "user":
@@ -292,6 +309,25 @@ async def apply_aftersale(db, actor, data: AftersaleCreate, *, key):
         "mall_aftersale_submitted" if not expired else "mall_aftersale_manual_review",
         row,
     )
+    if _auto_refund_eligible(order, row, items):
+        from .mall_refund_service import queue_refund_request
+
+        row.status = "awaiting_refund"
+        # No admin requested this refund: policy queued it from the buyer's
+        # own request, so the requester is recorded as absent rather than
+        # falsely attributed to an admin account.
+        await queue_refund_request(
+            db, order=order, aftersale=row, requested_by=None
+        )
+        _audit_user(db, actor, "mall_aftersale_auto_refund_requested", row)
+        await notify_mall_buyer(
+            db,
+            buyer_user_id=order.buyer_user_id,
+            event_key=f"mall:aftersale:{row.id}:auto-refund",
+            title="商城退款已自动受理",
+            summary=f"订单号 {order.order_no} 未发货，退款已自动提交，将原路退回。",
+            target=f"/pages/mall-aftersale-detail/index?id={row.id}",
+        )
     await complete_mall_command(db, intent, entity_type="mall_aftersale", entity_id=row.id)
     await db.flush()
     return row

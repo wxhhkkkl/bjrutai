@@ -1,5 +1,5 @@
 const DEFAULT_API_BASES = Object.freeze({
-  develop: 'http://192.168.110.38:8018',
+  develop: 'http://192.168.110.18:8018',
   trial: 'https://bjrutai.com',
   release: 'https://bjrutai.com'
 })

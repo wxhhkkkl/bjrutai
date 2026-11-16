@@ -34,7 +34,7 @@ async def test_verified_paid_snapshot_can_pass_business_check_without_catalog_st
         ("refund", "refund_requires_review"),
         ("extra_payment", "payment_requires_review"),
         ("address", "address_incomplete"),
-        ("shipped", "already_shipped"),
+        ("shipped", "already_fulfilled"),
     ],
 )
 @pytest.mark.asyncio

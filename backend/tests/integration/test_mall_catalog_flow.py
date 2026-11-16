@@ -83,6 +83,8 @@ async def test_operator_catalog_flow_uses_verified_images_and_keeps_history(clie
             "coverFileId": ticket["fileId"],
             "description": "真实说明",
             "sort": 5,
+            "deliveryMethod": "express",
+            "freightTemplateId": "default",
             "skus": [{"skuCode": "FLOW-1", "priceCent": 2990, "initialStock": 2}],
         },
     )

@@ -1,5 +1,19 @@
 # 实施记录：独立商城
 
+## 2026-11-13 小程序独立 web-view 展示快递100地图轨迹
+
+- 用户明确要求不再用腾讯路线规划自绘，改为在独立`web-view`页展示快递100地图轨迹，并知悉原FR-039/T137“不使用`web-view`、不下发`trailUrl`”约束需要调整。已将FR-039、`logistics-integration.md`、契约README和T137更新为：地图源地址只能是自有已备案域名上的HTTPS包装页地址。
+- 后端`LogisticsSnapshot`新增可选`mapUrl`，仅`source=live`且本人订单读取时返回；新增`KUAIDI100_MAP_PUBLIC_BASE`配置，配置后把快照中的`api.kuaidi100.com/tools/map/...`改写为`<源>/mall-map.html?u=<URL编码的快递100地图地址>`（包装页内嵌iframe，无需nginx反代；用户服务器无nginx权限，2026-11-13确认采用该方案），production未配置时返回`null`，development/test未配置时保留原始地址便于开发者工具关闭域名校验调试。地图地址不写日志或审计。
+- 小程序新增`pages/mall-logistics-map/`：按订单ID重新读取本人物流快照，只接受HTTPS地址，加载失败/无地图分别提供重试与空状态；物流页运单信息卡新增“查看全屏地图”入口，保留原原生地图概览和文本轨迹。
+- 验证：后端新增4个地图地址单元测试通过；`test_mall_logistics.py`11 passed；契约库存、快递100客户端、商城运行时合计25 passed；Ruff通过；小程序全量372 passed。
+- 未验证：尚未把`backend/mall-map.html`上传到`bjrutai.com`根目录、配置微信`web-view`业务域名，未在真机/体验版验证地图页；快递100地图页在跨域iframe内的Cookie、接口和地图SDK行为待实测；生产未部署、未提交、未推送。
+
+## 2026-11-13 物流页移除顶部原生地图概览
+
+- 用户要求去掉物流页顶部的原生地图信息块（腾讯底图+蓝色预测折线+预计送达覆盖层）。已删除`<map>`块与`buildMap`，预计送达文本保留并移至运单信息卡（不再以`mapAvailable`为前提）；页面顶部只剩物流状态摘要，全屏地图轨迹继续走独立`web-view`页入口。
+- 用户服务器无nginx权限，最终采用内嵌HTML包装页方案（`mall-map.html`+iframe）：校验文件放在自有业务域名根目录（不需要放`api.kuaidi100.com`），实测快递100地图页响应无`X-Frame-Options`/CSP且页面加载不设置Cookie，内嵌可行。
+- 验证：物流页小程序集成测试更新后通过（预计送达保留、无`<map>`标签）。未验证项同上一节。
+
 ## 2026-11-11 物流页原生地图、预计送达与真实运单查询（本地development）
 
 - 按用户确认（参考快递100地图截图）：适配器改用`resultv2=7`，物流快照新增`route`（预测节点经纬度折线与`routeInfo.cur.name`）和`estimatedArrivalText`；小程序物流页用原生`<map>`+`polyline`绘制，`include-points`按路线外扩15%自动取景，当前节点使用本地蓝色图钉`assets/images/mall-map-current-pin.png`，预计送达显示在地图浮层，运单卡片与文本轨迹保留，不引入`web-view`。
@@ -908,3 +922,60 @@ runner默认一条命令创建本轮随机项目、仅127.0.0.1临时端口、�
 - 开票后台“通知买家补充”此前只把状态改为 `needs_info`：说明文字被审计脱敏丢弃，买家端只见通用提示。新增 `mall_invoice_requests.info_request_reason`（迁移 `047`，仅保存该说明），`needs-info` 写入、买家重新提交资料时清空，并在 `GET /api/v1/mall/invoice-requests/{id}` 以 `infoRequestReason` 返回；小程序发票进度页在“补充资料”区显示“商家说明”。契约 `InvoiceRequest` 增加可选字段并更新契约 README。补充区文案按抬头类型区分：企业提示“请确认抬头并重新填写税号”，个人提示“请确认抬头并勾选用途”，避免个人申请被误认为必须重填税号。
 - 验证：发票契约测试 7 项、发票相关后端定向回归 21 项通过；小程序发票集成/契约测试 15 项通过。本地 MySQL 已升级到 047，8018 后端以原 live 开关重启并确认买家 GET 返回新字段。工作树中 `openapi.json` 既有的 `FreightTemplateWrite` 未解析引用和 `test_mall_invoice_service.py` 既有缺少 consent 字段的 4 项失败与本次改动无关，未处理。
 - 售后进度页下拉刷新无效的原因是该 `scroll-view` 缺少 `refresher-triggered` 状态绑定；补齐 `refreshing` 并在刷新结束后复位，售后页测试 13 项通过。结算页报价冲突改为吐司提示，新增用例通过；该测试文件既有购物车用例因 `deliveryMethod` 未同步而失败，与本次改动无关。
+
+### 2026-11-12 第一梯队收尾：管理端/小程序/后端 MySQL 测试全绿
+
+- 管理端 vitest（`tests/mall/`）从 22 失败 + 2 错误修复到 20 文件 90 用例全绿：发票新 UI（recordBlue 只发 `{id, expectedVersion, totalCent, fileId, replacementForId?}`，票面信息可留空仅登记 PDF，与后端 `InvoiceIssueRecord` 放宽后的契约一致）、支付页拆分商品/快递/退款/净收列、导出状态与错误改走 `ElMessage` 吐司、配送地址改为「修改配置 → 表单 → 保存发货地址」、商品/工作台错误读取改吐司、上传改单次 multipart POST、路由 13→14（新增 `/mall/settings/freight`）。测试统一通过 element-plus `ElMessage` mock + `capturedToasts` 断言；`tests/mall/setup.js` 提供 ResizeObserver stub 与第二个 unhandledRejection 监听，element-plus 卸载噪声不再计为错误。
+- 小程序全套 362/368 → 368/368：结算草稿与待继续商品意图增加 `deliveryMethod`（默认 express，虚拟/实物分开结算守卫），订单提交持久化 `consentConfirmed`，地址创建请求按后端契约发送 `consentConfirmed: true`（`mall_checkout.py` 要求 `consent_confirmed is True`）。按压反馈契约测试补 `catchtap="stopPropagation"` 结构性排除，并把标签匹配正则修正为按引号属性原子匹配（`disabled="{{a >= b}}"` 不再截断）；`mall/index.wxml` 分类弹层遮罩补 `tap-target`/`tap-feedback`，`mall-floating-cart` 统一改用共享按压反馈。
+- 后端 MySQL 套件 44 passed：迁移头断言 `038`→`047`；可逆性测试降级目标 `023`→`042`（041/042 降级为无条件保护，低于 042 的结构性不可降级）；关闭意图降级保护测试改写为验证 042 守卫（真实关闭事实存在时拒绝降级、schema 保持在 head，版本断言 `047`），并清理 044/046 守卫所需数据。后端非 MySQL 套件 983 passed。
+- 本轮未执行：G-LIVE 生产回调登记/部署与真实支付活动（需 G-LIVE + 范围授权）、G-DATA 生产配置（`retention_policy_ref` + 公告版本仍为空，生产数据释放保持关闭）、商城视觉设计（未获得当前样式参考前不实施）。
+
+### 2026-11-13 第二梯队可执行部分：APIv2 回调回归补齐与 G-DATA 关闭门验证
+
+- 按规格 `protocol-governance-proposal.md` "当前 APIv2 回归仍待补齐" 定位：现有 `tests/integration/test_mall_gateway_callbacks.py` 已覆盖签名→事实校验→持久化→worker 应用主链路（支付/退款、重放、重试恢复、关闭/异常退款状态、金额不匹配、持久化失败重试），但缺少协议边界覆盖。本轮补齐 7 项 APIv2 回调边界回归（全部通过）：
+  - HMAC-SHA256 显式 `sign_type` 与配置 fallback（通知省略 `sign_type` 时按 `mall_wechat_api_v2_sign_type` 验证，签名仅覆盖实际发送字段）；错误密钥签名在任何事实校验前被拒且不产生 inbox 事件。注：负载中显式 `sign_type` 按协议优先于配置 fallback，属 WeChat 文档行为，测试注释已固定该语义。
+  - 非 XML Content-Type（application/json、text/plain）与空请求体拒绝。
+  - 超 `MAX_CALLBACK_BODY_BYTES` 请求体拒绝且不产生事件（流式上限，含声明长度检查路径）。
+  - 接收开关关闭（`mall_gateway_callback_enabled=false`）与密钥未配置（非 32 字节）时 FAIL 关闭，不产生事件。
+  - 商户不匹配（appid/mch_id）、`return_code != SUCCESS` 信封、`result_code = FAIL` 支付通知拒绝。
+  - 退款 `req_info` 篡改（非 PKCS7 密文）拒绝；格式正确但平台从未签发的退款号（`refund_identity_not_found`）拒绝，均不产生事件。
+- 后端非 MySQL 套件 983 → 992 passed；MySQL 套件 44 passed；`test_mall_runtime.py` 新增 2 项 G-DATA 关闭门测试：`Settings` 生产校验要求同时配置 `mall_data_release_retention_policy_ref` 与 `mall_data_release_notice_approved_version` 才允许 `mall_data_release_enabled`，且 `raw_data_release_runtime_ready` 在三项任一缺失时保持关闭（此前该关闭门无测试覆盖）。`.env.example` 已文档化上述键，生产默认关闭。
+- 本轮未执行且仍需授权/业务内容：G-LIVE 生产回调 URL 登记与部署、真实支付/退款活动；G-DATA 实际保留政策引用与已评审公告版本的填写（属业务/法务内容，不在此配置）。回调接收与生产数据释放开关保持关闭。
+
+### 2026-11-13 商城输入框每个字符后失去焦点（全局排查）
+
+- 原因：输入框的 `focus` 绑定 `focusField`，而 `bindinput` 处理函数在每次输入时把 `focusField` 重置为空；`setData` 让渲染层重新下发 `focus=false`，主动取消了刚获得的焦点。售后原因输入框在 2026-11-11 已修复过同类问题。
+- 排查范围：商城模块全部 `<input>`/`<textarea>`（7 个页面）。命中 3 个页面共 7 个字段：`mall-return-shipment`（trackingNo）、`mall-invoice-apply`（title、taxNo）、`mall-invoice-detail`（supplementTitle、supplementTaxNo、correctionReason、withdrawReason）。`mall-address`、`mall-aftersale-apply` 已是正确写法，`mall-checkout` 备注与 `mall/index` 搜索没有绑定 `focus`，不需要改。
+- 修复：输入事件不再改动 `focusField`；统一新增 `onFieldBlur`（退货页为 `onTrackingBlur`），只在输入框真实失焦时清理验证聚焦状态，与售后原因输入框的既有模式一致。
+- 验证：小程序全套测试 370 项通过；新增用例覆盖 7 个字段“输入中保留 focusField、失焦后清空”，商城表单结构测试新增“凡绑定 `focus` 的字段必须绑定 `bindblur`”断言。
+
+### 2026-11-13 管理端红冲待办改用 Element Plus 弹窗
+
+- 原因：`mall/invoices/detail.vue` 的 `openRedPending` 直接调用 `window.prompt`，因此点击“登记红冲待办/标记待对方确认”弹出的是浏览器原生对话框，与后台其余弹窗样式不一致，且在部分内嵌或受限浏览器中会被拦截。
+- 修复：改用 `ElMessageBox.prompt`，保留原因必填（为空不放行），取消不发起请求；请求成功后仍提示“已登记红冲待办，尚未确认税务红票完成”。
+- 验证：管理端商城测试 70 项通过（发票 12 项），新增用例断言弹窗参数与 `markMallRedPending` 入参；`org-detail.vue` 中另一处 `window.prompt` 不属于商城模块，未处理。
+
+### 2026-11-13 未发货实物仅退款自动受理 + 支付拉起去一次点击
+
+- 需求：非虚拟商品下单付款后、商家未发货时，买家发起仅退款应自动退款，不再等商家审核。实现：`apply_aftersale` 在提交后按 `_auto_refund_eligible`（售后 `submitted`+`refund_only`、订单 `pending_shipment` 且 `shipped_at` 为空、订单与全部行快照均非虚拟）自动进入 `awaiting_refund` 并复用 `queue_refund_request` 直接排 `mall_refund_execute`（原路退款、不经过 `decide_aftersale`），同事务记 `mall_aftersale_auto_refund_requested` 审计并通知买家“退款已自动受理”。已发货或虚拟订单仍走商家审核。`queue_refund_request` 从 `execute_refund` 中抽出供两条路径共用。
+- 政策自动排队的退款无管理员发起人：`mall_refunds.requested_by` 放开为可空（迁移 `049`，降级在存在空值时拒绝），自动退款以 `NULL` 记录而非虚构管理员；人工执行路径仍传管理员 id。
+- 支付体验：下单后首次 POST 预下单异步未就绪时不再要求再点“查询支付状态”，`payOrder` 内部轮询 `reconcilePayment` 并在 `pending` 时以同一幂等键重取 `canInvoke` 后直接拉起微信支付；`mall_settings.payment_minutes` 1→15（经审计设置接口，版本 12→13），避免支付中途被关单。
+- 验证：后端非 MySQL 套件定向 24 项（售后/退款/发票/运行态）+ 契约售后/退款/发票相关全部通过，全套 998 passed（另 1 项 `test_all_contract_operations_have_an_explicit_actor_and_access_class` 因并行的退货物流工作新增 `getAdminMallReturnLogistics` 端点而计数不符，属该并行工作范围，未代改）；MySQL 一次性套件 44 passed（迁移头断言 047→049）；小程序支付状态测试 5 项通过。
+
+### 2026-11-13 售后退货物流：公司名称与地图轨迹
+
+- 需求：后台售后详情显示退货快递公司名称，并展示退货包裹的快递100地图轨迹。仅后台可见，不回传买家端。
+- 后端：`serialize_aftersale` 增加 `returnCompany`；新增 `GET /api/v1/admin/mall/aftersales/{aftersaleId}/return-logistics`（`getAdminMallReturnLogistics`，`mall.aftersales.read`，`Cache-Control: no-store`），未登记退货运单返回409。worker 的 `mall_logistics_query` 按 `entity_type` 分派 `mall_shipment` / `mall_aftersale`，共用毫秒级任务租约、单票30分钟冷却与版本栅栏；写回 `return_logistics_snapshot/status/fetched_at/last_error_code`。
+- 地图参数：`from`为订单收货地省/市/区县名称，`to`为售后冻结的退货地址名称；历史快照无名称时仅当冻结区划编码与当前退货配置完全一致才回退当前名称，否则`config_required`。顺丰/中通等电话核验承运商发送退货地址快照中的商家电话，仅进入本次请求体，不落库、不写日志、不回传。
+- 存储：迁移`048`为`mall_aftersales`增加六个退货物流缓存列，降级在存在已查询快照时拒绝；本地隔离MySQL已升级到`048`。
+- 契约：新增`ReturnLogisticsSnapshot`/`ResponseReturnLogisticsSnapshot`，契约升至0.9.0，操作索引更新为94路径/106操作，`tasks-map`归入T060；契约库存与权限矩阵计数同步为106（admin 67）。
+- 管理端：售后详情显示“退货快递公司”，新增`ReturnLogistics.vue`（快递公司/运单、地图iframe、状态、预计送达、轨迹时间线、更新按钮），沿用订单物流样式与`courierName`映射。
+- 验证：后端物流契约 7 项（含新增3项）、物流+契约库存共25项通过；非MySQL contract+unit 862项通过；管理端商城测试71项（售后13项）通过。真实快递100查询仍需G-LIVE与实际密钥/运单，未执行。
+
+### 2026-11-13 商城订单标签栏调整与「退款/售后」筛选
+
+- 需求：订单标签栏把「已完成」移到「全部」之后，用「待发货」替换「待履约」，新增「退款/售后」标签，且只收处理中的售后。
+- 小程序：`pages/mall-orders/index.js` 标签顺序改为 全部/已完成/待付款/待发货/待收货/退款·售后/已关闭；选中「退款/售后」时请求 `aftersale=active`，其余标签仍按 `status`；虚拟商品订单卡片仍显示「待交付」。
+- 后端：`GET /api/v1/mall/orders` 新增可选 `aftersale=active`（取值非法返回 422），按非终态售后过滤（复用 `ACTIVE_AFTERSALE_SQL`），游标 mode 纳入该条件。
+- 验证：后端契约测试新增「活动售后筛选随售后状态结束而退出」用例，`tests/contract/test_mall_order_actions.py` 4 项通过；小程序全套测试 373 项通过。
+- 补充：「退款/售后」标签内的卡片状态文案改为显示售后进度（等待商家审核/等待寄回/等待商家验收/退款待处理/退款处理中/等待人工核实），不再显示订单的「已完成」；其他标签仍显示订单状态。

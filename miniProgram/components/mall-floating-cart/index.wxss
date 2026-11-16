@@ -26,10 +26,6 @@
   bottom: calc(156rpx + env(safe-area-inset-bottom));
 }
 
-.floating-cart--pressed {
-  opacity: 0.8;
-}
-
 .floating-cart__badge {
   position: absolute;
   top: -6rpx;

@@ -25,9 +25,11 @@
               <div class="order-number-line">
                 <span class="order-number-label">订单号</span>
                 <strong class="order-number">{{ order.orderNo }}</strong>
+                <span class="status-caption">订单状态</span>
                 <el-tag :type="orderStatusType(order.status)" effect="light">
                   {{ orderStatusLabel(order) }}
                 </el-tag>
+                <span class="status-caption">支付状态</span>
                 <el-tag :type="paymentStatusType(order.paymentStatus)" effect="light">
                   {{ paymentStates[order.paymentStatus] || '待核实' }}
                 </el-tag>
@@ -733,6 +735,12 @@ onBeforeUnmount(() => {
   line-height: 1.35;
   overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
+}
+
+.status-caption {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .order-created {

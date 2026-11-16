@@ -6,7 +6,12 @@ import Orders from '@/pages/mall/orders/index.vue'
 import Detail from '@/pages/mall/orders/detail.vue'
 import { useAuthStore } from '@/stores/auth'
 import * as api from '@/api/mall-orders'
+import { capturedToasts } from './toast'
 
+vi.mock('element-plus', async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, ElMessage: vi.fn() }
+})
 vi.mock('@/api/mall-orders', () => ({
   listOrders: vi.fn(),
   getOrder: vi.fn(),
@@ -104,6 +109,41 @@ it('shows real readiness and masks, with no write or raw-release buttons for rea
   wrapper.unmount()
 })
 
+it('shows full recipient details in fulfillment when the API returns them', async () => {
+  api.getOrder.mockResolvedValueOnce({
+    ...structuredClone(order),
+    address: {
+      ...structuredClone(order.address),
+      phone: '13800001234',
+      regionNames: ['北京市', '北京市', '东城区'],
+      addressLine: '测试路1号',
+    },
+  })
+  const wrapper = page(Detail, [
+    'mall.orders.read',
+    'mall.fulfillment.release',
+  ])
+  await flushPromises()
+  const full = wrapper.find('[data-test="fulfillment-address-full"]')
+  expect(full.exists()).toBe(true)
+  expect(full.text()).toContain('13800001234')
+  expect(full.text()).toContain('北京市北京市东城区测试路1号')
+  wrapper.unmount()
+})
+
+it('labels a shipped order as 已发货 instead of needing review', async () => {
+  api.getOrder.mockResolvedValueOnce({
+    ...structuredClone(order),
+    status: 'pending_receipt',
+    shipment: { id: '30', courierCode: 'zhongtong', trackingNo: 'ZT2026', version: 1 },
+  })
+  const wrapper = page(Detail, ['mall.orders.read'])
+  await flushPromises()
+  expect(wrapper.text()).toContain('已发货')
+  expect(wrapper.text()).not.toContain('需要核对')
+  wrapper.unmount()
+})
+
 it('opens invoice processing from the order only for invoice readers', async () => {
   routerMocks.push.mockClear()
   api.getOrder.mockResolvedValueOnce({
@@ -180,7 +220,7 @@ it('clears private details on a failed reload and lets staff retry the read', as
   await flushPromises()
   api.getOrder.mockRejectedValueOnce(new Error('权限已撤销'))
   await wrapper.vm.load()
-  expect(wrapper.text()).toContain('权限已撤销')
+  expect(capturedToasts()).toContain('权限已撤销')
   expect(wrapper.text()).not.toContain('库房核实')
   await wrapper.vm.load()
   expect(wrapper.text()).toContain('库房核实')
@@ -210,10 +250,10 @@ it('shows local dispatch only to shipment staff and submits an idempotent snapsh
   })
   expect(api.registerShipment.mock.calls[0][1]).toMatch(/^[0-9a-f-]{36}$/)
   const originalRequest = api.registerShipment.mock.calls[0]
-  expect(wrapper.text()).toContain('结果未确认')
+  expect(capturedToasts().join('')).toContain('结果未确认，请重试原操作')
   await wrapper.vm.retry()
   expect(api.registerShipment.mock.calls[1]).toEqual(originalRequest)
-  expect(wrapper.text()).toContain('本地发货事实已登记')
+  expect(capturedToasts().join('')).toContain('本地发货事实已登记')
   wrapper.unmount()
 })
 
@@ -242,7 +282,7 @@ it('submits tracking correction with both current versions and the reason', asyn
     reason: '录错了承运商',
   })
   expect(api.correctTracking.mock.calls[0][1]).toMatch(/^[0-9a-f-]{36}$/)
-  expect(wrapper.text()).toContain('历史出库未重复执行')
+  expect(capturedToasts().join('')).toContain('历史出库未重复执行')
   wrapper.unmount()
 })
 
@@ -255,12 +295,12 @@ it('binds pagination to applied filters and drops stale rows after failure', asy
   const wrapper = page(Orders)
   await flushPromises()
   wrapper.vm.filters.orderNo = '未提交的筛选'
-  await wrapper.vm.next()
+  await wrapper.vm.changePage(2)
   expect(api.listOrders.mock.calls[1][0].cursor).toBe('next-token')
   expect(api.listOrders.mock.calls[1][0].orderNo).toBeUndefined()
   api.listOrders.mockRejectedValueOnce(new Error('暂不可用'))
   await wrapper.vm.search()
-  expect(wrapper.text()).toContain('暂不可用')
+  expect(capturedToasts()).toContain('暂不可用')
   expect(wrapper.text()).not.toContain('M-TEST-9')
   wrapper.unmount()
 })

@@ -27,6 +27,7 @@ test('guest buy intent survives login without storing buyer address or phone', (
     skuId: '7',
     quantity: 2,
     idempotencyKey: resumed.idempotencyKey,
+    deliveryMethod: 'express',
     userId: 'buyer-42',
     createdAt: 1000
   })
@@ -49,6 +50,7 @@ test('checkout drafts persist only SKU and address identities, not copied privat
   assert.deepEqual(service.getCheckoutDraft(), {
     items: [{ skuId: '7', quantity: 2 }],
     addressId: '8',
+    deliveryMethod: 'express',
     source: 'cart',
     userId: 'buyer-42',
     createdAt: 5000
@@ -62,6 +64,7 @@ test('ambiguous order submission keeps the exact quote and idempotency key for r
   const submission = {
     quoteToken: 'opaque-server-signed-token',
     consentVersion: 'policy-v3',
+    consentConfirmed: true,
     invoiceIntent: true,
     buyerNote: '请放门口',
     idempotencyKey: 'mall-order-idempotency-0001'

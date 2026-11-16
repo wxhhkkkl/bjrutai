@@ -10,8 +10,14 @@ import SkuEditor from '@/pages/mall/products/SkuEditor.vue'
 import StockPanel from '@/pages/mall/products/StockPanel.vue'
 import { useAuthStore } from '@/stores/auth'
 import * as api from '@/api/mall-catalog'
+import { capturedToasts } from './toast'
 import { useMallCommand } from '@/composables/useMallCommand'
 import { toCent, productPayload, productForm } from '@/pages/mall/product-form'
+
+vi.mock('element-plus', async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, ElMessage: vi.fn() }
+})
 
 vi.mock('@/api/mall-catalog', () => ({
   listCategories: vi.fn(),
@@ -67,8 +73,8 @@ describe('catalog administration', () => {
     api.listProducts.mockRejectedValueOnce(new Error('暂不可用'))
     const wrapper = page(Products)
     await flushPromises()
-    expect(wrapper.text()).toContain('暂不可用')
-    await wrapper.get('[data-test="reload"]').trigger('click')
+    expect(capturedToasts()).toContain('暂不可用')
+    await wrapper.get('form.product-filters').trigger('submit')
     await flushPromises()
     expect(wrapper.text()).toContain('燕麦')
     wrapper.unmount()
@@ -92,6 +98,20 @@ describe('catalog administration', () => {
     const warnings = wrapper.findAll('.stock-warning')
     expect(warnings).toHaveLength(2)
     expect(warnings[0].text()).toBe('库存预警')
+    wrapper.unmount()
+  })
+  it('disables product editing while the product is on sale', async () => {
+    api.listProducts.mockResolvedValue({
+      items: [{ ...product, status: 'on_sale' }],
+      nextCursor: null,
+    })
+    const wrapper = page(Products)
+    await flushPromises()
+    const edit = wrapper
+      .findAll('button')
+      .find((button) => button.text() === '编辑')
+    expect(edit.attributes('disabled')).toBeDefined()
+    expect(edit.attributes('title')).toBe('上架中的商品需先下架再编辑')
     wrapper.unmount()
   })
   it('submits edited category with the loaded version', async () => {

@@ -83,7 +83,11 @@ test('cart continues only valid selected SKUs and saves a PII-free checkout draf
     assert.equal(fixture.page.data.items.length, 2)
     assert.deepEqual(fixture.page.data.selectedIds, ['1'])
     fixture.page.continueCheckout()
-    assert.deepEqual(drafts[0], { items: [{ skuId: '11', quantity: 2 }], source: 'cart' })
+    assert.deepEqual(drafts[0], {
+      items: [{ skuId: '11', quantity: 2 }],
+      deliveryMethod: 'express',
+      source: 'cart'
+    })
     assert.deepEqual(fixture.navigation.at(-1), ['navigateTo', '/pages/mall-checkout/index'])
   } finally { fixture.restore() }
 })

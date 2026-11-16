@@ -43,15 +43,6 @@ async def test_pre_shipment_full_refund_restores_goods_and_freight_once(db_sessi
         db_session, buyer, application, key="refund-full-application-flow-001"
     )
     operator = await admin_actor(db_session, ["mall.aftersales.review", "mall.refunds.execute"])
-    aftersale = await decide_aftersale(
-        db_session,
-        operator,
-        aftersale.id,
-        AftersaleDecision(
-            expectedVersion=aftersale.version, decision="approve", reason="全额退款审核通过"
-        ),
-        key="refund-full-application-review-001",
-    )
     payment = await db_session.get(MallPayment, order.active_payment_id)
     refund = await execute_refund(
         db_session,

@@ -306,7 +306,11 @@ test('return shipment requires a valid carrier and tracking number then refreshe
   try {
     await fixture.page.onLoad({ id: '51' })
     assert.equal(fixture.page.data.state, 'success')
+    fixture.page.setData({ focusField: 'trackingNo' })
     fixture.page.onTrackingInput({ detail: { value: 'SF12345678' } })
+    assert.equal(fixture.page.data.focusField, 'trackingNo')
+    fixture.page.onTrackingBlur()
+    assert.equal(fixture.page.data.focusField, '')
     await fixture.page.submitReturnShipment()
     assert.equal(calls.length, 0)
     assert.equal(fixture.page.data.errorTarget, 'mall-field-courier')
@@ -349,6 +353,18 @@ test('all aftersale routes are registered under the existing mall flow', () => {
 test('goods-only aftersale methods use a block-level if/else pair valid for WXML compilation', () => {
   const markup = fs.readFileSync(path.join(__dirname, '../../pages/mall-aftersale-apply/index.wxml'), 'utf8')
   assert.match(markup, /<block wx:if="\{\{scope === 'goods'\}\}">\s*<view wx:for="\{\{methods\}\}"[\s\S]*?<\/block>\s*<block wx:else>\s*<view class="mall-aftersale-option mall-aftersale-option--selected">[\s\S]*?<\/block>/)
+})
+
+test('return shipment carrier choices match the admin courier list', () => {
+  const adminSource = fs.readFileSync(
+    path.resolve(__dirname, '../../../manageSystem/src/pages/mall/orders/couriers.js'),
+    'utf8'
+  )
+  const admin = [...adminSource.matchAll(/\{\s*code:\s*'([^']+)',\s*name:\s*'([^']+)'\s*\}/g)]
+    .map(([, code, name]) => ({ code, name }))
+  const { courierOptions } = require('../../utils/courier')
+  assert.ok(admin.length >= 19)
+  assert.deepEqual([...courierOptions], admin)
 })
 
 test('the required reason field is rendered and bound to the reason value', () => {

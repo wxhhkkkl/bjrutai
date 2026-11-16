@@ -89,7 +89,7 @@ class MallRefund(MallRecord, Base):
     freight_refund_cent: Mapped[int] = mapped_column(BigInteger, default=0)
     total_cent: Mapped[int] = mapped_column(BigInteger)
     original_amount_cent: Mapped[int] = mapped_column(BigInteger)
-    requested_by: Mapped[int] = mapped_column(
+    requested_by: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("admin_accounts.id", ondelete="RESTRICT")
     )
     submitted_at: Mapped[datetime | None] = mapped_column(UTC_TIME)

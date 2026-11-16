@@ -8,7 +8,7 @@ from src.models.mall_catalog import MallSku
 from src.models.mall_consumption import MallConsumption
 from src.models.mall_finance import MallPayment
 from src.models.mall_operations import MallJob
-from src.models.mall_trade import MallOrder
+from src.models.mall_trade import MallCartItem, MallOrder
 from src.services.mall_order_service import close_never_paid_order
 from tests.conftest import auth_header, make_access_token
 from tests.mall_checkout_fixtures import ADDRESS, checkout_seed
@@ -87,3 +87,47 @@ async def test_quote_order_snapshot_and_never_paid_close_flow(client, db_session
     assert detail["status"] == "closed"
     stock = (await db_session.scalars(select(MallSku).where(MallSku.id.in_(sku_ids)))).all()
     assert all((row.available_qty, row.reserved_qty) == (10, 0) for row in stock)
+
+
+@pytest.mark.asyncio
+async def test_order_creation_removes_only_purchased_cart_lines(client, db_session, monkeypatch):
+    actor, settings, _, skus = await checkout_seed(db_session)
+    settings.freight_mode = "free"
+    await db_session.commit()
+    monkeypatch.setattr(get_settings(), "mall_enabled", True)
+    monkeypatch.setattr(get_settings(), "mall_purchase_enabled", True)
+    headers = auth_header(make_access_token(user_id=actor.actor_id, user_type="personal"))
+    for index, sku in enumerate(skus):
+        headers["Idempotency-Key"] = f"cart-clear-add-00{index}"
+        added = await client.post(
+            "/api/v1/mall/cart", headers=headers, json={"skuId": str(sku.id), "quantity": 1}
+        )
+        assert added.status_code == 200, added.text
+    headers["Idempotency-Key"] = "cart-clear-address-001"
+    address = (await client.post("/api/v1/mall/addresses", headers=headers, json=ADDRESS)).json()[
+        "data"
+    ]
+    quote = (
+        await client.post(
+            "/api/v1/mall/checkout/quote",
+            headers=headers,
+            json={"addressId": address["id"], "items": [{"skuId": str(skus[0].id), "quantity": 1}]},
+        )
+    ).json()["data"]
+    headers["Idempotency-Key"] = "cart-clear-order-001"
+    response = await client.post(
+        "/api/v1/mall/orders",
+        headers=headers,
+        json={
+            "quoteToken": quote["quoteToken"],
+            "consentVersion": "mall-test-v1",
+            "consentConfirmed": True,
+        },
+    )
+    assert response.status_code == 200, response.text
+    remaining = (
+        await db_session.scalars(
+            select(MallCartItem).where(MallCartItem.user_id == actor.actor_id)
+        )
+    ).all()
+    assert [row.sku_id for row in remaining] == [skus[1].id]

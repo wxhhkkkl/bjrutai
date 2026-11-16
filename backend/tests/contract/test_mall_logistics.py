@@ -9,7 +9,90 @@ from src.models.mall_operations import MallJob
 from tests.conftest import TestAsyncSession, auth_header, make_access_token, seed_user
 from tests.contract.test_admin_mall_orders import admin
 from tests.contract.test_mall_fulfillment import paid_order
+from tests.unit.test_mall_aftersale_service import admin_actor
+from tests.unit.test_mall_aftersale_service import paid_order as aftersale_paid_order
 from tests.unit.test_mall_order_actions import unattempted
+
+
+async def approved_return_aftersale(
+    client,
+    db_session,
+    monkeypatch,
+    *,
+    return_snapshot=None,
+    courier_code="yuantong",
+    tracking_no="YT202611130001",
+    submit_waybill=True,
+):
+    from src.models.mall_operations import MallSettings
+
+    buyer, order, _, items = await aftersale_paid_order(db_session, monkeypatch)
+    settings_row = await db_session.get(MallSettings, 1)
+    settings_row.return_address_snapshot = {
+        "recipientName": "商城退货收件人",
+        "phone": "13900001111",
+        "addressLine": "北京虚构退货地址",
+        **(return_snapshot or {}),
+    }
+    await db_session.commit()
+    buyer_headers = {
+        **auth_header(make_access_token(user_id=buyer.actor_id, user_type="personal")),
+        "Idempotency-Key": "contract-return-logistics-create-001",
+    }
+    created = await client.post(
+        "/api/v1/mall/aftersales",
+        headers=buyer_headers,
+        json={
+            "orderId": str(order.id),
+            "expectedOrderVersion": order.version,
+            "method": "return_refund",
+            "items": [{"orderItemId": str(items[1].id), "quantity": 1}],
+            "reason": "需要退回商品验收",
+        },
+    )
+    assert created.status_code == 200, created.text
+    aftersale_id = created.json()["data"]["id"]
+
+    reviewer = await admin_actor(db_session, ["mall.aftersales.review", "mall.aftersales.read"])
+    admin_headers = auth_header(
+        make_access_token(user_id=reviewer.actor_id, user_type="admin")
+    )
+    admin_headers["Idempotency-Key"] = "contract-return-logistics-approve-001"
+    approved = await client.post(
+        f"/api/v1/admin/mall/aftersales/{aftersale_id}/decision",
+        headers=admin_headers,
+        json={
+            "expectedVersion": created.json()["data"]["version"],
+            "decision": "approve",
+            "reason": "同意退回验收",
+        },
+    )
+    assert approved.status_code == 200, approved.text
+
+    shipped = None
+    if submit_waybill:
+        buyer_headers["Idempotency-Key"] = "contract-return-logistics-waybill-001"
+        waybill = await client.post(
+            f"/api/v1/mall/aftersales/{aftersale_id}/return-shipment",
+            headers=buyer_headers,
+            json={
+                "expectedVersion": approved.json()["data"]["version"],
+                "courierCode": courier_code,
+                "trackingNo": tracking_no,
+            },
+        )
+        assert waybill.status_code == 200, waybill.text
+        shipped = waybill.json()["data"]
+    return {
+        "buyer": buyer,
+        "order": order,
+        "aftersaleId": aftersale_id,
+        "approvedVersion": approved.json()["data"]["version"],
+        "shipped": shipped,
+        "buyerHeaders": buyer_headers,
+        "adminHeaders": admin_headers,
+    }
+
 
 
 @pytest.mark.asyncio
@@ -449,7 +532,9 @@ async def test_live_map_query_returns_route_and_sends_phone_for_verification_car
     assert [point["latitude"] for point in data["route"]["points"]] == [31.8206, 39.9042]
     assert "13800001234" not in result.text
     assert "trailUrl" not in result.text and "courierInfo" not in result.text
-    assert "mapUrl" not in result.text
+    assert data["mapUrl"] == (
+        "https://api.kuaidi100.com/tools/map/V2/contract-token_117.242911,31.835115_6"
+    )
 
     admin_read = await client.get(
         f"/api/v1/admin/mall/orders/{order.id}/logistics",
@@ -528,3 +613,191 @@ async def test_live_map_query_without_active_recipient_contact_consent_omits_pho
         enabled=True,
     )
     assert "phone" not in provider.calls[0]
+
+
+@pytest.mark.asyncio
+async def test_admin_return_logistics_needs_waybill_and_reports_company_name(
+    client, db_session, monkeypatch
+):
+    monkeypatch.setattr(get_settings(), "app_environment", "test")
+    fixture = await approved_return_aftersale(
+        client, db_session, monkeypatch, submit_waybill=False
+    )
+    url = f"/api/v1/admin/mall/aftersales/{fixture['aftersaleId']}/return-logistics"
+    missing = await client.get(url, headers=fixture["adminHeaders"])
+    assert missing.status_code == 409
+    assert "退货运单" in missing.json()["message"]
+
+    fixture["buyerHeaders"]["Idempotency-Key"] = "contract-return-logistics-waybill-002"
+    waybill = await client.post(
+        f"/api/v1/mall/aftersales/{fixture['aftersaleId']}/return-shipment",
+        headers=fixture["buyerHeaders"],
+        json={
+            "expectedVersion": fixture["approvedVersion"],
+            "courierCode": "zhongtong",
+            "trackingNo": "ZT202611130009",
+        },
+    )
+    assert waybill.status_code == 200, waybill.text
+
+    first = await client.get(url, headers=fixture["adminHeaders"])
+    assert first.status_code == 200, first.text
+    snapshot = first.json()["data"]
+    assert snapshot["courierCode"] == "zhongtong"
+    assert snapshot["trackingNo"] == "ZT202611130009"
+    assert snapshot["aftersaleVersion"] == waybill.json()["data"]["version"]
+    assert snapshot["queryStatus"] == "pending" and snapshot["source"] is None
+    assert "13900001111" not in first.text
+    assert (
+        await db_session.scalar(
+            select(func.count())
+            .select_from(MallJob)
+            .where(
+                MallJob.kind == "mall_logistics_query",
+                MallJob.entity_type == "mall_aftersale",
+                MallJob.entity_id == int(fixture["aftersaleId"]),
+            )
+        )
+        == 1
+    )
+    detail = await client.get(
+        f"/api/v1/admin/mall/aftersales/{fixture['aftersaleId']}",
+        headers=fixture["adminHeaders"],
+    )
+    assert detail.json()["data"]["returnCompany"] == "zhongtong"
+
+    _, _, orders_only = await admin(db_session, ["mall.orders.read"])
+    denied = await client.get(url, headers=orders_only)
+    assert denied.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_fake_worker_caches_return_snapshot_and_respects_cooldown(
+    client, db_session, monkeypatch
+):
+    from src.services.mall_logistics_service import logistics_handlers
+    from src.tasks.mall_tasks import run_mall_worker_once
+
+    monkeypatch.setattr(get_settings(), "app_environment", "test")
+    fixture = await approved_return_aftersale(client, db_session, monkeypatch)
+    url = f"/api/v1/admin/mall/aftersales/{fixture['aftersaleId']}/return-logistics"
+    first = await client.get(url, headers=fixture["adminHeaders"])
+    assert first.status_code == 200, first.text
+    assert first.json()["data"]["queryStatus"] == "pending"
+
+    job = await db_session.scalar(
+        select(MallJob).where(
+            MallJob.kind == "mall_logistics_query",
+            MallJob.entity_type == "mall_aftersale",
+            MallJob.entity_id == int(fixture["aftersaleId"]),
+        )
+    )
+    job.next_run_at = utc_now() - timedelta(seconds=1)
+    await db_session.commit()
+    assert await run_mall_worker_once(
+        TestAsyncSession,
+        handlers=logistics_handlers(TestAsyncSession),
+        enabled=True,
+    )
+    await db_session.refresh(job)
+    assert job.status == "done", (job.status, job.last_error_code, job.attempts)
+
+    second = await client.get(url, headers=fixture["adminHeaders"])
+    assert second.status_code == 200, second.text
+    snapshot = second.json()["data"]
+    assert snapshot["queryStatus"] == "available" and snapshot["source"] == "fake"
+    assert snapshot["courierCode"] == "yuantong"
+    assert snapshot["events"] and snapshot["mapAvailable"] is True
+    assert "13900001111" not in second.text
+    assert (
+        await db_session.scalar(
+            select(func.count())
+            .select_from(MallJob)
+            .where(
+                MallJob.kind == "mall_logistics_query",
+                MallJob.entity_type == "mall_aftersale",
+                MallJob.entity_id == int(fixture["aftersaleId"]),
+            )
+        )
+        == 1
+    )
+
+
+@pytest.mark.asyncio
+async def test_live_return_query_uses_matching_return_regions_and_merchant_phone(
+    client, db_session, monkeypatch
+):
+    from src.models.mall_operations import MallSettings
+    from src.services.mall_logistics_service import logistics_handlers
+    from src.tasks.mall_tasks import run_mall_worker_once
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "app_environment", "development")
+    monkeypatch.setattr(settings, "mall_kuaidi100_mode", "live")
+    monkeypatch.setattr(settings, "mall_kuaidi100_outbound_enabled", True)
+    fixture = await approved_return_aftersale(
+        client,
+        db_session,
+        monkeypatch,
+        return_snapshot={"regionCodes": ["110000", "110100", "110114"]},
+        courier_code="zhongtong",
+        tracking_no="ZT202611130010",
+    )
+    fixture["order"].address_snapshot = {
+        **(fixture["order"].address_snapshot or {}),
+        "regionNames": ["河北省", "廊坊市", "固安县"],
+    }
+    settings_row = await db_session.get(MallSettings, 1)
+    settings_row.return_address_snapshot = {
+        "recipientName": "商城退货收件人",
+        "phone": "13900001111",
+        "addressLine": "北京虚构退货地址",
+        "regionCodes": ["110000", "110100", "110114"],
+        "regionNames": ["北京市", "北京市", "昌平区"],
+    }
+    await db_session.commit()
+
+    url = f"/api/v1/admin/mall/aftersales/{fixture['aftersaleId']}/return-logistics"
+    assert (await client.get(url, headers=fixture["adminHeaders"])).status_code == 200
+    job = await db_session.scalar(
+        select(MallJob).where(
+            MallJob.kind == "mall_logistics_query",
+            MallJob.entity_type == "mall_aftersale",
+            MallJob.entity_id == int(fixture["aftersaleId"]),
+        )
+    )
+    job.next_run_at = utc_now() - timedelta(seconds=1)
+    await db_session.commit()
+
+    class RecordingLiveProvider:
+        def __init__(self):
+            self.calls = []
+
+        async def query(self, **kwargs):
+            self.calls.append(kwargs)
+            return {
+                "state": "0",
+                "data": [{"context": "退货快件已揽收", "time": "2026-11-13 10:00:00"}],
+            }
+
+    provider = RecordingLiveProvider()
+    assert await run_mall_worker_once(
+        TestAsyncSession,
+        handlers=logistics_handlers(TestAsyncSession, live_client=provider),
+        enabled=True,
+    )
+    assert provider.calls == [
+        {
+            "courier_code": "zhongtong",
+            "tracking_no": "ZT202611130010",
+            "from_city": "河北省,廊坊市,固安县",
+            "to_city": "北京市,北京市,昌平区",
+            "phone": "13900001111",
+        }
+    ]
+
+    result = await client.get(url, headers=fixture["adminHeaders"])
+    data = result.json()["data"]
+    assert data["source"] == "live" and data["queryStatus"] == "available"
+    assert data["courierCode"] == "zhongtong"
+    assert "13900001111" not in result.text

@@ -7,11 +7,18 @@ from tests.contract.test_admin_mall_orders import admin
 from tests.unit.test_mall_aftersale_service import paid_order
 
 
+async def keep_manual_review(db, order):
+    """Virtual goods stay under merchant review even before shipment."""
+    order.policy_snapshot = {**(order.policy_snapshot or {}), "deliveryMethod": "virtual"}
+    await db.flush()
+
+
 @pytest.mark.asyncio
 async def test_buyer_submission_is_idempotent_private_and_uses_server_amounts(
     client, db_session, monkeypatch
 ):
     buyer, order, _, items = await paid_order(db_session, monkeypatch)
+    await keep_manual_review(db_session, order)
     headers = {
         **auth_header(make_access_token(user_id=buyer.actor_id, user_type="personal")),
         "Idempotency-Key": "contract-aftersale-submit-001",
@@ -56,6 +63,7 @@ async def test_admin_decision_needs_review_permission_and_rejection_releases_hol
     client, db_session, monkeypatch
 ):
     buyer, order, _, items = await paid_order(db_session, monkeypatch)
+    await keep_manual_review(db_session, order)
     buyer_headers = {
         **auth_header(make_access_token(user_id=buyer.actor_id, user_type="personal")),
         "Idempotency-Key": "contract-aftersale-admin-create-001",
@@ -107,6 +115,7 @@ async def test_finance_queues_original_channel_refund_without_claiming_success(
     from src.models.mall_finance import MallPayment
 
     buyer, order, _, items = await paid_order(db_session, monkeypatch)
+    await keep_manual_review(db_session, order)
     buyer_headers = {
         **auth_header(make_access_token(user_id=buyer.actor_id, user_type="personal")),
         "Idempotency-Key": "contract-refund-ready-create-001",
@@ -157,6 +166,7 @@ async def test_finance_queues_original_channel_refund_without_claiming_success(
 @pytest.mark.asyncio
 async def test_admin_aftersale_list_filters_by_status(client, db_session, monkeypatch):
     buyer, order, _, items = await paid_order(db_session, monkeypatch)
+    await keep_manual_review(db_session, order)
     buyer_headers = {
         **auth_header(make_access_token(user_id=buyer.actor_id, user_type="personal")),
         "Idempotency-Key": "contract-aftersale-filter-create-001",

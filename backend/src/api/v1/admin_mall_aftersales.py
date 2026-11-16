@@ -9,6 +9,7 @@ from ...api.deps import get_db
 from ...api.mall_deps import MallActor, require_mall_admin
 from ...schemas.mall_aftersale import AftersaleDecision, ReturnReceipt
 from ...schemas.mall_catalog import VersionAction
+from ...schemas.mall_logistics import ReturnLogisticsSnapshot
 from ...services.mall_aftersale_query_service import (
     get_admin_aftersale,
     list_admin_aftersales,
@@ -16,6 +17,7 @@ from ...services.mall_aftersale_query_service import (
     serialize_refund,
 )
 from ...services.mall_aftersale_service import decide_aftersale, receive_return
+from ...services.mall_logistics_service import get_admin_return_logistics
 from ...services.mall_refund_service import execute_refund
 from .mall_checkout import response
 
@@ -60,6 +62,22 @@ async def get_one(
     result = await serialize_aftersale(db, row)
     await db.commit()
     return response(result)
+
+
+@router.get(
+    "/{aftersaleId}/return-logistics", operation_id="getAdminMallReturnLogistics"
+)
+async def get_return_logistics(
+    identity: int = Path(alias="aftersaleId", gt=0),
+    actor: MallActor = Depends(read_aftersales),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await get_admin_return_logistics(db, actor, identity)
+    data = ReturnLogisticsSnapshot.model_validate(result).model_dump(
+        by_alias=True, mode="json"
+    )
+    await db.commit()
+    return response(data)
 
 
 @router.post("/{aftersaleId}/decision", operation_id="decideMallAftersale")

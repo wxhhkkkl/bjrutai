@@ -85,7 +85,14 @@
         <div v-if="order.address" class="fulfillment-fact recipient-information">
           <dt>收件信息</dt>
           <dd class="recipient-summary">
-            <template v-if="fulfillmentReleased">
+            <template v-if="plainRecipientVisible">
+              <div class="recipient-detail-list" data-test="fulfillment-address-full">
+                <span>收件人：{{ order.address.recipientName }}</span>
+                <span>联系电话：{{ order.address.phone }}</span>
+                <span>收件地址：{{ plainRecipientAddress }}</span>
+              </div>
+            </template>
+            <template v-else-if="fulfillmentReleased">
               <div class="recipient-detail-list" data-test="fulfillment-release-data">
                 <span>收件人：{{ fulfillmentReleased.recipientName }}</span>
                 <span>联系电话：{{ fulfillmentReleased.phone }}</span>
@@ -137,8 +144,8 @@
         <div class="fulfillment-fact fulfillment-status">
           <dt>{{ order.deliveryMethod === 'virtual' ? '交付条件' : '发货条件' }}</dt>
           <dd>
-            <el-tag :type="order.fulfillmentCheck.businessReady ? 'success' : 'warning'" effect="light">
-              {{ order.fulfillmentCheck.businessReady ? '业务条件已满足' : '需要核对' }}
+            <el-tag :type="fulfillmentStatus.type" effect="light">
+              {{ fulfillmentStatus.label }}
             </el-tag>
           </dd>
         </div>
@@ -220,6 +227,20 @@ const fullRecipientAddress = computed(() => {
   return [...regionNames, props.fulfillmentReleased.addressLine]
     .filter(Boolean)
     .join('')
+})
+const plainRecipientVisible = computed(() => Boolean(props.order.address?.phone))
+const fulfillmentStatus = computed(() => {
+  if (props.order.shipment) return { label: '已发货', type: 'success' }
+  if (props.order.virtualDelivery) return { label: '已交付', type: 'success' }
+  return props.order.fulfillmentCheck.businessReady
+    ? { label: '业务条件已满足', type: 'success' }
+    : { label: '需要核对', type: 'warning' }
+})
+const plainRecipientAddress = computed(() => {
+  const address = props.order.address
+  if (!address?.phone) return ''
+  const regionNames = Array.isArray(address.regionNames) ? address.regionNames : []
+  return [...regionNames, address.addressLine].filter(Boolean).join('')
 })
 </script>
 

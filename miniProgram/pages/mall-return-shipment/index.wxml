@@ -16,7 +16,7 @@
         <picker id="mall-field-courier" mode="selector" range="{{couriers}}" range-key="name" value="{{courierIndex < 0 ? 0 : courierIndex}}" bindchange="onCourierChange">
           <view class="mall-return-picker tap-target"><text class="{{courierIndex < 0 ? 'mall-placeholder' : ''}}">{{courierIndex < 0 ? '选择承运商' : couriers[courierIndex].name}}</text><van-icon name="arrow-down" size="16px" color="#8E9991" /></view>
         </picker>
-        <input id="mall-field-trackingNo" class="mall-return-input" value="{{trackingNo}}" bindinput="onTrackingInput" maxlength="64" placeholder="填写快递运单号" focus="{{focusField === 'trackingNo'}}" adjust-position="true" cursor-spacing="80" />
+        <input id="mall-field-trackingNo" class="mall-return-input" value="{{trackingNo}}" bindinput="onTrackingInput" bindblur="onTrackingBlur" maxlength="64" placeholder="填写快递运单号" focus="{{focusField === 'trackingNo'}}" adjust-position="true" cursor-spacing="80" />
         <text class="mall-helper">请填写快递面单上的运单号；提交后售后进度会更新为等待商家验收。</text>
       </view>
       <view class="mall-return-notice"><van-icon name="info-o" size="17px" color="#9A765E" /><text>退货运费及商品验收结果以售后规则和商家处理为准。</text></view>

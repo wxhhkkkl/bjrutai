@@ -205,6 +205,9 @@ async function save() {
   error.value = ''
   try {
     const { freightTemplates = [], ...current } = settings.value
+    // GET 视图里的完整仓库地址只在配送页以顶层字段提交，不能混入 settings。
+    delete current.dispatchAddress
+    delete current.returnAddress
     const payload = {
       expectedVersion: current.version,
       settings: current,

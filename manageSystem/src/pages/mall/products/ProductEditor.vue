@@ -390,6 +390,8 @@ async function open(productId) {
   try {
     const product = productId ? await getProduct(productId) : undefined
     if (product?.status === 'archived') throw new Error('归档商品不可编辑')
+    if (product?.status === 'on_sale')
+      throw new Error('上架中的商品需先下架再编辑')
     form.value = productForm(product)
     form.value.deliveryMethod =
       product?.deliveryMethod ||

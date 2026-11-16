@@ -40,10 +40,10 @@ async def test_article_cover_upload_is_proxied_through_backend(
     client: AsyncClient, admin_auth_headers: dict, monkeypatch
 ):
     """The browser posts the file to our API, so no COS browser CORS is needed."""
-    from src.api.v1 import cos_upload
+    from src.services import image_upload_service
 
-    monkeypatch.setattr(cos_upload, "get_cos_client", lambda: _FakeCOSClient())
-    monkeypatch.setattr(cos_upload.httpx, "AsyncClient", _FakeHTTPClient)
+    monkeypatch.setattr(image_upload_service, "get_cos_client", lambda: _FakeCOSClient())
+    monkeypatch.setattr(image_upload_service.httpx, "AsyncClient", _FakeHTTPClient)
 
     response = await client.post(
         "/api/v1/admin/articles/upload-image-file",

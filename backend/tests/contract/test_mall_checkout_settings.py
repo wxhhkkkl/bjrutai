@@ -64,6 +64,7 @@ async def test_buyer_address_returns_selected_region_labels_but_keeps_full_addre
             "regionNames": ["北京市", "北京市", "东城区"],
             "addressLine": "真实街道门牌不返回",
             "consentVersion": "region-label-policy-v1",
+            "consentConfirmed": True,
         },
     )
 

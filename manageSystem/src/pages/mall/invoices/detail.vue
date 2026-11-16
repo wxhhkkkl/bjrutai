@@ -495,6 +495,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter } from 'vue-router'
 import { Document } from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import * as api from '@/api/mall-invoices'
 import { commandKey, useMallCommand } from '@/composables/useMallCommand'
@@ -878,8 +879,16 @@ async function openRedPending(invoice, targetStatus) {
     targetStatus === 'awaiting_counterparty'
       ? '请说明对方确认待办原因'
       : '请说明红冲待办原因'
-  const reason = window.prompt(message)
-  if (!reason?.trim()) return
+  let reason
+  try {
+    const result = await ElMessageBox.prompt(message, '登记待办', {
+      inputPlaceholder: '填写原因后将记录到操作日志',
+      inputValidator: (value) => (value?.trim() ? true : '请填写原因'),
+    })
+    reason = result.value
+  } catch {
+    return
+  }
   await afterCommand(
     await command.run(api.markMallRedPending, {
       id: invoice.id,

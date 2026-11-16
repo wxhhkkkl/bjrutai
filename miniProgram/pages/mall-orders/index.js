@@ -4,10 +4,11 @@ const { formatChinaDateTimeCompact } = require('../../utils/date-time')
 
 const STATUS_OPTIONS = [
   { label: '全部', value: '' },
-  { label: '待付款', value: 'pending_payment' },
-  { label: '待履约', value: 'pending_shipment' },
-  { label: '待收货', value: 'pending_receipt' },
   { label: '已完成', value: 'completed' },
+  { label: '待付款', value: 'pending_payment' },
+  { label: '待发货', value: 'pending_shipment' },
+  { label: '待收货', value: 'pending_receipt' },
+  { label: '退款/售后', value: 'aftersale' },
   { label: '已关闭', value: 'closed' }
 ]
 
@@ -17,6 +18,15 @@ const STATUS_LABELS = {
   pending_receipt: '待收货',
   completed: '已完成',
   closed: '已关闭'
+}
+
+const ACTIVE_AFTERSALE_LABELS = {
+  submitted: '等待商家审核',
+  awaiting_return: '等待寄回',
+  awaiting_receipt: '等待商家验收',
+  awaiting_refund: '退款待处理',
+  refunding: '退款处理中',
+  disputed: '等待人工核实'
 }
 
 function money(value) {
@@ -42,7 +52,7 @@ function statusTone(order, fullyRefunded) {
   }
 }
 
-function viewOrder(order) {
+function viewOrder(order, activeStatus) {
   const items = Array.isArray(order && order.items) ? order.items : []
   const itemNames = items.slice(0, 2).map((item) => {
     const name = typeof item.productName === 'string' ? item.productName : '商品'
@@ -53,15 +63,18 @@ function viewOrder(order) {
   const paid = Number(order && order.paidAmountCent) || 0
   const refunded = (Number(order && order.refundedGoodsCent) || 0) + (Number(order && order.refundedFreightCent) || 0)
   const fullyRefunded = Boolean(order && order.status === 'closed' && paid > 0 && refunded >= paid)
+  const aftersaleLabel = activeStatus === 'aftersale'
+    ? ACTIVE_AFTERSALE_LABELS[order && order.aftersaleStatus] || ''
+    : ''
   return {
     ...order,
     id: String(order && order.id || ''),
-    statusLabel: order && order.status === 'pending_shipment' && order.deliveryMethod === 'virtual'
+    statusLabel: aftersaleLabel || (order && order.status === 'pending_shipment' && order.deliveryMethod === 'virtual'
       ? '待交付'
       : fullyRefunded
         ? '已退款'
-        : STATUS_LABELS[order && order.status] || '订单处理中',
-    statusTone: statusTone(order, fullyRefunded),
+        : STATUS_LABELS[order && order.status] || '订单处理中'),
+    statusTone: aftersaleLabel ? 'action' : statusTone(order, fullyRefunded),
     createdLabel: timeLabel(order && order.createdAt),
     coverUrl: firstItem.coverUrl || '',
     coverImageFailed: false,
@@ -110,13 +123,18 @@ Page({
       this.setData({ loadingMore: true, stateMessage: '' })
     }
     try {
+      const activeStatus = this.data.activeStatus
       const page = await mallOrderService.listMyMallOrders({
         pageSize: 20,
-        ...(this.data.activeStatus ? { status: this.data.activeStatus } : {}),
+        ...(activeStatus === 'aftersale'
+          ? { aftersale: 'active' }
+          : activeStatus
+            ? { status: activeStatus }
+            : {}),
         ...(cursor ? { cursor } : {})
       })
       if (requestVersion !== this.requestVersion) return
-      const received = Array.isArray(page && page.items) ? page.items.map(viewOrder) : []
+      const received = Array.isArray(page && page.items) ? page.items.map((item) => viewOrder(item, activeStatus)) : []
       const previous = reset ? [] : this.data.orders
       const known = new Set(previous.map((item) => item.id))
       const orders = previous.concat(received.filter((item) => item.id && !known.has(item.id)))

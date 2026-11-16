@@ -156,8 +156,12 @@ Page({
   },
 
   retry() { return this.loadRequest() },
-  onTitleInput(event) { this.setData({ supplementTitle: String(event.detail && event.detail.value || '').slice(0, 200), stateMessage: '', focusField: '', errorTarget: '' }) },
-  onTaxNoInput(event) { this.setData({ supplementTaxNo: String(event.detail && event.detail.value || '').trim().slice(0, 32).toUpperCase(), stateMessage: '', focusField: '', errorTarget: '' }) },
+  onTitleInput(event) { this.setData({ supplementTitle: String(event.detail && event.detail.value || '').slice(0, 200), stateMessage: '', errorTarget: '' }) },
+  onTaxNoInput(event) { this.setData({ supplementTaxNo: String(event.detail && event.detail.value || '').trim().slice(0, 32).toUpperCase(), stateMessage: '', errorTarget: '' }) },
+  onFieldBlur(event) {
+    const field = event && event.currentTarget && event.currentTarget.dataset.field
+    if (field && this.data.focusField === field) this.setData({ focusField: '' })
+  },
   toggleSupplementConsent() { this.setData({ supplementConsentConfirmed: !this.data.supplementConsentConfirmed, stateMessage: '', focusField: '', errorTarget: '' }) },
 
   async submitSupplement() {
@@ -209,7 +213,7 @@ Page({
     this.setData({ correctionInvoiceId: invoiceId, correctionReason: '', correctionMessage: '', stateMessage: '' })
   },
 
-  onCorrectionReasonInput(event) { this.setData({ correctionReason: String(event.detail && event.detail.value || '').slice(0, 500), stateMessage: '', focusField: '', errorTarget: '' }) },
+  onCorrectionReasonInput(event) { this.setData({ correctionReason: String(event.detail && event.detail.value || '').slice(0, 500), stateMessage: '', errorTarget: '' }) },
 
   async submitCorrection() {
     const invoice = this.data.invoices.find((item) => item.id === this.data.correctionInvoiceId)
@@ -244,7 +248,7 @@ Page({
     this.setData({ showWithdrawForm: true, withdrawReason: '', stateMessage: '' })
   },
 
-  onWithdrawReasonInput(event) { this.setData({ withdrawReason: String(event.detail && event.detail.value || '').slice(0, 500), stateMessage: '', focusField: '', errorTarget: '' }) },
+  onWithdrawReasonInput(event) { this.setData({ withdrawReason: String(event.detail && event.detail.value || '').slice(0, 500), stateMessage: '', errorTarget: '' }) },
 
   async submitWithdraw() {
     const request = this.data.request

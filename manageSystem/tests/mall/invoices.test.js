@@ -1,11 +1,21 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
-import ElementPlus from 'element-plus'
+import ElementPlus, { ElMessageBox } from 'element-plus'
 import InvoiceQueue from '@/pages/mall/invoices/index.vue'
 import InvoiceDetail from '@/pages/mall/invoices/detail.vue'
 import { useAuthStore } from '@/stores/auth'
 import * as api from '@/api/mall-invoices'
+import { capturedToasts } from './toast'
+
+vi.mock('element-plus', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    ElMessage: vi.fn(),
+    ElMessageBox: { ...actual.ElMessageBox, prompt: vi.fn() },
+  }
+})
 
 const httpMocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -166,18 +176,12 @@ it('requires a finance claim before uploading and recording a blue invoice', asy
   })
   await wrapper.vm.uploadBlueFile(pdf)
   expect(api.uploadInvoicePdf).toHaveBeenCalledWith({ file: pdf, orderId: '9' })
-  wrapper.vm.issueForm.invoiceNo = 'INV-TEST-51'
-  wrapper.vm.issueForm.issuedAt = '2026-11-07T09:00:00Z'
-  wrapper.vm.issueForm.sellerIdentity = '北京鲁泰测试销售主体'
   await wrapper.vm.recordBlue()
 
   expect(api.recordMallInvoice).toHaveBeenCalledWith(
     {
       id: '8',
       expectedVersion: 2,
-      invoiceNo: 'INV-TEST-51',
-      issuedAt: '2026-11-07T09:00:00.000Z',
-      sellerIdentity: '北京鲁泰测试销售主体',
       totalCent: 10000,
       fileId: '120',
     },
@@ -235,13 +239,8 @@ it('replays the same invoice record intent after an uncertain response', async (
   await wrapper.vm.uploadBlueFile(
     new File(['invoice'], 'invoice.pdf', { type: 'application/pdf' })
   )
-  Object.assign(wrapper.vm.issueForm, {
-    invoiceNo: 'INV-TEST-51',
-    issuedAt: '2026-11-07T09:00:00Z',
-    sellerIdentity: '北京鲁泰测试销售主体',
-  })
   await wrapper.vm.recordBlue()
-  expect(wrapper.text()).toContain('结果未确认')
+  expect(capturedToasts().join('')).toContain('结果未确认，请重试原操作')
   const firstIntent = api.recordMallInvoice.mock.calls[0]
   await wrapper.vm.retry()
   expect(api.recordMallInvoice.mock.calls[1]).toEqual(firstIntent)
@@ -302,6 +301,49 @@ it('keeps red invoice actions attached to the original blue invoice chain', asyn
   wrapper.unmount()
 })
 
+it('collects the red-flush reason in a dialog instead of a native prompt', async () => {
+  const blue = { ...structuredClone(blueInvoice), status: 'valid', version: 4 }
+  api.getAdminMallInvoiceRequest.mockResolvedValueOnce({
+    ...structuredClone(invoiceRequest),
+    status: 'delivered',
+    claimedBy: '31',
+    invoices: [blue],
+    invoiceIds: [blue.id],
+    version: 3,
+  })
+  api.markMallRedPending.mockResolvedValue({
+    ...blue,
+    status: 'red_pending',
+    version: 5,
+  })
+  ElMessageBox.prompt.mockResolvedValueOnce({ value: ' 抬头有误 ' })
+  const wrapper = page(InvoiceDetail, [
+    'mall.invoices.read',
+    'mall.invoices.write',
+  ])
+  await flushPromises()
+  const button = wrapper
+    .findAll('button')
+    .find((item) => item.text() === '登记红冲待办')
+  await button.trigger('click')
+  await flushPromises()
+  expect(ElMessageBox.prompt).toHaveBeenCalledWith(
+    '请说明红冲待办原因',
+    '登记待办',
+    expect.objectContaining({ inputValidator: expect.any(Function) })
+  )
+  expect(api.markMallRedPending).toHaveBeenCalledWith(
+    {
+      id: '51',
+      expectedVersion: 4,
+      targetStatus: 'red_pending',
+      reason: '抬头有误',
+    },
+    expect.any(String)
+  )
+  wrapper.unmount()
+})
+
 it('reissues only after the old blue invoice is fully red and uses current net paid amount', async () => {
   const oldBlue = {
     ...structuredClone(blueInvoice),
@@ -340,21 +382,15 @@ it('reissues only after the old blue invoice is fully red and uses current net p
   await flushPromises()
   expect(wrapper.find('[data-test="reissue-blue-51"]').exists()).toBe(true)
   await wrapper.vm.beginReplacement(oldBlue)
-  expect(wrapper.vm.issueForm.sellerIdentity).toBe('北京鲁泰测试销售主体')
+  expect(wrapper.vm.issueForm.replacementForId).toBe('51')
   await wrapper.vm.uploadBlueFile(
     new File(['replacement'], 'replacement.pdf', { type: 'application/pdf' })
   )
-  Object.assign(wrapper.vm.issueForm, {
-    invoiceNo: 'INV-REPLACEMENT-53',
-    issuedAt: '2026-11-07T11:00:00Z',
-  })
   await wrapper.vm.recordBlue()
   expect(api.recordMallInvoice).toHaveBeenCalledWith(
     expect.objectContaining({
       id: '8',
       expectedVersion: 3,
-      invoiceNo: 'INV-REPLACEMENT-53',
-      sellerIdentity: '北京鲁泰测试销售主体',
       totalCent: 5000,
       fileId: '120',
       replacementForId: '51',

@@ -97,8 +97,21 @@ async def test_address_consent_is_new_purpose_not_reused_registration(db_session
     address = await save_address(db_session, actor, AddressWrite(**ADDRESS))
     consent = await db_session.get(ConsentRecord, address.consent_record_id)
     assert consent.scene.value == "mall_address"
-    assert consent.confirmed and consent.scopes == {"mall_address": True}
-    assert consent.agreement_versions == {"mall_policy": "mall-test-v1"}
+    assert consent.confirmed and consent.scopes == {
+        "mall_recipient": True,
+        "mall_address": True,
+        "recipient_name": True,
+        "recipient_phone": True,
+        "recipient_region": True,
+        "delivery_address": True,
+    }
+    from src.services.mall_consent_service import MALL_NOTICE_COPY_VERSION
+
+    assert consent.agreement_versions == {
+        "mall_policy": "mall-test-v1",
+        "mall_recipient_notice": "mall-test-v1",
+        "mall_notice_copy": MALL_NOTICE_COPY_VERSION,
+    }
 
 
 @pytest.mark.asyncio

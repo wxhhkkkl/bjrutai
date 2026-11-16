@@ -4,14 +4,14 @@ from copy import deepcopy
 from datetime import timedelta
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from ..core.exceptions import ConflictException, NotFoundException
 from ..models.audit import AuditLog
 from ..models.mall_base import utc_now
 from ..models.mall_catalog import MallProduct, MallSku, MallStockMovement
 from ..models.mall_operations import MallSettings
-from ..models.mall_trade import MallOrder, MallOrderItem
+from ..models.mall_trade import MallCartItem, MallOrder, MallOrderItem
 from .mall_address_service import lock_buyer, owned_address
 from .mall_checkout_service import validate_quote
 from .mall_command_service import complete_mall_command, reserve_mall_command
@@ -187,6 +187,13 @@ async def create_order(db, actor, data, *, key):
                 reason="下单占用",
             )
         )
+    # Purchased lines leave the cart; unselected lines stay untouched.
+    await db.execute(
+        delete(MallCartItem).where(
+            MallCartItem.user_id == actor.actor_id,
+            MallCartItem.sku_id.in_([int(line["skuId"]) for line in quote["items"]]),
+        )
+    )
     job = await enqueue_mall_job(
         db,
         kind="mall_order_expire",

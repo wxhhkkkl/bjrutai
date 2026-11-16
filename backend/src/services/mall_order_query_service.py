@@ -17,6 +17,7 @@ from ..models.mall_trade import (
     MallVirtualDelivery,
 )
 from .mall_catalog_query_service import _page
+from .mall_fulfillment_service import ACTIVE_AFTERSALE_SQL
 from .mall_order_service import audit_order
 from .mall_order_text import safe_order_text
 
@@ -358,16 +359,20 @@ async def serialize_order(
     return result
 
 
-async def list_orders(db, actor, *, cursor=None, page_size=20, status=None):
+async def list_orders(db, actor, *, cursor=None, page_size=20, status=None, aftersale=None):
     query = select(MallOrder).where(MallOrder.buyer_user_id == actor.actor_id)
     if status:
         query = query.where(MallOrder.status == status)
+    if aftersale == "active":
+        query = query.where(
+            MallOrder.id.in_(select(MallAftersale.order_id).where(ACTIVE_AFTERSALE_SQL))
+        )
     rows, next_cursor, total = await _page(
         db,
         query,
         MallOrder,
         MallOrder.id,
-        mode=f"orders:{actor.actor_id}:{status}",
+        mode=f"orders:{actor.actor_id}:{status}:{aftersale}",
         cursor=cursor,
         page_size=page_size,
         descending=True,

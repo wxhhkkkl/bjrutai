@@ -46,6 +46,8 @@ async def test_create_personal_or_company_request_uses_paid_order_amount_and_sin
         buyerType="personal",
         title="个人",
         invoiceType="digital_normal",
+        consentVersion="mall-test-v1",
+        consentConfirmed=True,
     )
     first = await create_invoice_request(
         db_session, buyer, personal, key="invoice-unit-create-personal-001"
@@ -68,6 +70,8 @@ async def test_create_personal_or_company_request_uses_paid_order_amount_and_sin
         buyerType="company",
         title="公司抬头",
         invoiceType="digital_normal",
+        consentVersion="mall-test-v1",
+        consentConfirmed=True,
     )
     with pytest.raises(ValidationException):
         await create_invoice_request(
@@ -95,12 +99,14 @@ async def test_claim_info_correction_and_withdraw_are_versioned_and_permission_c
         db_session,
         buyer,
         InvoiceCreate(
-            orderId=str(order.id),
-            expectedOrderVersion=order.version,
-            buyerType="personal",
-            title="初始抬头",
-            invoiceType="digital_normal",
-        ),
+                orderId=str(order.id),
+                expectedOrderVersion=order.version,
+                buyerType="personal",
+                title="初始抬头",
+                invoiceType="digital_normal",
+                consentVersion="mall-test-v1",
+                consentConfirmed=True,
+            ),
         key="invoice-unit-info-create-001",
     )
     reader = await admin_actor(db_session, ["mall.invoices.read"])
@@ -133,7 +139,12 @@ async def test_claim_info_correction_and_withdraw_are_versioned_and_permission_c
         db_session,
         buyer,
         invoice.id,
-        InvoicePatch(expectedVersion=needs_info.version, title="确认后的抬头"),
+        InvoicePatch(
+            expectedVersion=needs_info.version,
+            title="确认后的抬头",
+            consentVersion="mall-test-v1",
+            consentConfirmed=True,
+        ),
         key="invoice-unit-patch-001",
     )
     assert corrected.status == "submitted" and corrected.title == "确认后的抬头"
@@ -159,8 +170,7 @@ async def test_invoice_record_rejects_amount_mismatch_but_persists_real_issue_af
         create_invoice_request,
         record_invoice_issue,
     )
-    from src.schemas.mall_aftersale import AftersaleDecision
-    from src.services.mall_aftersale_service import apply_aftersale, decide_aftersale
+    from src.services.mall_aftersale_service import apply_aftersale
     from src.services.mall_refund_service import apply_verified_refund, execute_refund
     from tests.unit.test_mall_aftersale_service import request as aftersale_request
     from tests.unit.test_mall_refund_service import refund_fact
@@ -175,6 +185,8 @@ async def test_invoice_record_rejects_amount_mismatch_but_persists_real_issue_af
             buyerType="personal",
             title="个人抬头",
             invoiceType="digital_normal",
+            consentVersion="mall-test-v1",
+            consentConfirmed=True,
         ),
         key="invoice-unit-record-create-001",
     )
@@ -211,17 +223,6 @@ async def test_invoice_record_rejects_amount_mismatch_but_persists_real_issue_af
         buyer,
         aftersale_request(order, items[1]),
         key="invoice-unit-refund-apply-001",
-    )
-    aftersale = await decide_aftersale(
-        db_session,
-        writer,
-        aftersale.id,
-        AftersaleDecision(
-            expectedVersion=aftersale.version,
-            decision="approve",
-            reason="发票与退款竞态样例",
-        ),
-        key="invoice-unit-refund-review-001",
     )
     payment = await db_session.get(MallPayment, order.active_payment_id)
     refund = await execute_refund(
@@ -296,6 +297,8 @@ async def test_partial_red_full_red_and_replacement_keep_original_rows_and_allow
             buyerType="personal",
             title="个人抬头",
             invoiceType="digital_normal",
+            consentVersion="mall-test-v1",
+            consentConfirmed=True,
         ),
         key="invoice-unit-red-create-001",
     )

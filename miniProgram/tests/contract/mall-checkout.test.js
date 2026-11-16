@@ -61,7 +61,8 @@ test('address save requires a current-policy confirmation and sends only API fie
     regionCodes: ['110000', '110100', '110101'],
     addressLine: '朝阳路1号',
     isDefault: true,
-    consentVersion: 'policy-v3'
+    consentVersion: 'policy-v3',
+    consentConfirmed: true
   })
   assert.throws(
     () => service.createAddress({ ...address, consentConfirmed: false }, 'mall-address-key-0002'),

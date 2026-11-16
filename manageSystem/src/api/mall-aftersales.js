@@ -7,6 +7,8 @@ const headers = (key) => ({ headers: { 'Idempotency-Key': key } })
 export const listAdminAftersales = (params) =>
   http.get(root, { params }).then(unwrap)
 export const getAdminAftersale = (id) => http.get(`${root}/${id}`).then(unwrap)
+export const getAdminReturnLogistics = (id) =>
+  http.get(`${root}/${id}/return-logistics`).then(unwrap)
 export const getAdminMallRefund = (id) =>
   http.get(`/admin/mall/refunds/${id}`).then(unwrap)
 export const decideAftersale = ({ id, ...body }, key) =>

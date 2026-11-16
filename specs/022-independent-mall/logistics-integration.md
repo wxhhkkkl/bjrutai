@@ -13,7 +13,7 @@
 - 新增`backend/src/integrations/kuaidi100_client.py`与`mall_logistics_service.py`，使用现有httpx，独立于订单与支付服务。
 - 地图查询地址采用官方`https://poll.kuaidi100.com/poll/maptrack.do`，表单customer/sign/param；签名按序列化后的param字符串、key、customer拼接后MD5大写。该签名算法仅遵循供应商协议，不作为项目自身密码或通用安全算法。
 - 参数只取可信订单包裹：公司小写编码、运单、标准出发/目的行政区。地图接口要求`from`和`to`；这两项以及部分承运商需要的phone均属买家物流资料，真实出站须先满足G-DATA并限定目的。不能以脱敏电话代替校验值，也不能把完整号码发给前端。
-- `resultv2=7`，返回高级状态、区域、预测路线（`predictedRoute`）、预计到达时间及AI时效字段；不发送`needCourierInfo=true`，不采集或返回揽件/派件员姓名和私人电话。map接口的`trailUrl`可能包含令牌，不进入快照、普通响应或日志。服务端所有worker共享单票频控：至少30分钟一次且每天不超过48次。
+- `resultv2=7`，返回高级状态、区域、预测路线（`predictedRoute`）、预计到达时间及AI时效字段；不发送`needCourierInfo=true`，不采集或返回揽件/派件员姓名和私人电话。map接口的`trailUrl`可能包含令牌；快照只保留经白名单校验的地址，普通响应仅向本人订单返回经自有代理域名改写后的地址，不写日志或审计。服务端所有worker共享单票频控：至少30分钟一次且每天不超过48次。
 - 承运商电话规则：仅对顺丰速运(`shunfeng`)、顺丰快运(`shunfengkuaiyun`)、中通快递(`zhongtong`)发送`phone`，值取订单地址快照中的收件人完整电话；发送前校验本订单`consent_record_id`对应的有效履约同意包含`recipient_contact`，否则不发送并等待供应商返回核验失败。电话只进入本次请求体，不写数据库、日志、审计详情或接口响应。
 - `KUAIDI100_CUSTOMER`、`KUAIDI100_KEY`、`KUAIDI100_ENABLED`等仅后端环境配置，默认禁真实出站；实际配置名为`KUAIDI100_CUSTOMER`、`KUAIDI100_KEY`、`MALL_KUAIDI100_MODE=fake`及`MALL_KUAIDI100_OUTBOUND_ENABLED=false`。不把key、签名、完整请求、原文电话或地图链接里的私密令牌写日志。
 
@@ -27,7 +27,7 @@
 
 每次查询绑定shipment.id及version和公司/运单身份摘要。更正运单后旧快照失效，旧任务/响应不能覆盖新单；任务领取和查询时间占用用数据库条件更新，避免多worker同票同时查。失败退避且仍遵守单票频率限制，终态数据也不在每次打开重新查。
 
-返回轨迹文本先剔除/脱敏原文手机号、派件员私人联系等非必要信息。地图链接不成为永久公开访问入口，不进普通日志。地图采用小程序原生`map`组件按预测节点经纬度绘制，不使用`web-view`或`trailUrl`；坐标只保留到快照用于本页展示。
+返回轨迹文本先剔除/脱敏原文手机号、派件员私人联系等非必要信息。地图链接不成为永久公开访问入口，不进普通日志。地图采用小程序独立`web-view`页面展示快递100地图轨迹，`src`只能是自有已备案域名上的HTTPS包装页地址（`/mall-map.html?u=<编码后的快递100地图地址>`，页面内 iframe 加载快递100地图页，无需服务器反代）；由后端仅向本人订单返回该地址，未配置包装页源的生产环境不返回地图地址。坐标仍保留在快照。
 
 ## 存储与接口增量
 
@@ -38,8 +38,11 @@
 1. `GET /api/v1/mall/orders/{orderId}/logistics`：只允许买家本人，返回快递/运单、缓存状态、规范化节点、更新时间、可选预计信息和是否支持地图；必要查询由唯一任务推进。
 2. `GET /api/v1/admin/mall/orders/{orderId}/logistics`：有订单/履约读取范围的后台人员查询相同安全快照。
 3. `POST /api/v1/admin/mall/shipments/{shipmentId}/logistics-refresh`：有履约权限、幂等键与版本；排队查询或告知下次允许时间，不绕过供应商限流。
+4. `GET /api/v1/admin/mall/aftersales/{aftersaleId}/return-logistics`（2026-11-13）：有售后读取权限的后台人员查询退货物流快照；未登记退货运单返回409，查询排队复用同一`mall_logistics_query`任务与单票30分钟冷却。仅后台展示，不回传给买家端。
 
 本地发货事实与快递100轨迹分别记录。快递100签收只是一项物流证据，不自动代表用户确认收货、资金解冻、退货验收或绩效重新核算。
+
+退货物流不新增业务表，扩展`mall_aftersales`：`return_logistics_provider=kuaidi100, return_logistics_status, return_logistics_snapshot JSON, return_logistics_fetched_at, return_logistics_next_query_at, return_logistics_last_error_code`（迁移`048`）。`from`取订单收货地省/市/区县名称，`to`取售后冻结的退货地址名称；历史快照缺少名称时，仅当冻结的区划编码与当前退货配置完全一致才回退当前配置名称，否则返回`config_required`。电话核验承运商使用退货地址快照中的商家收件电话，只进入本次请求体，不落库、不写日志、不回传前端。
 
 ## 上线输入与验收
 
@@ -53,6 +56,16 @@
 
 ## 当前实现状态（2026-11-06）
 
-适配器按`maptrack.do`构造签名表单，HTTP层有截止时间、响应字节上限且禁用重定向。service把时间、说明、状态及粗粒度区域规范化，过滤电话号码；不接收/返回`trailUrl`、派件员信息或原始payload。`LogisticsSnapshot.source`区分fake/live/null。本人GET、管理员GET及有权限刷新共用持久查询任务和每票至少30分钟冷却，管理员刷新有包裹版本与持久幂等保护。订单所有权、手机号脱敏、不同错误状态、查询签收不代表收货与旧运单响应栅栏均有本地或隔离MySQL测试。2026-11-11新增地图能力：`resultv2=7`解析`predictedRoute`与`arrivalTime`，快照保存预测节点经纬度、当前城市名和预计到达文本，`mapAvailable`在至少两个有效节点时为true；对顺丰/中通按同意范围发送完整收件电话。小程序物流页在小程序原生`map`绘制路线和当前点，并在页面顶部显示预计送达卡片。
+适配器按`maptrack.do`构造签名表单，HTTP层有截止时间、响应字节上限且禁用重定向。service把时间、说明、状态及粗粒度区域规范化，过滤电话号码；快照只保留经白名单校验的快递100地图地址，普通响应只向本人订单返回经自有域名包装页改写后的地址，不接收派件员信息或原始payload。`LogisticsSnapshot.source`区分fake/live/null。本人GET、管理员GET及有权限刷新共用持久查询任务和每票至少30分钟冷却，管理员刷新有包裹版本与持久幂等保护。订单所有权、手机号脱敏、不同错误状态、查询签收不代表收货与旧运单响应栅栏均有本地或隔离MySQL测试。2026-11-11新增地图能力：`resultv2=7`解析`predictedRoute`与`arrivalTime`，快照保存预测节点经纬度、当前城市名和预计到达文本，`mapAvailable`在至少两个有效节点时为true；对顺丰/中通按同意范围发送完整收件电话。小程序物流页不展示原生地图概览（2026-11-13用户要求去掉顶部地图信息），运单信息卡仅在`mapUrl`存在时提供“地图轨迹”入口，全屏轨迹在独立`web-view`页展示；`web-view`源地址是`KUAIDI100_MAP_PUBLIC_BASE`配置的自有已备案域名上的`/mall-map.html`包装页（内嵌iframe加载快递100地图，用户服务器无nginx权限，不做反代）。
 
 当前worker在development/test且模式fake、出站关闭时调用本地fake客户端；development/test且模式live、出站开启时调用真实adapter，要求发货地与收件地均有完整省/市/区县名称（缺失返回`config_required`），只把这三项行政区名称作为`from`/`to`发送；顺丰/中通在订单履约同意包含`recipient_contact`时附带收件人完整电话。production始终返回安全门禁状态，不调用Kuaidi100 adapter。后台配送设置已新增发货地址省/市/区县名称输入，订单收货地址快照同步保存`regionNames`。虽然adapter通过模拟HTTP校验签名/字段，真实商户密钥、电话校验规则、账号额度/订阅和真实运单均未核验；2026-11-11用户已明确授权地图轨迹方式下发送行政区名称，并授权对电话核验承运商发送完整收件电话，但尚未执行真实查询。fake客户端返回带`source=fake`的合成预测路线，用于本地地图展示与回归；真实地图/预计结果仍待真实运单核验。全局mall worker也默认关闭。
+
+## 小程序 web-view 地图上线配置（2026-11-13）
+
+小程序地图轨迹改为独立`web-view`页，`src`由`KUAIDI100_MAP_PUBLIC_BASE`配置的自有已备案HTTPS源提供（只填源，如`https://bjrutai.com`，不带路径）。采用**静态包装页内嵌iframe**方案，无需改动nginx：业务域名即`bjrutai.com`，把`backend/mall-map.html`上传到主站根目录（实测该站点根目录为`/home/ubuntu/www`），该页面读取`u`参数并校验后以iframe加载`api.kuaidi100.com`的`/tools/map/...`地图页。实测快递100地图页响应无`X-Frame-Options`、无CSP、页面加载不设置Cookie，内嵌可行；地图数据接口在跨域iframe内的Cookie行为需真机验证。
+
+运维要点（2026-11-13）：站点前置CDN会缓存404且按完整查询参数区分缓存键，文件缺失期间被访问过的`mall-map.html?u=...`会持续返回缓存404；补传文件后必须刷新CDN缓存（目录刷新），并且微信端要重新编译/重进页面，因为web-view自身也会保留失败结果。仅源站返回200不足以让已失败的web-view恢复。
+
+`KUAIDI100_MAP_PUBLIC_BASE=https://bjrutai.com`时，后端把快照中的地图地址改写为`https://bjrutai.com/mall-map.html?u=<URL编码后的快递100地图地址>`，web-view加载的是自有域名页面，满足业务域名校验；快递100地图页在iframe内直接访问`api.kuaidi100.com`，无需任何服务端代理。
+
+在微信公众平台把`bjrutai.com`配置为`web-view`业务域名，并把校验文件放在**你自己的域名根目录**（校验文件不需要也不应放在`api.kuaidi100.com`；仅配置request合法域名不足以加载`web-view`）。development/test未配置时返回快递100原始地图地址，便于开发者工具关闭域名校验调试；production未配置时不返回`mapUrl`，物流页不显示地图信息，运单信息卡仅在`mapUrl`存在时显示“地图轨迹”入口。地图地址含快递100令牌，不写日志或审计；包装页只接受`u`参数且仅允许`https://api.kuaidi100.com/tools/map/`前缀地址；web-view页只接受订单ID并重新读取本人快照，不接受任意URL参数。

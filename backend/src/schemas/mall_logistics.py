@@ -62,11 +62,44 @@ class LogisticsSnapshot(BaseModel):
     estimated_arrival_text: str | None = None
     route: LogisticsRoute | None = None
     map_available: bool
+    map_url: str | None = None
     error_code: str | None = None
 
 
 class AdminLogisticsSnapshot(LogisticsSnapshot):
+    pass
+
+
+class ReturnLogisticsSnapshot(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")
+
+    aftersale_id: str
+    order_id: str
+    aftersale_version: int
+    provider: Literal["kuaidi100"]
+    source: Literal["fake", "live"] | None
+    courier_code: str
+    tracking_no: str
+    query_status: Literal[
+        "pending",
+        "available",
+        "stale",
+        "no_record",
+        "verification_failed",
+        "permission_denied",
+        "service_error",
+        "config_required",
+    ]
+    state_code: str | None
+    state_name: str | None
+    events: list[LogisticsEvent]
+    updated_at: datetime | None
+    next_query_at: datetime | None
+    estimated_arrival_text: str | None = None
+    route: LogisticsRoute | None = None
+    map_available: bool
     map_url: str | None = None
+    error_code: str | None = None
 
 
 class LogisticsRefreshResult(BaseModel):

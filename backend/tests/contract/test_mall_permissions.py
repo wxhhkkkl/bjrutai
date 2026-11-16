@@ -23,6 +23,10 @@ PUBLIC_OPERATIONS = {
     "getMallCheckoutSettings",
 }
 SIGNED_PROVIDER_OPERATIONS = {"wechatPaymentNotify", "wechatRefundNotify"}
+PROVIDER_POLICIES = {
+    "wechatPaymentNotify": "wechat_api_v2_signature",
+    "wechatRefundNotify": "wechat_api_v2_encrypted_notification",
+}
 
 
 def test_all_contract_operations_have_an_explicit_actor_and_access_class():
@@ -34,7 +38,7 @@ def test_all_contract_operations_have_an_explicit_actor_and_access_class():
         if method in {"get", "post", "put", "patch", "delete"}
     }
 
-    assert len(operations) == 104
+    assert len(operations) == 106
     classified_authenticated = {
         name
         for name, operation in operations.items()
@@ -44,7 +48,13 @@ def test_all_contract_operations_have_an_explicit_actor_and_access_class():
         PUBLIC_OPERATIONS | SIGNED_PROVIDER_OPERATIONS | classified_authenticated
     )
 
-    actor_counts = {"public": 0, "buyer": 0, "admin": 0, "wechat_signature": 0}
+    actor_counts = {
+        "public": 0,
+        "buyer": 0,
+        "admin": 0,
+        "wechat_api_v2_signature": 0,
+        "wechat_api_v2_encrypted_notification": 0,
+    }
     for operation_id, operation in operations.items():
         actor = operation.get("x-actor-policy")
         assert actor in actor_counts, operation_id
@@ -53,8 +63,9 @@ def test_all_contract_operations_have_an_explicit_actor_and_access_class():
         if actor == "public":
             assert operation_id in PUBLIC_OPERATIONS
             assert operation.get("security") == []
-        elif actor == "wechat_signature":
+        elif actor in PROVIDER_POLICIES.values():
             assert operation_id in SIGNED_PROVIDER_OPERATIONS
+            assert PROVIDER_POLICIES[operation_id] == actor
             assert operation.get("security") == []
             assert operation.get("x-implementation-gate") == "G-PROTOCOL"
         else:
@@ -71,8 +82,9 @@ def test_all_contract_operations_have_an_explicit_actor_and_access_class():
     assert actor_counts == {
         "public": 4,
         "buyer": 33,
-        "admin": 65,
-        "wechat_signature": 2,
+        "admin": 67,
+        "wechat_api_v2_signature": 1,
+        "wechat_api_v2_encrypted_notification": 1,
     }
 
 

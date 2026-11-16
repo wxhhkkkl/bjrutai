@@ -58,10 +58,21 @@ function isCancelled(error) {
   return /cancel/i.test(message)
 }
 
+function defaultSleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 function createMallPaymentService(options = {}) {
   const send = options.request || request
   const accessToken = options.getAccessToken || getAccessToken
   const invoke = options.requestPayment || defaultRequestPayment
+  const sleep = options.sleep || defaultSleep
+  const prepareWaitAttempts = Number.isInteger(options.prepareWaitAttempts) && options.prepareWaitAttempts > 0
+    ? options.prepareWaitAttempts
+    : 25
+  const prepareWaitIntervalMs = Number.isInteger(options.prepareWaitIntervalMs) && options.prepareWaitIntervalMs >= 0
+    ? options.prepareWaitIntervalMs
+    : 800
 
   function requireBuyer() {
     if (!accessToken()) throw authError()
@@ -89,6 +100,24 @@ function createMallPaymentService(options = {}) {
   function getOrder(orderId) {
     requireBuyer()
     return send(orderPath(orderId))
+  }
+
+  // Server-side prepay creation is asynchronous. Briefly wait for it so the
+  // payer does not need a second tap on "查询支付状态" before the sheet opens.
+  async function waitForPreparedPayment(orderId) {
+    for (let attempt = 0; attempt < prepareWaitAttempts; attempt += 1) {
+      let snapshot
+      try {
+        snapshot = await reconcilePayment(orderId)
+      } catch (_) {
+        return null
+      }
+      if (['pending', 'succeeded', 'closed', 'failed', 'not_started'].includes(snapshot.status)) {
+        return snapshot
+      }
+      await sleep(prepareWaitIntervalMs)
+    }
+    return null
   }
 
   async function reconcilePayment(orderId) {
@@ -131,7 +160,27 @@ function createMallPaymentService(options = {}) {
       }
     }
 
-    const canInvoke = Boolean(prepared && prepared.canInvoke === true && prepared.invokeParams && typeof prepared.invokeParams === 'object')
+    const invokable = (value) => Boolean(
+      value && value.canInvoke === true && value.invokeParams && typeof value.invokeParams === 'object'
+    )
+    let canInvoke = invokable(prepared)
+    if (!canInvoke) {
+      const snapshot = await waitForPreparedPayment(orderId)
+      if (snapshot && (snapshot.status === 'succeeded' || snapshot.status === 'closed')) {
+        return { ...snapshot, canInvoke: false, requestPaymentOutcome: 'not_invoked' }
+      }
+      if (snapshot && snapshot.status === 'pending') {
+        try {
+          const refreshed = await preparePayment(orderId, expectedVersion, key)
+          if (invokable(refreshed)) {
+            prepared = refreshed
+            canInvoke = true
+          }
+        } catch (_) {
+          // Fall through to the authoritative reconcile below.
+        }
+      }
+    }
     let requestPaymentOutcome = 'not_invoked'
     if (canInvoke) {
       try {

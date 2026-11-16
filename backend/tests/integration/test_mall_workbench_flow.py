@@ -338,6 +338,8 @@ async def test_attribution_adjustment_stock_and_invoice_counts_exit_with_history
             "categoryId": category.json()["data"]["id"],
             "coverFileId": str(image.id),
             "description": "仅用于商城工作台合成验收",
+            "deliveryMethod": "express",
+            "freightTemplateId": "default",
             "skus": [
                 {
                     "skuCode": f"T126-{uuid4().hex[:12]}",

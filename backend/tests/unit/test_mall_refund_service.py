@@ -18,10 +18,11 @@ from tests.unit.test_mall_aftersale_service import admin_actor, paid_order, requ
 
 
 async def refund_ready(db, monkeypatch):
-    from src.schemas.mall_aftersale import AftersaleDecision
-    from src.services.mall_aftersale_service import apply_aftersale, decide_aftersale
+    from src.services.mall_aftersale_service import apply_aftersale
 
     buyer, order, skus, items = await paid_order(db, monkeypatch)
+    # An unshipped physical refund-only request is accepted automatically, so
+    # the aftersale is already in the refunding stage with one prepared refund.
     aftersale = await apply_aftersale(
         db,
         buyer,
@@ -31,15 +32,6 @@ async def refund_ready(db, monkeypatch):
     finance = await admin_actor(
         db,
         ["mall.aftersales.review", "mall.refunds.execute", "mall.refunds.query"],
-    )
-    aftersale = await decide_aftersale(
-        db,
-        finance,
-        aftersale.id,
-        AftersaleDecision(
-            expectedVersion=aftersale.version, decision="approve", reason="核实后同意退款"
-        ),
-        key="refund-ready-decision-001",
     )
     payment = await db.get(MallPayment, order.active_payment_id)
     await db.commit()

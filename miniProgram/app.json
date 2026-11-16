@@ -17,6 +17,7 @@
         "pages/mall-aftersale-detail/index",
         "pages/mall-return-shipment/index",
         "pages/mall-logistics/index",
+        "pages/mall-logistics-map/index",
         "pages/customer-detail/index",
         "pages/customer-edit/index",
         "pages/followup-record/index",

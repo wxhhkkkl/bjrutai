@@ -102,7 +102,10 @@
               <el-button
                 link
                 type="primary"
-                :disabled="command.pending.value"
+                :disabled="command.pending.value || row.status === 'on_sale'"
+                :title="
+                  row.status === 'on_sale' ? '上架中的商品需先下架再编辑' : ''
+                "
                 @click="edit(row)"
               >
                 编辑

@@ -40,6 +40,9 @@ os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 # Disable rate limiting in tests
 os.environ["RATE_LIMIT_ENABLED"] = "false"
 
+# Keep private storage and outbound gates closed regardless of the local .env.
+os.environ["MALL_STORAGE_OUTBOUND_ENABLED"] = "false"
+
 # Override create_async_engine in sqlalchemy.ext.asyncio temporarily so
 # database.py's top-level call uses our test-safe parameters.
 _original_create_async_engine = create_async_engine

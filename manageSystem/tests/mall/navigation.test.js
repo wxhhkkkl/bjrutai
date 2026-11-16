@@ -104,7 +104,7 @@ it('hides mall navigation after revocation and blocks a bookmarked mall route', 
 
 it('protects each current mall screen with a permission gate', () => {
   const mallRoutes = router.getRoutes().filter((route) => route.path.startsWith('/mall/'))
-  expect(mallRoutes).toHaveLength(13)
+  expect(mallRoutes).toHaveLength(14)
   for (const route of mallRoutes) {
     expect(route.meta.permission || route.meta.permissionAny).toBeTruthy()
   }

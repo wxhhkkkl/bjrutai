@@ -79,6 +79,10 @@ test('orders page filters by server status, pages by opaque cursor and recovers 
   })
   try {
     await fixture.page.onLoad()
+    assert.deepEqual(
+      fixture.page.data.statusOptions.map((option) => option.label),
+      ['全部', '已完成', '待付款', '待发货', '待收货', '退款/售后', '已关闭']
+    )
     assert.equal(fixture.page.data.state, 'success')
     assert.equal(fixture.page.data.orders[0].amountText, '9.90')
     fixture.page.selectStatus({ currentTarget: { dataset: { status: 'pending_receipt' } } })
@@ -88,11 +92,39 @@ test('orders page filters by server status, pages by opaque cursor and recovers 
     await flush()
     assert.equal(fixture.page.data.orders.length, 2)
     assert.equal(calls.at(-1).cursor, 'opaque-page-2')
+    fixture.page.selectStatus({ currentTarget: { dataset: { status: 'aftersale' } } })
+    await flush()
+    assert.deepEqual(calls.at(-1), { aftersale: 'active', pageSize: 20 })
     fail = true
     fixture.page.selectStatus({ currentTarget: { dataset: { status: 'closed' } } })
     await flush()
     assert.equal(fixture.page.data.state, 'recoverable-error')
     assert.equal(fixture.page.data.orders.length, 0)
+  } finally { fixture.restore() }
+})
+
+test('aftersale tab labels the in-progress after-sale instead of the finished order', async () => {
+  const service = {
+    listMyMallOrders: async () => ({
+      items: [{
+        id: '61', orderNo: 'M61', status: 'completed', aftersaleStatus: 'awaiting_receipt',
+        payableAmountCent: 100, items: []
+      }],
+      nextCursor: null,
+      total: 1
+    })
+  }
+  const fixture = loadPage('pages/mall-orders/index.js', {
+    'services/mall-order-service.js': service,
+    'services/session-service.js': { getAccessToken: () => 'buyer-token' }
+  })
+  try {
+    await fixture.page.onLoad()
+    assert.equal(fixture.page.data.orders[0].statusLabel, '已完成')
+    fixture.page.selectStatus({ currentTarget: { dataset: { status: 'aftersale' } } })
+    await flush()
+    assert.equal(fixture.page.data.orders[0].statusLabel, '等待商家验收')
+    assert.equal(fixture.page.data.orders[0].statusTone, 'action')
   } finally { fixture.restore() }
 })
 
@@ -231,7 +263,7 @@ test('logistics page keeps provider source and platform receipt as separate fact
   } finally { fixture.restore() }
 })
 
-test('logistics page renders a native map and estimate when a route is available', async () => {
+test('logistics page keeps the estimate in the card and renders no native map', async () => {
   const service = {
     getMyMallLogistics: async (id) => ({
       orderId: id,
@@ -257,24 +289,78 @@ test('logistics page renders a native map and estimate when a route is available
   try {
     await fixture.page.onLoad({ id: '32' })
     await flush()
-    const map = fixture.page.data.map
-    assert.equal(fixture.page.data.mapAvailable, true)
-    assert.equal(fixture.page.data.estimatedArrivalText, '预计 11月13日 10时前送达')
-    assert.ok(Math.abs(map.latitude - 35.8624) < 1e-6)
-    assert.ok(Math.abs(map.longitude - 116.8173) < 1e-6)
-    assert.equal(map.currentName, '合肥市')
-    assert.equal(map.markers.length, 1)
-    assert.equal(map.markers[0].latitude, 31.8206)
-    assert.equal(map.markers[0].longitude, 117.2272)
-    assert.equal(map.markers[0].iconPath, '/assets/images/mall-map-current-pin.png')
-    assert.deepEqual(map.polyline[0].points, [
-      { latitude: 31.8206, longitude: 117.2272 },
-      { latitude: 39.9042, longitude: 116.4074 }
-    ])
+    assert.equal(fixture.page.data.snapshot.estimatedArrivalText, '预计 11月13日 10时前送达')
+    assert.ok(!('map' in fixture.page.data), 'page must not keep native map state')
     const markup = fs.readFileSync(path.resolve(__dirname, '../../pages/mall-logistics/index.wxml'), 'utf8')
-    assert.match(markup, /<map\b/)
-    assert.match(markup, /include-points="\{\{map\.points\}\}"/)
-    assert.match(markup, /estimatedArrivalText/)
+    assert.doesNotMatch(markup, /<map\b/)
+    assert.match(markup, /snapshot\.estimatedArrivalText/)
+    assert.match(markup, /class="mall-logistics-estimate"/)
+  } finally { fixture.restore() }
+})
+
+test('logistics page opens the dedicated web-view map page when a map URL is available', async () => {
+  const mapUrl = 'https://kuaidi.bjrutai.com/tools/map/V2/token_117.2272,31.8206_6'
+  const service = {
+    getMyMallLogistics: async (id) => ({
+      orderId: id,
+      source: 'live',
+      queryStatus: 'available',
+      events: [],
+      mapAvailable: true,
+      mapUrl,
+      route: {
+        currentName: '合肥市',
+        points: [
+          { latitude: 31.8206, longitude: 117.2272, stateName: '当前停留节点' },
+          { latitude: 39.9042, longitude: 116.4074, stateName: '预估途径节点' }
+        ]
+      }
+    })
+  }
+  const fixture = loadPage('pages/mall-logistics/index.js', {
+    'services/mall-order-service.js': service,
+    'services/session-service.js': { getAccessToken: () => 'buyer-token' }
+  })
+  try {
+    await fixture.page.onLoad({ id: '33' })
+    await flush()
+    assert.equal(fixture.page.data.snapshot.mapUrl, mapUrl)
+    fixture.page.openMap()
+    assert.deepEqual(fixture.navigation.at(-1), [
+      'navigateTo',
+      '/pages/mall-logistics-map/index?id=33'
+    ])
+    const root = path.resolve(__dirname, '../..')
+    const markup = fs.readFileSync(path.join(root, 'pages/mall-logistics/index.wxml'), 'utf8')
+    assert.match(markup, /bindtap="openMap"/)
+    const app = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'))
+    assert.ok(app.pages.includes('pages/mall-logistics-map/index'))
+  } finally { fixture.restore() }
+})
+
+test('dedicated map page renders only https map URLs and recovers an empty response', async () => {
+  let mapUrl = 'https://kuaidi.bjrutai.com/tools/map/V2/token_117.2272,31.8206_6'
+  const service = { getMyMallLogistics: async () => ({ mapUrl }) }
+  const fixture = loadPage('pages/mall-logistics-map/index.js', {
+    'services/mall-order-service.js': service,
+    'services/session-service.js': { getAccessToken: () => 'buyer-token' }
+  })
+  try {
+    await fixture.page.onLoad({ id: '34' })
+    await flush()
+    assert.equal(fixture.page.data.state, 'ready')
+    assert.equal(fixture.page.data.mapUrl, mapUrl)
+    const markup = fs.readFileSync(
+      path.resolve(__dirname, '../../pages/mall-logistics-map/index.wxml'),
+      'utf8'
+    )
+    assert.match(markup, /<web-view\b/)
+    assert.match(markup, /src="\{\{mapUrl\}\}"/)
+
+    mapUrl = 'http://insecure.example.com/map'
+    await fixture.page.retry()
+    await flush()
+    assert.equal(fixture.page.data.state, 'empty')
   } finally { fixture.restore() }
 })
 

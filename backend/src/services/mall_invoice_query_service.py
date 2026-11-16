@@ -48,6 +48,7 @@ async def serialize_invoice_request(db, row: MallInvoiceRequest):
     return {
         "id": str(row.id),
         "requestNo": row.request_no,
+        "createdAt": row.created_at.isoformat() + "Z" if row.created_at else None,
         "orderId": str(row.order_id),
         "productName": "、".join(product_names) if product_names else None,
         "buyerType": row.buyer_type,

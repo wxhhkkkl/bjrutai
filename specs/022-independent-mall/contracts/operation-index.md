@@ -1,6 +1,6 @@
 # 操作索引
 
-生成自[openapi.json](openapi.json)。当前92路径、104操作、0.8.0契约；本地包裹登记/运单更正/本人确认收货及快递100查询缓存已实现。本项目没有微信平台发货环节。快递100 live分支仅在development/test且显式开启时调用，production仍关闭；真实运单查询未验收。T063/T102的内部单对象原文领取已按宪章4.0.0实现，运行开关等待留存引用/告知审阅版本。买家/后台投影分开，两个微信通知入口仅受宪章3.0.0限定例外覆盖，T048本地实现与隔离回归已完成。不是全量已部署声明。
+生成自[openapi.json](openapi.json)。当前94路径、106操作、0.9.0契约；本地包裹登记/运单更正/本人确认收货、虚拟商品后台手工交付、快递100订单查询缓存及退货物流缓存已实现。本项目没有微信平台发货环节。快递100 live分支仅在development/test且显式开启时调用，production仍关闭；真实运单查询未验收。T063/T102的内部单对象原文领取已按宪章4.0.0实现，运行开关等待留存引用/告知审阅版本。买家/后台投影分开，两个微信通知入口仅受宪章3.0.0限定例外覆盖，T048本地实现与隔离回归已完成。不是全量已部署声明。
 
 | 方法 | 路径 | 操作 | 权限/身份 | 请求 | data结果 |
 |---|---|---|---|---|---|
@@ -60,6 +60,7 @@
 | PATCH | `/api/v1/admin/mall/shipments/{shipmentId}` | 更正运单并留痕 | `mall.shipments.write` | `TrackingCorrection` | `ResponseShipment` |
 | GET | `/api/v1/admin/mall/aftersales` | 售后列表 | `mall.aftersales.read` | `-` | `ResponseAftersalePage` |
 | GET | `/api/v1/admin/mall/aftersales/{aftersaleId}` | 售后详情 | `mall.aftersales.read` | `-` | `ResponseAftersale` |
+| GET | `/api/v1/admin/mall/aftersales/{aftersaleId}/return-logistics` | 快递100退货物流安全轨迹快照 | `mall.aftersales.read` | `-` | `ResponseReturnLogisticsSnapshot` |
 | POST | `/api/v1/admin/mall/aftersales/{aftersaleId}/decision` | 审核不等于退钱 | `mall.aftersales.review` | `AftersaleDecision` | `ResponseAftersale` |
 | POST | `/api/v1/admin/mall/aftersales/{aftersaleId}/receipt` | 验收实物并决定可售入库 | `mall.returns.receive` | `ReturnReceipt` | `ResponseAftersale` |
 | POST | `/api/v1/admin/mall/aftersales/{aftersaleId}/execute-refund` | 财务按有效售后原路退款 | `mall.refunds.execute` | `VersionAction` | `ResponseRefund` |

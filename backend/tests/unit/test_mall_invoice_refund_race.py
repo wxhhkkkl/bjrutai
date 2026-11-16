@@ -22,10 +22,9 @@ from tests.unit.test_mall_aftersale_service import (
 async def test_successful_partial_refund_and_red_invoice_replay_change_performance_once(
     db_session, monkeypatch
 ):
-    from src.schemas.mall_aftersale import AftersaleDecision
     from src.schemas.mall_catalog import VersionAction
     from src.schemas.mall_invoice import RedInvoiceRecord, RedPendingUpdate
-    from src.services.mall_aftersale_service import apply_aftersale, decide_aftersale
+    from src.services.mall_aftersale_service import apply_aftersale
     from src.services.mall_invoice_service import record_red_invoice, set_red_pending
     from src.services.mall_refund_service import apply_verified_refund, execute_refund
     from tests.unit.test_mall_refund_service import refund_fact
@@ -86,17 +85,6 @@ async def test_successful_partial_refund_and_red_invoice_replay_change_performan
         buyer,
         aftersale_request(order, items[1]),
         key="invoice-refund-race-apply-001",
-    )
-    application = await decide_aftersale(
-        db_session,
-        finance,
-        application.id,
-        AftersaleDecision(
-            expectedVersion=application.version,
-            decision="approve",
-            reason="为发票红冲竞争测试建立部分退款",
-        ),
-        key="invoice-refund-race-review-001",
     )
     payment = await db_session.get(MallPayment, order.active_payment_id)
     refund = await execute_refund(

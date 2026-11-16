@@ -4,14 +4,6 @@
     <view wx:if="{{state === 'loading'}}" class="mall-flow-state"><van-icon name="replay" size="30px" color="#1677FF" /><text>正在读取物流信息</text></view>
     <view wx:elif="{{state === 'recoverable-error' || state === 'forbidden'}}" class="mall-flow-state"><text class="mall-flow-state__title">物流信息暂不可用</text><text>{{stateMessage}}</text><button class="mall-primary-button tap-target" bindtap="retry" hover-class="tap-feedback">重新查询</button></view>
     <block wx:elif="{{state === 'success' && snapshot}}">
-      <view wx:if="{{mapAvailable && map}}" class="mall-logistics-map">
-        <map class="mall-logistics-map__canvas" id="logisticsMap" latitude="{{map.latitude}}" longitude="{{map.longitude}}" scale="{{map.scale}}" include-points="{{map.points}}" markers="{{map.markers}}" polyline="{{map.polyline}}" show-location="{{false}}" enable-scroll="{{true}}" enable-zoom="{{true}}" enable-rotate="{{false}}">
-          <cover-view class="mall-logistics-map__estimate">
-            <cover-view class="mall-logistics-map__title">{{estimatedArrivalText || '预计送达时间待更新'}}</cover-view>
-            <cover-view wx:if="{{map.currentName}}" class="mall-logistics-map__sub">当前 {{map.currentName}}</cover-view>
-          </cover-view>
-        </map>
-      </view>
       <view class="mall-logistics-summary">
         <view class="mall-logistics-summary__icon"><van-icon name="logistics" size="27px" color="#1677FF" /></view>
         <view class="mall-logistics-summary__copy"><text class="mall-logistics-summary__status">{{statusLabel}}</text><text class="mall-logistics-summary__source">{{sourceLabel}}</text></view>
@@ -22,7 +14,10 @@
         <view class="mall-logistics-number__row"><text>承运商</text><text>{{snapshot.courierName}}</text></view>
         <view class="mall-logistics-number__row"><text>运单号</text><text>{{snapshot.trackingNo}}</text></view>
         <view class="mall-logistics-number__row"><text>最近更新</text><text>{{snapshot.updatedAtText || '暂无更新'}}</text></view>
-        <text wx:if="{{snapshot.estimatedArrivalText && !mapAvailable}}" class="mall-logistics-estimate">{{snapshot.estimatedArrivalText}}</text>
+        <text wx:if="{{snapshot.estimatedArrivalText}}" class="mall-logistics-estimate">{{snapshot.estimatedArrivalText}}</text>
+        <view wx:if="{{snapshot.mapUrl}}" class="mall-logistics-map-entry tap-target" bindtap="openMap" hover-class="tap-feedback">
+          <text>地图轨迹</text><text>查看全屏地图</text>
+        </view>
       </view>
       <view class="mall-detail-card mall-logistics-events">
         <view class="mall-detail-card__heading"><van-icon name="clock-o" size="19px" color="#1677FF" /><text>物流轨迹</text></view>

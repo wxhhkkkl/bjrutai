@@ -49,6 +49,7 @@ async def serialize_aftersale(db, row, *, buyer=False):
         "orderId": str(row.order_id),
         "orderNo": order.order_no if order else None,
         "aftersaleNo": row.aftersale_no,
+        "createdAt": row.created_at.isoformat() + "Z" if row.created_at else None,
         "method": row.method,
         "status": row.status,
         "reason": safe_order_text(row.reason),
@@ -58,6 +59,7 @@ async def serialize_aftersale(db, row, *, buyer=False):
         "refundId": str(refund.id) if refund else None,
         "auditReason": safe_order_text(row.audit_reason),
         "receiptResult": row.receipt_result,
+        "returnCompany": row.return_company,
         "returnTrackingNo": row.return_tracking_no,
         "items": [
             {

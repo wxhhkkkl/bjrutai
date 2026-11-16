@@ -10,7 +10,8 @@ from src.api.mall_deps import MallActor
 from src.core.exceptions import ConflictException
 from src.models.mall_base import utc_now
 from src.models.mall_catalog import MallStockMovement
-from src.models.mall_operations import MallSettings
+from src.models.mall_finance import MallRefund
+from src.models.mall_operations import MallJob, MallSettings
 from src.models.mall_trade import MallAftersale, MallAftersaleItem, MallOrderItem
 from src.models.role import Role
 from src.models.user import admin_account_roles
@@ -71,13 +72,23 @@ async def test_apply_reserves_original_line_and_money_once_and_replays(db_sessio
     replay = await apply_aftersale(db_session, actor, data, key="aftersale-apply-intent-001")
     await db_session.commit()
 
-    assert first.id == replay.id and first.status == "submitted"
+    assert first.id == replay.id and first.status == "refunding"
     assert first.goods_refund_cent == first.reserved_refund_cent == 5000
     assert first.freight_refund_cent == 0
     assert order.refund_reserved_cent == 5000
     assert line.aftersale_reserved_quantity == 1 and line.refunded_quantity == 0
     assert [(sku.available_qty, sku.reserved_qty) for sku in skus] == [(9, 0), (8, 0)]
     assert await db_session.scalar(select(func.count()).select_from(MallAftersaleItem)) == 1
+    refunds = (await db_session.scalars(select(MallRefund))).all()
+    assert [(row.status, row.total_cent) for row in refunds] == [("prepared", 5000)]
+    assert (
+        await db_session.scalar(
+            select(func.count())
+            .select_from(MallJob)
+            .where(MallJob.kind == "mall_refund_execute")
+        )
+        == 1
+    )
     assert (
         await db_session.scalar(
             select(func.count())
@@ -122,7 +133,10 @@ async def test_rejection_releases_holds_and_allows_reapplication_with_history(
     buyer, order, _, items = await paid_order(db_session, monkeypatch)
     line = items[1]
     first = await apply_aftersale(
-        db_session, buyer, request(order, line), key="aftersale-reject-create-001"
+        db_session,
+        buyer,
+        request(order, line, method="return_refund"),
+        key="aftersale-reject-create-001",
     )
     operator = await admin_actor(db_session, ["mall.aftersales.review"])
     rejected = await decide_aftersale(
@@ -140,7 +154,7 @@ async def test_rejection_releases_holds_and_allows_reapplication_with_history(
     second = await apply_aftersale(
         db_session,
         buyer,
-        request(order, line),
+        request(order, line, method="return_refund"),
         key="aftersale-reapply-create-001",
     )
     assert second.id != first.id and second.status == "submitted"
@@ -239,7 +253,10 @@ async def test_withdraw_before_financial_submission_releases_hold_but_unknown_ne
     buyer, order, _, items = await paid_order(db_session, monkeypatch)
     line = items[1]
     aftersale = await apply_aftersale(
-        db_session, buyer, request(order, line), key="aftersale-withdraw-create-001"
+        db_session,
+        buyer,
+        request(order, line, method="return_refund"),
+        key="aftersale-withdraw-create-001",
     )
     withdrawn = await withdraw_aftersale(
         db_session,
@@ -251,7 +268,10 @@ async def test_withdraw_before_financial_submission_releases_hold_but_unknown_ne
     assert withdrawn.status == "withdrawn" and order.refund_reserved_cent == 0
 
     again = await apply_aftersale(
-        db_session, buyer, request(order, line), key="aftersale-unknown-create-001"
+        db_session,
+        buyer,
+        request(order, line, method="return_refund"),
+        key="aftersale-unknown-create-001",
     )
     again.status = "refunding"
     with pytest.raises(ConflictException):
@@ -286,6 +306,67 @@ async def test_out_of_window_request_is_recorded_for_manual_review_without_reser
     assert aftersale.status == "disputed"
     assert aftersale.reserved_refund_cent == 0
     assert order.refund_reserved_cent == 0 and items[1].aftersale_reserved_quantity == 0
+
+
+@pytest.mark.asyncio
+async def test_unshipped_physical_refund_only_queues_the_refund_without_merchant_review(
+    db_session, monkeypatch
+):
+    from src.services.mall_aftersale_service import apply_aftersale
+
+    buyer, order, _, items = await paid_order(db_session, monkeypatch)
+    aftersale = await apply_aftersale(
+        db_session, buyer, request(order, items[1]), key="aftersale-auto-refund-001"
+    )
+    await db_session.commit()
+
+    assert aftersale.status == "refunding"
+    refund = await db_session.scalar(
+        select(MallRefund).where(MallRefund.aftersale_id == aftersale.id)
+    )
+    assert refund is not None and refund.status == "prepared"
+    assert refund.total_cent == aftersale.reserved_refund_cent == 5000
+    assert refund.requested_by is None  # policy-queued, no admin requester
+    assert (
+        await db_session.scalar(
+            select(func.count())
+            .select_from(MallJob)
+            .where(MallJob.kind == "mall_refund_execute")
+        )
+        == 1
+    )
+
+
+@pytest.mark.asyncio
+async def test_virtual_orders_stay_under_manual_review(db_session, monkeypatch):
+    from src.services.mall_aftersale_service import apply_aftersale
+
+    buyer, order, _, items = await paid_order(db_session, monkeypatch)
+    order.policy_snapshot = {**(order.policy_snapshot or {}), "deliveryMethod": "virtual"}
+    await db_session.flush()
+
+    aftersale = await apply_aftersale(
+        db_session, buyer, request(order, items[1]), key="aftersale-virtual-001"
+    )
+
+    assert aftersale.status == "submitted"
+    assert await db_session.scalar(select(func.count()).select_from(MallRefund)) == 0
+
+
+@pytest.mark.asyncio
+async def test_shipped_orders_stay_under_manual_review(db_session, monkeypatch):
+    from src.services.mall_aftersale_service import apply_aftersale
+
+    buyer, order, _, items = await paid_order(db_session, monkeypatch)
+    order.status, order.shipped_at = "pending_receipt", utc_now()
+    await db_session.flush()
+
+    aftersale = await apply_aftersale(
+        db_session, buyer, request(order, items[1]), key="aftersale-shipped-001"
+    )
+
+    assert aftersale.status == "submitted"
+    assert await db_session.scalar(select(func.count()).select_from(MallRefund)) == 0
 
 
 @pytest.mark.asyncio

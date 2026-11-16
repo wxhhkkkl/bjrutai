@@ -104,7 +104,7 @@ async def test_buyer_withdraw_return_shipment_and_admin_receipt_are_contract_com
         json={
             "orderId": str(order.id),
             "expectedOrderVersion": order.version,
-            "method": "refund_only",
+            "method": "return_refund",
             "items": [{"orderItemId": str(items[1].id), "quantity": 1}],
             "reason": "暂不退货",
         },

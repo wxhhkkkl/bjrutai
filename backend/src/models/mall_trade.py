@@ -245,6 +245,12 @@ class MallAftersale(MallRecord, Base):
     return_company: Mapped[str | None] = mapped_column(String(32))
     return_tracking_no: Mapped[str | None] = mapped_column(String(64))
     return_sent_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
+    return_logistics_provider: Mapped[str] = mapped_column(String(32), default="kuaidi100")
+    return_logistics_status: Mapped[str] = mapped_column(String(24), default="pending")
+    return_logistics_snapshot: Mapped[dict] = mapped_column(JSON, default=dict)
+    return_logistics_fetched_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
+    return_logistics_next_query_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
+    return_logistics_last_error_code: Mapped[str | None] = mapped_column(String(64))
     received_at: Mapped[datetime | None] = mapped_column(UTC_TIME)
     receipt_result: Mapped[str | None] = mapped_column(String(32))
 

@@ -53,6 +53,10 @@
               <dt>关联退款</dt>
               <dd>{{ aftersale.refundId || '尚未生成' }}</dd>
             </div>
+            <div v-if="aftersale.returnCompany">
+              <dt>退货快递公司</dt>
+              <dd>{{ courierName(aftersale.returnCompany) }}</dd>
+            </div>
             <div v-if="aftersale.returnTrackingNo">
               <dt>退货运单</dt>
               <dd>{{ aftersale.returnTrackingNo }}</dd>
@@ -152,6 +156,11 @@
             />
           </el-table>
         </el-card>
+
+        <ReturnLogistics
+          v-if="aftersale.returnTrackingNo"
+          :aftersale-id="aftersale.id"
+        />
 
         <el-card
           v-if="aftersale.status === 'submitted' && canReview"
@@ -372,6 +381,8 @@ import * as api from '@/api/mall-aftersales'
 import { useMallCommand } from '@/composables/useMallCommand'
 import { useMallToast } from '@/composables/useMallToast'
 import { aftersaleMethods, aftersaleStates, money } from './aftersale-view'
+import ReturnLogistics from './ReturnLogistics.vue'
+import { courierName } from '../orders/couriers'
 
 const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()

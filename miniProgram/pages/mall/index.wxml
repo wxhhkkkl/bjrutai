@@ -184,7 +184,7 @@
     </view>
   </view>
 
-  <view wx:if="{{categoryFilterVisible}}" class="mall-sheet-backdrop" bindtap="closeCategoryFilter" catchtouchmove="stopPropagation">
+  <view wx:if="{{categoryFilterVisible}}" class="mall-sheet-backdrop tap-target" bindtap="closeCategoryFilter" hover-class="tap-feedback" hover-start-time="0" hover-stay-time="80" catchtouchmove="stopPropagation">
     <view class="mall-category-sheet" catchtap="stopPropagation">
       <view class="mall-category-sheet__header">
         <text class="mall-category-sheet__title">选择分类</text>

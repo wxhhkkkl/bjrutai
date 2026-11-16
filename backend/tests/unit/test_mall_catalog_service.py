@@ -66,6 +66,35 @@ async def test_draft_can_be_incomplete_and_publish_requires_real_information(db_
 
 
 @pytest.mark.asyncio
+async def test_listed_product_cannot_be_edited_until_off_sale(db_session):
+    from src.schemas.mall_catalog import ProductWrite
+    from src.services.mall_catalog_service import save_product
+
+    product = await save_product(db_session, ProductWrite(name="在售商品"), actor=ACTOR)
+    product.status = "on_sale"
+    await db_session.flush()
+    with pytest.raises(ConflictException, match="上架状态的商品不允许编辑"):
+        await save_product(
+            db_session,
+            ProductWrite(name="改名"),
+            actor=ACTOR,
+            product_id=product.id,
+            expected_version=product.version,
+        )
+    product.status = "off_sale"
+    await db_session.flush()
+    version = product.version
+    edited = await save_product(
+        db_session,
+        ProductWrite(name="改名"),
+        actor=ACTOR,
+        product_id=product.id,
+        expected_version=version,
+    )
+    assert edited.name == "改名" and edited.version == version + 1
+
+
+@pytest.mark.asyncio
 async def test_price_edit_never_overwrites_reserved_stock_and_adjustment_is_audited(db_session):
     from src.schemas.mall_catalog import ProductWrite
     from src.services.mall_catalog_service import adjust_stock, save_product

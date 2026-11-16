@@ -59,24 +59,12 @@ async def _locked_aftersale(db, identity):
     return order, aftersale
 
 
-async def execute_refund(db, actor, identity, data, *, key):
-    """Authorize and persist an original-channel refund job; no gateway I/O here."""
-    actor = await _admin(db, actor, "mall.refunds.execute")
-    order, aftersale = await _locked_aftersale(db, identity)
-    payload = {"aftersaleId": identity, **data.model_dump(mode="json")}
-    intent = await reserve_mall_command(
-        db, actor=actor, action="executeMallRefund", key=key, payload=payload
-    )
-    if not intent.created:
-        if intent.command.status != "completed" or not intent.command.entity_id:
-            raise ConflictException(message="原退款请求仍在处理中，请查询退款记录")
-        replay = await db.get(MallRefund, intent.command.entity_id, populate_existing=True)
-        if replay is None or replay.aftersale_id != aftersale.id:
-            raise ConflictException(message="原退款记录关联不一致")
-        return replay
+async def queue_refund_request(db, *, order, aftersale, requested_by: int | None):
+    """Persist the single active refund request and enqueue execution; no gateway I/O.
 
-    if aftersale.version != data.expected_version:
-        raise ConflictException(message="售后版本已变化，请重新读取")
+    ``requested_by`` is an admin account id when finance requested the refund and
+    ``None`` when an automatic policy (unshipped refund-only request) queued it.
+    """
     if aftersale.status not in {"awaiting_refund", "refunding"}:
         raise ConflictException(message="售后尚未达到可执行退款阶段")
     if aftersale.reserved_refund_cent <= 0:
@@ -139,7 +127,7 @@ async def execute_refund(db, actor, identity, data, *, key):
             freight_refund_cent=aftersale.freight_refund_cent,
             total_cent=total_cent,
             original_amount_cent=payment.amount_cent,
-            requested_by=actor.actor_id,
+            requested_by=requested_by,
         )
         db.add(row)
         await db.flush()
@@ -154,6 +142,30 @@ async def execute_refund(db, actor, identity, data, *, key):
     aftersale.status = "refunding"
     aftersale.version += 1
     order.version += 1
+    return row
+
+
+async def execute_refund(db, actor, identity, data, *, key):
+    """Authorize and persist an original-channel refund job; no gateway I/O here."""
+    actor = await _admin(db, actor, "mall.refunds.execute")
+    order, aftersale = await _locked_aftersale(db, identity)
+    payload = {"aftersaleId": identity, **data.model_dump(mode="json")}
+    intent = await reserve_mall_command(
+        db, actor=actor, action="executeMallRefund", key=key, payload=payload
+    )
+    if not intent.created:
+        if intent.command.status != "completed" or not intent.command.entity_id:
+            raise ConflictException(message="原退款请求仍在处理中，请查询退款记录")
+        replay = await db.get(MallRefund, intent.command.entity_id, populate_existing=True)
+        if replay is None or replay.aftersale_id != aftersale.id:
+            raise ConflictException(message="原退款记录关联不一致")
+        return replay
+
+    if aftersale.version != data.expected_version:
+        raise ConflictException(message="售后版本已变化，请重新读取")
+    row = await queue_refund_request(
+        db, order=order, aftersale=aftersale, requested_by=actor.actor_id
+    )
     await record_mall_admin_audit(
         db,
         actor=actor,

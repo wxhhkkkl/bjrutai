@@ -522,14 +522,25 @@ test('all business tap targets use the shared press feedback', () => {
   const markupFiles = interactiveRoots.flatMap((root) =>
     collectFiles(root, '.wxml')
   );
-  const tapTargetPattern =
-    /<(?:view|text|button)\b[^>]*\b(?:bindtap|bind:tap|catchtap)="[^"]+"[^>]*>/gs;
+  // Match a whole opening tag, treating each quoted attribute as one unit so
+  // that bindings like `disabled="{{a >= b}}"` do not truncate the match at
+  // the `>` character inside the attribute value.
+  const tagBody = `(?:[^">]|"[^"]*")*`;
+  const tapTargetPattern = new RegExp(
+    `<(?:view|text|button)\\b${tagBody}\\b(?:bindtap|bind:tap|catchtap)="[^"]+"${tagBody}>`,
+    'gs'
+  );
 
   for (const file of markupFiles) {
     const source = fs.readFileSync(path.join(projectRoot, file), 'utf8');
     const tapTargets = source.match(tapTargetPattern) || [];
 
     for (const target of tapTargets) {
+      // catchtap="stopPropagation" is a structural propagation guard (sheet
+      // containers over a dismiss backdrop), not a business tap target.
+      if (/catchtap="stopPropagation"/.test(target) && !/bindtap|bind:tap/.test(target)) {
+        continue
+      }
       assert.match(target, /\bclass="[^"]*\btap-target\b[^"]*"/, file);
       assert.match(target, /\bhover-class="tap-feedback"/, file);
     }

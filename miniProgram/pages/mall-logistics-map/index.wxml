@@ -1,0 +1,16 @@
+<view class="mall-map-page">
+  <web-view wx:if="{{state === 'ready'}}" src="{{mapUrl}}" binderror="onWebError"></web-view>
+  <view wx:elif="{{state === 'loading'}}" class="mall-map-state">
+    <text>正在加载地图轨迹</text>
+  </view>
+  <view wx:elif="{{state === 'empty'}}" class="mall-map-state">
+    <text class="mall-map-state__title">暂无可展示的地图</text>
+    <text>{{stateMessage}}</text>
+    <button class="mall-map-button tap-target" bindtap="retry" hover-class="tap-feedback">重新查询</button>
+  </view>
+  <view wx:else class="mall-map-state">
+    <text class="mall-map-state__title">地图加载失败</text>
+    <text>{{stateMessage}}</text>
+    <button class="mall-map-button tap-target" bindtap="retry" hover-class="tap-feedback">重试</button>
+  </view>
+</view>

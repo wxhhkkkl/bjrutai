@@ -193,6 +193,9 @@ test('profile refresh, page state announcement, keyboard positioning and bottom 
       fields.forEach((field) => {
         assert.match(field, /adjust-position="true"/, `${relativePath}: keyboard should adjust the viewport`)
         assert.match(field, /cursor-spacing="80"/, `${relativePath}: keep the focused field above the keyboard`)
+        if (/focus="\{\{focusField === '[^']+'\}\}"/.test(field)) {
+          assert.match(field, /bindblur="[A-Za-z]+"/, `${relativePath}: a focus-bound field must clear its focus state on blur`)
+        }
       })
       if (!['pages/mall/index.wxml', 'pages/mall-checkout/index.wxml'].includes(relativePath)) {
         assert.match(markup, /scroll-into-view="\{\{errorTarget\}\}"/, `${relativePath}: validation should scroll its first target into view`)

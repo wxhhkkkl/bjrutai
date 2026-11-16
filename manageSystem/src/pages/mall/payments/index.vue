@@ -37,8 +37,10 @@
           <el-date-picker
             v-model="filters.range"
             type="datetimerange"
+            :disabled-date="disableFutureDate"
             start-placeholder="开始时间"
             end-placeholder="结束时间（不含）"
+            @change="filters.range = clampFutureTime($event)"
           />
         </el-form-item>
         <el-form-item>
@@ -135,6 +137,7 @@
             >
               刷新支付状态
             </el-button>
+            <template v-else>—</template>
           </template>
         </el-table-column>
       </el-table>
@@ -232,6 +235,16 @@ function paymentStateType(status) {
 function iso(value) {
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) return null
   return value.toISOString()
+}
+function disableFutureDate(date) {
+  return date.getTime() > Date.now()
+}
+function clampFutureTime(range) {
+  if (!Array.isArray(range)) return range
+  const now = Date.now()
+  return range.map((value) =>
+    value instanceof Date && value.getTime() > now ? new Date(now) : value
+  )
 }
 function activeDateRange() {
   if (!Array.isArray(filters.range) || filters.range.length !== 2) return null
@@ -337,16 +350,43 @@ async function queryPayment(row) {
   queryingId.value = row.id
   error.value = ''
   try {
-    await queryAdminMallPayment(
-      { id: row.id, expectedVersion: row.version },
-      crypto.randomUUID()
-    )
+    try {
+      await queryAdminMallPayment(
+        { id: row.id, expectedVersion: row.version },
+        crypto.randomUUID()
+      )
+    } catch (failure) {
+      // The queued query updates the payment version after the list reloads, so a
+      // second attempt from the same page can carry a stale version. Re-read and
+      // retry once; a version conflict enqueues nothing.
+      if (isVersionConflict(failure)) {
+        await load()
+        const fresh = items.value.find((item) => item.id === row.id)
+        if (fresh) {
+          await queryAdminMallPayment(
+            { id: fresh.id, expectedVersion: fresh.version },
+            crypto.randomUUID()
+          )
+        } else {
+          throw failure
+        }
+      } else {
+        throw failure
+      }
+    }
     await load()
   } catch (failure) {
     error.value = failure.userMessage || failure.message || '支付查证请求失败'
   } finally {
     queryingId.value = ''
   }
+}
+
+function isVersionConflict(failure) {
+  return (
+    failure?.response?.status === 409 &&
+    String(failure.response.data?.message || '').includes('版本')
+  )
 }
 
 onMounted(async () => {

@@ -199,7 +199,10 @@ async def test_admin_immediate_close_uses_admin_audit_identity_and_buyer_safe_ev
         headers=auth_header(make_access_token(user_id=actor.actor_id, user_type="personal")),
     )
     assert buyer.json()["data"]["timeline"][-1]["actorLabel"] == "商家"
-    assert "13800001234" not in buyer.text
+    # The admin's typed reason stays out of the buyer view; the buyer only sees
+    # the canonical close text. (Their own address phone is by design present.)
+    assert "买家电话" not in buyer.text
+    assert buyer.json()["data"]["closeReason"] == "未发起付款订单关闭"
 
 
 @pytest.mark.asyncio
@@ -239,3 +242,22 @@ async def test_admin_cursor_is_filter_bound_and_time_range_is_half_open(
         )
     ).all()
     assert any(str(older.id) in e.detail.get("orderIds", []) for e in events)
+
+
+@pytest.mark.asyncio
+async def test_admin_order_detail_shows_full_recipient_only_with_release_permission(
+    client, db_session, monkeypatch
+):
+    _, _, _, _, order = await unattempted(db_session, monkeypatch)
+    raw = order.address_snapshot
+    url = f"/api/v1/admin/mall/orders/{order.id}"
+    _, _, headers = await admin(db_session, ["mall.orders.read", "mall.fulfillment.release"])
+    detail = (await client.get(url, headers=headers)).json()["data"]
+    assert detail["address"]["recipientName"] == raw["recipientName"]
+    assert detail["address"]["phone"] == raw["phone"]
+    assert detail["address"]["addressLine"] == raw["addressLine"]
+    assert detail["address"]["phoneMasked"] == raw["phoneMasked"]
+    _, _, masked_headers = await admin(db_session, ["mall.orders.read"])
+    masked = (await client.get(url, headers=masked_headers)).json()["data"]
+    assert "phone" not in masked["address"] and "addressLine" not in masked["address"]
+    assert masked["address"]["phoneMasked"] == raw["phoneMasked"]

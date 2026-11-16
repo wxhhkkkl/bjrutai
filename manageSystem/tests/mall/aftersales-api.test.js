@@ -5,6 +5,7 @@ import {
   executeAftersaleRefund,
   getAdminAftersale,
   getAdminMallRefund,
+  getAdminReturnLogistics,
   getAftersaleProofAccess,
   listAdminAftersales,
   queryAdminMallRefund,
@@ -34,6 +35,13 @@ it('sends only applied status filters to the permissioned aftersale list', async
   })
   expect((await getAdminMallRefund('15')).status).toBe('unknown')
   expect(http.get).toHaveBeenLastCalledWith('/admin/mall/refunds/15')
+  http.get.mockResolvedValue({
+    data: { data: { courierCode: 'yuantong', queryStatus: 'pending' } },
+  })
+  expect((await getAdminReturnLogistics('8')).courierCode).toBe('yuantong')
+  expect(http.get).toHaveBeenLastCalledWith(
+    '/admin/mall/aftersales/8/return-logistics'
+  )
 })
 
 it('keeps review, receipt and refund execution as separate keyed operations', async () => {

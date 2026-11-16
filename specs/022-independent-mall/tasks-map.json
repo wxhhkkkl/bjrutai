@@ -2219,6 +2219,7 @@
       "operationIds": [
         "getMyMallLogistics",
         "getAdminMallLogistics",
+        "getAdminMallReturnLogistics",
         "refreshMallLogistics"
       ],
       "test": false,
@@ -2302,7 +2303,8 @@
         "cancelAdminMallOrder",
         "shipMallOrder",
         "correctMallTracking",
-        "confirmMallReceipt"
+        "confirmMallReceipt",
+        "deliverVirtualMallOrder"
       ],
       "test": true,
       "status": "completed",
@@ -5674,6 +5676,7 @@
     "wechatPaymentNotify": "T048",
     "getMyMallLogistics": "T060",
     "getAdminMallLogistics": "T060",
+    "getAdminMallReturnLogistics": "T060",
     "refreshMallLogistics": "T060",
     "listAdminMallOrders": "T062",
     "getAdminMallOrder": "T062",

@@ -97,3 +97,37 @@ async def test_immediate_cancel_finishes_with_closed_timeline_and_safe_reason(
     assert detail["timeline"][-1]["action"] == "closed"
     assert detail["address"]["phone"] == ADDRESS["phone"]
     assert detail["address"]["addressLine"] == ADDRESS["addressLine"]
+
+
+@pytest.mark.asyncio
+async def test_order_list_active_aftersale_filter_tracks_terminal_status(
+    client, db_session, monkeypatch
+):
+    from uuid import uuid4
+
+    from src.models.mall_trade import MallAftersale
+
+    actor, _, _, _, order = await unattempted(db_session, monkeypatch)
+    headers = auth_header(make_access_token(user_id=actor.actor_id, user_type="personal"))
+    url = "/api/v1/mall/orders"
+    empty = (await client.get(url, headers=headers, params={"aftersale": "active"})).json()["data"]
+    assert empty["total"] == 0
+    aftersale = MallAftersale(
+        aftersale_no="AF" + uuid4().hex,
+        order_id=order.id,
+        buyer_user_id=actor.actor_id,
+        method="refund_only",
+        status="submitted",
+        reason="测试售后",
+    )
+    db_session.add(aftersale)
+    await db_session.commit()
+    active = (await client.get(url, headers=headers, params={"aftersale": "active"})).json()["data"]
+    assert active["total"] == 1 and active["items"][0]["id"] == str(order.id)
+    aftersale.status = "completed"
+    await db_session.commit()
+    done = (await client.get(url, headers=headers, params={"aftersale": "active"})).json()["data"]
+    assert done["total"] == 0
+    assert (
+        await client.get(url, headers=headers, params={"aftersale": "done"})
+    ).status_code == 422

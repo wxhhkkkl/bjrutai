@@ -156,6 +156,8 @@ async def save_product(db, data, *, actor, product_id=None, expected_version=Non
     product = await _get(db, MallProduct, product_id, True) if product_id else None
     if product and (product.status == "archived" or product.version != expected_version):
         raise ConflictException(message="商品已归档或版本已变化")
+    if product and product.status == "on_sale":
+        raise ConflictException(message="上架状态的商品不允许编辑，请先下架后再修改")
     existing = (
         {s.id: s for s in await product_skus(db, product_id, lock=True)} if product_id else {}
     )

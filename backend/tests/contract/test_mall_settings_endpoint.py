@@ -24,6 +24,13 @@ async def test_settings_update_replay_conflict_and_revocation(client, db_session
     settings = response.json()["data"]
     assert not settings["purchaseEnabled"]
     body = {"expectedVersion": settings["version"], "settings": settings, "reason": "调整运费"}
+    # Freight templates and warehouse addresses are updated through top-level
+    # fields, never inside the echoed settings view.
+    body["settings"] = {
+        key: value
+        for key, value in settings.items()
+        if key not in {"freightTemplates", "dispatchAddress", "returnAddress"}
+    }
     body["settings"]["freightCent"] = 500
     headers["Idempotency-Key"] = "settings-update-probe-001"
     result = await client.patch(url, headers=headers, json=body)

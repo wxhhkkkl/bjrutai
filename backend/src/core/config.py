@@ -1,3 +1,4 @@
+import re
 from functools import lru_cache
 from typing import Literal
 
@@ -37,6 +38,9 @@ class Settings(BaseSettings):
     mall_kuaidi100_outbound_enabled: bool = False
     kuaidi100_customer: str = Field("", repr=False)
     kuaidi100_key: str = Field("", repr=False)
+    # Own, ICP-filed HTTPS origin serving the mall-map.html wrapper page
+    # (required before the mini-program web-view may receive a map URL).
+    kuaidi100_map_public_base: str = ""
     # Database
     database_url: str = Field(
         "mysql+aiomysql://user:password@host:3306/bjrutai?charset=utf8mb4", repr=False
@@ -97,6 +101,10 @@ class Settings(BaseSettings):
             raise ValueError("refund simulation requires a non-production test gateway")
         if self.app_environment == "test" and self.mall_kuaidi100_outbound_enabled:
             raise ValueError("tests cannot perform external logistics requests")
+        if self.kuaidi100_map_public_base and not re.fullmatch(
+            r"https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?", self.kuaidi100_map_public_base
+        ):
+            raise ValueError("kuaidi100 map public base must be an HTTPS origin")
         if self.app_environment == "production" and self.mall_data_release_enabled:
             if not self.mall_data_release_retention_policy_ref.strip():
                 raise ValueError("enabled mall data release requires an approved retention policy")

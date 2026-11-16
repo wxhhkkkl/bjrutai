@@ -3,15 +3,8 @@ const sessionService = require('../../services/session-service')
 const mallIntentService = require('../../services/mall-intent-service')
 const { createRequestKeyManager } = require('../../utils/request-key')
 const { setMallFormError } = require('../../utils/mall-form-error')
+const { courierOptions: COURIERS } = require('../../utils/courier')
 
-const COURIERS = [
-  { code: 'shunfeng', name: '顺丰速运' },
-  { code: 'zhongtong', name: '中通快递' },
-  { code: 'yuantong', name: '圆通速递' },
-  { code: 'yunda', name: '韵达快递' },
-  { code: 'shentong', name: '申通快递' },
-  { code: 'ems', name: '邮政EMS' }
-]
 
 Page({
   data: {
@@ -64,7 +57,11 @@ Page({
   },
 
   onTrackingInput(event) {
-    this.setData({ trackingNo: String(event.detail && event.detail.value || '').trim().slice(0, 64), stateMessage: '', focusField: '', errorTarget: '' })
+    this.setData({ trackingNo: String(event.detail && event.detail.value || '').trim().slice(0, 64), stateMessage: '', errorTarget: '' })
+  },
+
+  onTrackingBlur() {
+    if (this.data.focusField === 'trackingNo') this.setData({ focusField: '' })
   },
 
   submitReturnShipment() {

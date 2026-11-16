@@ -48,8 +48,8 @@ def unique_sets(table):
     }
 
 
-def test_all_28_entities_are_mapped_with_exact_mysql_foreign_key_types(mall_tables):
-    assert len(mall_tables) == 28
+def test_all_29_entities_are_mapped_with_exact_mysql_foreign_key_types(mall_tables):
+    assert len(mall_tables) == 29
     dialect = mysql.dialect()
     for name, table in mall_tables.items():
         ddl = str(CreateTable(table).compile(dialect=dialect))

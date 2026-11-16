@@ -186,7 +186,11 @@ def visible_categories():
     )
 
 
-async def _page(db, query, model, key, *, mode, cursor, page_size, descending=False):
+async def _page(
+    db, query, model, key, *, mode, cursor, page_size, descending=False, tie_descending=None
+):
+    if tie_descending is None:
+        tie_descending = descending
     total = await db.scalar(select(func.count()).select_from(query.subquery()))
     if cursor:
         try:
@@ -199,11 +203,12 @@ async def _page(db, query, model, key, *, mode, cursor, page_size, descending=Fa
         query = query.where(
             or_(
                 key < value if descending else key > value,
-                (key == value) & (model.id < identity if descending else model.id > identity),
+                (key == value) & (model.id < identity if tie_descending else model.id > identity),
             )
         )
     query = query.add_columns(key.label("page_key")).order_by(
-        key.desc() if descending else key.asc(), model.id.desc() if descending else model.id.asc()
+        key.desc() if descending else key.asc(),
+        model.id.desc() if tie_descending else model.id.asc(),
     )
     rows = (await db.execute(query.limit(page_size + 1))).all()
     next_cursor = None
@@ -279,6 +284,8 @@ async def list_products(
         cursor=cursor,
         page_size=page_size,
         descending=sort == "price_desc",
+        # Same sort/price: newest products first (higher id).
+        tie_descending=True,
     )
     return {
         "items": [await serialize_product(db, p, admin=not public) for p in items],

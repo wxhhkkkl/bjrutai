@@ -508,9 +508,15 @@ from .api.v1.admin_mall_invoices import router as admin_mall_invoices_router
 from .api.v1.admin_mall_payments import router as admin_mall_payments_router
 from .api.v1.admin_mall_workbench import router as admin_mall_workbench_router
 from .api.v1.mall_invoices import router as mall_invoices_router
+from .api.v1.admin_mall_reconciliations import (
+    difference_router as admin_mall_differences_router,
+    router as admin_mall_reconciliations_router,
+)
 
 app.include_router(mall_invoices_router, prefix="/api/v1")
 app.include_router(admin_mall_invoices_router, prefix="/api/v1")
 app.include_router(admin_mall_payments_router, prefix="/api/v1")
 app.include_router(admin_mall_finance_exports_router, prefix="/api/v1")
 app.include_router(admin_mall_workbench_router, prefix="/api/v1")
+app.include_router(admin_mall_reconciliations_router, prefix="/api/v1")
+app.include_router(admin_mall_differences_router, prefix="/api/v1")

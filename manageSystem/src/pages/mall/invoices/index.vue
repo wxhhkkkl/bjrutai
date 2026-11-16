@@ -61,6 +61,9 @@
       <el-table-column label="票据数" width="90">
         <template #default="{ row }">{{ row.invoices?.length || 0 }}</template>
       </el-table-column>
+      <el-table-column label="申请时间" min-width="170">
+        <template #default="{ row }">{{ time(row.createdAt) }}</template>
+      </el-table-column>
       <el-table-column label="操作" width="120" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="router.push(`/mall/invoices/${row.id}`)">
@@ -87,6 +90,7 @@ import MallPagination from '@/components/mall/MallPagination.vue'
 import { MALL_PAGE_SIZE } from '@/components/mall/mall-pagination'
 import { useMallCursorPagination } from '@/composables/useMallCursorPagination'
 import { useMallToast } from '@/composables/useMallToast'
+import { time } from '../orders/order-view'
 
 const requestStates = {
   submitted: '待处理',

@@ -97,7 +97,12 @@ async def list_admin_orders(
 
 async def get_admin_order(db, actor, identity):
     order = await admin_order(db, identity)
-    result = await serialize_order(db, order, detail=True)
+    result = await serialize_order(
+        db,
+        order,
+        detail=True,
+        include_delivery_details="mall.fulfillment.release" in actor.permissions,
+    )
     buyer = await db.get(User, order.buyer_user_id)
     result["buyer"] = {
         "id": str(order.buyer_user_id),

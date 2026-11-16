@@ -71,6 +71,8 @@ async def test_admin_create_retry_stock_retry_and_public_visibility(client, db_s
         "categoryId": category_id,
         "coverFileId": str(file.id),
         "description": "真实商品说明",
+        "deliveryMethod": "express",
+        "freightTemplateId": "default",
         "skus": [{"skuCode": "OAT-1", "priceCent": 1500, "initialStock": 0}],
     }
     headers["Idempotency-Key"] = "catalog-product-create"
@@ -95,6 +97,17 @@ async def test_admin_create_retry_stock_retry_and_public_visibility(client, db_s
         json={"expectedVersion": product["version"], "targetStatus": "on_sale"},
     )
     assert published.status_code == 200, published.text
+    headers["Idempotency-Key"] = "catalog-product-edit-listed"
+    listed_edit = await client.patch(
+        f'/api/v1/admin/mall/products/{product["id"]}',
+        headers=headers,
+        json={
+            "expectedVersion": published.json()["data"]["version"],
+            "product": {"name": "燕麦改名"},
+        },
+    )
+    assert listed_edit.status_code == 409
+    assert "先下架" in listed_edit.json()["message"]
     public = (await client.get("/api/v1/mall/products?q=燕麦&sort=price_asc")).json()["data"]
     assert public["total"] == 1 and public["items"][0]["skus"][0]["stockStatus"] == "sold_out"
     assert "coverFileId" not in public["items"][0]
@@ -154,6 +167,15 @@ async def test_catalog_pagination_and_literal_search_do_not_expose_drafts(client
             MallSku(product_id=product.id, sku_code=f"PAGE-{i}", sale_price_cent=(3 - i) * 100)
         )
     await db_session.commit()
+    newest = (await client.get("/api/v1/mall/products?pageSize=2")).json()["data"]
+    newest_rest = (
+        await client.get(
+            "/api/v1/mall/products",
+            params={"pageSize": 2, "cursor": newest["nextCursor"]},
+        )
+    ).json()["data"]
+    assert [p["name"] for p in newest["items"]] == ["商品2", "商品1"]
+    assert [p["name"] for p in newest_rest["items"]] == ["商品0"]
     first = (await client.get("/api/v1/mall/products?pageSize=2&sort=price_asc")).json()["data"]
     second = (
         await client.get(

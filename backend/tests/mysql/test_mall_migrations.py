@@ -122,7 +122,7 @@ async def test_mall_revisions_create_constrained_schema_without_legacy_backfill(
         assert ("settlement_id", "distributor_id", "rule_type") in schema["evidence_uniques"]
         assert {"ck_mall_order_total", "ck_mall_order_refund"} <= schema["order_checks"]
         assert "ck_mall_file_purpose" in schema["file_checks"]
-        assert await connection.scalar(text("SELECT version_num FROM alembic_version")) == "038"
+        assert await connection.scalar(text("SELECT version_num FROM alembic_version")) == "049"
         assert isinstance(
             schema["gateway_columns"]["payload_ciphertext"]["type"], MEDIUMBLOB
         )
@@ -185,7 +185,7 @@ def tls_engine(*args, **kwargs):
     return create_async_engine(*args, **kwargs)
 
 with patch("sqlalchemy.ext.asyncio.create_async_engine", tls_engine):
-    command.downgrade(config, "023")
+    command.downgrade(config, "042")
     command.upgrade(config, "head")
 """
     env = os.environ.copy()

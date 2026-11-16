@@ -67,7 +67,18 @@ async def test_order_reserves_once_snapshots_and_schedules_expiry(db_session, mo
     ).all()
     assert [i.line_amount_cent for i in items] == [10000, 10000]
     consent = await db_session.get(ConsentRecord, order.consent_record_id)
-    assert consent.scene.value == "mall_checkout" and consent.scopes == {"mall_order": True}
+    assert consent.scene.value == "mall_checkout" and consent.scopes == {
+        "mall_payment": True,
+        "mall_fulfillment": True,
+        "mall_order": True,
+        "order_amount": True,
+        "payment_status": True,
+        "channel_transaction_reference": True,
+        "delivery_status": True,
+        "recipient_contact": True,
+        "delivery_address": True,
+        "courier_tracking": True,
+    }
     jobs = (
         await db_session.scalars(
             select(MallJob).where(
