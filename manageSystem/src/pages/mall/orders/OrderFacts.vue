@@ -17,7 +17,9 @@
         </div>
         <div v-if="order.address" class="fact-pair">
           <dt>收件信息</dt>
-          <dd>{{ order.address.recipientName }} {{ order.address.phoneMasked }} · {{ order.address.addressMasked }}</dd>
+          <dd data-test="order-recipient-summary">
+            {{ recipientSummary.name }} {{ recipientSummary.phone }} · {{ recipientSummary.address }}
+          </dd>
         </div>
         <div class="fact-pair">
           <dt>买家备注</dt>
@@ -241,6 +243,29 @@ const plainRecipientAddress = computed(() => {
   if (!address?.phone) return ''
   const regionNames = Array.isArray(address.regionNames) ? address.regionNames : []
   return [...regionNames, address.addressLine].filter(Boolean).join('')
+})
+const recipientSummary = computed(() => {
+  const address = props.order.address
+  if (!address) return { name: '', phone: '', address: '' }
+  if (plainRecipientVisible.value) {
+    return {
+      name: address.recipientName,
+      phone: address.phone,
+      address: plainRecipientAddress.value,
+    }
+  }
+  if (props.fulfillmentReleased) {
+    return {
+      name: props.fulfillmentReleased.recipientName,
+      phone: props.fulfillmentReleased.phone,
+      address: fullRecipientAddress.value,
+    }
+  }
+  return {
+    name: address.recipientName,
+    phone: address.phoneMasked,
+    address: address.addressMasked,
+  }
 })
 </script>
 

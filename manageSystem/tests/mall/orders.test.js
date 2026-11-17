@@ -124,6 +124,10 @@ it('shows full recipient details in fulfillment when the API returns them', asyn
     'mall.fulfillment.release',
   ])
   await flushPromises()
+  const summary = wrapper.find('[data-test="order-recipient-summary"]')
+  expect(summary.exists()).toBe(true)
+  expect(summary.text()).toContain('13800001234')
+  expect(summary.text()).toContain('北京市北京市东城区测试路1号')
   const full = wrapper.find('[data-test="fulfillment-address-full"]')
   expect(full.exists()).toBe(true)
   expect(full.text()).toContain('13800001234')
