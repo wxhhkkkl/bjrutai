@@ -56,6 +56,26 @@ async def get_current_user(
     return payload
 
 
+async def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> dict | None:
+    """Return a valid access-token payload when present, else ``None``.
+
+    Used by endpoints that accept both guests and signed-in users, such as
+    visit-intent analytics. Invalid tokens are treated as anonymous rather than
+    blocking the request.
+    """
+    if credentials is None:
+        return None
+    try:
+        payload = verify_token(credentials.credentials)
+    except Exception:
+        return None
+    if payload.get("type") != "access":
+        return None
+    return payload
+
+
 # ---------------------------------------------------------------------------
 # RBAC: require specific roles
 # ---------------------------------------------------------------------------

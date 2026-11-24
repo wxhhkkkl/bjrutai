@@ -12,6 +12,26 @@ function stockText(quantity) {
   return Number.isSafeInteger(quantity) && quantity > 0 ? `库存 ${quantity} 件` : '有库存'
 }
 
+const IMAGE_TAG = /<img\b([^>]*)>/gi
+const IMAGE_DIMENSION_ATTR = /\s+(?:width|height)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=<>`]+)/gi
+const IMAGE_STYLE_ATTR = /\sstyle\s*=\s*(["'])([\s\S]*?)\1/i
+const IMAGE_SIZE_RULE = /^(?:width|max-width|height|max-height|display)\s*:/i
+
+// rich-text 内没有尺寸约束的 <img> 会按原始像素宽度渲染，大图会溢出卡片并被裁切。
+function normalizeRichTextImages(html) {
+  return String(html || '').replace(IMAGE_TAG, (tag, rawAttributes) => {
+    let attributes = rawAttributes.replace(/\/\s*$/, '')
+    const existingStyle = attributes.match(IMAGE_STYLE_ATTR)
+    const preservedRules = existingStyle
+      ? existingStyle[2].split(';').map((rule) => rule.trim()).filter((rule) => rule && !IMAGE_SIZE_RULE.test(rule))
+      : []
+    if (existingStyle) attributes = attributes.replace(existingStyle[0], '')
+    attributes = attributes.replace(IMAGE_DIMENSION_ATTR, '')
+    const style = `${preservedRules.length ? `${preservedRules.join('; ')}; ` : ''}display: block; width: 100%; max-width: 100%; height: auto;`
+    return `<img${attributes} style="${style}">`
+  })
+}
+
 function mapSku(sku) {
   const values = Array.isArray(sku.options)
     ? sku.options.map((option) => option && option.value).filter(Boolean)
@@ -92,7 +112,7 @@ Page({
         stateMessage: '',
         product,
         descriptionHtml: typeof product.description === 'string' && product.description.startsWith('<!--mall-rich-text-->')
-          ? product.description.slice('<!--mall-rich-text-->'.length)
+          ? normalizeRichTextImages(product.description.slice('<!--mall-rich-text-->'.length))
           : '',
         images: imageUrls,
         skus,

@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>复诊患者就诊须知 · 引导图</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased;}
+  body{
+    font-family:"Microsoft YaHei","PingFang SC",sans-serif;
+    background:#F5F3EE;
+    width:750px;
+    color:#1B2430;
+  }
+  .wrap{width:750px;background:#F5F3EE;padding-bottom:56px;}
+
+  /* ══════ 头部 ══════ */
+  .hero{
+    position:relative;
+    background:
+      radial-gradient(120% 80% at 88% 0%, rgba(201,162,39,.22) 0%, rgba(201,162,39,0) 58%),
+      radial-gradient(90% 70% at 0% 100%, rgba(255,255,255,.10) 0%, rgba(255,255,255,0) 60%),
+      linear-gradient(160deg,#0E2A47 0%,#132F4E 52%,#1A3A5C 100%);
+    padding:52px 52px 46px;
+    overflow:hidden;
+  }
+  .hero::after{
+    content:"";position:absolute;inset:0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+    background-size:52px 52px;
+    pointer-events:none;
+  }
+  .ring{
+    position:absolute;right:-90px;top:-70px;
+    width:300px;height:300px;border-radius:50%;
+    border:1px solid rgba(201,162,39,.30);
+  }
+  .ring2{
+    position:absolute;right:-40px;top:-20px;
+    width:200px;height:200px;border-radius:50%;
+    border:1px solid rgba(201,162,39,.16);
+  }
+  .brand{
+    position:relative;z-index:2;
+    display:flex;align-items:center;gap:10px;
+    font-size:15px;color:rgba(255,255,255,.80);
+    letter-spacing:2px;
+    margin-bottom:34px;
+  }
+  .brand .dot{width:6px;height:6px;background:#C9A227;border-radius:50%;}
+  .h1{
+    position:relative;z-index:2;
+    font-family:"SimSun","Songti SC",serif;
+    font-size:60px;line-height:1.18;
+    color:#fff;font-weight:700;
+    letter-spacing:4px;
+  }
+  .h1sub{
+    position:relative;z-index:2;
+    margin-top:6px;
+    font-family:"SimSun","Songti SC",serif;
+    font-size:60px;line-height:1.18;
+    color:#fff;font-weight:700;letter-spacing:4px;
+  }
+  .en{
+    position:relative;z-index:2;
+    margin-top:20px;
+    font-size:12px;letter-spacing:3.5px;
+    color:rgba(201,162,39,.85);
+    text-transform:uppercase;
+  }
+  .goldline{
+    position:relative;z-index:2;
+    width:78px;height:3px;background:linear-gradient(90deg,#C9A227,#E4C86A);
+    margin:26px 0 0;
+  }
+  .hero-note{
+    position:relative;z-index:2;
+    margin-top:26px;
+    font-size:15.5px;line-height:1.9;
+    color:rgba(255,255,255,.74);
+    max-width:560px;
+  }
+
+  /* ══════ 通用 ══════ */
+  .body-pad{padding:0 52px;}
+  .sec{margin-top:44px;}
+  .sec-head{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
+  .sec-num{
+    width:34px;height:34px;flex:0 0 34px;
+    border-radius:50%;
+    background:#0E2A47;color:#E4C86A;
+    font-family:"SimSun",serif;
+    font-size:17px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 12px rgba(14,42,71,.20);
+  }
+  .sec-title{
+    font-family:"SimSun","Songti SC",serif;
+    font-size:27px;font-weight:700;color:#0E2A47;letter-spacing:2px;
+  }
+  .sec-en{font-size:11px;letter-spacing:2px;color:#A8A292;margin-left:auto;text-transform:uppercase;}
+
+  .card{
+    background:#fff;border-radius:18px;
+    box-shadow:0 8px 28px rgba(14,42,71,.065),0 1px 3px rgba(14,42,71,.04);
+    padding:32px 34px;
+  }
+
+  /* ══════ 为什么复诊 ══════ */
+  .why-item{display:flex;gap:18px;padding:20px 0;}
+  .why-item + .why-item{border-top:1px solid #EFEBE2;}
+  .why-item:first-child{padding-top:4px;}
+  .why-item:last-child{padding-bottom:4px;}
+  .wi-icon{
+    flex:0 0 40px;width:40px;height:40px;border-radius:11px;
+    background:#F7F3E6;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .wi-t{font-size:17px;font-weight:700;color:#0E2A47;margin-bottom:7px;letter-spacing:.5px;}
+  .wi-d{font-size:14.5px;line-height:1.85;color:#5A6370;}
+  .wi-d b{color:#A33A30;font-weight:600;}
+
+  /* ══════ 必交 / 选填 ══════ */
+  .tag{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12.5px;font-weight:700;
+    padding:5px 12px;border-radius:20px;letter-spacing:1px;
+  }
+  .tag-red{background:#FBEDEB;color:#A33A30;}
+  .tag-green{background:#EFF6F2;color:#1F6B57;}
+  .must-head{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
+  .must-t{font-size:17.5px;font-weight:700;color:#0E2A47;}
+  .hint{font-size:13px;color:#8A8479;margin-top:4px;}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px;}
+  .doc-item{
+    display:flex;align-items:center;gap:12px;
+    background:#FAF8F3;border:1px solid #EFEADF;
+    border-radius:12px;padding:15px 16px;
+    font-size:14.5px;color:#26303C;line-height:1.5;
+  }
+  .doc-item .n{
+    flex:0 0 24px;width:24px;height:24px;border-radius:7px;
+    background:#0E2A47;color:#E4C86A;
+    font-size:12.5px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .doc-item.wide{grid-column:1 / -1;}
+  .doc-item small{display:block;font-size:12px;color:#8A8479;margin-top:3px;}
+
+  .opt-box{margin-top:22px;padding-top:22px;border-top:1px dashed #E5DED0;}
+  .opt-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .opt-d{font-size:14.5px;line-height:1.85;color:#5A6370;}
+  .opt-d b{color:#26303C;font-weight:600;}
+
+  /* ══════ 流程时间轴 ══════ */
+  .steps{position:relative;padding-left:0;}
+  .step{position:relative;display:flex;gap:20px;padding-bottom:26px;}
+  .step:last-child{padding-bottom:0;}
+  .step .rail{
+    position:relative;flex:0 0 40px;width:40px;
+    display:flex;flex-direction:column;align-items:center;
+  }
+  .step .num{
+    width:40px;height:40px;flex:0 0 40px;border-radius:50%;
+    background:#fff;border:2px solid #C9A227;
+    color:#0E2A47;font-family:"SimSun",serif;
+    font-size:17px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+    z-index:2;
+  }
+  .step .line{
+    flex:1;width:2px;background:linear-gradient(#E3D6B0,#EFEADF);
+    margin-top:6px;
+  }
+  .step:last-child .line{display:none;}
+  .step-body{padding-top:4px;flex:1;}
+  .step-t{font-size:17px;font-weight:700;color:#0E2A47;margin-bottom:7px;letter-spacing:.5px;}
+  .step-d{font-size:14.5px;line-height:1.85;color:#5A6370;}
+  .step-d b{color:#0E2A47;font-weight:600;}
+
+  /* ══════ 注意事项 ══════ */
+  .note-card{background:linear-gradient(160deg,#0E2A47,#1B3A5B);border-radius:18px;padding:34px 34px 30px;color:#fff;}
+  .note-h{font-family:"SimSun",serif;font-size:22px;font-weight:700;letter-spacing:2px;margin-bottom:6px;}
+  .note-en{font-size:11px;letter-spacing:2px;color:rgba(201,162,39,.8);margin-bottom:22px;}
+  .note{display:flex;gap:12px;font-size:14.5px;line-height:1.8;color:rgba(255,255,255,.80);padding:11px 0;}
+  .note + .note{border-top:1px solid rgba(255,255,255,.09);}
+  .note .dot{flex:0 0 5px;width:5px;height:5px;border-radius:50%;background:#C9A227;margin-top:11px;}
+
+  /* ══════ 底部 ══════ */
+  .foot{margin-top:40px;text-align:center;}
+  .foot .fl{width:100%;height:1px;background:linear-gradient(90deg,transparent,#DCD5C6,transparent);margin-bottom:24px;}
+  .foot .fname{
+    font-family:"SimSun",serif;font-size:19px;font-weight:700;
+    color:#0E2A47;letter-spacing:2px;
+  }
+  .foot .fdesc{font-size:12.5px;color:#8A8479;line-height:1.9;margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ══════ HERO ══════ -->
+  <div class="hero">
+    <div class="ring"></div><div class="ring2"></div>
+    <div class="brand"><span class="dot"></span>哈尔滨儒泰中医医院互联网医院</div>
+    <div class="h1sub">复诊患者</div>
+    <div class="h1">就诊须知</div>
+    <div class="goldline"></div>
+    <div class="en">Online Follow-up Visit Guide</div>
+    <div class="hero-note">
+      线上复诊适用于已在实体医疗机构明确诊断的常见病、慢性病。请您在就诊前，按本须知准备相应资料。
+    </div>
+  </div>
+
+  <div class="body-pad">
+
+    <!-- ══════ 一 ══════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-num">一</div>
+        <div class="sec-title">为什么只能复诊</div>
+      </div>
+      <div class="card">
+        <div class="why-item">
+          <div class="wi-icon">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#B08D22" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v18M5 8h14M7 8l-3 7h6L7 8zM17 8l-3 7h6l-3-7z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="wi-t">国家规定</div>
+            <div class="wi-d">依据《互联网诊疗管理办法》，互联网医院<b>不得对首诊患者</b>开展互联网诊疗，仅可为已明确诊断的患者提供复诊服务。</div>
+          </div>
+        </div>
+        <div class="why-item">
+          <div class="wi-icon">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#B08D22" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 21s7-3.5 7-9V6l-7-3-7 3v6c0 5.5 7 9 7 9z"/><path d="M9 12l2 2 4-4"/>
+            </svg>
+          </div>
+          <div>
+            <div class="wi-t">安全需要</div>
+            <div class="wi-d">线上无法进行体格检查与必要的辅助检查。医师需在掌握病历资料、确认既往诊断后，才能对同一疾病作出判断。</div>
+          </div>
+        </div>
+        <div class="why-item">
+          <div class="wi-icon">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#B08D22" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12h13"/><path d="M12 7l5 5-5 5"/><path d="M20 5v14"/>
+            </svg>
+          </div>
+          <div>
+            <div class="wi-t">病情变化请线下面诊</div>
+            <div class="wi-d">首诊患者，或本次就诊经医师判断病情出现变化的，医师将<b>终止线上服务</b>，并建议您前往实体医疗机构就诊。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ 二 ══════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-num">二</div>
+        <div class="sec-title">需要准备什么资料</div>
+      </div>
+      <div class="card">
+        <div class="must-head">
+          <div class="must-t">诊断证明材料</div>
+          <div class="tag tag-red">必交 · 四选一</div>
+        </div>
+        <div class="hint">以下四项提供任意一项即可，无需全部提供。</div>
+        <div class="grid2">
+          <div class="doc-item"><div class="n">1</div><div>门诊病历</div></div>
+          <div class="doc-item"><div class="n">2</div><div>住院病历</div></div>
+          <div class="doc-item"><div class="n">3</div><div>出院小结<small>出院诊断书</small></div></div>
+          <div class="doc-item"><div class="n">4</div><div>疾病诊断证明书<small>须加盖医院诊断专用章</small></div></div>
+        </div>
+
+        <div class="opt-box">
+          <div class="opt-row">
+            <div class="must-t" style="font-size:17px;">辅助检查报告</div>
+            <div class="tag tag-green">选填 · 非必交</div>
+          </div>
+          <div class="opt-d">
+            与所患疾病相关的化验单、检查报告，如心脏彩超、心电图、血液检验等。提供报告<b>有助于医师更准确地判断病情</b>，但不作为就诊前置条件；报告日期建议为近三个月内，影像与文字须清晰可辨、印章完整。
+          </div>
+          <div class="opt-d" style="margin-top:10px;color:#8A8479;font-size:13.5px;">
+            如所患疾病在诊疗规范中有明确的必检项目，由接诊医师在问诊过程中告知。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ 三 ══════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-num">三</div>
+        <div class="sec-title">就诊流程 · 七步完成</div>
+      </div>
+      <div class="card" style="padding:32px 34px 34px;">
+        <div class="steps">
+          <div class="step">
+            <div class="rail"><div class="num">1</div><div class="line"></div></div>
+            <div class="step-body">
+              <div class="step-t">登录小程序</div>
+              <div class="step-d">微信搜索「儒泰中医医院互联网医院」，授权手机号码完成登录。</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="rail"><div class="num">2</div><div class="line"></div></div>
+            <div class="step-body">
+              <div class="step-t">添加就诊人</div>
+              <div class="step-d">如实填写姓名、身份证号码及联系电话。就诊人须为本人，信息应与身份证件一致。</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="rail"><div class="num">3</div><div class="line"></div></div>
+            <div class="step-body">
+              <div class="step-t">提交问诊单</div>
+              <div class="step-d">选择接诊医师，填写主要症状及目前用药情况。</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="rail"><div class="num">4</div><div class="line"></div></div>
+            <div class="step-body">
+              <div class="step-t">上传资料</div>
+              <div class="step-d">拍摄并上传诊断证明材料及辅助检查报告，填写相应的诊断日期。</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="rail"><div class="num">5</div><div class="line"></div></div>
+            <div class="step-body">
+              <div class="step-t">知情同意</div>
+              <div class="step-d">阅读《在线问诊风险告知与知情同意书》，确认后提交，等候医师接诊。</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="rail"><div class="num">6</div><div class="line"></div></div>
+            <div class="step-body">
+              <div class="step-t">在线问诊</div>
+              <div class="step-d">医师以图文或视频方式问诊，请如实陈述病情与用药史。经判断不适宜线上诊疗的，本次服务将予终止。</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="rail"><div class="num">7</div><div class="line"></div></div>
+            <div class="step-body">
+              <div class="step-t">处方与取药</div>
+              <div class="step-d">电子处方经<b>药师审核通过</b>后推送支付通知；完成支付，药品由本院委托的配送机构寄送至您预留地址。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ 四 ══════ -->
+    <div class="sec">
+      <div class="sec-head">
+        <div class="sec-num">四</div>
+        <div class="sec-title">注意事项</div>
+      </div>
+      <div class="note-card">
+        <div class="note">
+          <div class="dot"></div>
+          <div>请提前在「我的—收货地址」中填写并确认收货信息。</div>
+        </div>
+        <div class="note">
+          <div class="dot"></div>
+          <div>诊疗费用及药费均通过小程序直接支付至本院账户，请勿向任何个人转账。</div>
+        </div>
+        <div class="note">
+          <div class="dot"></div>
+          <div>服药期间如出现病情加重或新的不适，请及时至实体医疗机构就诊。</div>
+        </div>
+        <div class="note">
+          <div class="dot"></div>
+          <div>本院依法保护您的个人信息与病情资料，仅用于本次诊疗活动。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ 底部 ══════ -->
+    <div class="foot">
+      <div class="fl"></div>
+      <div class="fname">哈尔滨儒泰中医医院互联网医院</div>
+      <div class="fdesc">
+        本须知依据国家互联网诊疗相关规定制定<br>
+        如遇政策调整，以本院最新公告为准
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

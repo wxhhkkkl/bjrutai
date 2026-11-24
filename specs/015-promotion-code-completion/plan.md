@@ -54,6 +54,8 @@
 
 复用自定义 Tab，在客户与我的之间注册公开页面 `pages/internet-hospital/index`；使用建筑样式的 Vant `hotel-o` 图标和显示“互联网医院”标题的原生顶部安全区组件。将第二版青绿海报压缩为本地 JPEG，放入完整可见的等比容器，加载失败时展示原生说明文字。检查角色可见导航顺序、Tab 切换、图片加载与 iOS/Android 模拟器适配。选定原图来自本次 imagegen，Canva 设计为 `DAHZ2cA38QM`，核对后无后续修改。
 
+2026-11-23 更新（FR-023 页面更新）：按用户提供的设计源文件 `design-assets/internet-hospital/复诊患者就诊须知_引导图_源文件.html`，将占位海报替换为真实 WXML/WXSS 内容页，删除 `internet-hospital-coming-soon-v1.jpg`；页面保持公开、不依赖登录或接口；右下角新增常驻按钮，点击弹出目标小程序（AppId `wxa60305f071755a87`）的小程序码供长按识别。直接 `wx.navigateToMiniProgram` 在真机被微信以实物交易类跳转限制拦截，故不声明 `navigateToMiniProgramAppIdList`；用户已提供 430×430 小程序码，保存在 `miniProgram/assets/images/internet-hospital-qrcode.png`。
+
 ## 客户绑定码分享封面（2026-11-03 / FR-024）
 
 使用内置 imagegen 生成 5:4 青绿品牌邀请封面，压缩为本地 JPEG；原图及提示词放在小程序包外的 design-assets。`createPromotionShare` 返回固定品牌标题及本地封面，保留 API 分享路径和令牌回退路径；朋友圈同步标题，并使用上下留白的 1:1 版本避免裁字。复用并调整现有推广码测试，验证后端路径优先、特殊字符令牌编码和无二维码时封面可用，回归二维码保存。仅修改前端展示，不增加接口或依赖。

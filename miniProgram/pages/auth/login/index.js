@@ -16,7 +16,7 @@ Page({
   },
 
   onLoad(options = {}) {
-    const from = options.from === 'profile' || options.from === 'comment' || options.from === 'mall' || options.from === 'mall-orders' ? options.from : '';
+    const from = options.from === 'profile' || options.from === 'comment' || options.from === 'mall' || options.from === 'mall-orders' || options.from === 'internet-hospital' ? options.from : '';
     const articleId = from === 'comment' && /^[1-9]\d*$/.test(String(options.articleId || ''))
       ? String(options.articleId) : '';
     this.setData({ from, articleId });
@@ -30,6 +30,14 @@ Page({
   browseAsGuest() {
     if (this.data.from === 'mall-orders') {
       wx.switchTab({ url: '/pages/mall/index' });
+      return;
+    }
+    if (this.data.from === 'internet-hospital') {
+      if (typeof getCurrentPages === 'function' && getCurrentPages().length > 1) {
+        wx.navigateBack({ delta: 1 });
+      } else {
+        wx.switchTab({ url: '/pages/internet-hospital/index' });
+      }
       return;
     }
     if (this.data.from === 'mall') {
@@ -178,6 +186,14 @@ Page({
     }
     if (this.data.from === 'mall-orders') {
       wx.redirectTo({ url: '/pages/mall-orders/index' });
+      return;
+    }
+    if (this.data.from === 'internet-hospital') {
+      if (typeof getCurrentPages === 'function' && getCurrentPages().length > 1) {
+        wx.navigateBack({ delta: 1 });
+      } else {
+        wx.switchTab({ url: '/pages/internet-hospital/index' });
+      }
       return;
     }
     wx.switchTab({ url: entry.url });

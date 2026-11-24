@@ -48,6 +48,7 @@ _ALL_PERMISSIONS = {
         "performance.settle",
         "sync.read",
         "sync.write",
+        "hospital.stats.read",
         "mall.products.read",
         "mall.products.write",
         "mall.stock.read",

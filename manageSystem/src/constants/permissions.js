@@ -87,6 +87,13 @@ export const PERMISSION_MODULES = [
     ],
   },
   {
+    module: 'hospital_stats',
+    label: '互联网医院统计',
+    permissions: [
+      { key: 'hospital.stats.read', label: '查看互联网医院点击与长按统计' },
+    ],
+  },
+  {
     module: 'accounts',
     label: '账户管理',
     permissions: [

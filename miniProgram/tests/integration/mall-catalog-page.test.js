@@ -187,6 +187,30 @@ test('product detail loads current SKU prices and exposes sold-out variants with
   } finally { fixture.restore() }
 })
 
+test('product detail makes rich-text description images fit the content width', async () => {
+  const richProduct = {
+    ...firstProduct,
+    id: '43',
+    description: '<!--mall-rich-text--><p><img src="https://image.example.test/detail.jpg" alt="商品详情图片" width="1500" height="2000" style="border-radius: 8px"></p>'
+  }
+  const fixture = loadPage('pages/mall-product/index.js', {
+    getProduct() { return Promise.resolve(richProduct) }
+  })
+  try {
+    fixture.page.onLoad({ id: '43' })
+    await flush()
+    const html = fixture.page.data.descriptionHtml
+    assert.match(html, /src="https:\/\/image\.example\.test\/detail\.jpg"/)
+    assert.doesNotMatch(html, /\swidth="1500"/)
+    assert.doesNotMatch(html, /\sheight="2000"/)
+    assert.match(html, /border-radius:\s*8px/)
+    assert.match(html, /display:\s*block/)
+    assert.match(html, /width:\s*100%/)
+    assert.match(html, /max-width:\s*100%/)
+    assert.match(html, /height:\s*auto/)
+  } finally { fixture.restore() }
+})
+
 test('catalog UI follows the two-column reference hierarchy without a combined tab', () => {
   const root = path.resolve(__dirname, '../../pages')
   const catalog = fs.readFileSync(path.join(root, 'mall/index.wxml'), 'utf8')

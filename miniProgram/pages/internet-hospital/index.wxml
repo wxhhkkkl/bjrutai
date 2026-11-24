@@ -1,20 +1,266 @@
 <view class="hospital-screen">
   <app-header title="互联网医院" />
-  <view class="hospital-content">
-    <image
-      wx:if="{{!imageFailed}}"
-      class="hospital-poster"
-      src="/assets/images/internet-hospital-coming-soon-v1.jpg"
-      mode="aspectFit"
-      binderror="onImageError"
-      aria-role="img"
-      aria-label="儒泰医联，互联网医院正在建设中。我们正在用心完善服务体验，敬请期待。"
-    />
-    <view wx:else class="hospital-fallback">
-      <text class="hospital-fallback__title">互联网医院</text>
-      <text class="hospital-fallback__status">正在建设中</text>
-      <text class="hospital-fallback__description">我们正在用心完善服务体验</text>
-      <text class="hospital-fallback__description">敬请期待</text>
+
+  <view class="hospital-hero">
+    <view class="hospital-hero__ring hospital-hero__ring--outer" />
+    <view class="hospital-hero__ring hospital-hero__ring--inner" />
+    <view class="hospital-hero__brand">
+      <view class="hospital-hero__dot" />
+      <text>哈尔滨儒泰中医医院互联网医院</text>
+    </view>
+    <text class="hospital-hero__title">复诊患者</text>
+    <text class="hospital-hero__title">就诊须知</text>
+    <view class="hospital-hero__goldline" />
+    <text class="hospital-hero__en">Online Follow-up Visit Guide</text>
+    <text class="hospital-hero__note">线上复诊适用于已在实体医疗机构明确诊断的常见病、慢性病。请您在就诊前，按本须知准备相应资料。</text>
+  </view>
+
+  <view class="hospital-body">
+    <view class="hospital-section">
+      <view class="hospital-section__head">
+        <view class="hospital-section__num"><text>一</text></view>
+        <text class="hospital-section__title">为什么只能复诊</text>
+      </view>
+      <view class="hospital-card">
+        <view class="hospital-why">
+          <view class="hospital-why__icon">
+            <van-icon name="certificate" size="22px" color="#B08D22" />
+          </view>
+          <view class="hospital-why__body">
+            <text class="hospital-why__title">国家规定</text>
+            <text class="hospital-why__desc">依据《互联网诊疗管理办法》，互联网医院<text class="hospital-em hospital-em--warn">不得对首诊患者</text>开展互联网诊疗，仅可为已明确诊断的患者提供复诊服务。</text>
+          </view>
+        </view>
+        <view class="hospital-why">
+          <view class="hospital-why__icon">
+            <van-icon name="shield-o" size="22px" color="#B08D22" />
+          </view>
+          <view class="hospital-why__body">
+            <text class="hospital-why__title">安全需要</text>
+            <text class="hospital-why__desc">线上无法进行体格检查与必要的辅助检查。医师需在掌握病历资料、确认既往诊断后，才能对同一疾病作出判断。</text>
+          </view>
+        </view>
+        <view class="hospital-why">
+          <view class="hospital-why__icon">
+            <van-icon name="arrow" size="22px" color="#B08D22" />
+          </view>
+          <view class="hospital-why__body">
+            <text class="hospital-why__title">病情变化请线下面诊</text>
+            <text class="hospital-why__desc">首诊患者，或本次就诊经医师判断病情出现变化的，医师将<text class="hospital-em hospital-em--warn">终止线上服务</text>，并建议您前往实体医疗机构就诊。</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="hospital-section">
+      <view class="hospital-section__head">
+        <view class="hospital-section__num"><text>二</text></view>
+        <text class="hospital-section__title">需要准备什么资料</text>
+      </view>
+      <view class="hospital-card">
+        <view class="hospital-must-head">
+          <text class="hospital-must-title">诊断证明材料</text>
+          <view class="hospital-tag hospital-tag--required"><text>必交 · 四选一</text></view>
+        </view>
+        <text class="hospital-hint">以下四项提供任意一项即可，无需全部提供。</text>
+        <view class="hospital-doc-grid">
+          <view class="hospital-doc">
+            <view class="hospital-doc__num"><text>1</text></view>
+            <text class="hospital-doc__name">门诊病历</text>
+          </view>
+          <view class="hospital-doc">
+            <view class="hospital-doc__num"><text>2</text></view>
+            <text class="hospital-doc__name">住院病历</text>
+          </view>
+          <view class="hospital-doc">
+            <view class="hospital-doc__num"><text>3</text></view>
+            <view class="hospital-doc__body">
+              <text class="hospital-doc__name">出院小结</text>
+              <text class="hospital-doc__sub">出院诊断书</text>
+            </view>
+          </view>
+          <view class="hospital-doc">
+            <view class="hospital-doc__num"><text>4</text></view>
+            <view class="hospital-doc__body">
+              <text class="hospital-doc__name">疾病诊断证明书</text>
+              <text class="hospital-doc__sub">须加盖医院诊断专用章</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="hospital-optional">
+          <view class="hospital-optional__head">
+            <text class="hospital-must-title">辅助检查报告</text>
+            <view class="hospital-tag hospital-tag--optional"><text>选填 · 非必交</text></view>
+          </view>
+          <text class="hospital-optional__desc">与所患疾病相关的化验单、检查报告，如心脏彩超、心电图、血液检验等。提供报告<text class="hospital-em">有助于医师更准确地判断病情</text>，但不作为就诊前置条件；报告日期建议为近三个月内，影像与文字须清晰可辨、印章完整。</text>
+          <text class="hospital-optional__note">如所患疾病在诊疗规范中有明确的必检项目，由接诊医师在问诊过程中告知。</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="hospital-section">
+      <view class="hospital-section__head">
+        <view class="hospital-section__num"><text>三</text></view>
+        <text class="hospital-section__title">就诊流程 · 七步完成</text>
+      </view>
+      <view class="hospital-card hospital-card--steps">
+        <view class="hospital-steps">
+          <view class="hospital-step">
+            <view class="hospital-step__rail">
+              <view class="hospital-step__num"><text>1</text></view>
+              <view class="hospital-step__line" />
+            </view>
+            <view class="hospital-step__body">
+              <text class="hospital-step__title">登录小程序</text>
+              <text class="hospital-step__desc">微信搜索「儒泰中医医院互联网医院」，授权手机号码完成登录。</text>
+            </view>
+          </view>
+          <view class="hospital-step">
+            <view class="hospital-step__rail">
+              <view class="hospital-step__num"><text>2</text></view>
+              <view class="hospital-step__line" />
+            </view>
+            <view class="hospital-step__body">
+              <text class="hospital-step__title">添加就诊人</text>
+              <text class="hospital-step__desc">如实填写姓名、身份证号码及联系电话。就诊人须为本人，信息应与身份证件一致。</text>
+            </view>
+          </view>
+          <view class="hospital-step">
+            <view class="hospital-step__rail">
+              <view class="hospital-step__num"><text>3</text></view>
+              <view class="hospital-step__line" />
+            </view>
+            <view class="hospital-step__body">
+              <text class="hospital-step__title">提交问诊单</text>
+              <text class="hospital-step__desc">选择接诊医师，填写主要症状及目前用药情况。</text>
+            </view>
+          </view>
+          <view class="hospital-step">
+            <view class="hospital-step__rail">
+              <view class="hospital-step__num"><text>4</text></view>
+              <view class="hospital-step__line" />
+            </view>
+            <view class="hospital-step__body">
+              <text class="hospital-step__title">上传资料</text>
+              <text class="hospital-step__desc">拍摄并上传诊断证明材料及辅助检查报告，填写相应的诊断日期。</text>
+            </view>
+          </view>
+          <view class="hospital-step">
+            <view class="hospital-step__rail">
+              <view class="hospital-step__num"><text>5</text></view>
+              <view class="hospital-step__line" />
+            </view>
+            <view class="hospital-step__body">
+              <text class="hospital-step__title">知情同意</text>
+              <text class="hospital-step__desc">阅读《在线问诊风险告知与知情同意书》，确认后提交，等候医师接诊。</text>
+            </view>
+          </view>
+          <view class="hospital-step">
+            <view class="hospital-step__rail">
+              <view class="hospital-step__num"><text>6</text></view>
+              <view class="hospital-step__line" />
+            </view>
+            <view class="hospital-step__body">
+              <text class="hospital-step__title">在线问诊</text>
+              <text class="hospital-step__desc">医师以图文或视频方式问诊，请如实陈述病情与用药史。经判断不适宜线上诊疗的，本次服务将予终止。</text>
+            </view>
+          </view>
+          <view class="hospital-step">
+            <view class="hospital-step__rail">
+              <view class="hospital-step__num"><text>7</text></view>
+            </view>
+            <view class="hospital-step__body">
+              <text class="hospital-step__title">处方与取药</text>
+              <text class="hospital-step__desc">电子处方经<text class="hospital-em">药师审核通过</text>后推送支付通知；完成支付，药品由本院委托的配送机构寄送至您预留地址。</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="hospital-section">
+      <view class="hospital-section__head">
+        <view class="hospital-section__num"><text>四</text></view>
+        <text class="hospital-section__title">注意事项</text>
+      </view>
+      <view class="hospital-notes">
+        <view class="hospital-note">
+          <view class="hospital-note__dot" />
+          <text class="hospital-note__text">请提前在「我的—收货地址」中填写并确认收货信息。</text>
+        </view>
+        <view class="hospital-note">
+          <view class="hospital-note__dot" />
+          <text class="hospital-note__text">诊疗费用及药费均通过小程序直接支付至本院账户，请勿向任何个人转账。</text>
+        </view>
+        <view class="hospital-note">
+          <view class="hospital-note__dot" />
+          <text class="hospital-note__text">服药期间如出现病情加重或新的不适，请及时至实体医疗机构就诊。</text>
+        </view>
+        <view class="hospital-note">
+          <view class="hospital-note__dot" />
+          <text class="hospital-note__text">本院依法保护您的个人信息与病情资料，仅用于本次诊疗活动。</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="hospital-foot">
+      <view class="hospital-foot__line" />
+      <text class="hospital-foot__name">哈尔滨儒泰中医医院互联网医院</text>
+      <text class="hospital-foot__desc">本须知依据国家互联网诊疗相关规定制定</text>
+      <text class="hospital-foot__desc">如遇政策调整，以本院最新公告为准</text>
+    </view>
+  </view>
+
+  <view
+    class="hospital-fab tap-target"
+    bindtap="openHospitalQr"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+    aria-role="button"
+    aria-label="进入互联网医院"
+  >
+    <text class="hospital-fab__text">进入互联网医院</text>
+  </view>
+
+  <view
+    wx:if="{{qrVisible}}"
+    class="hospital-qr-mask tap-target"
+    bindtap="closeHospitalQr"
+    hover-class="tap-feedback"
+    hover-start-time="0"
+    hover-stay-time="80"
+    catchtouchmove="stopPropagation"
+  >
+    <view class="hospital-qr-card" catchtap="stopPropagation">
+      <text class="hospital-qr-card__title">进入互联网医院</text>
+      <image
+        wx:if="{{!qrFailed}}"
+        class="hospital-qr-card__image"
+        src="/assets/images/internet-hospital-qrcode.png"
+        mode="aspectFit"
+        show-menu-by-longpress="true"
+        bindlongpress="onQrLongPress"
+        binderror="onQrError"
+        aria-role="img"
+        aria-label="互联网医院小程序码，长按识别"
+      />
+      <view wx:else class="hospital-qr-card__fallback">
+        <text>小程序码暂不可用，请稍后重试</text>
+      </view>
+      <text class="hospital-qr-card__hint">长按识别小程序码</text>
+      <view
+        class="hospital-qr-card__close tap-target"
+        bindtap="closeHospitalQr"
+        hover-class="tap-feedback"
+        hover-start-time="0"
+        hover-stay-time="80"
+        aria-role="button"
+        aria-label="关闭"
+      >
+        <text>关闭</text>
+      </view>
     </view>
   </view>
 </view>

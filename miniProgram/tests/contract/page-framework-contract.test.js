@@ -39,6 +39,63 @@ test('all tab pages use the shared app header', () => {
   }
 });
 
+test('internet hospital renders the follow-up notice as real markup', () => {
+  const markup = fs.readFileSync(
+    path.join(projectRoot, 'pages/internet-hospital/index.wxml'),
+    'utf8'
+  );
+  const styles = fs.readFileSync(
+    path.join(projectRoot, 'pages/internet-hospital/index.wxss'),
+    'utf8'
+  );
+  const script = fs.readFileSync(
+    path.join(projectRoot, 'pages/internet-hospital/index.js'),
+    'utf8'
+  );
+  const config = JSON.parse(
+    fs.readFileSync(
+      path.join(projectRoot, 'pages/internet-hospital/index.json'),
+      'utf8'
+    )
+  );
+
+  assert.match(markup, /<app-header\b/);
+  assert.doesNotMatch(markup, /internet-hospital-coming-soon/);
+  assert.doesNotMatch(markup, /hospital-poster/);
+  assert.doesNotMatch(markup, /正在建设中/);
+  assert.match(markup, /哈尔滨儒泰中医医院互联网医院/);
+  assert.match(markup, /复诊患者/);
+  assert.match(markup, /就诊须知/);
+  assert.match(markup, /为什么只能复诊/);
+  assert.match(markup, /需要准备什么资料/);
+  assert.match(markup, /就诊流程 · 七步完成/);
+  assert.match(markup, /注意事项/);
+  assert.match(markup, /不得对首诊患者/);
+  assert.match(markup, /药师审核通过/);
+  assert.equal((markup.match(/class="hospital-step"/g) || []).length, 7);
+  assert.equal((markup.match(/class="hospital-doc"/g) || []).length, 4);
+  assert.equal((markup.match(/class="hospital-note"/g) || []).length, 4);
+  assert.match(markup, /class="hospital-fab tap-target"/);
+  assert.match(markup, /bindtap="openHospitalQr"/);
+  assert.match(markup, /hover-class="tap-feedback"/);
+  assert.match(markup, /进入互联网医院/);
+  assert.match(markup, /show-menu-by-longpress="true"/);
+  assert.match(markup, /bindlongpress="onQrLongPress"/);
+  assert.match(markup, /internet-hospital-qrcode\.png/);
+  assert.match(markup, /长按识别小程序码/);
+  assert.match(markup, /bindtap="closeHospitalQr"/);
+  assert.equal(config.disableScroll, undefined);
+  assert.match(styles, /env\(safe-area-inset-bottom\)/);
+  assert.match(styles, /\.hospital-fab\s*\{[\s\S]*position:\s*fixed/);
+  assert.match(styles, /\.hospital-qr-mask\s*\{[\s\S]*position:\s*fixed/);
+  assert.doesNotMatch(styles, /hospital-poster/);
+  assert.match(script, /updateTabBar\(this, 'internet-hospital'\)/);
+  assert.match(script, /hospitalService\.reportEvent/);
+  assert.match(script, /from=internet-hospital/);
+  assert.match(script, /qrVisible/);
+  assert.doesNotMatch(script, /navigateToMiniProgram/);
+});
+
 test('home uses managed banners after hiding the promotion-code entry', () => {
   const markup = fs.readFileSync(
     path.join(projectRoot, 'pages/home/index.wxml'),
@@ -261,6 +318,7 @@ test('login offers phone+password and WeChat quick login with agreement', () => 
   assert.match(styles, /\.login-phone-button\s*\{[\s\S]*color:\s*#080b10[\s\S]*background:\s*#ffffff/);
   assert.match(styles, /\.login-wechat-button\s*\{[\s\S]*color:\s*#ffffff[\s\S]*background:\s*#050505/);
   assert.match(script, /sessionService\.getEntry\(established\.session\)/);
+  assert.match(script, /internet-hospital/);
   assert.doesNotMatch(script, /established\.isNewUser\s*\|\|\s*!established\.session\.profileCompleted/);
   const appConfig = JSON.parse(
     fs.readFileSync(path.join(projectRoot, 'app.json'), 'utf8')

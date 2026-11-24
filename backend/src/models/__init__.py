@@ -86,3 +86,4 @@ from .performance_adjustment import (
     PerformanceAdjustment,
     PerformanceAdjustmentApplication,
 )  # noqa: F401
+from .hospital import HospitalEventType, HospitalVisitEvent  # noqa: F401

@@ -48,6 +48,13 @@
           <el-icon><DataAnalysis /></el-icon>
           <span>数据报表</span>
         </el-menu-item>
+        <el-menu-item
+          v-if="authStore.hasPermission('hospital.stats.read')"
+          index="/hospital/stats"
+        >
+          <el-icon><DataLine /></el-icon>
+          <span>互联网医院统计</span>
+        </el-menu-item>
         <el-sub-menu
           v-if="authStore.hasPermission('articles.read') || authStore.hasPermission('comments.read')"
           index="/articles"
@@ -228,7 +235,7 @@ import { ElMessage } from 'element-plus'
 import {
   Odometer, Share, User, TrendCharts,
   Setting, DataAnalysis, Document, Picture, Bell,
-  Fold, Expand, ArrowDown, UserFilled,
+  Fold, Expand, ArrowDown, UserFilled, DataLine,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()

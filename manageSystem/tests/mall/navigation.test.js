@@ -80,6 +80,20 @@ it('keeps the mall permission catalog scoped to the independent mall modules', (
   expect(PERMISSION_MODULES.some((module) => module.module === 'mall_customer_service')).toBe(false)
 })
 
+it('shows the hospital statistics entry only with its permission', async () => {
+  authStore.permissions = []
+  let wrapper = mountApp()
+  await flushPromises()
+  expect(wrapper.find('.app-sidebar').text()).not.toContain('互联网医院统计')
+  wrapper.unmount()
+
+  authStore.permissions = ['hospital.stats.read']
+  wrapper = mountApp()
+  await flushPromises()
+  expect(wrapper.find('.app-sidebar').text()).toContain('互联网医院统计')
+  wrapper.unmount()
+})
+
 it('hides mall navigation after revocation and blocks a bookmarked mall route', async () => {
   authStore.permissions = ['mall.orders.read']
   const wrapper = mountApp()

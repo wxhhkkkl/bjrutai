@@ -398,6 +398,8 @@ from .api.v1.article_comments import router as article_comments_router
 from .api.v1.article_videos import router as article_videos_router
 from .api.v1.banners import router as banners_router
 from .api.v1.share_configs import router as share_configs_router
+from .api.v1.hospital import router as hospital_router
+from .api.v1.admin_hospital import router as admin_hospital_router
 from .api.v1.auth import router as auth_router
 from .api.v1.app import router as app_router
 from .api.v1.binding import router as binding_router
@@ -455,6 +457,8 @@ app.include_router(staff_invites_router, prefix="/api/v1")
 app.include_router(contributions_router, prefix="/api/v1")
 app.include_router(team_router, prefix="/api/v1")
 app.include_router(reports_router, prefix="/api/v1")
+app.include_router(hospital_router, prefix="/api/v1")
+app.include_router(admin_hospital_router, prefix="/api/v1")
 
 # New Phase 13 routers
 app.include_router(users_router, prefix="/api/v1")

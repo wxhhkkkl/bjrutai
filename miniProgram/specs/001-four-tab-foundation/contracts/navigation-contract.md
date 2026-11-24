@@ -6,7 +6,7 @@
 |---|---|---|---|
 | `home` | 首页 | `/pages/home/index` | 保留首页品牌与微信胶囊区域 |
 | `customers` | 客户 | `/pages/customers/index` | 禁止返回按钮和页面标题导航 |
-| `internet-hospital` | 互联网医院 | `/pages/internet-hospital/index` | 公开的建设中占位内容，保留微信胶囊安全区 |
+| `internet-hospital` | 互联网医院 | `/pages/internet-hospital/index` | 公开的复诊患者就诊须知，保留微信胶囊安全区（2026-11-23 由建设中占位内容改为真实须知页） |
 | `mall` | 商城 | `/pages/mall/index` | 仅登录后显示，禁止返回按钮和页面标题导航 |
 | `profile` | 我的 | `/pages/profile/index` | 禁止返回按钮和页面标题导航 |
 

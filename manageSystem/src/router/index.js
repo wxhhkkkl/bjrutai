@@ -67,6 +67,12 @@ const routes = [
     meta: { title: '数据报表', icon: 'DataAnalysis' },
   },
   {
+    path: '/hospital/stats',
+    name: 'HospitalStats',
+    component: () => import('@/pages/hospital/stats.vue'),
+    meta: { title: '互联网医院统计', icon: 'DataLine', permission: 'hospital.stats.read' },
+  },
+  {
     path: '/articles',
     name: 'ArticleManagement',
     component: () => import('@/pages/articles/layout.vue'),
