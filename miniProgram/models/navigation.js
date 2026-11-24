@@ -15,7 +15,8 @@ const TAB_ITEMS = [{
         id: 'internet-hospital',
         label: '互联网医院',
         pagePath: '/pages/internet-hospital/index',
-        icon: 'hotel-o'
+        icon: 'hotel-o',
+        requiresLogin: true
     },
     {
         id: 'mall',

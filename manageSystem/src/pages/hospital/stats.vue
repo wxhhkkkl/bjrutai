@@ -46,12 +46,7 @@
       <div class="hospital-summary__card">
         <span class="hospital-summary__label">长按转化率</span>
         <strong>{{ longpressRate }}</strong>
-        <span class="hospital-summary__sub">长按人数 / 点击人数</span>
-      </div>
-      <div class="hospital-summary__card">
-        <span class="hospital-summary__label">匿名事件</span>
-        <strong>{{ summary.anonymousCount }}<small> 次</small></strong>
-        <span class="hospital-summary__sub">未携带登录态的上报</span>
+        <span class="hospital-summary__sub">长按次数 / 点击次数</span>
       </div>
     </div>
 
@@ -156,7 +151,6 @@ const summary = computed(
       entryTapUsers: 0,
       qrLongpressCount: 0,
       qrLongpressUsers: 0,
-      anonymousCount: 0,
       longpressRate: 0,
     }
 )

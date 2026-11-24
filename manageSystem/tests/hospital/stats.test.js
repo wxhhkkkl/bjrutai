@@ -23,7 +23,7 @@ const payload = {
     qrLongpressCount: 6,
     qrLongpressUsers: 5,
     anonymousCount: 1,
-    longpressRate: 0.625,
+    longpressRate: 0.5,
   },
   users: {
     items: [
@@ -72,7 +72,7 @@ it('renders the metric caveat, summary and unmasked user rows', async () => {
   expect(api.getHospitalStats).toHaveBeenCalledTimes(1)
   expect(wrapper.text()).toMatch(/尝试识别|无法确认/)
   expect(wrapper.text()).toContain('12')
-  expect(wrapper.text()).toContain('63%')
+  expect(wrapper.text()).toContain('50%')
   expect(wrapper.text()).toContain('张力')
   expect(wrapper.text()).toContain('13800001234')
   expect(wrapper.text()).toContain('个人用户')

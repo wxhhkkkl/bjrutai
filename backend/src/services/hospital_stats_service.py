@@ -236,10 +236,10 @@ async def get_stats(
         .select_from(HospitalVisitEvent)
         .where(in_range, HospitalVisitEvent.user_id.is_(None))
     )
-    entry_users = int(summary["entryTapUsers"])
+    entry_taps = int(summary["entryTapCount"])
     summary["anonymousCount"] = int(anonymous or 0)
     summary["longpressRate"] = (
-        round(int(summary["qrLongpressUsers"]) / entry_users, 4) if entry_users else 0.0
+        round(int(summary["qrLongpressCount"]) / entry_taps, 4) if entry_taps else 0.0
     )
 
     identified = (in_range, HospitalVisitEvent.user_id.is_not(None))

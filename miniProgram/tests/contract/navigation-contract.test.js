@@ -6,13 +6,14 @@ const {
   ACTION_TARGETS
 } = require('../../models/navigation');
 
-test('five visible tabs have unique routes and mall requires login', () => {
+test('five visible tabs have unique routes and mall plus internet hospital require login', () => {
   assert.equal(TAB_ITEMS.length, 5);
   assert.equal(
     new Set(TAB_ITEMS.map((item) => item.pagePath)).size,
     5
   );
   assert.equal(TAB_ITEMS[2].id, 'internet-hospital');
+  assert.equal(TAB_ITEMS[2].requiresLogin, true);
   assert.equal(TAB_ITEMS[3].id, 'mall');
   assert.equal(TAB_ITEMS[3].requiresLogin, true);
   assert.equal(TAB_ITEMS[4].id, 'profile');

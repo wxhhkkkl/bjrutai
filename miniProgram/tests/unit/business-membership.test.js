@@ -5,6 +5,13 @@ const { getCollaboratorCapabilities } = require('../../models/collaborator')
 const { getVisibleTabs } = require('../../models/navigation')
 const { normalizeSession } = require('../../services/session-service')
 
+test('guest sees only public tabs without internet hospital or mall', () => {
+  assert.deepEqual(
+    getVisibleTabs(null, false).map((item) => item.id),
+    ['home', 'profile']
+  )
+})
+
 test('personal account has no customer or consumption capability', () => {
   const personal = normalizeSession({
     userId: '1',

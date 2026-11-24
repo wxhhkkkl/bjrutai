@@ -101,7 +101,7 @@ async def test_admin_stats_aggregate_users_and_require_permission(client, db_ses
     assert summary["qrLongpressCount"] == 1
     assert summary["qrLongpressUsers"] == 1
     assert summary["anonymousCount"] == 1
-    assert summary["longpressRate"] == 0.5
+    assert summary["longpressRate"] == round(1 / 3, 4)
 
     users = data["users"]["items"]
     assert data["users"]["total"] == 2
