@@ -488,7 +488,8 @@ page {
 
 .hospital-fab {
   position: fixed;
-  right: 32rpx;
+  left: 50%;
+  right: auto;
   bottom: calc(132rpx + constant(safe-area-inset-bottom) + 24rpx);
   bottom: calc(132rpx + env(safe-area-inset-bottom) + 24rpx);
   z-index: 8;
@@ -501,10 +502,12 @@ page {
   border-radius: 999rpx;
   background: #1677ff;
   box-shadow: 0 16rpx 40rpx rgba(22, 119, 255, 0.3);
+  transform: translateX(-50%);
 }
 
 .hospital-fab.tap-feedback {
   background: #0f62d9;
+  transform: translateX(-50%) scale(0.98);
 }
 
 .hospital-fab__text {
